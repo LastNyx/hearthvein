@@ -347,7 +347,7 @@ func build_bar() -> Array[Dictionary]:
 		if not by_cat.has(def.category):
 			by_cat[def.category] = []
 		by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
-				"cost": cost_text(def.cost), "size": "%dx%d" % [def.size.x, def.size.y]})
+				"cost": goods_cost_text(def.cost), "size": "%dx%d" % [def.size.x, def.size.y]})
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:
 		if cat == "roads":
@@ -370,25 +370,30 @@ func build_bar() -> Array[Dictionary]:
 	return out
 
 
-## "1 materials" per channel tile, from WaterDef.
+## "1 Materials" per channel tile, from WaterDef.
 func channel_cost_text() -> String:
 	var c := s.registry.water.channel_cost_materials if s.registry.water != null else 0.0
-	return "%d materials" % roundi(c) if c > 0.0 else ""
+	return goods_cost_text({"materials": roundi(c)}) if c > 0.0 else ""
 
 
-## "1 materials 1 cut_stone" style text for one paved tile, from the paved RoadDef (stone shown per whole tile as
-## the data states it, e.g. 0.2 cut_stone).
+## "1 Materials, 0.2 Cut Stone" for one paved tile, from the paved RoadDef (stone shown per whole tile as the data
+## states it, e.g. 0.2).
 func paved_cost_text() -> String:
 	var rd := s.registry.get_road_by_level(Settlement.ROAD_PAVED)
 	if rd == null or rd.cost.is_empty():
 		return ""
-	var parts: Array[String] = []
 	var ids: Array = rd.cost.keys()
-	ids.sort()
+	ids.sort_custom(func(a: String, c: String) -> bool:
+		var ra := COST_ORDER.find(a) if COST_ORDER.has(a) else COST_ORDER.size()
+		var rc := COST_ORDER.find(c) if COST_ORDER.has(c) else COST_ORDER.size()
+		return ra < rc if ra != rc else a < c)
+	var parts: Array[String] = []
 	for g in ids:
 		var v := float(rd.cost[g])
-		parts.append(("%d %s" % [int(v), g]) if is_equal_approx(v, roundf(v)) else ("%s %s" % [str(v), g]))
-	return " ".join(parts)
+		var gd := s.registry.get_good(g)
+		var nm: String = gd.display_name if gd != null else str(g)
+		parts.append(("%d %s" % [int(v), nm]) if is_equal_approx(v, roundf(v)) else ("%s %s" % [str(v), nm]))
+	return ", ".join(parts)
 
 
 ## Player-facing reason a paved tile cannot be laid ("" is never asked for).

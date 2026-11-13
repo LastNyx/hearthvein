@@ -234,7 +234,7 @@ func test_roads_category_offers_channel_from_village() -> void:
 	s.era_override = "village"
 	assert_true(kinds.call(m.build_bar()).has("channel"))
 	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "channel")[0]
-	assert_eq(e["cost"], "1 materials")
+	assert_eq(e["cost"], "1 Materials")
 	assert_eq(HudModel.channel_refusal_text("materials"), "Not enough materials")
 
 
@@ -246,7 +246,8 @@ func test_roads_category_offers_paved_in_town() -> void:
 	s.era_override = "town"
 	assert_true(kinds.call(m.build_bar()).has("paved"))
 	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "paved")[0]
-	assert_eq(e["cost"], "0.2 cut_stone 1 materials")
+	assert_eq(e["cost"], "1 Materials, 0.2 Cut stone")
+	assert_false(e["cost"].contains("_") or e["cost"].contains("  "))
 	assert_eq(HudModel.paved_refusal_text("cut_stone"), "Not enough cut stone")
 
 

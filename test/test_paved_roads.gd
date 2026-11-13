@@ -148,3 +148,15 @@ func test_paved_tiles_are_faster_for_walkers() -> void:
 		s.step_seconds(0.01)
 		t += 0.01
 	assert_almost_eq(t, 5.0, 0.05, "10 paved tiles at 2.0 tiles/s")
+
+
+# Ticket 61: forest is not buildable, so a road can never sit on a tree tile; the trees seen over a road are
+# neighbouring forest canopy. Clearing the tile (woodcutter) makes it placeable.
+func test_roads_refuse_forest_until_cleared() -> void:
+	var t := _free_tiles(1)[0]
+	s.set_terrain(t, "forest")
+	assert_false(s.can_place_road(t))
+	assert_false(s.place_road(t))
+	assert_false(s.can_pave_road(t)["ok"])
+	s.set_terrain(t, "grass")
+	assert_true(s.place_road(t))

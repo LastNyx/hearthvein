@@ -461,7 +461,7 @@ func _show_flyout() -> void:
 		for e: Dictionary in cat["entries"]:
 			var text: String = e["label"]
 			if e["cost"] != "":
-				text += "  %s  (%s)" % [e["size"], e["cost"]]
+				text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
 			var b := _button(_fly_box, text, 14)
 			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
 

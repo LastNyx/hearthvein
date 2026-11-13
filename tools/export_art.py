@@ -656,7 +656,7 @@ def road_tile(level, variant, mask):
             rd = np.minimum(rd, M.seg_dist(wx, wy, a, b))
     if mask == 0:
         rd = np.hypot(wx - 16, wy - 16) + 2.5
-    half = 10.0 if level == 1 else 11.5
+    half = 10.0
     road = rd < half + (BAY - 0.5) * 1.6
     rng = random.Random(900 + variant * 31 + level * 7)
     if level == 1:
@@ -696,10 +696,19 @@ def road_tile(level, variant, mask):
                         d.rectangle([X, Y, X + 5, Y + 2], fill=c)
                         d.line([(X, Y), (X + 5, Y)], fill=M.COBBLE[3])
         cob = np.array(layer.crop((T, T, 2 * T, 2 * T)))
-        inner = rd < half - 1.5
+        inner = rd < half - 2.0
         rgb[inner & (cob[..., 3] > 0)] = cob[..., :3][inner & (cob[..., 3] > 0)]
+        # stone variation: a few darker and lighter slabs, plus a shaded mortar band next to the kerb
+        vary = pfbm(950 + variant, 17)
+        slab = inner & (vary < 0.35)
+        rgb[slab] = (rgb[slab].astype(np.int32) * 0.86).astype(np.uint8)
+        lite = inner & (vary > 0.72)
+        rgb[lite] = np.minimum(rgb[lite].astype(np.int32) * 1.06 + 6, 255).astype(np.uint8)
+        shade = inner & (rd >= half - 3.5)
+        rgb[shade] = (rgb[shade].astype(np.int32) * 0.88).astype(np.uint8)
         curb = road & ~inner
-        rgb[curb] = M.STONE[2][:3]
+        rgb[curb] = M.STONE[1][:3]
+        rgb[curb & (rd < half - 0.8)] = M.STONE[2][:3]  # lighter kerb top, darker outer lip
     alpha = np.where(road, 255, 0)
     return to_img(rgb, alpha)
 
