@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "builders_yard"
+display_name = "Builder's Yard"
+era = "village"
+category = "logistics"
+size = Vector2i(2, 1)
+cost = {"materials": 30}
+worker_slots = 0
+hauler_slots = 2
+builder_slots = 4
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+upgradable = false
