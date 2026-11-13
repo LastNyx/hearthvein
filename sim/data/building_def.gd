@@ -44,6 +44,11 @@ const GOLD := "gold"
 ## blighted. 0 = no blight (Aether Collector, Heartroot Tap, every non-extractor). Tiers do not change these.
 @export var blight_radius: int = 0
 @export var blight_period_days: int = 0
+## Cleaners (design.md section 12: Cleanser 1 tile / 2 days in r5, Purifier Tower 1/day in r8): every
+## clean_interval_days working days, the nearest blighted tile within clean_radius of the footprint is cleared.
+## 0 = no cleaning.
+@export var clean_radius: int = 0
+@export var clean_interval_days: int = 0
 ## True for extractors that sit on a vein: their output scales with the vein yield factor (section 13).
 @export var vein_extractor: bool = false
 ## Output factor during a Dimming (section 14): 0.5 for Forager and plain farms, 1.0 for everything unaffected.

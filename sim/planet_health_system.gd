@@ -44,10 +44,15 @@ func trend(s: Settlement) -> float:
 	return current(s) - _history[0]
 
 
-## Is this building contributing to health right now (works, or needs no workers)?
+## Is this building contributing to health right now (works, or needs no workers)? A building with Lumen upkeep
+## that could not pay it for the day is not working (ticket 27).
 static func is_working(s: Settlement, b: Building, staffed: Dictionary = {}) -> bool:
 	if b.site or b.paused or b.def.health_per_day == 0.0:
 		return false
+	if b.def.upkeep_lumen > 0.0:
+		var us := s.get_system(UpkeepSystem) as UpkeepSystem
+		if us != null and not us.is_paid(b.id):
+			return false
 	if b.def.worker_slots <= 0:
 		return true
 	if not staffed.is_empty():

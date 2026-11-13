@@ -94,6 +94,7 @@ func add_default_systems() -> void:
 	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
+	add_system(CleaningSystem.new())  # cleaners clear after the spread, before the day's health is counted
 	add_system(PlanetHealthSystem.new())
 	add_system(ForestSystem.new())  # reads the day's planet health; stumps regrow and Foresters plant here
 	add_system(MarketSystem.new())  # pays gold and caches Market reach; Spirit reads the reach for food variety

@@ -370,6 +370,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: needs_water without housing beds" % who)
 	if b.region_haul_load < 0.0:
 		errors.append("%s: region_haul_load must not be negative" % who)
+	if b.clean_radius < 0 or b.clean_interval_days < 0:
+		errors.append("%s: cleaning numbers must not be negative" % who)
+	elif (b.clean_radius > 0) != (b.clean_interval_days > 0):
+		errors.append("%s: clean_radius and clean_interval_days go together" % who)
 	if b.paved_haul_speed_factor < 1.0:
 		errors.append("%s: paved_haul_speed_factor must be at least 1" % who)
 	if not b.upgradable and not b.tiers.is_empty():
