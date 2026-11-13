@@ -1,18 +1,20 @@
 # Hearthvein roadmap
 
-## v1 - The settlement (current design)
-- One settlement on one square-grid map, top-down 3/4 pixel art.
-- Grows from camp to city through eras; you place buildings, roads, farms.
-- Four resources: food, materials, Lumen, gold.
-- Citizens are visible walkers, jobs filled automatically; the player manages buildings, not people.
-- Challenge comes from the environment and the Lumen/land-health tension. No combat, no neighbours.
-- Desktop (Linux), mouse + keyboard.
+## v1 - The settlement (design.md, D1-D47)
+- One settlement on a 128x96 map split into 16 buyable regions, plus up to 4 floating sky islands.
+- Seven eras: Camp, Village, Town, City, Conflux, Skyborne, Ascendant. Campaign 6-10 hours, many sittings.
+- Four base resources plus refined goods (planks, cut stone, Lumen cells, meals, tools); haulers, cargo rail,
+  Lumen grid, airships. Water, soil fertility, forest regrowth. Upgrade tiers II/III.
+- Yearly Dimming, longer by era and by low planet health; Skyheart and the Great Dimming as the finale.
+- Endless mode and milestones. Versioned saves that survive updates.
+- Citizens are visible walkers (~600), jobs filled automatically; no combat, no neighbours.
+- Desktop (Linux), mouse + keyboard. Built era by era with a play check after each (D44).
 
 ## v1.x - Content updates (proposed 2026-11-13, not decided)
 - Events: travellers, refugees, Lumen storms, a merchant caravan; small choices with a cost.
 - New maps with a twist (biomes): frozen north (the Dimming also brings cold), dry plains (water is scarce),
   islands (bridges and docks matter).
-- Production chains (moved up from Later): planks, tools, refined Lumen.
+- More eras (D32).
 
 ## v2 - Neighbours (Spore-style conflict)
 - Neighbouring settlements at the map edges.
