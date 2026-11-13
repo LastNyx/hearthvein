@@ -15,6 +15,7 @@ var spirit: SpiritDef = null  # the single data/spirit/spirit.tres
 var growth: GrowthDef = null  # the single data/growth/growth.tres
 var planet: PlanetDef = null  # the single data/planet/planet.tres
 var soil: SoilDef = null      # the single data/soil/soil.tres
+var forest: ForestDef = null  # the single data/forest/forest.tres
 var water: WaterDef = null    # the single data/water/water.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var errors: Array[String] = []
@@ -33,6 +34,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	spirit = null
 	planet = null
 	soil = null
+	forest = null
 	water = null
 	mapgen = null
 	errors.clear()
@@ -142,6 +144,10 @@ func _index(path: String) -> void:
 		if soil != null:
 			errors.append("%s: a second soil definition" % path)
 		soil = res
+	elif res is ForestDef:
+		if forest != null:
+			errors.append("%s: a second forest definition" % path)
+		forest = res
 	elif res is WaterDef:
 		if water != null:
 			errors.append("%s: a second water definition" % path)
@@ -215,6 +221,13 @@ func _validate() -> void:
 	elif soil.wear_per_season < 0.0 or soil.recovery_per_season <= 0.0 \
 			or soil.blight_factor < 0.0 or soil.blight_factor > 1.0:
 		errors.append("soil: invalid numbers")
+	if forest == null:
+		if not goods.is_empty():
+			errors.append("missing forest definition")
+	elif forest.regrow_seasons <= 0 or forest.forester_regrow_seasons <= 0 \
+			or forest.regrow_min_health < 0.0 or forest.regrow_min_health > 100.0 \
+			or forest.plant_per_worker_day < 0.0 or forest.old_forest_regrow_factor <= 0.0:
+		errors.append("forest: invalid numbers")
 	if water == null:
 		if not goods.is_empty():
 			errors.append("missing water definition")
@@ -308,6 +321,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: fertility_output without a recipe" % who)
 	if b.fertile_origin_bonus < 1.0:
 		errors.append("%s: fertile_origin_bonus must be at least 1" % who)
+	if b.plants_forest and b.placement_radius <= 0:
+		errors.append("%s: plants_forest needs a placement_radius" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:

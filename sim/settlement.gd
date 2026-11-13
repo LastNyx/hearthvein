@@ -86,6 +86,7 @@ func add_default_systems() -> void:
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
 	add_system(PlanetHealthSystem.new())
+	add_system(ForestSystem.new())  # reads the day's planet health; stumps regrow and Foresters plant here
 	add_system(SpiritSystem.new())  # after Growth: reads its hunger and food-type report; after Planet: grief
 	var prod := get_system(ProductionSystem) as ProductionSystem
 	prod.modifiers.append(FertilitySystem.output_modifier)
