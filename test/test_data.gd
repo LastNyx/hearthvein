@@ -22,10 +22,10 @@ func _has_error(fragment: String) -> bool:
 # AC1: registry loads all data and fails loudly on a missing reference.
 func test_real_data_loads_clean() -> void:
 	_load_real()
-	assert_eq(reg.goods.size(), 11)
+	assert_eq(reg.goods.size(), 12)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
-	assert_eq(reg.buildings.size(), 17)
+	assert_eq(reg.buildings.size(), 20)
 
 
 func test_broken_fixture_reports_errors() -> void:
@@ -48,9 +48,9 @@ func test_missing_root_is_an_error() -> void:
 # Gate landmark rule: pending only while the landmark's own era has no buildings.
 func test_pending_gate_landmarks_allowed() -> void:
 	_load_real()
-	assert_null(reg.get_building("lumen_spire"), "Lumen Spire not authored yet")
-	assert_true(reg.buildings_of_era("town").is_empty(), "Town has no buildings yet")
-	assert_eq(reg.get_era("city").gate_landmark, "lumen_spire")
+	assert_null(reg.get_building("lumen_nexus"), "Lumen Nexus not authored yet")
+	assert_true(reg.buildings_of_era("city").is_empty(), "City has no buildings yet")
+	assert_eq(reg.get_era("conflux").gate_landmark, "lumen_nexus")
 	assert_eq(reg.errors.size(), 0)
 
 
