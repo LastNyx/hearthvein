@@ -19,4 +19,5 @@ storage_mode = "none"
 storage_cap = 0
 placement_rule = "any"
 placement_radius = 0
+needs_water = true
 upgradable = false

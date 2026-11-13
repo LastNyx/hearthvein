@@ -8,9 +8,10 @@ const CATEGORIES: Array[String] = [
 ]
 ## Known placement rule ids. The real checks come with the placement ticket.
 ##  any: any buildable tile. on_vein / on_rock: on that terrain. shore: next to water.
-##  wet: tile is wet. near_forage / near_forest: needs grass-or-forest / forest within placement_radius.
+##  wet: any tile of the footprint is wet. on_wet: the origin tile is wet (Well, design.md section 9).
+##  near_forage / near_forest: needs grass-or-forest / forest within placement_radius.
 const PLACEMENT_RULES: Array[String] = [
-	"any", "on_vein", "shore", "on_rock", "wet", "near_forage", "near_forest",
+	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest",
 ]
 ## Storage modes: none, per_good (cap applies to each good), total (cap shared by any mix).
 const STORAGE_MODES: Array[String] = ["none", "per_good", "total"]
@@ -67,6 +68,14 @@ const GOLD := "gold"
 ## this building: Shrine 6, Park 5, Observatory 8, Hall of Seasons 12 (design.md sections 11, 16-17). 0 = no coverage.
 ## CoverageSystem owns the query; the Spirit "coverage" factor reads it.
 @export var coverage_radius: int = 0
+## True for housing that needs drinking water (design.md section 9: Rowhouse and every later home). From Town these
+## homes must be within water_radius of a finished Well or Water Tower; the Spirit "water" factor penalises the share
+## of housed citizens whose home lacks it. Tents and Cottages never need water.
+@export var needs_water: bool = false
+## Tiles a home needing water must be within (Chebyshev, footprint to footprint, measured like coverage_radius) to be
+## served: Well 8, Water Tower 16, Cloud Cistern 10 (design.md sections 9, 16-17). 0 = provides no drinking water.
+## CoverageSystem owns the water query; it is kept apart from coverage_radius so wells never count as Shrine coverage.
+@export var water_radius: int = 0
 ## True when the building may not stand on a blighted tile (design.md section 12: Park, Shrine, Orchard).
 @export var blocked_by_blight: bool = false
 ## Null for buildings that produce nothing.

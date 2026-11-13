@@ -103,6 +103,7 @@ func add_default_systems() -> void:
 	forest_sys.regrow_factors.append(RegionSystem.regrow_factor)
 	var sp := get_system(SpiritSystem) as SpiritSystem
 	sp.set_hook("coverage", CoverageSystem.spirit_factor)
+	sp.set_hook("water", CoverageSystem.water_factor)
 	sp.set_hook("blight", BlightSystem.spirit_factor)
 	sp.set_hook("darkness", DimmingSystem.darkness_factor)
 	sp.set_hook("planet_grief", PlanetHealthSystem.grief_factor)

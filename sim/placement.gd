@@ -29,6 +29,9 @@ static func check_rule(map: MapState, reg: DataRegistry, def: BuildingDef, origi
 				if map.is_wet(t.x, t.y):
 					return ""
 			return "needs_wet"
+		"on_wet":
+			# The Well must stand on a wet tile (design.md section 9): the origin tile, not just any footprint tile.
+			return "" if map.is_wet(origin.x, origin.y) else "needs_wet"
 		"shore":
 			for t in tiles:
 				for d in DIRS:

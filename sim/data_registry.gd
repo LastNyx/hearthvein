@@ -358,6 +358,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: market_reach must not be negative" % who)
 	if b.coverage_radius < 0:
 		errors.append("%s: coverage_radius must not be negative" % who)
+	if b.water_radius < 0:
+		errors.append("%s: water_radius must not be negative" % who)
+	if b.needs_water and b.housing_beds <= 0:
+		errors.append("%s: needs_water without housing beds" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:
