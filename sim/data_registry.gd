@@ -11,6 +11,7 @@ var eras: Dictionary = {}       # id -> EraDef
 var terrain: Dictionary = {}    # id -> TerrainDef
 var roads: Dictionary = {}      # id -> RoadDef
 var logistics: LogisticsDef = null  # the single data/logistics/logistics.tres
+var growth: GrowthDef = null  # the single data/growth/growth.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var errors: Array[String] = []
 
@@ -24,6 +25,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	terrain.clear()
 	roads.clear()
 	logistics = null
+	growth = null
 	mapgen = null
 	errors.clear()
 	for path in _scan(root):
@@ -116,6 +118,10 @@ func _index(path: String) -> void:
 		if logistics != null:
 			errors.append("%s: a second logistics definition" % path)
 		logistics = res
+	elif res is GrowthDef:
+		if growth != null:
+			errors.append("%s: a second growth definition" % path)
+		growth = res
 	elif res is MapGenDef:
 		if mapgen != null:
 			errors.append("%s: a second mapgen definition" % path)
@@ -161,6 +167,12 @@ func _validate() -> void:
 			or logistics.build_days_max < logistics.build_days_min or logistics.builder_crew <= 0 \
 			or logistics.demolish_refund < 0.0 or logistics.demolish_refund > 1.0:
 		errors.append("logistics: every number must be positive")
+	if growth == null:
+		if not goods.is_empty():
+			errors.append("missing growth definition")
+	elif growth.food_per_citizen <= 0.0 or growth.bar_base <= 0.0 or growth.bar_pop_divisor <= 0.0 \
+			or growth.soft_cap <= 0 or growth.soft_cap_span <= 0.0 or growth.immigration_days <= 0 or growth.leave_per_day <= 0:
+		errors.append("growth: every number must be positive")
 	_validate_mapgen()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():

@@ -16,6 +16,7 @@ func before_all() -> void:
 
 func before_each() -> void:
 	s = Settlement.new_game(SEED, reg)
+	s.systems.erase(s.get_system(GrowthSystem))  # these tests count food moved, not food eaten
 	ws = s.get_system(WalkerSystem)
 	hs = s.get_system(HaulingSystem)
 	h = s.map.hearth_spot
