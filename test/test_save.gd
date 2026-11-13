@@ -14,58 +14,55 @@ var _diffs: Array[String] = []
 
 ## Fields that are not part of a save: caches rebuilt from saved state, back-references, Callable wiring attached
 ## after a load (views and later-ticket hooks) and bookkeeping that only means something inside a step call.
+## Entries are "ClassName.field": a field name alone would also skip the same name in an unrelated class (several
+## systems have a `_grid` or `_map`). Callable values are not skipped by name at all: the compare already ignores
+## them, but it still checks list sizes and dictionary keys, which is what catches a hook list lost on load.
 const SKIP := {
 	# Settlement
-	"registry": "the caller hands the same DataRegistry to load; defs are resolved through it",
-	"_system_cache": "script -> system lookup cache, refilled on demand",
-	"_system_cache_size": "script -> system lookup cache, refilled on demand",
-	"_reached": "road BFS cache, rebuilt from roads on load",
-	"_roads_dirty": "road BFS bookkeeping, set by load",
-	"_deferred": "pending day hooks; SaveGame.save flushes them, so a save never holds any",
-	"_deferred_head": "pending day hooks; SaveGame.save flushes them",
-	"_frame_step": "only meaningful inside a step_seconds call",
+	"Settlement.registry": "the caller hands the same DataRegistry to load; defs are resolved through it",
+	"Settlement._system_cache": "script -> system lookup cache, refilled on demand",
+	"Settlement._system_cache_size": "script -> system lookup cache, refilled on demand",
+	"Settlement._reached": "road BFS cache, rebuilt from roads on load",
+	"Settlement._roads_dirty": "road BFS bookkeeping, set by load",
+	"Settlement._deferred": "pending day hooks; SaveGame.save flushes them, so a save never holds any",
+	"Settlement._deferred_head": "pending day hooks; SaveGame.save flushes them",
+	"Settlement._frame_step": "only meaningful inside a step_seconds call",
 	# WalkerSystem
-	"_s": "back-reference to the settlement, set on the first hook after load",
-	"_grid": "AStarGrid2D, rebuilt from the loaded map and buildings",
-	"_speeds": "A* walk speed cache, rebuilt",
-	"_solid": "A* solid tile cache, rebuilt",
-	"_grid_version": "A* cache version, rebuilt",
-	"_max_speed": "A* cache value, rebuilt",
-	"_last_max_speed": "A* cache value, rebuilt",
-	"_structure_version": "A* cache version, rebuilt",
-	"_cache": "path cache, rebuilt",
-	"path_computations": "diagnostic counter for tests, not simulation state",
-	"_bins": "departure bins are a pure function of the map seed and citizen id, rebuilt",
-	"_bins_seed": "seed the bins cache was built for",
-	"_from_save": "one-shot load handshake, consumed by the first grid refresh",
+	"WalkerSystem._s": "back-reference to the settlement, set on the first hook after load",
+	"WalkerSystem._grid": "AStarGrid2D, rebuilt from the loaded map and buildings",
+	"WalkerSystem._speeds": "A* walk speed cache, rebuilt",
+	"WalkerSystem._solid": "A* solid tile cache, rebuilt",
+	"WalkerSystem._grid_version": "A* cache version, rebuilt",
+	"WalkerSystem._max_speed": "A* cache value, rebuilt",
+	"WalkerSystem._last_max_speed": "A* cache value, rebuilt",
+	"WalkerSystem._structure_version": "A* cache version, rebuilt",
+	"WalkerSystem._cache": "path cache, rebuilt",
+	"WalkerSystem.path_computations": "diagnostic counter for tests, not simulation state",
+	"WalkerSystem._bins": "departure bins are a pure function of the map seed and citizen id, rebuilt",
+	"WalkerSystem._bins_seed": "seed the bins cache was built for",
+	"WalkerSystem._from_save": "one-shot load handshake, consumed by the first grid refresh",
 	# JobSystem
-	"_citizens": "hourly refresh shortcut, a cache of the citizen count",
-	"_buildings": "hourly refresh shortcut, a cache of the building count",
+	"JobSystem._citizens": "hourly refresh shortcut, a cache of the citizen count",
+	"JobSystem._buildings": "hourly refresh shortcut, a cache of the building count",
+	"JobSystem._grid": "hourly refresh shortcut, a cache of the structure version",
 	# HaulingSystem
-	"_walk_cache": "door walking time cache, rebuilt on a grid change",
-	"_walk_version": "walk cache version",
-	"_layout_version": "layout cache version",
-	"_layout_count": "layout cache version",
-	"_ids": "id-sorted building list cache",
-	"_storages": "storage building list cache",
+	"HaulingSystem._walk_cache": "door walking time cache, rebuilt on a grid change",
+	"HaulingSystem._walk_version": "walk cache version",
+	"HaulingSystem._layout_version": "layout cache version",
+	"HaulingSystem._layout_count": "layout cache version",
+	"HaulingSystem._ids": "id-sorted building list cache",
+	"HaulingSystem._storages": "storage building list cache",
 	# ProductionSystem
-	"modifiers": "Callable list wired in add_default_systems, identical on both sides",
-	"_forest_cache": "nearest forest tile cache, rebuilt",
-	"_forest_version": "nearest forest cache version",
-	"_producer_list": "producer list cache, rebuilt",
-	"_producers_version": "producer list cache version",
-	"_producers_count": "producer list cache version",
-	"_first_out": "recipe -> first output id cache, rebuilt",
+	"ProductionSystem._forest_cache": "nearest forest tile cache, rebuilt",
+	"ProductionSystem._forest_version": "nearest forest cache version",
+	"ProductionSystem._producer_list": "producer list cache, rebuilt",
+	"ProductionSystem._producers_version": "producer list cache version",
+	"ProductionSystem._producers_count": "producer list cache version",
+	"ProductionSystem._first_out": "recipe -> first output id cache, rebuilt",
 	# GrowthSystem
-	"_map": "back-reference to the map, set at the start of on_day",
-	# BlightSystem
-	"blockers": "Callable list filled by later tickets",
-	# PlanetHealthSystem
-	"extra_sources": "Callable list filled by later tickets",
-	# SpiritSystem
-	"_hooks": "factor Callables wired in add_default_systems",
+	"GrowthSystem._map": "back-reference to the map, set at the start of on_day",
 	# EventBus
-	"_subs": "subscribers are views and UI, attached again after a load",
+	"EventBus._subs": "subscribers are views and UI, attached again after a load",
 }
 
 
@@ -135,6 +132,27 @@ func _moving_walkers(s: Settlement) -> int:
 	return n
 
 
+## Places a finished forager (a 1x1 job building) on the first free grass tile a good walk from the Hearth.
+## Returns its id, -1 when the map has no such spot. Used as a throwaway destination the test can demolish.
+func _place_a_throwaway_job(s: Settlement) -> int:
+	var h := s.map.hearth_spot
+	for dy in range(-4, 5):
+		for dx in range(8, 21):
+			var id := s.place_building_instant("forager", h + Vector2i(dx, dy))
+			if id >= 0:
+				return id
+	return -1
+
+
+## No walker on a tile with speed 0: a walker that cannot move off such a tile is stuck for good. (Doors are solid
+## but still have a walk speed, so standing at a door passes.)
+func _assert_walkers_on_walkable_tiles(s: Settlement) -> void:
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	for id in ws.walkers:
+		var w: Walker = ws.walkers[id]
+		assert_gt(ws.tile_speed(w.tile), 0.0, "walker %d stands on a tile with speed 0" % id)
+
+
 # ---------------------------------------------------------------- reflective compare
 
 func _assert_same(a: Variant, b: Variant, label: String) -> void:
@@ -148,9 +166,22 @@ func _assert_same(a: Variant, b: Variant, label: String) -> void:
 	assert_eq(_diffs.size(), 0, msg)
 
 
+## Skip-list prefix of an object: its global class name, or the script file name for inner classes (Trip), which
+## have no global class name.
+func _class_key(o: Object) -> String:
+	var script := o.get_script() as GDScript
+	if script == null:
+		return o.get_class()
+	var global := str(script.get_global_name())
+	if global != "":
+		return global
+	var path := script.resource_path
+	return path.get_file().get_basename() if path != "" else o.get_class()
+
+
 ## Walks two values of the same shape and records every difference. Script variables are compared; named caches are
-## skipped (see SKIP). Resources (defs) are compared by identity, because a load resolves them through the same
-## registry.
+## skipped (see SKIP, keyed "ClassName.field"). Resources (defs) are compared by identity, because a load resolves
+## them through the same registry.
 func _compare_state(a: Variant, b: Variant, path: String) -> void:
 	if typeof(a) != typeof(b):
 		_diffs.append("%s: type %s != %s" % [path, type_string(typeof(a)), type_string(typeof(b))])
@@ -161,11 +192,12 @@ func _compare_state(a: Variant, b: Variant, path: String) -> void:
 				if a != b:
 					_diffs.append("%s: different resource %s vs %s" % [path, a, b])
 				return
+			var cls := _class_key(a as Object)
 			for p in (a as Object).get_property_list():
 				if not (int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
 					continue
 				var name := str(p["name"])
-				if SKIP.has(name):
+				if SKIP.has(cls + "." + name):
 					continue
 				_compare_state((a as Object).get(name), (b as Object).get(name), path + "." + name)
 		TYPE_ARRAY:
@@ -202,12 +234,59 @@ func test_save_load_gives_identical_state() -> void:
 	assert_not_null(loaded, "the save loads")
 	if loaded == null:
 		return
+	assert_not_null(loaded.hearth, "the hearth loads")
+	assert_same(loaded.hearth, loaded.buildings[loaded.hearth.id])
 	assert_eq(loaded.clock.total_hours, s.clock.total_hours)
 	assert_eq(loaded.buildings.size(), s.buildings.size())
 	assert_eq(loaded.citizens.size(), s.citizens.size())
 	for id in s.buildings:
 		assert_same(loaded.buildings[id].def, s.buildings[id].def, "defs are resolved through the registry")
 	_assert_same(s, loaded, "the loaded settlement differs from the saved one")
+
+
+func test_layout_change_made_before_a_save_is_re_planned() -> void:
+	# A road/building change between the last step and the save bumps the settlement's grid_version but the walker
+	# grid never sees it, so the saved paths belong to the old layout. Live, the next step re-plans (or drops) them;
+	# a load must do the same instead of trusting the saved paths.
+	var s := _fixture()
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var job := _place_a_throwaway_job(s)
+	assert_true(job >= 0, "a throwaway job building went down")
+	if job < 0:
+		return
+	# Send a plain (schedule-driven) walker to it and take one frame so the walker is really on the road.
+	var walker: Walker = null
+	for cid in ws.walkers:
+		if (ws.walkers[cid] as Walker).controlled:
+			continue
+		if ws.walk_to_building(cid, job):
+			walker = ws.walkers[cid]
+			break
+	assert_not_null(walker, "a plain walker was sent to the throwaway building")
+	if walker == null:
+		return
+	s.step_seconds(0.2)
+	assert_false(walker.path.is_empty(), "the walker is walking to the throwaway building")
+	# Demolish it with no step after: the saved path now points at a building that no longer exists.
+	assert_true(s.demolish(job), "the throwaway building was demolished")
+	assert_ne(ws._grid_version, s.grid_version, "the walker grid is stale: no step ran after the layout change")
+	var path := _save_path()
+	assert_eq(SaveGame.save(s, path), OK)
+	var loaded := SaveGame.load(path, reg)
+	assert_not_null(loaded)
+	if loaded == null:
+		return
+	_assert_same(s, loaded, "after load")
+	# The two sides now step in lockstep: both re-plan the stale paths on the first step.
+	for i in 300:
+		s.step_seconds(0.2)
+		loaded.step_seconds(0.2)
+		if i % 25 == 0:
+			_assert_same(s, loaded, "the loaded settlement diverges at frame %d" % i)
+			_assert_walkers_on_walkable_tiles(s)
+			_assert_walkers_on_walkable_tiles(loaded)
+	_assert_same(s, loaded, "a layout change made before the save was not re-planned after load")
+	_assert_walkers_on_walkable_tiles(loaded)
 
 
 func test_loaded_settlement_runs_three_days_identically() -> void:
@@ -219,6 +298,12 @@ func test_loaded_settlement_runs_three_days_identically() -> void:
 	if loaded == null:
 		return
 	_assert_same(s, loaded, "after load")
+	# Frame-sized steps across day boundaries before the coarse days: they exercise the spread day hooks, the
+	# production slices and the replan queue drain, which a step_days call runs all at once.
+	for i in 2000:
+		s.step_seconds(0.2)
+		loaded.step_seconds(0.2)
+	_assert_same(s, loaded, "frame-sized steps across a day boundary diverge")
 	for day in 3:
 		s.step_days(1)
 		loaded.step_days(1)

@@ -14,6 +14,8 @@ extends SimSystem
 ## hash of (map seed, season number, tile). Spirit grief: grief_factor (hook "planet_grief"). Dimming length (15) and
 ## the Heartroot Tap threshold (44) read planet_health().
 
+const SAVE_KEY := "planet_health"
+
 var value: float = -1.0
 var extra_sources: Array[Callable] = []
 ## Health at the start of each of the last trend_days days, oldest first (see trend()).

@@ -205,12 +205,13 @@ func to_dict() -> Dictionary:
 		cl.append([id, (citizens[id] as Citizen).to_dict()])
 	var sys_state := {}
 	for sys in systems:
-		sys_state[str(sys.get_script().get_global_name())] = sys.save_state()
+		var key := SimSystem.save_key_of(sys)
+		if key != "":
+			sys_state[key] = sys.save_state()
 	var dirty := []
 	for t in terrain_dirty:
 		dirty.append(t)
 	return {
-		"seed": map.seed_used,
 		"map": map.to_dict(),
 		"occupancy": occupancy,
 		"roads": roads,
@@ -270,9 +271,9 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 	s.add_default_systems()
 	var sys_state: Dictionary = d["systems"]
 	for sys in s.systems:
-		var name := str(sys.get_script().get_global_name())
-		if sys_state.has(name):
-			sys.load_state(sys_state[name], s)
+		var key := SimSystem.save_key_of(sys)
+		if key != "" and sys_state.has(key):
+			sys.load_state(sys_state[key], s)
 	# The road BFS result is a cache; rebuild it so later placements see the same reachable roads. Recomputed
 	# connection flags match the saved ones, so this emits nothing.
 	s._roads_dirty = true

@@ -13,6 +13,8 @@ extends SimSystem
 ##
 ## Also the Spirit blight factor (see spirit_factor) and blight queries.
 
+const SAVE_KEY := "blight"
+
 ## Share of homes counted with blight "within 2 tiles" (Chebyshev, from any footprint tile).
 const HOME_REACH := 2
 

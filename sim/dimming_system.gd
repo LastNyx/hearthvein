@@ -15,6 +15,8 @@ extends SimSystem
 ##
 ## HUD query: status(s) -> {state: "none"|"forecast"|"active", start_day, length, days_until, days_left, dark}.
 
+const SAVE_KEY := "dimming"
+
 var _start_day: int = -1
 var _length: int = 0
 var _active: bool = false

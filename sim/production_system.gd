@@ -12,6 +12,8 @@ extends SimSystem
 ## Modifiers: `modifiers` is a list of Callables (settlement, building) -> float. Their product multiplies output
 ## (and input use). Later tickets append here (tiers, Spirit, health, Dimming); nothing else needs to change.
 
+const SAVE_KEY := "production"
+
 var modifiers: Array[Callable] = []
 ## Production runs in batches (ticket 57). The producers are dealt into SLICES groups; each tick of a frame-sized
 ## step works one group, with all the game time that passed since that group last ran (so a tick costs 1/SLICES of

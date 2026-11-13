@@ -15,11 +15,20 @@ extends SimSystem
 ##
 ## Runs after GrowthSystem each day: hunger and food types come from GrowthSystem.last_day.
 
+const SAVE_KEY := "spirit"
+
 var value: float = -1.0
 ## Days in a row spent below SpiritDef.leave_below.
 var low_days: int = 0
 var _days_since_leave: int = 0
 var _hooks: Dictionary = {}  # factor id -> Callable
+var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
+		"tax_office", "planet_grief"]
+
+
+func _init() -> void:
+	for id in _order:
+		_hooks[id] = Callable()
 
 
 ## The two meters and their bookkeeping. The factor hooks are Callables wired in add_default_systems (by ticket),
@@ -32,13 +41,6 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	value = float(d["value"])
 	low_days = int(d["low_days"])
 	_days_since_leave = int(d["days_since_leave"])
-var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
-		"tax_office", "planet_grief"]
-
-
-func _init() -> void:
-	for id in _order:
-		_hooks[id] = Callable()
 
 
 ## Replace a factor's function (settlement) -> float (signed: negative lowers Spirit). Returns false for unknown ids.

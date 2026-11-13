@@ -30,6 +30,9 @@ extends SimSystem
 ## "At work": is_at_work(citizen_id) is true only while the citizen stands at the door of their job building;
 ## a walking citizen is never at work. Production reads is_at_work / workers_at.
 
+## Stable key this system's state is saved under (ticket 19); see SimSystem.save_key_of.
+const SAVE_KEY := "walker"
+
 const WORK_START_HOUR := 6
 const WORK_END_HOUR := 18
 ## Widest seeded departure delay after a schedule hour, in game seconds.
@@ -68,8 +71,8 @@ var _bins: Dictionary = {}  # citizen id -> int bin
 var _bins_seed: int = -1
 ## Decoded ids need 20 bits; the departure bin stays well below the rest of the int.
 const _QUEUE_ID_MASK := 0xfffff
-## Set by load_state(): the walker paths that came from the save already match the saved layout, so the first grid
-## build must not re-plan them (a re-plan would rewrite paths and break the round trip).
+## Set by load_state() when the saved walker paths already match the saved layout: the first grid build must not
+## re-plan them (a re-plan would rewrite paths and break the round trip). See load_state for when it is false.
 var _from_save: bool = false
 
 
@@ -79,6 +82,7 @@ func save_state() -> Dictionary:
 		ws.append([id, (walkers[id] as Walker).to_dict()])
 	return {
 		"walkers": ws,
+		"grid_version": _grid_version,
 		"hour_elapsed": _hour_elapsed,
 		"queue": _queue.duplicate(),
 		"queue_head": _queue_head,
@@ -97,7 +101,11 @@ func load_state(d: Dictionary, settlement: Settlement) -> void:
 	_queue_head = int(d["queue_head"])
 	_replan_queue.assign(d["replan_queue"])
 	_replan_head = int(d["replan_head"])
-	_from_save = true
+	# The saved paths were planned on the grid of the saved `grid_version`. A road, building or terrain change made
+	# after the last step bumps the settlement's version but the walker grid never saw it, so those paths are stale
+	# and must be re-planned like the live settlement does on its next step. Only when the two agree can the restart
+	# skip _replan_all().
+	_from_save = int(d["grid_version"]) == settlement.grid_version
 
 
 # ---------------------------------------------------------------- hooks

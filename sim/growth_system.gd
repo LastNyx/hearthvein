@@ -14,6 +14,8 @@ extends SimSystem
 ##     one newcomer, on top of growth.
 ## The first day only records the food stock, so it never counts as surplus.
 
+const SAVE_KEY := "growth"
+
 ## Growth bar content in food units.
 var bar: float = 0.0
 ## Days since the last immigration check.

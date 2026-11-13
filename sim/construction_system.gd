@@ -15,6 +15,8 @@ extends SimSystem
 ## builder-days (Settlement.build_days), so a full crew finishes in build_days and fewer builders take longer.
 ## Outside the shift builders are released to the normal schedule.
 
+const SAVE_KEY := "construction"
+
 var crews: Dictionary = {}  # citizen id -> site building id the builder was sent to
 
 

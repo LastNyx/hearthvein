@@ -21,6 +21,8 @@ extends SimSystem
 ## Consumers: a building whose recipe has inputs. Need = input amount x worker slots x input_buffer_days per good
 ## (input_need). Building upkeep (Lumen) is not hauled yet; add it to input_need when upkeep gets consumed.
 
+const SAVE_KEY := "hauling"
+
 class Trip extends RefCounted:
 	var citizen_id: int = -1
 	var good: String = ""
