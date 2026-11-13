@@ -14,7 +14,8 @@ const PURPLE := Color("b496d2")
 const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
-const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"]]  # id, label, key
+const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
+		["coverage", "Coverage", "H"]]  # id, label, key
 
 var model: HudModel
 var build: BuildController
@@ -498,6 +499,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_V: _on_overlay("blight")
 			KEY_G: _on_overlay("roads")
 			KEY_T: _on_overlay("water")
+			KEY_H: _on_overlay("coverage")
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
 			KEY_ESCAPE:
 				model.clear_selection()

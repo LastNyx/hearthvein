@@ -256,3 +256,27 @@ func test_hud_overlay_keys_and_menu_buttons() -> void:
 	assert_true(model.overlay_on("roads"))
 	(hud._overlay_buttons["water"] as Button).pressed.emit()
 	assert_false(model.overlay_on("water"))
+
+
+func test_coverage_overlay_toggle_and_geometry() -> void:
+	assert_false(m.overlay_on("coverage"))
+	assert_true(m.toggle_overlay("coverage"))
+	assert_true(m.overlay_on("coverage"))
+	assert_false(m.toggle_overlay("coverage"))
+	assert_eq(m.reach_areas("coverage").size(), 0)
+	for y in range(h.y + 4, h.y + 12):
+		for x in range(h.x + 4, h.x + 14):
+			s.set_terrain(Vector2i(x, y), "grass")
+	assert_gt(s.place_building_instant("shrine", h + Vector2i(6, 6)), -1)
+	var areas := m.reach_areas("coverage")
+	assert_eq(areas.size(), 1)
+	var sh: Building = s.building_at(h + Vector2i(6, 6))
+	assert_eq(areas[0], sh.footprint().grow(6).intersection(Rect2i(0, 0, MapState.WIDTH, MapState.HEIGHT)))
+	var near := s.place_building_instant("tent", h + Vector2i(6, 8))
+	var homes := m.coverage_homes()
+	var found := false
+	for e in homes:
+		if e["id"] == near:
+			found = true
+			assert_true(e["covered"])
+	assert_true(found)

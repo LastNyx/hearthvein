@@ -4,7 +4,7 @@ extends RefCounted
 ## scenes (ui/hud.gd) only copy these values onto labels. Reads the Settlement; its only commands are the building
 ## priority and pause the selected-building panel offers.
 
-const OVERLAYS: Array[String] = ["blight", "roads", "water"]
+const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
 const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
@@ -13,7 +13,7 @@ const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 var s: Settlement
 var notifications: NotificationCenter
 var selected_id: int = -1
-var overlays := {"blight": false, "roads": false, "water": false}
+var overlays := {"blight": false, "roads": false, "water": false, "coverage": false}
 var _deltas := {"food": 0, "materials": 0, "lumen": 0, "gold": 0}
 var _mark: Dictionary = {}
 
@@ -335,3 +335,31 @@ func toggle_overlay(id: String) -> bool:
 
 func overlay_on(id: String) -> bool:
 	return overlays.get(id, false)
+
+
+## Tile rectangles (clipped to the map) every finished building covers with `radius_of` (coverage_radius or market_reach):
+## its footprint grown by the radius, which is exactly the Building.footprint_gap <= radius set. What the coverage
+## overlay tints and outlines.
+func reach_areas(kind: String) -> Array[Rect2i]:
+	var out: Array[Rect2i] = []
+	var bounds := Rect2i(0, 0, MapState.WIDTH, MapState.HEIGHT)
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site:
+			continue
+		var r := b.def.coverage_radius if kind == "coverage" else b.def.market_reach
+		if r > 0:
+			out.append(b.footprint().grow(r).intersection(bounds))
+	return out
+
+
+## [{id, covered}] for every finished home: covered by a coverage building (Shrine now). The overlay's check / cross marks.
+func coverage_homes() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var sys := s.get_system(CoverageSystem) as CoverageSystem
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.def.housing_beds <= 0:
+			continue
+		out.append({"id": bid, "covered": sys != null and sys.home_covered(s, bid)})
+	return out
