@@ -1,8 +1,8 @@
 extends SceneTree
 ## Windowed upgrade UI shot: godot --path . -s tools/upgrade_shot.gd [-- seed]
-## Ticket 31d: a Town-era settlement with three upgradable 1x1 buildings in a row: a Tent selected with its panel
-## (Upgrade to Hut, allowed), a Forager mid-upgrade (progress bar under it) and a Tent already at tier II drawn with
-## its tier sprite. No Cottage can upgrade in the data, so the shot gives the Hut the cottage_shingle art in memory
+## Ticket 31d: a Town-era settlement with three upgradable 1x1 buildings in a row: a Cottage selected with its panel
+## (Upgrade to Shingled Cottage, allowed), a Forager mid-upgrade (progress bar under it) and a Cottage already at
+## tier II drawn with its tier sprite (cottage_shingle, from the data)
 ## to show the tier sprite swap. Writes /tmp/hv_upgrade.png.
 
 
@@ -39,13 +39,11 @@ func _init() -> void:
 	var y := h.y + 4
 	for x in range(h.x - 6, h.x + 8):
 		s.place_road(Vector2i(x, y))
-	# Demo-only art: the Hut keeps the tent sprite in the data; borrow the cottage tier art to show the swap.
-	(s.registry.get_building("tent").tiers[0] as TierDef).art_id = "cottage_shingle"
-	var tent_a := s.place_building_instant("tent", Vector2i(h.x - 3, y - 1))
+	var tent_a := s.place_building_instant("cottage", Vector2i(h.x - 3, y - 1))
 	var worker := s.place_building_instant("forager", _spot(s, "forager", Vector2i(h.x + 1, y - 3)))
-	var tent_b := s.place_building_instant("tent", Vector2i(h.x + 3, y - 1))
+	var tent_b := s.place_building_instant("cottage", Vector2i(h.x + 3, y - 1))
 	print("UPGRADE placed tent_a=%d forager=%d tent_b=%d" % [tent_a, worker, tent_b])
-	# Tent B is already tier II (Hut, tier sprite).
+	# Cottage B is already tier II (Shingled Cottage, tier sprite).
 	s.upgrade(tent_b)
 	s.complete_upgrade(s.buildings[tent_b])
 	# The Forager is halfway: part of the cost delivered, some work done.

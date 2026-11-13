@@ -1,6 +1,20 @@
-[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("2")
+display_name = "Shingled Cottage"
+multiplier = 1.5
+extra_worker_slots = 1
+art_id = "cottage_shingle"
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("2")
+display_name = "Cottage III"
+multiplier = 2.0
+extra_worker_slots = 2
 
 [resource]
 script = ExtResource("1")
@@ -19,4 +33,5 @@ storage_mode = "none"
 storage_cap = 0
 placement_rule = "any"
 placement_radius = 0
-upgradable = false
+upgradable = true
+tiers = Array[ExtResource("2")]([SubResource("Tier2"), SubResource("Tier3")])
