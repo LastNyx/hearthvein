@@ -43,6 +43,9 @@ const GOLD := "gold"
 @export var blight_period_days: int = 0
 ## True for extractors that sit on a vein: their output scales with the vein yield factor (section 13).
 @export var vein_extractor: bool = false
+## Output factor during a Dimming (section 14): 0.5 for Forager and plain farms, 1.0 for everything unaffected.
+## Vein extractors use PlanetDef.dimming_vein_factor instead.
+@export var dimming_factor: float = 1.0
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
 ## Null for buildings that produce nothing.

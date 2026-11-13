@@ -38,6 +38,7 @@ upkeep_lumen = 0.0
 housing_beds = 0
 storage_mode = "none"
 storage_cap = 0
+dimming_factor = 0.5
 placement_rule = "near_forage"
 placement_radius = 3
 recipe = SubResource("Recipe")

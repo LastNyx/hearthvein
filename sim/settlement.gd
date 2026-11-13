@@ -61,6 +61,7 @@ func add_default_systems() -> void:
 	add_system(ProductionSystem.new())
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
+	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
 	add_system(PlanetHealthSystem.new())
@@ -68,8 +69,10 @@ func add_default_systems() -> void:
 	var prod := get_system(ProductionSystem) as ProductionSystem
 	prod.modifiers.append(SpiritSystem.work_modifier)
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
+	prod.modifiers.append(DimmingSystem.output_modifier)
 	var sp := get_system(SpiritSystem) as SpiritSystem
 	sp.set_hook("blight", BlightSystem.spirit_factor)
+	sp.set_hook("darkness", DimmingSystem.darkness_factor)
 	sp.set_hook("planet_grief", PlanetHealthSystem.grief_factor)
 
 
@@ -335,6 +338,14 @@ func set_blighted(tile: Vector2i, v: bool) -> bool:
 	map.set_blighted(tile.x, tile.y, v)
 	events.emit("blight_changed", {"tile": tile, "blighted": v})
 	return true
+
+
+## Era id now. Ticket 16 (eras) replaces the body; era_override (non-empty) pins it for tests.
+var era_override: String = ""
+
+
+func era_id() -> String:
+	return era_override if era_override != "" else "camp"
 
 
 var planet_health_override: float = -1.0  # tests and debug: >= 0 pins planet health

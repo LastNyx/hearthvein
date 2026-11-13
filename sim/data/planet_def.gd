@@ -21,3 +21,14 @@ extends Resource
 @export var dieback_terrain: String = "grass"
 ## The trend is the change over this many days (one year).
 @export var trend_days: int = 32
+## The Dimming (design.md section 14, D37, D43). It starts on day 1 of season index `dimming_start_season` (3 =
+## winter), forecast `dimming_forecast_seasons` seasons earlier. Length uses EraDef.dimming_base_days.
+@export var dimming_start_season: int = 3
+@export var dimming_forecast_seasons: int = 1
+## Vein extractor output factor during a Dimming (other buildings use BuildingDef.dimming_factor).
+@export var dimming_vein_factor: float = 0.25
+## Light need per citizen per Dimming day, in Lumen. 1 Lumen cell = lumen_per_cell Lumen.
+@export var light_per_citizen: float = 0.5
+@export var lumen_per_cell: float = 5.0
+## Spirit target change while dark (negative).
+@export var darkness_spirit: float = -20.0

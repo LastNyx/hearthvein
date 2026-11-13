@@ -17,6 +17,12 @@ func _ready() -> void:
 	view.setup(driver.settlement.map)
 	settlement.events.subscribe("blight_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	settlement.events.subscribe("terrain_changed", func(e: Dictionary) -> void: view.refresh_tile(e["data"]["tile"]))
+	# Dimming: darken the world (CanvasModulate does not touch the CanvasLayer HUD).
+	var dim := CanvasModulate.new()
+	dim.name = "DimmingTint"
+	add_child(dim)
+	settlement.events.subscribe("dimming_started", func(_e: Dictionary) -> void: dim.color = Color(0.45, 0.48, 0.65))
+	settlement.events.subscribe("dimming_ended", func(_e: Dictionary) -> void: dim.color = Color.WHITE)
 	var placed := PlacementView.new()
 	placed.name = "PlacementView"
 	view.add_child(placed)

@@ -107,14 +107,15 @@ func on_day(settlement: Settlement) -> void:
 	# 3. growth bar
 	var stock := _food_total(s, goods)
 	var surplus := 0.0
-	if hungry == 0:
+	var dark := DimmingSystem.is_dark(s)  # darkness (ticket 15): no growth, no immigration
+	if hungry == 0 and not dark:
 		surplus = maxf(0.0, stock - _food_mark) * SpiritSystem.growth_multiplier(s)
 	_food_mark = stock
 	report["surplus"] = surplus
 	var pop := s.citizens.size()
 	var size := bar_size(s.registry, pop)
 	bar = minf(bar + surplus, size)
-	if bar >= size - Inventory.EPS and _free_beds(s) > 0 and s.homeless_count() == 0:
+	if not dark and bar >= size - Inventory.EPS and _free_beds(s) > 0 and s.homeless_count() == 0:
 		bar -= size
 		s.add_citizen()
 		report["grown"] = 1
@@ -124,7 +125,7 @@ func on_day(settlement: Settlement) -> void:
 	days_since_immigration += 1
 	if days_since_immigration >= gd.immigration_days:
 		days_since_immigration = 0
-		if s.spirit() >= gd.immigration_spirit and s.citizens.size() <= gd.soft_cap and _free_beds(s) > 0:
+		if not dark and s.spirit() >= gd.immigration_spirit and s.citizens.size() <= gd.soft_cap and _free_beds(s) > 0:
 			s.add_citizen()
 			report["immigrated"] = 1
 			s.events.emit("citizen_immigrated", {})
