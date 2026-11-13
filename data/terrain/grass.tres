@@ -7,4 +7,4 @@ script = ExtResource("1")
 id = "grass"
 display_name = "Grass"
 buildable = true
-fertility_start = 0.5
+fertility_start = 0.6

@@ -7,4 +7,4 @@ script = ExtResource("1")
 id = "stump"
 display_name = "Stump"
 buildable = true
-fertility_start = 0.2
+fertility_start = 0.0
