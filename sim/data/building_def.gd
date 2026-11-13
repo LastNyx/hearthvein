@@ -57,6 +57,9 @@ const GOLD := "gold"
 ## Gold per assigned worker per day, paid into Settlement.gold (Market: 1). 0 = the building earns no gold.
 ## Gold is a global counter, never a recipe output or an inventory good.
 @export var gold_per_worker_day: float = 0.0
+## Gold per citizen per day, paid into Settlement.gold while this building has at least one assigned worker
+## (Tax Office: 0.2). Each such building adds its own rate, so two Tax Offices pay 0.4 per citizen. 0 = none.
+@export var gold_per_citizen_day: float = 0.0
 ## Tiles a home must be within (Chebyshev, footprint to footprint) for the Market's food variety to serve it.
 ## 0 = no reach (only Market uses it). design.md gives no number; ticket 23 chose 12.
 @export var market_reach: int = 0

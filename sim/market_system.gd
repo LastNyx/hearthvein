@@ -5,7 +5,9 @@ extends SimSystem
 ##
 ## Gold: every day each finished, unpaused Market adds gold_per_worker_day for every citizen the JobSystem assigned
 ## to work there. Assigned workers are used, not only the ones standing at the door, because the day hook runs at
-## midnight when nobody is at work. Gold goes to the global counter Settlement.gold, never into an inventory.
+## midnight when nobody is at work. A Tax Office (design.md section 16) is paid the same way: while it has at least
+## one assigned worker, each office adds gold_per_citizen_day (0.2) for every citizen in the settlement, so two
+## offices pay 0.4 per citizen. Gold goes to the global counter Settlement.gold, never into an inventory.
 ## The day's earnings are scaled by UpkeepSystem.output_modifier (x0.5 while the building's Lumen upkeep is unpaid).
 ##
 ## Reach: a home inside a finished Market's reach can get every food type in storage, so its citizens count the full
@@ -31,13 +33,18 @@ func on_day(s: Settlement) -> void:
 			assigned[c.job_id] = int(assigned.get(c.job_id, 0)) + 1
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
-		if b.site or b.paused or b.def.gold_per_worker_day <= 0.0:
+		if b.site or b.paused:
 			continue
-		# Gold is not a recipe output, so the Lumen-upkeep factor is applied here (a Market has no upkeep in data,
-		# but a gold building with one would run at x0.5 while unpaid).
-		var made := b.def.gold_per_worker_day * float(assigned.get(bid, 0)) * UpkeepSystem.output_modifier(s, b)
-		if made > Inventory.EPS:
-			s.gold += made
+		var made := b.def.gold_per_worker_day * float(assigned.get(bid, 0))
+		# Tax Office: paid only while its collector (at least one assigned worker) works there. One worker is
+		# enough for the whole office; the rate is per citizen, not per worker.
+		if b.def.gold_per_citizen_day > 0.0 and int(assigned.get(bid, 0)) > 0:
+			made += b.def.gold_per_citizen_day * float(s.citizens.size())
+		if made <= Inventory.EPS:
+			continue
+		# Gold is not a recipe output, so the Lumen-upkeep factor is applied here (neither a Market nor a Tax
+		# Office has upkeep in data, but a gold building with one would run at x0.5 while unpaid).
+		s.gold += made * UpkeepSystem.output_modifier(s, b)
 
 
 ## Distinct food types currently held anywhere in the settlement's storage (amount above the inventory epsilon).
