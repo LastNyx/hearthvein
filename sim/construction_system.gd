@@ -18,6 +18,16 @@ extends SimSystem
 var crews: Dictionary = {}  # citizen id -> site building id the builder was sent to
 
 
+## Which builder was sent to which site. The builders' walkers are saved by WalkerSystem; this pairs them up so a
+## loaded builder keeps walking to the same site instead of being sent again.
+func save_state() -> Dictionary:
+	return {"crews": SaveGame.pairs(crews)}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	crews = SaveGame.unpairs(d["crews"])
+
+
 ## Sites with the whole cost delivered and not paused, best first (priority, then id).
 static func ready_sites(s: Settlement) -> Array[Building]:
 	var out: Array[Building] = []

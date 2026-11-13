@@ -39,6 +39,35 @@ var _producers_count: int = -1
 var _first_out: Dictionary = {}  # recipe -> first output good id
 
 
+## Per-group collected time, the rotation cursor and the counters (ticket 19). Without the times a save in the
+## middle of an hour would drop up to a full cycle of production and break a 3-day identical run.
+func save_state() -> Dictionary:
+	return {
+		"acc": _acc.duplicate(),
+		"cursor": _cursor,
+		"ticks_since_full": _ticks_since_full,
+		"counts": SaveGame.pairs(_counts),
+		"produced_total": produced_total,
+		"felled_acc": SaveGame.pairs(_felled_acc),
+	}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	_acc = d["acc"]
+	_cursor = int(d["cursor"])
+	_ticks_since_full = int(d["ticks_since_full"])
+	_counts = SaveGame.unpairs(d["counts"])
+	produced_total = float(d["produced_total"])
+	_felled_acc = SaveGame.unpairs(d["felled_acc"])
+	# Caches: rebuilt from the loaded buildings, the layout and the map.
+	_forest_cache.clear()
+	_forest_version = -1
+	_producer_list.clear()
+	_producers_version = -1
+	_producers_count = -1
+	_first_out.clear()
+
+
 func on_seconds(s: Settlement, seconds: float) -> void:
 	if _acc.size() != SLICES:
 		_acc.resize(SLICES)

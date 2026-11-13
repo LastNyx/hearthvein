@@ -20,6 +20,15 @@ var extra_sources: Array[Callable] = []
 var _history: Array[float] = []
 
 
+func save_state() -> Dictionary:
+	return {"value": value, "history": _history.duplicate()}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	value = float(d["value"])
+	_history.assign(d["history"])
+
+
 func current(s: Settlement) -> float:
 	if value < 0.0:
 		value = s.registry.planet.start

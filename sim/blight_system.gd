@@ -20,6 +20,14 @@ var blockers: Array[Callable] = []
 var _days: Dictionary = {}  # building id -> days since its last blight
 
 
+func save_state() -> Dictionary:
+	return {"days": _days.duplicate()}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	_days = d["days"].duplicate()
+
+
 func on_day(s: Settlement) -> void:
 	var live := {}
 	var ids: Array = s.buildings.keys()

@@ -29,3 +29,35 @@ func position() -> Vector2:
 	if not path.is_empty():
 		p = p.lerp(Vector2(path[0]), progress)
 	return p + Vector2(0.5, 0.5)
+
+
+## Plain-data snapshot for a save: position, the path still to walk and where it is going.
+func to_dict() -> Dictionary:
+	var tiles := []
+	for t in path:
+		tiles.append(t)
+	return {
+		"citizen_id": citizen_id,
+		"tile": tile,
+		"path": tiles,
+		"progress": progress,
+		"dest_tile": dest_tile,
+		"dest_building": dest_building,
+		"at_building": at_building,
+		"blocked": blocked,
+		"controlled": controlled,
+	}
+
+
+static func from_dict(d: Dictionary) -> Walker:
+	var w := Walker.new()
+	w.citizen_id = int(d["citizen_id"])
+	w.tile = d["tile"]
+	w.path.assign(d["path"])
+	w.progress = float(d["progress"])
+	w.dest_tile = d["dest_tile"]
+	w.dest_building = int(d["dest_building"])
+	w.at_building = int(d["at_building"])
+	w.blocked = bool(d["blocked"])
+	w.controlled = bool(d["controlled"])
+	return w

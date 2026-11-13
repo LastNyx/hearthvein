@@ -175,3 +175,46 @@ func set_region_owned(r: int, v: bool) -> void:
 
 func get_region_reward(r: int) -> String:
 	return region_reward[r]
+
+
+## Plain-data snapshot for a save: every tile array as-is plus the generation metadata.
+func to_dict() -> Dictionary:
+	return {
+		"seed_used": seed_used,
+		"terrain_ids": terrain_ids,
+		"terrain": terrain,
+		"region": region,
+		"blight": blight,
+		"fertility": fertility,
+		"wet": wet,
+		"fouled": fouled,
+		"river_flow": river_flow,
+		"region_owned": region_owned,
+		"region_reward": region_reward,
+		"region_reward_pos": region_reward_pos,
+		"start_region": start_region,
+		"hearth_spot": hearth_spot,
+		"river_path": river_path,
+		"river_width": river_width,
+	}
+
+
+static func from_dict(d: Dictionary) -> MapState:
+	var m := MapState.new(d["terrain_ids"])
+	m.seed_used = int(d["seed_used"])
+	m.terrain_ids = d["terrain_ids"]
+	m.terrain = d["terrain"]
+	m.region = d["region"]
+	m.blight = d["blight"]
+	m.fertility = d["fertility"]
+	m.wet = d["wet"]
+	m.fouled = d["fouled"]
+	m.river_flow = d["river_flow"]
+	m.region_owned = d["region_owned"]
+	m.region_reward = d["region_reward"]
+	m.region_reward_pos.assign(d["region_reward_pos"])
+	m.start_region = int(d["start_region"])
+	m.hearth_spot = d["hearth_spot"]
+	m.river_path.assign(d["river_path"])
+	m.river_width.assign(d["river_width"])
+	return m

@@ -25,3 +25,16 @@ func is_idle() -> bool:
 
 func is_homeless() -> bool:
 	return home_id < 0
+
+
+func to_dict() -> Dictionary:
+	return {"id": id, "home_id": home_id, "job_id": job_id, "job_kind": job_kind}
+
+
+static func from_dict(d: Dictionary) -> Citizen:
+	var c := Citizen.new()
+	c.id = int(d["id"])
+	c.home_id = int(d["home_id"])
+	c.job_id = int(d["job_id"])
+	c.job_kind = str(d["job_kind"])
+	return c

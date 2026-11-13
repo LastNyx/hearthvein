@@ -35,3 +35,15 @@ func log_of(kind: String) -> Array[Dictionary]:
 		if e["kind"] == kind:
 			out.append(e)
 	return out
+
+
+## The log and its clock stamp, for a save. Subscribers are views: they attach again after a load.
+func to_dict() -> Dictionary:
+	return {"now_hours": now_hours, "log": log.duplicate(true)}
+
+
+static func from_dict(d: Dictionary) -> EventBus:
+	var e := EventBus.new()
+	e.now_hours = int(d["now_hours"])
+	e.log.assign(d["log"])
+	return e

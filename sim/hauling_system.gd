@@ -32,6 +32,25 @@ class Trip extends RefCounted:
 	var carried: float = 0.0
 	var picked_up: bool = false
 
+	func to_dict() -> Dictionary:
+		return {
+			"citizen_id": citizen_id, "good": good, "src": src, "src_door": src_door, "dst": dst,
+			"dst_input": dst_input, "planned": planned, "carried": carried, "picked_up": picked_up,
+		}
+
+	static func from_dict(d: Dictionary) -> Trip:
+		var t := Trip.new()
+		t.citizen_id = int(d["citizen_id"])
+		t.good = str(d["good"])
+		t.src = int(d["src"])
+		t.src_door = bool(d["src_door"])
+		t.dst = int(d["dst"])
+		t.dst_input = bool(d["dst_input"])
+		t.planned = float(d["planned"])
+		t.carried = float(d["carried"])
+		t.picked_up = bool(d["picked_up"])
+		return t
+
 var trips: Dictionary = {}  # citizen id -> Trip
 var _reserved: Dictionary = {}  # "kind:building:good" -> float; kinds d (door out), s (storage out), i (input in), r (storage in)
 ## Walking seconds per building pair. find_path already caches the path, but summing its tiles again was most of the
@@ -59,6 +78,29 @@ static func need_of(reg: DataRegistry, b: Building) -> Dictionary:
 		if g != BuildingDef.GOLD:
 			out[g] = float(b.def.cost[g])
 	return out
+
+
+## Trips in flight (with their walkers) and the reservations they hold. A trip is mid-walk, mid-carry or waiting for a
+## load when saved; without this a load would forget loads already picked up and reserved room.
+func save_state() -> Dictionary:
+	var tl := []
+	for cid in trips:
+		tl.append([cid, (trips[cid] as Trip).to_dict()])
+	return {"trips": tl, "reserved": _reserved.duplicate(true)}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	trips.clear()
+	for pair in d["trips"]:
+		trips[int(pair[0])] = Trip.from_dict(pair[1])
+	_reserved = d["reserved"].duplicate(true)
+	# Caches: rebuilt from the loaded layout and grid when first needed.
+	_walk_cache.clear()
+	_walk_version = -1
+	_ids.clear()
+	_storages.clear()
+	_layout_version = -1
+	_layout_count = -1
 
 
 func on_seconds(s: Settlement, seconds: float) -> void:

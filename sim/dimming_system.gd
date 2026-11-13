@@ -23,6 +23,24 @@ var _dark: bool = false
 var last_light: Dictionary = {}
 
 
+func save_state() -> Dictionary:
+	return {
+		"start_day": _start_day,
+		"length": _length,
+		"active": _active,
+		"dark": _dark,
+		"last_light": last_light.duplicate(true),
+	}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	_start_day = int(d["start_day"])
+	_length = int(d["length"])
+	_active = bool(d["active"])
+	_dark = bool(d["dark"])
+	last_light = d["last_light"].duplicate(true)
+
+
 static func is_dark(s: Settlement) -> bool:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
 	return d != null and d._dark

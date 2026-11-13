@@ -20,6 +20,18 @@ var value: float = -1.0
 var low_days: int = 0
 var _days_since_leave: int = 0
 var _hooks: Dictionary = {}  # factor id -> Callable
+
+
+## The two meters and their bookkeeping. The factor hooks are Callables wired in add_default_systems (by ticket),
+## not data, so they are not saved; the loaded system is built by add_default_systems and has the same ones.
+func save_state() -> Dictionary:
+	return {"value": value, "low_days": low_days, "days_since_leave": _days_since_leave}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	value = float(d["value"])
+	low_days = int(d["low_days"])
+	_days_since_leave = int(d["days_since_leave"])
 var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
 		"tax_office", "planet_grief"]
 

@@ -25,6 +25,23 @@ var _food_mark: float = -1.0
 var _map: MapState = null
 
 
+func save_state() -> Dictionary:
+	return {
+		"bar": bar,
+		"days_since_immigration": days_since_immigration,
+		"last_day": last_day.duplicate(true),
+		"food_mark": _food_mark,
+	}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	bar = float(d["bar"])
+	days_since_immigration = int(d["days_since_immigration"])
+	last_day = d["last_day"].duplicate(true)
+	_food_mark = float(d["food_mark"])
+	_map = null  # set at the start of the next on_day
+
+
 ## Food goods in eating order: "food" first, then every other good with a food_type, sorted by id.
 ## (Ticket 23 may replace this with variety rules.)
 static func food_goods(reg: DataRegistry) -> Array[String]:

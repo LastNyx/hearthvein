@@ -75,3 +75,23 @@ func remove(good: String, amount: float) -> float:
 
 func goods() -> Array:
 	return _amounts.keys()
+
+
+## Plain-data snapshot for a save. Good order is kept as arrays (the sim picks goods in insertion order).
+func to_dict() -> Dictionary:
+	var amounts := []
+	for g in _amounts:
+		amounts.append([g, _amounts[g]])
+	var accepted := []
+	for g in accept:
+		accepted.append(g)
+	return {"mode": mode, "cap": cap, "accept": accepted, "amounts": amounts}
+
+
+static func from_dict(d: Dictionary) -> Inventory:
+	var inv := Inventory.new(str(d["mode"]), float(d["cap"]))
+	for g in d["accept"]:
+		inv.accept[str(g)] = true
+	for pair in d["amounts"]:
+		inv._amounts[str(pair[0])] = float(pair[1])
+	return inv

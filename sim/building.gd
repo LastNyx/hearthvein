@@ -54,3 +54,49 @@ func tiles() -> Array[Vector2i]:
 		for x in range(origin.x, origin.x + def.size.x):
 			out.append(Vector2i(x, y))
 	return out
+
+
+## Plain-data snapshot for a save. The def is stored by id and resolved through DataRegistry on load.
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"def": def.id,
+		"origin": origin,
+		"connected": connected,
+		"tier": tier,
+		"paused": paused,
+		"priority": priority,
+		"inventory": inventory.to_dict() if inventory != null else null,
+		"door_buffer": door_buffer.to_dict() if door_buffer != null else null,
+		"input_buffer": input_buffer.to_dict() if input_buffer != null else null,
+		"site": site,
+		"build_work": build_work,
+		"build_work_needed": build_work_needed,
+		"halt": halt,
+	}
+
+
+## Null when the stored def id is not in the registry (a bad or too-new save).
+static func from_dict(d: Dictionary, registry: DataRegistry) -> Building:
+	var b := Building.new()
+	b.id = int(d["id"])
+	b.def = registry.get_building(str(d["def"]))
+	if b.def == null:
+		push_error("Building.from_dict: unknown building def '%s'" % str(d["def"]))
+		return null
+	b.origin = d["origin"]
+	b.connected = bool(d["connected"])
+	b.tier = int(d["tier"])
+	b.paused = bool(d["paused"])
+	b.priority = str(d["priority"])
+	if d["inventory"] != null:
+		b.inventory = Inventory.from_dict(d["inventory"])
+	if d["door_buffer"] != null:
+		b.door_buffer = Inventory.from_dict(d["door_buffer"])
+	if d["input_buffer"] != null:
+		b.input_buffer = Inventory.from_dict(d["input_buffer"])
+	b.site = bool(d["site"])
+	b.build_work = float(d["build_work"])
+	b.build_work_needed = float(d["build_work_needed"])
+	b.halt = str(d["halt"])
+	return b

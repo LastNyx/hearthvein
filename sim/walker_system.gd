@@ -68,6 +68,36 @@ var _bins: Dictionary = {}  # citizen id -> int bin
 var _bins_seed: int = -1
 ## Decoded ids need 20 bits; the departure bin stays well below the rest of the int.
 const _QUEUE_ID_MASK := 0xfffff
+## Set by load_state(): the walker paths that came from the save already match the saved layout, so the first grid
+## build must not re-plan them (a re-plan would rewrite paths and break the round trip).
+var _from_save: bool = false
+
+
+func save_state() -> Dictionary:
+	var ws := []
+	for id in walkers:
+		ws.append([id, (walkers[id] as Walker).to_dict()])
+	return {
+		"walkers": ws,
+		"hour_elapsed": _hour_elapsed,
+		"queue": _queue.duplicate(),
+		"queue_head": _queue_head,
+		"replan_queue": _replan_queue.duplicate(),
+		"replan_head": _replan_head,
+	}
+
+
+func load_state(d: Dictionary, settlement: Settlement) -> void:
+	_s = settlement
+	walkers.clear()
+	for pair in d["walkers"]:
+		walkers[int(pair[0])] = Walker.from_dict(pair[1])
+	_hour_elapsed = float(d["hour_elapsed"])
+	_queue.assign(d["queue"])
+	_queue_head = int(d["queue_head"])
+	_replan_queue.assign(d["replan_queue"])
+	_replan_head = int(d["replan_head"])
+	_from_save = true
 
 
 # ---------------------------------------------------------------- hooks
@@ -350,6 +380,9 @@ func _refresh_grid() -> void:
 			_update_cell(t.x, t.y, terrain_speed, false)
 	_structure_version = _s.structure_version
 	_s.terrain_dirty.clear()
+	if first and _from_save:
+		_from_save = false  # saved walkers already sit on the saved layout; keep their paths as they were
+		return
 	_replan_all()
 
 

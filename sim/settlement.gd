@@ -191,6 +191,95 @@ func step_days(n: int) -> void:
 	step_hours(n * GameClock.HOURS_PER_DAY)
 
 
+# ---------------------------------------------------------------- save state
+# The whole simulation as plain data (see SaveGame). Defs are stored by id and resolved through the registry on load;
+# runtime caches are left out and rebuilt. Buildings, citizens and walkers are kept as ordered [id, dict] lists so a
+# loaded settlement iterates in the same order as the one that was saved (dictionary order is part of determinism).
+
+func to_dict() -> Dictionary:
+	var bl := []
+	for id in buildings:
+		bl.append([id, (buildings[id] as Building).to_dict()])
+	var cl := []
+	for id in citizens:
+		cl.append([id, (citizens[id] as Citizen).to_dict()])
+	var sys_state := {}
+	for sys in systems:
+		sys_state[str(sys.get_script().get_global_name())] = sys.save_state()
+	var dirty := []
+	for t in terrain_dirty:
+		dirty.append(t)
+	return {
+		"seed": map.seed_used,
+		"map": map.to_dict(),
+		"occupancy": occupancy,
+		"roads": roads,
+		"buildings": bl,
+		"citizens": cl,
+		"hearth": hearth.id if hearth != null else -1,
+		"gold": gold,
+		"next_building_id": _next_building_id,
+		"next_citizen_id": _next_citizen_id,
+		"grid_version": grid_version,
+		"structure_version": structure_version,
+		"forest_gain_version": forest_gain_version,
+		"terrain_dirty": dirty,
+		"hour_acc": _hour_acc,
+		"clock": clock.to_dict(),
+		"events": events.to_dict(),
+		"era_current": era_current,
+		"era_override": era_override,
+		"planet_health_override": planet_health_override,
+		"spirit_override": spirit_override,
+		"systems": sys_state,
+	}
+
+
+## Builds a settlement from to_dict() data. Null when the data names a def the registry does not know.
+## Selectors and caches (_reached, the road-connection BFS) are rebuilt here; system state is applied after
+## add_default_systems(), so the systems are the same objects a new game gets.
+static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
+	var s := Settlement.new()
+	s.registry = registry
+	s.map = MapState.from_dict(d["map"])
+	s.occupancy = d["occupancy"]
+	s.roads = d["roads"]
+	for pair in d["buildings"]:
+		var b := Building.from_dict(pair[1], registry)
+		if b == null:
+			return null
+		s.buildings[b.id] = b
+	for pair in d["citizens"]:
+		var c := Citizen.from_dict(pair[1])
+		s.citizens[c.id] = c
+	s.hearth = s.buildings.get(int(d["hearth"]))
+	s.gold = float(d["gold"])
+	s._next_building_id = int(d["next_building_id"])
+	s._next_citizen_id = int(d["next_citizen_id"])
+	s.grid_version = int(d["grid_version"])
+	s.structure_version = int(d["structure_version"])
+	s.forest_gain_version = int(d["forest_gain_version"])
+	s.terrain_dirty.assign(d["terrain_dirty"])
+	s._hour_acc = float(d["hour_acc"])
+	s.clock = GameClock.from_dict(d["clock"])
+	s.events = EventBus.from_dict(d["events"])
+	s.era_current = str(d["era_current"])
+	s.era_override = str(d["era_override"])
+	s.planet_health_override = float(d["planet_health_override"])
+	s.spirit_override = float(d["spirit_override"])
+	s.add_default_systems()
+	var sys_state: Dictionary = d["systems"]
+	for sys in s.systems:
+		var name := str(sys.get_script().get_global_name())
+		if sys_state.has(name):
+			sys.load_state(sys_state[name], s)
+	# The road BFS result is a cache; rebuild it so later placements see the same reachable roads. Recomputed
+	# connection flags match the saved ones, so this emits nothing.
+	s._roads_dirty = true
+	s._recompute_connections()
+	return s
+
+
 # ---------------------------------------------------------------- placement
 
 func building_at(tile: Vector2i) -> Building:

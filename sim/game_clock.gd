@@ -56,3 +56,13 @@ func is_season_start() -> bool:
 
 func label() -> String:
 	return "Year %d, %s, Day %d" % [year(), season_name().capitalize(), day()]
+
+
+func to_dict() -> Dictionary:
+	return {"total_hours": total_hours}
+
+
+static func from_dict(d: Dictionary) -> GameClock:
+	var c := GameClock.new()
+	c.total_hours = int(d["total_hours"])
+	return c
