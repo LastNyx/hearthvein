@@ -4,7 +4,8 @@ extends CanvasLayer
 ## planet health; era + Dimming panel; selected-building panel; bottom build bar by category; notices; overlay buttons.
 ## Thin: every number and string comes from HudModel, every command goes through HudModel or BuildController.
 
-const FONT_PATH := "res://assets/ui/NotoSans-Bold.ttf"
+const FONT_PATH := "res://assets/ui/PixelifySans.ttf"  # headings; OFL 1.1, see PixelifySans-OFL.txt
+const BODY_FONT_PATH := "res://assets/ui/Tiny5.ttf"  # body text; OFL 1.1, see Tiny5-OFL.txt
 const INK := Color("ece2ce")
 const GOLD := Color("f2d27a")
 const DIM := Color("aaa096")
@@ -19,6 +20,7 @@ var build: BuildController
 var camera: Camera2D
 var driver: SimDriver
 var _font: FontFile
+var _body_font: FontFile
 var _res_labels: Dictionary = {}
 var _pop_label: Label
 var _growth_bar: ProgressBar
@@ -56,9 +58,8 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	camera = cam
 	driver = d
 	layer = 10
-	_font = FontFile.new()
-	_font.data = FileAccess.get_file_as_bytes(FONT_PATH)
-	_font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	_font = _pixel_font(FONT_PATH)
+	_body_font = _pixel_font(BODY_FONT_PATH)
 	var root := MarginContainer.new()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right", "top", "bottom"]:
@@ -121,10 +122,30 @@ func _panel(parent: Node) -> PanelContainer:
 	return p
 
 
+## Pixel fonts stay crisp only at whole multiples of their grid: Pixelify Sans (7 px caps, ~11 px per pixel row
+## step) at 22 for headings and the resource bar, Tiny5 (5 px caps, 8 px per step) at 16 for everything else.
+## Both are drawn at 2x, matching the art's pixel scale.
+static func _px_size(size: int) -> int:
+	return 22 if size >= 17 else 16
+
+
+func _px_font(size: int) -> FontFile:
+	return _font if size >= 17 else _body_font
+
+
+static func _pixel_font(path: String) -> FontFile:
+	var f := FontFile.new()
+	f.data = FileAccess.get_file_as_bytes(path)
+	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE  # crisp pixel edges
+	f.hinting = TextServer.HINTING_NONE
+	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+	return f
+
+
 func _label(parent: Node, size: int = 16, color: Color = INK) -> Label:
 	var l := Label.new()
-	l.add_theme_font_override("font", _font)
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_override("font", _px_font(size))
+	l.add_theme_font_size_override("font_size", _px_size(size))
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
@@ -147,8 +168,8 @@ func _button(parent: Node, text: String, size: int = 15) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_override("font", _font)
-	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_font_override("font", _px_font(size))
+	b.add_theme_font_size_override("font_size", _px_size(size))
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(c, INK)
 	_style_button(b, false)
