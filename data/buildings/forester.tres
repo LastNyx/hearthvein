@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "forester"
+display_name = "Forester"
+era = "village"
+category = "materials"
+size = Vector2i(1, 1)
+cost = {"materials": 20}
+worker_slots = 1
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 5
+plants_forest = true
+upgradable = false

@@ -37,6 +37,8 @@ const GOLD := "gold"
 @export var placement_radius: int = 0
 ## True for the Woodcutter: production turns forest tiles in placement_radius into stumps.
 @export var fells_forest: bool = false
+## True for the Forester: plants plain grass in placement_radius, and halves stump regrowth there (ForestSystem).
+@export var plants_forest: bool = false
 ## Lumen extractors (design.md section 12): each period (days) the nearest non-blighted tile within radius turns
 ## blighted. 0 = no blight (Aether Collector, Heartroot Tap, every non-extractor). Tiers do not change these.
 @export var blight_radius: int = 0
