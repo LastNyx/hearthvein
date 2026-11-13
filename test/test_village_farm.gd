@@ -91,15 +91,15 @@ func test_farm_output_follows_footprint_fertility() -> void:
 	_strip()
 	var farm := reg.get_building("farm")
 	assert_eq([farm.size, farm.cost, farm.worker_slots], [Vector2i(2, 2), {"materials": 30}, 3])
-	assert_eq(farm.recipe.outputs, {"food": 2.0})
+	assert_eq(farm.recipe.outputs, {"crops": 2.0})
 	var rich := _farm(-1, "grass", [100, 100, 100, 100])
 	var mixed := _farm(1, "grass", [100, 100, 0, 0])  # mean 50, half of the rich farm
 	s.step_days(1)  # let both crews walk to work
-	var r0 := rich.door_buffer.amount_of("food")
-	var m0 := mixed.door_buffer.amount_of("food")
+	var r0 := rich.door_buffer.amount_of("crops")
+	var m0 := mixed.door_buffer.amount_of("crops")
 	s.step_days(1)
-	var a := rich.door_buffer.amount_of("food") - r0
-	var b := mixed.door_buffer.amount_of("food") - m0
+	var a := rich.door_buffer.amount_of("crops") - r0
+	var b := mixed.door_buffer.amount_of("crops") - m0
 	assert_gt(b, 0.0, "the lean farm still makes food")
 	assert_between(a / b, 1.9, 2.1, "rich %f vs mixed %f" % [a, b])
 
@@ -111,10 +111,10 @@ func test_farm_fertile_origin_bonus() -> void:
 	var plain := _farm(-1, "grass", [100, 100, 100, 100])
 	var fertile := _farm(1, "fertile_soil", [100, 100, 100, 100])
 	s.step_days(1)  # let both crews walk to work
-	var p0 := plain.door_buffer.amount_of("food")
-	var f0 := fertile.door_buffer.amount_of("food")
+	var p0 := plain.door_buffer.amount_of("crops")
+	var f0 := fertile.door_buffer.amount_of("crops")
 	s.step_days(1)
-	var a := plain.door_buffer.amount_of("food") - p0
-	var b := fertile.door_buffer.amount_of("food") - f0
+	var a := plain.door_buffer.amount_of("crops") - p0
+	var b := fertile.door_buffer.amount_of("crops") - f0
 	assert_gt(a, 0.0, "the plain farm still makes food")
 	assert_between(b / a, 1.45, 1.55, "plain %f vs fertile origin %f" % [a, b])

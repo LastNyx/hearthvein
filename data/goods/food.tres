@@ -7,4 +7,4 @@ script = ExtResource("1")
 id = "food"
 display_name = "Food"
 kind = "base"
-food_type = ""
+food_type = "forage"

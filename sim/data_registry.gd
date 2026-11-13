@@ -323,6 +323,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: fertile_origin_bonus must be at least 1" % who)
 	if b.plants_forest and b.placement_radius <= 0:
 		errors.append("%s: plants_forest needs a placement_radius" % who)
+	if b.gold_per_worker_day < 0.0:
+		errors.append("%s: gold_per_worker_day must not be negative" % who)
+	if b.market_reach < 0:
+		errors.append("%s: market_reach must not be negative" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:

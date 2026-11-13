@@ -31,13 +31,11 @@ func test_starts_at_60_and_data_driven() -> void:
 
 func test_target_food_types_hunger_homeless() -> void:
 	assert_eq(sp.target(s), 50.0, "base only")
+	assert_eq(SpiritSystem.food_type_factor(reg.spirit, 1), 0.0, "first food type gives nothing")
+	assert_eq(SpiritSystem.food_type_factor(reg.spirit, 3), 10.0)
+	assert_eq(SpiritSystem.food_type_factor(reg.spirit, 9), 20.0, "capped at +20")
 	gs.last_day = {"types": 1, "hungry": 0}
-	assert_eq(sp.target(s), 50.0, "first food type gives nothing")
-	gs.last_day = {"types": 3, "hungry": 0}
-	assert_eq(_factor("food_types"), 10.0)
-	assert_eq(sp.target(s), 60.0)
-	gs.last_day = {"types": 9, "hungry": 0}
-	assert_eq(_factor("food_types"), 20.0, "capped at +20")
+	assert_eq(sp.target(s), 50.0)
 	gs.last_day = {"types": 1, "hungry": 2}
 	assert_eq(_factor("hunger"), -15.0)
 	assert_eq(sp.target(s), 35.0)
@@ -49,12 +47,13 @@ func test_target_food_types_hunger_homeless() -> void:
 	assert_eq(sp.target(s), 25.0)
 
 
-func test_food_types_counted_from_real_eating() -> void:
+## Variety is market-gated (ticket 23): eating several types with no Market in reach of any home gives no bonus.
+func test_food_types_counted_only_through_a_market() -> void:
 	s.hearth.inventory.remove("food", 57.0)  # 3 food left, the other 5 citizens eat meals
 	s.hearth.inventory.add("meals", 20.0)
 	s.step_days(1)
-	assert_eq(gs.last_day["types"], 2, "food and meals")
-	assert_eq(_factor("food_types"), 5.0)
+	assert_eq(gs.last_day["types"], 2, "food and meals were eaten")
+	assert_eq(_factor("food_types"), 0.0, "no Market, no variety")
 
 
 func test_target_hook_factors() -> void:

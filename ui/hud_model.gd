@@ -5,8 +5,8 @@ extends RefCounted
 ## priority and pause the selected-building panel offers.
 
 const OVERLAYS: Array[String] = ["blight", "roads", "water"]
-const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "water",
-		"logistics", "civic", "sky", "landmark"]
+const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "gold",
+		"water", "logistics", "civic", "sky", "landmark"]
 const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
 const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 

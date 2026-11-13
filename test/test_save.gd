@@ -66,6 +66,9 @@ const SKIP := {
 	"ProductionSystem._first_out": "recipe -> first output id cache, rebuilt",
 	# GrowthSystem
 	"GrowthSystem._map": "back-reference to the map, set at the start of on_day",
+	# MarketSystem
+	"MarketSystem._reach_version": "Market reach cache version, rebuilt from the layout",
+	"MarketSystem._in_reach": "Market reach per home cache, rebuilt from the layout",
 	# EventBus
 	"EventBus._subs": "subscribers are views and UI, attached again after a load",
 }

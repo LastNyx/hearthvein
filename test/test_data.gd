@@ -22,10 +22,10 @@ func _has_error(fragment: String) -> bool:
 # AC1: registry loads all data and fails loudly on a missing reference.
 func test_real_data_loads_clean() -> void:
 	_load_real()
-	assert_eq(reg.goods.size(), 10)
+	assert_eq(reg.goods.size(), 11)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
-	assert_eq(reg.buildings.size(), 13)
+	assert_eq(reg.buildings.size(), 14)
 
 
 func test_broken_fixture_reports_errors() -> void:
@@ -139,7 +139,7 @@ func test_terrain_and_goods_present() -> void:
 	_load_real()
 	for id in ["grass", "fertile_soil", "forest", "rock", "water", "lumen_vein", "stump", "skystone"]:
 		assert_not_null(reg.get_terrain(id), id)
-	for id in ["food", "fish", "materials", "lumen", "gold", "planks", "cut_stone", "lumen_cells", "meals", "tools"]:
+	for id in ["food", "crops", "fish", "materials", "lumen", "gold", "planks", "cut_stone", "lumen_cells", "meals", "tools"]:
 		assert_not_null(reg.get_good(id), id)
 	assert_eq(reg.get_good("planks").kind, "refined")
 	assert_eq(reg.get_good("food").kind, "base")

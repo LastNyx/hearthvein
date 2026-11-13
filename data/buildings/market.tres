@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "market"
+display_name = "Market"
+era = "village"
+category = "gold"
+size = Vector2i(2, 2)
+cost = {"materials": 40}
+worker_slots = 2
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+gold_per_worker_day = 1.0
+market_reach = 12

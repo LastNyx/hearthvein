@@ -3,7 +3,7 @@ extends Resource
 ## A building type. Data lives in data/buildings/ (design.md sections 16-17).
 
 const CATEGORIES: Array[String] = [
-	"housing", "food", "materials", "lumen", "refining",
+	"housing", "food", "materials", "lumen", "refining", "gold",
 	"water", "logistics", "civic", "sky", "landmark",
 ]
 ## Known placement rule ids. The real checks come with the placement ticket.
@@ -54,6 +54,12 @@ const GOLD := "gold"
 @export var fertility_output: bool = false
 ## Multiplier applied when the tile under the origin started as fertile soil (Farm: 1.5). 1.0 = no bonus.
 @export var fertile_origin_bonus: float = 1.0
+## Gold per assigned worker per day, paid into Settlement.gold (Market: 1). 0 = the building earns no gold.
+## Gold is a global counter, never a recipe output or an inventory good.
+@export var gold_per_worker_day: float = 0.0
+## Tiles a home must be within (Chebyshev, footprint to footprint) for the Market's food variety to serve it.
+## 0 = no reach (only Market uses it). design.md gives no number; ticket 23 chose 12.
+@export var market_reach: int = 0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

@@ -13,7 +13,8 @@ extends SimSystem
 ## (GrowthSystem); immigration is gated in GrowthSystem. Below leave_below for leave_after_days days in a row,
 ## one citizen leaves every leave_every_days days (homeless first, then highest id, like starvation).
 ##
-## Runs after GrowthSystem each day: hunger and food types come from GrowthSystem.last_day.
+## Runs after GrowthSystem each day: hunger comes from GrowthSystem.last_day. Food variety is market-gated (ticket
+## 23): MarketSystem says how many food types the citizens' homes can reach, and only that many count.
 
 const SAVE_KEY := "spirit"
 
@@ -63,8 +64,9 @@ func factor_value(s: Settlement, id: String) -> float:
 	var gs := s.get_system(GrowthSystem) as GrowthSystem
 	match id:
 		"food_types":
-			var n: int = gs.last_day.get("types", 0) if gs != null else 0
-			return minf(float(maxi(n - 1, 0)) * sd.food_type_bonus, sd.food_type_max)
+			var ms := s.get_system(MarketSystem) as MarketSystem
+			var n := ms.available_food_types(s) if ms != null else 0
+			return food_type_factor(sd, n)
 		"hunger":
 			var h: int = gs.last_day.get("hungry", 0) if gs != null else 0
 			return -sd.hunger_penalty if h > 0 else 0.0
@@ -78,6 +80,12 @@ func factor_value(s: Settlement, id: String) -> float:
 			return 0.0
 	var fn: Callable = _hooks.get(id, Callable())
 	return float(fn.call(s)) if fn.is_valid() else 0.0
+
+
+## +food_type_bonus per type beyond the first, capped at food_type_max. `n` is the number of food types the citizens'
+## homes can reach (MarketSystem.available_food_types).
+static func food_type_factor(sd: SpiritDef, n: int) -> float:
+	return minf(float(maxi(n - 1, 0)) * sd.food_type_bonus, sd.food_type_max)
 
 
 ## The sum of base and every factor, 0-100.
