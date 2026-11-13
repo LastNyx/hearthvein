@@ -88,8 +88,13 @@ func refresh() -> void:
 		var detail := _text(row, r["detail"], 16, Hud.DIM if r["empty"] else Hud.INK)
 		detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var slot: int = r["slot"]
+		if r["confirm"] != "":
+			_text(row, "Overwrite?" if r["confirm"] == "overwrite" else "Delete?", 16, Hud.GOLD)
+			_button(row, "Yes", 16).pressed.connect(func() -> void: model.confirm(); refresh())
+			_button(row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
+			continue
 		if r["can_save"]:
-			_button(row, "Save", 16).pressed.connect(func() -> void: model.save_to(slot); refresh())
+			_button(row, "Save", 16).pressed.connect(func() -> void: model.request_save(slot); refresh())
 		var load_b := _button(row, "Load", 16)
 		load_b.disabled = not r["can_load"]
 		var kind: String = r["kind"]
