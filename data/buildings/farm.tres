@@ -21,6 +21,7 @@ script = ExtResource("3")
 display_name = "Terraced Farm"
 multiplier = 2.0
 extra_worker_slots = 2
+stops_fertility_loss = true
 cost = {"tools": 6, "lumen_cells": 3, "cut_stone": 8}
 
 [resource]

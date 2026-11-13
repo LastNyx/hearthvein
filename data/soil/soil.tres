@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="SoilDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/soil_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+wear_per_season = 1.0
+recovery_per_season = 2.5
+blight_factor = 0.5

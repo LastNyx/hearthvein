@@ -8,5 +8,7 @@ extends Resource
 @export var multiplier: float = 1.0
 ## Extra worker slots compared with the base building.
 @export var extra_worker_slots: int = 0
+## True for the Terraced Farm (design.md section 9): this tier stops the seasonal fertility loss.
+@export var stops_fertility_loss: bool = false
 ## good id -> int
 @export var cost: Dictionary = {}
