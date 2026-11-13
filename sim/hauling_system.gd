@@ -3,7 +3,8 @@ extends SimSystem
 ## Haulers (design.md section 8, D39). Citizens with a haul job (JobSystem, Citizen.JOB_HAUL) carry goods:
 ##   1. producer door buffer -> nearest storage building with room (Storehouse or Hearth),
 ##   2. storage -> a consumer's input buffer, up to input_buffer_days of its need.
-## Door pickups come first. A trip moves one good, at most LogisticsDef.haul_load units, and is a walk to the
+## Door pickups come first. A trip moves one good, at most LogisticsDef.haul_load units (the Handcart Shed raises
+## that for haulers in its region, see RegionSystem.handcart_zones), and is a walk to the
 ## source door, a pickup, a walk to the destination door and a drop. "Nearest" is walking time between doors.
 ##
 ## Hours: haulers only START trips between WalkerSystem.WORK_START_HOUR and WORK_END_HOUR (design.md is silent, so
@@ -245,8 +246,23 @@ func nearest_storage_with_room(s: Settlement, ws: WalkerSystem, from: Building, 
 	return best
 
 
-func _plan(s: Settlement, ws: WalkerSystem, _cid: int) -> Trip:
+## Units this hauler carries: LogisticsDef.haul_load on foot, or the Handcart Shed's larger load when a completed
+## shed shares the region of the hauler's job building (design.md section 8).
+func _haul_load(s: Settlement, cid: int) -> float:
 	var lg := s.registry.logistics
+	var base := lg.haul_load if lg != null else 0.0
+	var c: Citizen = s.citizens.get(cid)
+	if c == null or c.job_id < 0:
+		return base
+	var b: Building = s.buildings.get(c.job_id)
+	if b == null:
+		return base
+	return maxf(base, RegionSystem.haul_load_in(s, s.map.get_region(b.origin.x, b.origin.y)))
+
+
+func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
+	var lg := s.registry.logistics
+	var load_cap := _haul_load(s, cid)
 	_layout(s)
 	var ids: Array = _ids
 	# 1. door buffers: fullest pickup first.
@@ -260,7 +276,7 @@ func _plan(s: Settlement, ws: WalkerSystem, _cid: int) -> Trip:
 			var avail: float = b.door_buffer.amount_of(g) - _res("d", b.id, g)
 			if avail < lg.min_pickup - Inventory.EPS or avail <= best_avail:
 				continue
-			var load := minf(lg.haul_load, avail)
+			var load := minf(load_cap, avail)
 			var dst := nearest_storage_with_room(s, ws, b, g, load)
 			if dst == null or (dst != b and _walk(s, ws, b, dst) == INF):
 				continue
@@ -282,7 +298,7 @@ func _plan(s: Settlement, ws: WalkerSystem, _cid: int) -> Trip:
 			if src == null:
 				continue
 			var avail := src.inventory.amount_of(g) - _res("s", src.id, g)
-			return _trip(g, src.id, false, b.id, true, minf(lg.haul_load, minf(deficit, avail)))
+			return _trip(g, src.id, false, b.id, true, minf(load_cap, minf(deficit, avail)))
 	return null
 
 

@@ -93,6 +93,37 @@ static func rich_vein_factor_at(s: Settlement, origin: Vector2i) -> float:
 	return rd.rich_vein_factor if rd != null else 1.0
 
 
+## Completed buildings that give their region handcart hauling (Handcart Shed, design.md section 8):
+## region -> [carry, paved speed factor]. Only finished buildings count; a site gives nothing. One pass over the
+## buildings, done on demand (HaulingSystem once per plan, WalkerSystem once per step), because completion does not
+## bump the settlement's cached layout versions.
+static func handcart_zones(s: Settlement) -> Dictionary:
+	var out := {}
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if b.site or (b.def.region_haul_load <= 0.0 and b.def.paved_haul_speed_factor <= 1.0):
+			continue
+		var r := s.map.get_region(b.origin.x, b.origin.y)
+		var z: Array = out.get(r, [0.0, 1.0])
+		z[0] = maxf(float(z[0]), b.def.region_haul_load)
+		z[1] = maxf(float(z[1]), b.def.paved_haul_speed_factor)
+		out[r] = z
+	return out
+
+
+## Haulers whose job building is in `region` carry this many units: LogisticsDef.haul_load, or the best completed
+## handcart building's region_haul_load (design.md section 8: Handcart Shed 15).
+static func haul_load_in(s: Settlement, region: int) -> float:
+	var lg := s.registry.logistics
+	var base := lg.haul_load if lg != null else 0.0
+	return maxf(base, float(handcart_zones(s).get(region, [0.0, 1.0])[0]))
+
+
+## Paved-tile speed multiplier for haulers in `region` (1.0 without a completed handcart building).
+static func paved_haul_factor(s: Settlement, region: int) -> float:
+	return float(handcart_zones(s).get(region, [0.0, 1.0])[1])
+
+
 ## ForestSystem.regrow_factors hook: stumps in an owned old-forest region need
 ## ForestDef.old_forest_regrow_factor times the seasons (0.5 = regrow twice as fast).
 static func regrow_factor(s: Settlement, tile: Vector2i) -> float:

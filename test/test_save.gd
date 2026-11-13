@@ -53,6 +53,7 @@ const SKIP := {
 	"WalkerSystem._bins": "departure bins are a pure function of the map seed and citizen id, rebuilt",
 	"WalkerSystem._bins_seed": "seed the bins cache was built for",
 	"WalkerSystem._from_save": "one-shot load handshake, consumed by the first grid refresh",
+	"WalkerSystem._handcart_zones": "region handcart cache, rebuilt from the buildings at the start of each step",
 	# JobSystem
 	"JobSystem._citizens": "hourly refresh shortcut, a cache of the citizen count",
 	"JobSystem._buildings": "hourly refresh shortcut, a cache of the building count",

@@ -191,6 +191,9 @@ func _validate() -> void:
 	for r: RoadDef in roads.values():
 		if r.walk_speed <= 0.0:
 			errors.append("road '%s': walk_speed must be positive" % r.id)
+		if r.era != "" and not eras.has(r.era):
+			errors.append("road '%s': unknown era '%s'" % [r.id, r.era])
+		_check_amounts(r.cost, "road '%s' cost" % r.id, false)
 		if levels.has(r.level):
 			errors.append("road '%s': level %d already used by '%s'" % [r.id, r.level, levels[r.level]])
 		levels[r.level] = r.id
@@ -365,6 +368,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: water_radius must not be negative" % who)
 	if b.needs_water and b.housing_beds <= 0:
 		errors.append("%s: needs_water without housing beds" % who)
+	if b.region_haul_load < 0.0:
+		errors.append("%s: region_haul_load must not be negative" % who)
+	if b.paved_haul_speed_factor < 1.0:
+		errors.append("%s: paved_haul_speed_factor must be at least 1" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:

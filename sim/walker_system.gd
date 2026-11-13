@@ -74,6 +74,10 @@ const _QUEUE_ID_MASK := 0xfffff
 ## Set by load_state() when the saved walker paths already match the saved layout: the first grid build must not
 ## re-plan them (a re-plan would rewrite paths and break the round trip). See load_state for when it is false.
 var _from_save: bool = false
+## Region -> [carry, paved speed factor] from completed Handcart Sheds, rebuilt at the start of every on_seconds call
+## (building completion does not bump a cached layout version, so it is cheap to refresh per step). Only read in
+## _advance, where a hauler in such a region walks paved tiles faster (design.md section 6: 2.5 tiles/s).
+var _handcart_zones: Dictionary = {}
 
 
 func save_state() -> Dictionary:
@@ -112,6 +116,7 @@ func load_state(d: Dictionary, settlement: Settlement) -> void:
 
 func on_seconds(settlement: Settlement, seconds: float) -> void:
 	_s = settlement
+	_handcart_zones = RegionSystem.handcart_zones(settlement)
 	if walkers.size() != settlement.citizens.size():
 		_sync()
 	_refresh_grid()
@@ -412,6 +417,19 @@ func _update_cell(x: int, y: int, terrain_speed: Array[float], force: bool) -> v
 	_grid.set_point_weight_scale(p, _max_speed / sp if sp > 0.0 else 1.0)
 
 
+## Paved speed multiplier for a walker: a hauler whose job building is in a region with a completed Handcart Shed
+## moves 1.25x on paved tiles (design.md section 6: 2.5 tiles/s), everyone else 1.0. _handcart_zones is refreshed at
+## the start of each on_seconds call, so the walker's own citizen/job lookup is all that is left per tile.
+func _paved_haul_factor(citizen_id: int) -> float:
+	var c: Citizen = _s.citizens.get(citizen_id)
+	if c == null or c.job_kind != Citizen.JOB_HAUL or c.job_id < 0:
+		return 1.0
+	var b: Building = _s.buildings.get(c.job_id)
+	if b == null:
+		return 1.0
+	return float(_handcart_zones.get(_s.map.get_region(b.origin.x, b.origin.y), [0.0, 1.0])[1])
+
+
 func _passable(t: Vector2i) -> bool:
 	return MapState.in_bounds(t.x, t.y) and _speeds[MapState.idx(t.x, t.y)] > 0.0 and not _grid.is_point_solid(t)
 
@@ -532,7 +550,10 @@ func _advance(w: Walker, seconds: float) -> void:
 	var budget := seconds
 	while not w.path.is_empty():
 		var nxt := w.path[0]
-		var sp := _speeds[MapState.idx(nxt.x, nxt.y)]
+		var ni := MapState.idx(nxt.x, nxt.y)
+		var sp := _speeds[ni]
+		if _s.roads[ni] == Settlement.ROAD_PAVED:
+			sp *= _paved_haul_factor(w.citizen_id)
 		var need := (1.0 - w.progress) / sp
 		if budget >= need:
 			budget -= need

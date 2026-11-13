@@ -78,6 +78,12 @@ const GOLD := "gold"
 @export var water_radius: int = 0
 ## True when the building may not stand on a blighted tile (design.md section 12: Park, Shrine, Orchard).
 @export var blocked_by_blight: bool = false
+## Region-wide hauler carry from a completed building (Handcart Shed, design.md section 8): haulers whose job
+## building is in the same region carry this many units instead of LogisticsDef.haul_load. 0 = no effect.
+@export var region_haul_load: float = 0.0
+## Speed multiplier for those haulers on paved tiles (Handcart Shed: 1.25, so design.md section 6's 2.5 tiles/s).
+## 1.0 = no effect.
+@export var paved_haul_speed_factor: float = 1.0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false
