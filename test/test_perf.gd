@@ -179,13 +179,13 @@ func _prop_center(p: Dictionary) -> Vector2:
 
 ## Headless runs use the dummy renderer, which keeps no MultiMesh instance data, so read the transforms PropBatch
 ## pushed (band_transforms) and the node's own position.
-func _has_instance(v: MapView, texture: Texture2D, center: Vector2) -> bool:
+func _has_instance(v: MapView, prop_name: String, center: Vector2) -> bool:
 	for key in v._prop_batch._bands:
 		var inst: MultiMeshInstance2D = v._prop_batch._bands[key]
-		if inst.texture != texture:
-			continue
-		for xf: Transform2D in v._prop_batch.band_transforms(key):
-			if (inst.position + xf.origin).is_equal_approx(center):
+		var xs := v._prop_batch.band_transforms(key)
+		var names := v._prop_batch.band_names(key)
+		for i in xs.size():
+			if names[i] == prop_name and (inst.position + (xs[i] as Transform2D).origin).is_equal_approx(center):
 				return true
 	return false
 
@@ -222,10 +222,10 @@ func test_refresh_tile_updates_the_batched_instance_data() -> void:
 	assert_eq(v._prop_batch.prop_count(), before_count - old_props.size() + 1, "trees gone, one stump added")
 	var stump := ArtLibrary.scatter("stump", tile.x, tile.y, PropBatch.open_dir(v.map, tile.x, tile.y))
 	assert_eq(stump.size(), 1, "a stump scatters exactly one prop")
-	assert_true(_has_instance(v, ArtLibrary.prop_texture(stump[0]["name"]), _prop_center(stump[0])),
+	assert_true(_has_instance(v, stump[0]["name"], _prop_center(stump[0])),
 			"the stump is in the batch")
 	for p in old_props:
-		assert_false(_has_instance(v, ArtLibrary.prop_texture(p["name"]), _prop_center(p)),
+		assert_false(_has_instance(v, p["name"], _prop_center(p)),
 				"the felled %s is gone from the batch" % p["name"])
 
 
@@ -266,3 +266,67 @@ func test_batched_production_matches_per_frame_within_one_percent() -> void:
 	print("PERF one game day of production: batched %.2f, per frame %.2f" % [a, b])
 	assert_gt(b, 10.0, "the fixture produces something")
 	assert_almost_eq(a, b, b * 0.01, "daily totals within 1%")
+
+
+# ---------------------------------------------------------------- ticket 57b: far-zoom draw items
+## Draw items a map view issues at the farthest zoom, counted from its nodes (the headless dummy renderer reports 0
+## draw calls): batched prop bands, visible object and glow sprites, and the texture runs of the Base layer's
+## 16x16-tile quadrants read in row order (every change of atlas source breaks a batch).
+func _base_runs(v: MapView) -> int:
+	var runs := 0
+	var q := 16
+	for qy in range(0, MapState.HEIGHT, q):
+		for qx in range(0, MapState.WIDTH, q):
+			var last := -2
+			for y in range(qy, mini(qy + q, MapState.HEIGHT)):
+				for x in range(qx, mini(qx + q, MapState.WIDTH)):
+					var src := v._base.get_cell_source_id(Vector2i(x, y))
+					if src != last:
+						runs += 1
+						last = src
+	return runs
+
+
+func test_far_zoom_draw_items_at_least_halve() -> void:
+	var v := _mapview()
+	# Before 57b: one multimesh per (texture, base row), and one atlas source per terrain id in Base.
+	var old_bands := {}
+	var old_runs := 0
+	var ids: Array[String] = ArtLibrary.terrain_ids()
+	for y in MapState.HEIGHT:
+		for x in MapState.WIDTH:
+			for p in ArtLibrary.scatter(v.map.terrain_id_at(x, y), x, y, PropBatch.open_dir(v.map, x, y)):
+				old_bands[[p["name"], floori(p["pos"].y / float(ArtLibrary.TILE))]] = true
+	var q := 16
+	for qy in range(0, MapState.HEIGHT, q):
+		for qx in range(0, MapState.WIDTH, q):
+			var last := -2
+			for y in range(qy, mini(qy + q, MapState.HEIGHT)):
+				for x in range(qx, mini(qx + q, MapState.WIDTH)):
+					var src := ids.find(v.map.terrain_id_at(x, y))
+					if src != last:
+						old_runs += 1
+						last = src
+	var before := old_bands.size() + old_runs
+	var after := v._prop_batch.band_count() + _base_runs(v)
+	print("PERF far-zoom map draw items: before %d (%d prop bands + %d base runs), after %d (%d + %d)" % [
+			before, old_bands.size(), old_runs, after, v._prop_batch.band_count(), _base_runs(v)])
+	assert_lte(after * 2, before, "at least halved")
+
+
+func test_props_of_different_textures_are_strictly_y_sorted_within_a_band() -> void:
+	var v := _mapview()
+	var checked := 0
+	for key in v._prop_batch.band_rows():
+		var xs := v._prop_batch.band_transforms(key)
+		var names := v._prop_batch.band_names(key)
+		var inst: MultiMeshInstance2D = v._prop_batch._bands[key]
+		var last := -INF
+		for i in xs.size():
+			var e := ArtLibrary.prop_entry(names[i])
+			# base y = sprite centre y + (base_y - h/2)
+			var by: float = inst.position.y + (xs[i] as Transform2D).origin.y + float(e["base"][1]) - float(e["h"]) * 0.5
+			assert_gte(by, last - 0.001, "band %d instance %d is not behind an earlier one" % [key, i])
+			last = by
+			checked += 1
+	assert_gt(checked, 1000)

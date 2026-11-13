@@ -19,6 +19,8 @@ func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: 
 	var worst := 0.0
 	var sum := 0.0
 	var walking := 0
+	var calls_sum := 0.0
+	var calls_max := 0.0
 	var last := Time.get_ticks_usec()
 	while t < SECONDS:
 		await process_frame
@@ -31,6 +33,9 @@ func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: 
 		t += dt
 		sum += dt
 		worst = maxf(worst, dt)
+		var calls := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		calls_sum += calls
+		calls_max = maxf(calls_max, calls)
 		walking = 0
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	for w: Walker in ws.walkers.values():
@@ -40,6 +45,7 @@ func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: 
 	print("%s: zoom %.2f, avg %.1f FPS (%.2f ms), min %.1f FPS (worst frame %.1f ms), %d frames, walking now %d of %d, clock %s" % [
 		label, CameraController.ZOOM_STEPS[step], n / sum, sum / n * 1000.0, 1.0 / worst, worst * 1000.0, n, walking,
 		ws.walkers.size(), s.clock.label()])
+	print("%s: draw calls per frame avg %.0f, max %.0f (Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)" % [label, calls_sum / n, calls_max])
 
 
 func _init() -> void:

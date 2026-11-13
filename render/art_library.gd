@@ -71,14 +71,49 @@ static func _atlas(rel: String, cols: int, rows: int) -> TileSetAtlasSource:
 	return src
 
 
-## One atlas source per terrain id; source id = index in terrain_ids().
+## One atlas source for all terrain ids (ticket 57b): the per-id images are stacked into one texture, one row per
+## terrain id (row = index in terrain_ids()), so a Base quadrant draws as one batch instead of one per ground change.
 static func terrain_tileset() -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(TILE, TILE)
-	for id in terrain_ids():
-		var t: Dictionary = manifest()["terrain"][id]
-		ts.add_source(_atlas(t["file"], int(t["cols"]), int(t["rows"])), terrain_ids().find(id))
+	var src := TileSetAtlasSource.new()
+	src.texture = _terrain_atlas_texture()
+	src.texture_region_size = Vector2i(TILE, TILE)
+	for row in terrain_ids().size():
+		for x in int(manifest()["terrain"][terrain_ids()[row]]["cols"]):
+			src.create_tile(Vector2i(x, row))
+	ts.add_source(src, 0)
 	return ts
+
+
+static func _terrain_cols() -> int:
+	var cols := 1
+	for id in terrain_ids():
+		cols = maxi(cols, int(manifest()["terrain"][id]["cols"]))
+	return cols
+
+
+static var _terrain_atlas: Texture2D
+
+
+static func _terrain_atlas_texture() -> Texture2D:
+	if _terrain_atlas == null:
+		var ids := terrain_ids()
+		var img := Image.create(_terrain_cols() * TILE, ids.size() * TILE, false, Image.FORMAT_RGBA8)
+		for row in ids.size():
+			var part := image_of(manifest()["terrain"][ids[row]]["file"])
+			img.blit_rect(part, Rect2i(Vector2i.ZERO, part.get_size()), Vector2i(0, row * TILE))
+		_terrain_atlas = ImageTexture.create_from_image(img)
+	return _terrain_atlas
+
+
+## Pixels of an exported asset as RGBA8, from its texture.
+static func image_of(rel: String) -> Image:
+	var img: Image = texture(rel).get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	return img
 
 
 static func overlay_tileset(ground: String) -> TileSet:
@@ -173,9 +208,9 @@ static func terrain_variant(id: String, x: int, y: int, seed: int) -> int:
 	return int(pick[tile_hash(seed, x, y) % pick.size()])
 
 
-## Tile for a terrain cell: atlas source id and coords, stable per (seed, position).
+## Tile for a terrain cell: atlas source id (always 0) and coords (column = variant, row = terrain id index), stable per (seed, position).
 static func terrain_cell(id: String, x: int, y: int, seed: int = 0) -> Array:
-	return [terrain_ids().find(id), Vector2i(terrain_variant(id, x, y, seed), 0)]
+	return [0, Vector2i(terrain_variant(id, x, y, seed), terrain_ids().find(id))]
 
 
 ## Broad meadow shading: value noise sampled per tile in world space (lattice values hashed from the map seed), so it
