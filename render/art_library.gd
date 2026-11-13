@@ -10,7 +10,6 @@ const MANIFEST := "res://assets/art_manifest.json"
 static var _manifest: Dictionary = {}
 static var _textures: Dictionary = {}
 static var _terrain_order: Array[String] = []
-static var _family_noise: FastNoiseLite = null
 
 
 static func manifest() -> Dictionary:
@@ -90,21 +89,39 @@ static func overlay_tileset(ground: String) -> TileSet:
 	return ts
 
 
-## Tile for a terrain cell: atlas source id and coords, stable per position.
-static func terrain_cell(id: String, x: int, y: int) -> Array:
-	var t: Dictionary = manifest()["terrain"][id]
-	var pick: Array = t["pick"]
-	var h := ((x * 73856093) ^ (y * 19349663)) & 0x7fffffff
-	var col: int = int(pick[(h >> 4) % pick.size()])
-	var family := 0
-	if int(t["rows"]) > 1:  # light / mid / dark patches from low-frequency noise
-		if _family_noise == null:
-			_family_noise = FastNoiseLite.new()
-			_family_noise.seed = 7
-			_family_noise.frequency = 0.02
-		var n := _family_noise.get_noise_2d(x, y)
-		family = 0 if n > 0.3 else (2 if n < -0.3 else 1)
-	return [terrain_ids().find(id), Vector2i(col, family)]
+## Deterministic variant hash of (seed, tile): no RNG state, so drawing never touches the simulation.
+static func tile_hash(seed: int, x: int, y: int) -> int:
+	var h := ((x * 73856093) ^ (y * 19349663) ^ (seed * 83492791)) & 0x7fffffff
+	h = ((h ^ (h >> 15)) * 0x2c1b3c6d) & 0x7fffffff
+	h = ((h ^ (h >> 12)) * 0x297a2d39) & 0x7fffffff
+	return h ^ (h >> 15)
+
+
+## Atlas column (variant) of a terrain cell, picked by the seeded hash of the tile.
+static func terrain_variant(id: String, x: int, y: int, seed: int) -> int:
+	var pick: Array = manifest()["terrain"][id]["pick"]
+	return int(pick[tile_hash(seed, x, y) % pick.size()])
+
+
+## Tile for a terrain cell: atlas source id and coords, stable per (seed, position).
+static func terrain_cell(id: String, x: int, y: int, seed: int = 0) -> Array:
+	return [terrain_ids().find(id), Vector2i(terrain_variant(id, x, y, seed), 0)]
+
+
+## Broad light/dark patches over grass-like ground: one seamless atlas laid by tile position.
+static func shade_tileset() -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	var sh: Dictionary = manifest()["shade"]
+	ts.add_source(_atlas(sh["file"], int(sh["cols"]), int(sh["rows"])), 0)
+	return ts
+
+
+static func shade_cell(ground: String, x: int, y: int) -> Vector2i:
+	var sh: Dictionary = manifest()["shade"]
+	if not (sh["grounds"] as Array).has(ground):
+		return Vector2i(-1, -1)
+	return Vector2i(x % int(sh["cols"]), y % int(sh["rows"]))
 
 
 ## Overlay atlas coords for an 8-neighbour mask (bit order N, NE, E, SE, S, SW, W, NW), or (-1,-1) for none.

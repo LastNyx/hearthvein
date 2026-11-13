@@ -3,8 +3,9 @@ extends Node2D
 ## Draws a MapState: terrain base layer, soft transition overlays, y-sorted trees/boulders with shadows, and a
 ## region overlay (dimmed locked regions, thin borders). Art comes from ArtLibrary only. Reads the sim only.
 ##
-## Child order (back to front): Base, one overlay layer per ground, Roads (filled by PlacementView), Shadows,
-## Objects (y-sorted: props and buildings share it), Fx (glows, smoke), region overlay.
+## Child order (back to front): Base, one overlay layer per ground (Shade, the broad tonal patches, sits after the
+## soil one), Roads (filled by PlacementView), Shadows, Objects (y-sorted: props and
+## buildings share it), Fx (glows, smoke), region overlay.
 
 const TILE := ArtLibrary.TILE
 
@@ -14,6 +15,7 @@ var shadows: Node2D
 var objects: Node2D
 var fx: Node2D
 var _base: TileMapLayer
+var _shade: TileMapLayer
 var _overlay: RegionOverlay
 var _props: Dictionary = {}  # Vector2i -> Array[Node]
 var _ground := PackedStringArray()
@@ -39,6 +41,12 @@ func setup(m: MapState) -> void:
 		layer.rendering_quadrant_size = 16
 		add_child(layer)
 		overlays[g] = layer
+		if g == "soil":  # tonal patches sit over the ground blends but under rock, vein and sky edges
+			_shade = TileMapLayer.new()
+			_shade.name = "Shade"
+			_shade.tile_set = ArtLibrary.shade_tileset()
+			_shade.rendering_quadrant_size = 16
+			add_child(_shade)
 	roads = TileMapLayer.new()
 	roads.name = "Roads"
 	roads.tile_set = ArtLibrary.road_tileset()
@@ -74,8 +82,13 @@ func _fill() -> void:
 
 
 func _paint_base(x: int, y: int) -> void:
-	var cell := ArtLibrary.terrain_cell(map.terrain_id_at(x, y), x, y)
+	var cell := ArtLibrary.terrain_cell(map.terrain_id_at(x, y), x, y, map.seed_used)
 	_base.set_cell(Vector2i(x, y), cell[0], cell[1])
+	var sc := ArtLibrary.shade_cell(_ground_at(x, y), x, y)
+	if sc.x >= 0:
+		_shade.set_cell(Vector2i(x, y), 0, sc)
+	else:
+		_shade.erase_cell(Vector2i(x, y))
 
 
 ## Soft transition overlays of higher grounds onto this tile (cleared first, so it can be called again).

@@ -2696,6 +2696,16 @@
    ]
   }
  },
+ "shade": {
+  "cols": 20,
+  "file": "terrain/shade.png",
+  "grounds": [
+   "grass",
+   "forest",
+   "soil"
+  ],
+  "rows": 20
+ },
  "terrain": {
   "fertile_soil": {
    "cols": 4,
@@ -2728,15 +2738,15 @@
    "pick": [
     0,
     0,
-    0,
     1,
     1,
-    1,
+    2,
+    2,
     2,
     3,
     4
    ],
-   "rows": 3
+   "rows": 1
   },
   "lumen_vein": {
    "cols": 4,
@@ -2776,9 +2786,8 @@
   "stump": {
    "cols": 4,
    "file": "terrain/stump.png",
-   "ground": "grass",
+   "ground": "forest",
    "pick": [
-    0,
     0,
     1,
     2,
