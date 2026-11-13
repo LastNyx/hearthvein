@@ -18,8 +18,8 @@ extends SimSystem
 ## Construction sites (D48) are consumers too: a site's need is its full cost (non-gold goods), delivered into its
 ## input buffer. When the last good arrives the Jobs are refreshed so builders can be allotted.
 ##
-## Consumers: a building whose recipe has inputs. Need = input amount x worker slots x input_buffer_days per good
-## (input_need). Building upkeep (Lumen) is not hauled yet; add it to input_need when upkeep gets consumed.
+## Consumers: a building whose recipe has inputs, and (from Town) a building with Lumen upkeep. Need = input amount
+## x worker slots x input_buffer_days per good, plus upkeep_lumen x input_buffer_days of Lumen (input_need).
 
 const SAVE_KEY := "hauling"
 
@@ -61,13 +61,17 @@ var _walk_cache: Dictionary = {}  # "a:b" -> float (INF when unreachable)
 var _walk_version: int = -1
 
 
-## good id -> amount a consumer should hold: its recipe inputs for all worker slots over input_buffer_days.
+## good id -> amount a consumer should hold: its recipe inputs for all worker slots over input_buffer_days, plus
+## its Lumen upkeep for the same number of days (design.md section 8: consumers keep two days of need).
 static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 	var out := {}
-	if def.recipe == null or reg.logistics == null:
+	if reg.logistics == null:
 		return out
-	for g in def.recipe.inputs:
-		out[g] = float(def.recipe.inputs[g]) * def.worker_slots * reg.logistics.input_buffer_days
+	if def.recipe != null:
+		for g in def.recipe.inputs:
+			out[g] = float(def.recipe.inputs[g]) * def.worker_slots * reg.logistics.input_buffer_days
+	if def.upkeep_lumen > 0.0:
+		out["lumen"] = float(out.get("lumen", 0.0)) + def.upkeep_lumen * reg.logistics.input_buffer_days
 	return out
 
 

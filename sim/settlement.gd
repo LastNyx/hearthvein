@@ -80,6 +80,7 @@ func add_default_systems() -> void:
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
 	add_system(FertilitySystem.new())  # before Production: supplies the farm fertility modifier
 	add_system(ProductionSystem.new())
+	add_system(UpkeepSystem.new())  # spends the day's Lumen before Production and Market gold read the flag
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
 	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
@@ -97,6 +98,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
+	prod.modifiers.append(UpkeepSystem.output_modifier)
 	var forest_sys := get_system(ForestSystem) as ForestSystem
 	forest_sys.regrow_factors.append(RegionSystem.regrow_factor)
 	var sp := get_system(SpiritSystem) as SpiritSystem
@@ -407,12 +409,14 @@ func _init_buffers(b: Building) -> void:
 		b.inventory = Inventory.new(def.storage_mode, float(def.storage_cap))
 	if def.recipe != null and registry.logistics != null:
 		b.door_buffer = Inventory.new("total", registry.logistics.door_buffer_cap)
-		var need := HaulingSystem.input_need(registry, def)
-		if not need.is_empty():
-			var cap := 0.0
-			for g in need:
-				cap = maxf(cap, need[g])
-			b.input_buffer = Inventory.new("per_good", cap)
+	# A consumer keeps recipe inputs and its Lumen upkeep; a building with upkeep alone (no recipe inputs) still
+	# needs a buffer for the haulers to fill.
+	var need := HaulingSystem.input_need(registry, def)
+	if not need.is_empty():
+		var cap := 0.0
+		for g in need:
+			cap = maxf(cap, need[g])
+		b.input_buffer = Inventory.new("per_good", cap)
 
 
 func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false) -> Building:

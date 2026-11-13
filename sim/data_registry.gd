@@ -201,7 +201,8 @@ func _validate() -> void:
 			or logistics.min_pickup <= 0.0 or logistics.units_per_felled_tile <= 0.0 \
 			or logistics.build_days_per_tile <= 0.0 or logistics.build_days_per_era < 0.0 or logistics.build_days_min <= 0.0 \
 			or logistics.build_days_max < logistics.build_days_min or logistics.builder_crew <= 0 \
-			or logistics.demolish_refund < 0.0 or logistics.demolish_refund > 1.0:
+			or logistics.demolish_refund < 0.0 or logistics.demolish_refund > 1.0 \
+			or logistics.unpaid_upkeep_factor <= 0.0 or logistics.unpaid_upkeep_factor > 1.0:
 		errors.append("logistics: every number must be positive")
 	if growth == null:
 		if not goods.is_empty():

@@ -6,6 +6,7 @@ extends SimSystem
 ## Gold: every day each finished, unpaused Market adds gold_per_worker_day for every citizen the JobSystem assigned
 ## to work there. Assigned workers are used, not only the ones standing at the door, because the day hook runs at
 ## midnight when nobody is at work. Gold goes to the global counter Settlement.gold, never into an inventory.
+## The day's earnings are scaled by UpkeepSystem.output_modifier (x0.5 while the building's Lumen upkeep is unpaid).
 ##
 ## Reach: a home inside a finished Market's reach can get every food type in storage, so its citizens count the full
 ## variety; a home with no Market in reach counts at most one type and can never earn a variety bonus on its own.
@@ -32,7 +33,9 @@ func on_day(s: Settlement) -> void:
 		var b: Building = s.buildings[bid]
 		if b.site or b.paused or b.def.gold_per_worker_day <= 0.0:
 			continue
-		var made := b.def.gold_per_worker_day * float(assigned.get(bid, 0))
+		# Gold is not a recipe output, so the Lumen-upkeep factor is applied here (a Market has no upkeep in data,
+		# but a gold building with one would run at x0.5 while unpaid).
+		var made := b.def.gold_per_worker_day * float(assigned.get(bid, 0)) * UpkeepSystem.output_modifier(s, b)
 		if made > Inventory.EPS:
 			s.gold += made
 

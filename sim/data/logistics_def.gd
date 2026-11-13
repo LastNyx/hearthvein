@@ -23,3 +23,5 @@ extends Resource
 @export var builder_crew: int = 0
 ## Share of the cost (or of the goods already delivered to a site) given back on demolish.
 @export var demolish_refund: float = 0.0
+## Output factor of a building that could not pay the day's Lumen upkeep (design.md sections 8, 14 and 16: x0.5).
+@export var unpaid_upkeep_factor: float = 0.5
