@@ -2078,6 +2078,7 @@
   32
  ],
  "overlay_shore_row": 6,
+ "overlay_variants": 3,
  "overlays": {
   "forest": "terrain/overlay_forest.png",
   "grass": "terrain/overlay_grass.png",
@@ -2588,6 +2589,7 @@
      0.13
     ]
    ],
+   "edge_jitter": 12,
    "p_first": 1.0,
    "p_second": 0.6,
    "x": [
@@ -2697,14 +2699,35 @@
   }
  },
  "shade": {
-  "cols": 20,
-  "file": "terrain/shade.png",
+  "cells": [
+   14.0,
+   7.0,
+   3.5
+  ],
+  "dark": [
+   47,
+   110,
+   54,
+   150
+  ],
+  "dark_below": 0.46,
   "grounds": [
    "grass",
-   "forest",
    "soil"
   ],
-  "rows": 20
+  "light": [
+   190,
+   228,
+   108,
+   120
+  ],
+  "light_above": 0.56,
+  "ramp": 0.2,
+  "weights": [
+   0.5,
+   0.33,
+   0.17
+  ]
  },
  "terrain": {
   "fertile_soil": {

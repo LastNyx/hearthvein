@@ -85,7 +85,8 @@ static func overlay_tileset(ground: String) -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(TILE, TILE)
 	var cols: int = manifest()["overlay_cols"]
-	ts.add_source(_atlas(manifest()["overlays"][ground], cols, int(manifest()["overlay_shore_row"]) * 2), 0)
+	ts.add_source(_atlas(manifest()["overlays"][ground], cols,
+			int(manifest()["overlay_shore_row"]) * 2 * int(manifest()["overlay_variants"])), 0)
 	return ts
 
 
@@ -108,29 +109,79 @@ static func terrain_cell(id: String, x: int, y: int, seed: int = 0) -> Array:
 	return [terrain_ids().find(id), Vector2i(terrain_variant(id, x, y, seed), 0)]
 
 
-## Broad light/dark patches over grass-like ground: one seamless atlas laid by tile position.
-static func shade_tileset() -> TileSet:
-	var ts := TileSet.new()
-	ts.tile_size = Vector2i(TILE, TILE)
+## Broad meadow shading: value noise sampled per tile in world space (lattice values hashed from the map seed), so it
+## has no period and no tile-grid alignment. Octave lattice sizes and weights come from the manifest.
+static func shade_value(seed: int, x: int, y: int) -> float:
 	var sh: Dictionary = manifest()["shade"]
-	ts.add_source(_atlas(sh["file"], int(sh["cols"]), int(sh["rows"])), 0)
-	return ts
+	var cells: Array = sh["cells"]
+	var weights: Array = sh["weights"]
+	var total := 0.0
+	for o in cells.size():
+		var fx := (x + 0.5) / float(cells[o])
+		var fy := (y + 0.5) / float(cells[o])
+		var ix := floori(fx)
+		var iy := floori(fy)
+		var tx := fx - ix
+		var ty := fy - iy
+		tx = tx * tx * (3.0 - 2.0 * tx)
+		ty = ty * ty * (3.0 - 2.0 * ty)
+		var s := seed + 7919 * (o + 1)
+		var a := lerpf(_lattice(s, ix, iy), _lattice(s, ix + 1, iy), tx)
+		var b := lerpf(_lattice(s, ix, iy + 1), _lattice(s, ix + 1, iy + 1), tx)
+		total += lerpf(a, b, ty) * float(weights[o])
+	return clampf((total - 0.5) * 1.8 + 0.5, 0.0, 1.0)
 
 
-static func shade_cell(ground: String, x: int, y: int) -> Vector2i:
+static func _lattice(seed: int, ix: int, iy: int) -> float:
+	return float(tile_hash(seed, ix + 4096, iy + 4096) % 10007) / 10006.0
+
+
+static func shade_grounds() -> Array:
+	return manifest()["shade"]["grounds"]
+
+
+## Shade colour of one tile (premultiplied-free RGBA, alpha 0 where the tile is not shaded ground).
+static func shade_color(seed: int, ground: String, x: int, y: int) -> Color:
 	var sh: Dictionary = manifest()["shade"]
+	var v := shade_value(seed, x, y)
+	var below: float = sh["dark_below"]
+	var above: float = sh["light_above"]
+	var ramp: float = sh["ramp"]
+	var dk := clampf((below - v) / ramp, 0.0, 1.0)
+	var lt := clampf((v - above) / ramp, 0.0, 1.0)
+	var src: Array = sh["dark"] if dk >= lt else sh["light"]
+	var k := maxf(dk, lt)
+	var a := float(src[3]) / 255.0 * k
 	if not (sh["grounds"] as Array).has(ground):
-		return Vector2i(-1, -1)
-	return Vector2i(x % int(sh["cols"]), y % int(sh["rows"]))
+		a = 0.0
+	return Color(float(src[0]) / 255.0, float(src[1]) / 255.0, float(src[2]) / 255.0, a)
+
+
+## One pixel per tile; drawn scaled by TILE with linear filtering, so patches blend smoothly across tiles.
+static func shade_image(seed: int, w: int, h: int, ground_at: Callable) -> Image:
+	var data := PackedByteArray()
+	data.resize(w * h * 4)
+	var i := 0
+	for y in h:
+		for x in w:
+			var c := shade_color(seed, ground_at.call(x, y), x, y)
+			data[i] = int(c.r8)
+			data[i + 1] = int(c.g8)
+			data[i + 2] = int(c.b8)
+			data[i + 3] = int(c.a8)
+			i += 4
+	return Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data)
 
 
 ## Overlay atlas coords for an 8-neighbour mask (bit order N, NE, E, SE, S, SW, W, NW), or (-1,-1) for none.
-static func overlay_coords(mask: int, over_water: bool) -> Vector2i:
+## `variant` picks one of overlay_variants edge-wobble versions (callers use the seeded tile hash).
+static func overlay_coords(mask: int, over_water: bool, variant: int = 0) -> Vector2i:
 	var idx: int = int(manifest()["overlay_index"][mask])
 	if idx < 0:
 		return Vector2i(-1, -1)
 	var cols: int = manifest()["overlay_cols"]
-	var row := idx / cols + (int(manifest()["overlay_shore_row"]) if over_water else 0)
+	var rows: int = manifest()["overlay_shore_row"]
+	var row := idx / cols + (rows if over_water else 0) + (variant % int(manifest()["overlay_variants"])) * 2 * rows
 	return Vector2i(idx % cols, row)
 
 
@@ -151,7 +202,9 @@ static func road_coords(mask: int, x: int, y: int) -> Vector2i:
 
 # ---------------------------------------------------------------- props
 ## Props to stand on a terrain cell: [{name, pos}] with pos the sprite base point in world pixels.
-static func scatter(terrain_id: String, x: int, y: int) -> Array:
+## `open` is the direction of the nearest open (non-same-ground) neighbour tiles summed, for edge tiles of a stand:
+## edge trees thin out and jitter toward the open side so a forest border is not a straight tile line.
+static func scatter(terrain_id: String, x: int, y: int, open: Vector2i = Vector2i.ZERO) -> Array:
 	var rules: Dictionary = manifest()["scatter"]
 	var out: Array = []
 	if not rules.has(terrain_id):
@@ -160,9 +213,12 @@ static func scatter(terrain_id: String, x: int, y: int) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = ((x * 92821) ^ (y * 68917) ^ 0x5bd1e995) & 0x7fffffff
 	var count := 0
-	if rng.randf() < float(r["p_first"]):
+	var edge := open != Vector2i.ZERO and r.has("edge_jitter")
+	var p1 := float(r["p_first"]) * (0.75 if edge else 1.0)
+	var p2 := float(r["p_second"]) * (0.4 if edge else 1.0)
+	if rng.randf() < p1:
 		count = 1
-		if rng.randf() < float(r["p_second"]):
+		if rng.randf() < p2:
 			count = 2
 	var choices: Array = r["choices"]
 	var total := 0.0
@@ -178,7 +234,11 @@ static func scatter(terrain_id: String, x: int, y: int) -> Array:
 				break
 		var px := rng.randi_range(int(r["x"][0]), int(r["x"][1]))
 		var py := rng.randi_range(int(r["y"][0]), int(r["y"][1]))
-		out.append({"name": pick, "pos": Vector2(x * TILE + px, y * TILE + py)})
+		var pos := Vector2(x * TILE + px, y * TILE + py)
+		if edge:
+			var j := float(r["edge_jitter"])
+			pos += Vector2(open) * rng.randf_range(0.0, j) + Vector2(rng.randf_range(-j, j), rng.randf_range(-j, j)) * 0.5
+		out.append({"name": pick, "pos": pos})
 	return out
 
 

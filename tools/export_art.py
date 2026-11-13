@@ -75,6 +75,10 @@ def pfbm(seed, shared):
     return np.clip((v - 0.5) * 2.4 + 0.5, 0, 1)
 
 
+# Warmer, lighter meadow palette than mockups.GRASS (sampled from the village mockup: 40883 / 5aa640 / 7abc4c / 9fd05c).
+PG = M.pal("2f6e36", "408837", "5aa640", "7abc4c", "9fd05c")
+CONFETTI = [M.hexc("f07aa8"), M.hexc("f6f0e0"), M.hexc("8ab8f8"), M.hexc("f4d050"), M.hexc("f6f0e0"), M.hexc("e8a0f0")]
+
 BAY = np.tile(M.BAYER, (T // 4, T // 4))
 YS, XS = np.mgrid[0:T, 0:T].astype(np.float32) + 0.5
 
@@ -105,14 +109,15 @@ def save(im, path):
 
 # ------------------------------------------------------------------ ground textures
 def grass_tile(seed, bias=0.0, shift=0, kind="plain"):
-    """Mockup grass: mostly flat mid green with a faint dither (big light/dark patches come from the shade layer, so
-    the 32px tile never shows as a repeat). kind: plain, tufts, flowers, clover. Detail is sparse."""
+    """Mockup meadow grass: light warm green with a faint dither and plenty of small flower / pebble confetti (the big
+    light/dark meadow areas come from the shade layer, so the 32px tile never shows as a repeat).
+    kind: plain, tufts, flowers, clover; every kind carries some confetti, flowers the most."""
     v = 0.5 + 0.5 * (pfbm(seed, 11) - 0.5)
     gi = pquant(v, 3, bias, 0.45) + 1 + shift
-    img = to_img(A(M.GRASS)[np.clip(gi, 0, 4)])
+    img = to_img(A(PG)[np.clip(gi, 0, 4)])
     d = ImageDraw.Draw(img)
     rng = random.Random(seed * 7 + 1)
-    n_tuft = {"plain": 1, "tufts": 5, "flowers": 2, "clover": 3}[kind]
+    n_tuft = {"plain": 2, "tufts": 6, "flowers": 3, "clover": 4}[kind]
     for _ in range(n_tuft):
         x, y = rng.randrange(3, T - 3), rng.randrange(3, T - 2)
         base = img.getpixel((x, y))
@@ -120,19 +125,23 @@ def grass_tile(seed, bias=0.0, shift=0, kind="plain"):
         dc = tuple(int(q * 0.7) for q in base[:3]) + (255,)
         d.point([(x, y), (x - 1, y - 1), (x + 1, y - 1), (x, y - 2)], fill=c)
         d.point([(x, y + 1)], fill=dc)
+    n_conf = {"plain": 6, "tufts": 7, "flowers": 12, "clover": 7}[kind]
+    for _ in range(n_conf):  # tiny clusters of 1-3 coloured specks
+        c = rng.choice(CONFETTI)
+        x, y = rng.randrange(2, T - 2), rng.randrange(2, T - 2)
+        for _ in range(rng.randint(1, 3)):
+            d.point((x + rng.randint(-2, 2), y + rng.randint(-1, 1)), fill=c)
     if kind == "flowers":
-        for _ in range(3):
-            c = rng.choice([M.hexc("f07aa8"), M.hexc("f6f0e0"), M.hexc("8ab8f8"), M.hexc("f4d050")])
+        for _ in range(2):
+            c = rng.choice(CONFETTI)
             x, y = rng.randrange(3, T - 3), rng.randrange(3, T - 3)
-            for _ in range(rng.randint(2, 3)):
-                fx, fy = x + rng.randint(-3, 3), y + rng.randint(-2, 2)
-                d.point((fx, fy + 1), fill=M.GRASS[0])
-                d.point((fx, fy), fill=c)
+            d.point((x, y + 1), fill=PG[0])
+            d.point((x, y), fill=c)
     if kind == "clover":
         for _ in range(7):
             x, y = rng.randrange(2, T - 2), rng.randrange(2, T - 2)
-            d.point((x, y), fill=M.GRASS[4])
-            d.point((x + 1, y + 1), fill=M.GRASS[0])
+            d.point((x, y), fill=PG[4])
+            d.point((x + 1, y + 1), fill=PG[0])
     return img
 
 
@@ -140,8 +149,8 @@ def soil_tile(seed):
     """Fertile soil: darker, richer grass with warm loam specks and sprouts (not mud)."""
     v = 0.5 + 0.5 * (pfbm(seed, 12) - 0.5)
     gi = pquant(v, 3, 0.0, 0.45)
-    rich = [mix(M.GRASS[0], M.BANK[0], 0.25), mix(M.GRASS[1], M.BANK[1], 0.18),
-            mix(M.GRASS[1], M.GRASS[2], 0.4)]
+    rich = [mix(PG[1], M.BANK[0], 0.2), mix(PG[2], M.BANK[1], 0.12),
+            mix(PG[2], PG[3], 0.4)]
     img = to_img(A(rich)[gi])
     d = ImageDraw.Draw(img)
     rng = random.Random(seed * 5 + 2)
@@ -152,7 +161,7 @@ def soil_tile(seed):
         d.point((rng.randrange(1, T - 1), rng.randrange(1, T - 1)), fill=M.DIRT[1])
     for _ in range(3):  # tufts, a touch lighter than the ground
         x, y = rng.randrange(3, T - 3), rng.randrange(3, T - 2)
-        d.point([(x, y), (x - 1, y - 1), (x + 1, y - 1)], fill=M.GRASS[2])
+        d.point([(x, y), (x - 1, y - 1), (x + 1, y - 1)], fill=PG[2])
     for _ in range(2):  # sprouts: this is the fertile one
         x, y = rng.randrange(3, T - 3), rng.randrange(4, T - 2)
         d.point((x, y), fill=M.LEAF["green"][3])
@@ -164,7 +173,7 @@ def forest_tile(seed, bare=False):
     """Forest floor: dark green ground with leaf litter; `bare` (felled tile) adds exposed earth and more leaves."""
     v = 0.5 + 0.6 * (pfbm(seed, 18) - 0.5)
     gi = pquant(v, 2, 0.0, 0.8)
-    pal = [mix(M.GRASS[0], (20, 30, 18), 0.35), mix(M.GRASS[0], M.BANK[0], 0.15)]
+    pal = [mix(M.GRASS[0], (20, 30, 18), 0.2), mix(M.GRASS[0], M.BANK[0], 0.15)]
     img = to_img(A(pal)[gi])
     d = ImageDraw.Draw(img)
     rng = random.Random(seed * 9 + 4)
@@ -184,26 +193,8 @@ def forest_tile(seed, bare=False):
     return img
 
 
-SHADE_SIZE = 640  # shade atlas: 20x20 tiles of 32px, seamless, laid by tile position (x % 20, y % 20)
-
-
-def shade_atlas():
-    """Large dithered light/dark patches over grass-like ground, like the mockup's broad tonal patches. Seamless over
-    its whole 640px so any tile position lines up with its neighbours, and far bigger than the 32px ground tile."""
-    S = SHADE_SIZE
-    n = 0.45 * pnoise_n(S, 160, 31) + 0.30 * pnoise_n(S, 80, 32) + 0.17 * pnoise_n(S, 40, 33) + 0.08 * pnoise_n(S, 20, 34)
-    n = np.clip((n - 0.5) * 1.9 + 0.5, 0, 1)
-    bay = np.tile(M.BAYER, (S // 4, S // 4))
-    dark = np.clip((0.36 - n) / 0.14, 0, 1)
-    light = np.clip((n - 0.58) / 0.12, 0, 1) * 0.7
-    out = np.zeros((S, S, 4), dtype=np.uint8)
-    dm = bay < dark
-    lm = (bay < light) & ~dm
-    out[dm] = (*M.GRASS[0][:3], 125)
-    out[lm] = (*M.GRASS[3][:3], 85)
-    return Image.fromarray(out, "RGBA")
-
-
+# Broad meadow shading is computed per tile in world space at map build time (ArtLibrary.shade_image): low-frequency
+# value noise from the map seed, no atlas and no period. The manifest carries the look so the loader holds no art data.
 def rock_tile(seed):
     gi = pquant(pfbm(seed, 13), 4)
     img = to_img(A([M.ROCK[0], M.ROCK[1], M.ROCK[1], M.ROCK[2]])[gi])
@@ -337,25 +328,26 @@ def shore_overlay(ground, mask, seed):
     bank = A(M.BANK)
     for k, ci in ((0, 0), (1, 1), (2, 2)):
         band = (d >= rl + k) & (d < rl + k + 1)
-        if k == 2:
-            band &= BAY < 0.6
         out[band, :3] = bank[ci]
         alpha[band] = 255
     wd = d - (rl + 2.5)
     wp = A(M.WATER)
     for lo, hi, lvl in ((-1, 1, 5), (1, 3, 4), (3, 6, 3), (6, 10, 2)):
         band = (wd > lo) & (wd <= hi) & (alpha == 0)
-        if lvl == 2:
-            band &= BAY < 0.55
+        if lvl == 2:  # outer shallows fade out by thinning the band by distance, not by a dither (no corner hatching)
+            band &= wd <= 7.5
         out[band, :3] = wp[lvl]
         alpha[band] = 255
     out[..., 3] = alpha
     return Image.fromarray(out, "RGBA")
 
 
-REACH = {"grass": 7, "forest": 9, "soil": 9, "rock": 6, "vein": 7, "sky": 6}
+REACH = {"grass": 7, "forest": 7, "soil": 9, "rock": 8, "vein": 9, "sky": 6}
 # Width in px of the dithered fade of a transition (rock and vein keep a crisp edge, ground tones blend wide).
-RAMP = {"grass": 9.0, "forest": 11.0, "soil": 12.0, "rock": 3.0, "vein": 4.0, "sky": 4.0}
+RAMP = {"grass": 9.0, "forest": 11.0, "soil": 12.0, "rock": 10.0, "vein": 11.0, "sky": 4.0}
+
+
+OVERLAY_VARIANTS = 3
 
 
 def export_overlays(manifest):
@@ -364,17 +356,19 @@ def export_overlays(manifest):
     manifest["overlay_cols"] = 8
     rows_per = (len(uniq) + 7) // 8
     manifest["overlay_shore_row"] = rows_per
+    manifest["overlay_variants"] = OVERLAY_VARIANTS
     manifest["overlays"] = {}
     for gi, g in enumerate(GROUND_ORDER):
         if g in ("water", "sky"):
             continue
-        soft = [soft_overlay(g, m, gi * 10, REACH[g]) for m in uniq]
-        shore = [shore_overlay(g, m, gi * 10) for m in uniq]
-        a1, _ = pack_atlas(soft, 8)
-        a2, _ = pack_atlas(shore, 8)
-        im = Image.new("RGBA", (8 * T, 2 * rows_per * T))
-        im.paste(a1, (0, 0))
-        im.paste(a2, (0, rows_per * T))
+        im = Image.new("RGBA", (8 * T, OVERLAY_VARIANTS * 2 * rows_per * T))
+        for v in range(OVERLAY_VARIANTS):  # variants differ in edge wobble so a long border is not one repeated tile
+            soft = [soft_overlay(g, m, gi * 10 + v * 100, REACH[g]) for m in uniq]
+            shore = [shore_overlay(g, m, gi * 10 + v * 100) for m in uniq]
+            a1, _ = pack_atlas(soft, 8)
+            a2, _ = pack_atlas(shore, 8)
+            im.paste(a1, (0, v * 2 * rows_per * T))
+            im.paste(a2, (0, (v * 2 + 1) * rows_per * T))
         save(im, OUT / "terrain" / f"overlay_{g}.png")
         manifest["overlays"][g] = f"terrain/overlay_{g}.png"
 
@@ -392,9 +386,9 @@ def export_terrain(manifest):
     tiles["skystone"] = ([[sky_tile(700 + i) for i in range(3)]], [0, 1, 2])
     tiles["water"] = ([[water_tile(800 + i, lily=(i == 4)) for i in range(5)]], [0, 0, 1, 1, 2, 2, 3, 3, 4])
     manifest["ground_order"] = GROUND_ORDER
-    save(shade_atlas(), OUT / "terrain" / "shade.png")
-    manifest["shade"] = {"file": "terrain/shade.png", "cols": SHADE_SIZE // T, "rows": SHADE_SIZE // T,
-                         "grounds": ["grass", "forest", "soil"]}
+    manifest["shade"] = {"grounds": ["grass", "soil"], "cells": [14.0, 7.0, 3.5],
+                         "weights": [0.5, 0.33, 0.17], "dark": list(PG[0][:3]) + [150],
+                         "light": [190, 228, 108, 120], "dark_below": 0.46, "light_above": 0.56, "ramp": 0.2}
     manifest["terrain"] = {}
     for tid, (families, pick) in tiles.items():
         cols = len(families[0])
@@ -564,7 +558,7 @@ PROPS = {
 
 # Prop scatter per terrain id (positions are hashed per tile by the loader). x/y: sprite base point inside the tile.
 SCATTER = {
-    "forest": {"p_first": 1.0, "p_second": 0.6, "x": [4, 28], "y": [18, 32], "choices": [
+    "forest": {"p_first": 1.0, "p_second": 0.6, "edge_jitter": 12, "x": [4, 28], "y": [18, 32], "choices": [
         ["pine_0", 0.1], ["pine_1", 0.1], ["pine_2", 0.1], ["oak_autumn_0", 0.075], ["oak_autumn_1", 0.075],
         ["oak_deep_0", 0.04], ["oak_lumen_0", 0.006], ["oak_green_0", 0.13], ["oak_green_1", 0.13],
         ["oak_green_2", 0.13], ["oak_green_3", 0.13]]},
