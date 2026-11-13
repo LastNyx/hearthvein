@@ -86,8 +86,43 @@ static func overlay_tileset(ground: String) -> TileSet:
 	ts.tile_size = Vector2i(TILE, TILE)
 	var cols: int = manifest()["overlay_cols"]
 	ts.add_source(_atlas(manifest()["overlays"][ground], cols,
-			int(manifest()["overlay_shore_row"]) * 2 * int(manifest()["overlay_variants"])), 0)
+			int(manifest()["overlay_rows"]) * int(manifest()["overlay_variants"])), 0)
 	return ts
+
+
+# ---------------------------------------------------------------- dual-grid autotiles (ticket 54)
+## Water/land and rock/land edges: one 4x4 atlas per lower ground, 16 corner configurations each.
+## The map view draws them on a layer shifted half a tile up-left, one cell per map corner.
+static func autotile_pairs() -> Array[String]:
+	var out: Array[String] = []
+	for k in manifest()["autotiles"].keys():
+		out.append(k)
+	out.sort()
+	return out
+
+
+static func autotile_grounds(pair: String) -> Array:
+	return manifest()["autotiles"][pair]["grounds"]
+
+
+## Atlas source id of a lower ground inside the pair's tileset (-1 when the ground has no atlas there).
+static func autotile_source(pair: String, ground: String) -> int:
+	return autotile_grounds(pair).find(ground)
+
+
+static func autotile_tileset(pair: String) -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	var at: Dictionary = manifest()["autotiles"][pair]
+	for i in (at["grounds"] as Array).size():
+		ts.add_source(_atlas(at["files"][at["grounds"][i]], int(at["cols"]), int(at["rows"])), i)
+	return ts
+
+
+## Atlas coords of a corner configuration: bit 0 TL, 1 TR, 2 BR, 3 BL of the four map tiles around the corner.
+static func autotile_coords(mask: int) -> Vector2i:
+	var cols: int = int(manifest()["autotiles"]["water"]["cols"])
+	return Vector2i(mask % cols, mask / cols)
 
 
 ## Tile-state overlays (blight, fouled): one atlas of translucent variants each, drawn over the ground.
@@ -209,14 +244,13 @@ static func shade_image(seed: int, w: int, h: int, ground_at: Callable) -> Image
 
 ## Overlay atlas coords for an 8-neighbour mask (bit order N, NE, E, SE, S, SW, W, NW), or (-1,-1) for none.
 ## `variant` picks one of overlay_variants edge-wobble versions (callers use the seeded tile hash).
-static func overlay_coords(mask: int, over_water: bool, variant: int = 0) -> Vector2i:
+static func overlay_coords(mask: int, variant: int = 0) -> Vector2i:
 	var idx: int = int(manifest()["overlay_index"][mask])
 	if idx < 0:
 		return Vector2i(-1, -1)
 	var cols: int = manifest()["overlay_cols"]
-	var rows: int = manifest()["overlay_shore_row"]
-	var row := idx / cols + (rows if over_water else 0) + (variant % int(manifest()["overlay_variants"])) * 2 * rows
-	return Vector2i(idx % cols, row)
+	var rows: int = int(manifest()["overlay_rows"])
+	return Vector2i(idx % cols, idx / cols + (variant % int(manifest()["overlay_variants"])) * rows)
 
 
 # ---------------------------------------------------------------- roads

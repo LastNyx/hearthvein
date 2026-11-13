@@ -1,4 +1,40 @@
 {
+ "autotiles": {
+  "rock": {
+   "cols": 4,
+   "files": {
+    "forest": "terrain/rockedge_forest.png",
+    "grass": "terrain/rockedge_grass.png",
+    "soil": "terrain/rockedge_soil.png"
+   },
+   "grounds": [
+    "grass",
+    "forest",
+    "soil"
+   ],
+   "rows": 4
+  },
+  "water": {
+   "cols": 4,
+   "files": {
+    "forest": "terrain/shore_forest.png",
+    "grass": "terrain/shore_grass.png",
+    "rock": "terrain/shore_rock.png",
+    "sky": "terrain/shore_sky.png",
+    "soil": "terrain/shore_soil.png",
+    "vein": "terrain/shore_vein.png"
+   },
+   "grounds": [
+    "grass",
+    "forest",
+    "soil",
+    "rock",
+    "vein",
+    "sky"
+   ],
+   "rows": 4
+  }
+ },
  "blight_sparkle": {
   "chance_pct": 30,
   "props": [
@@ -2094,12 +2130,10 @@
   31,
   32
  ],
- "overlay_shore_row": 6,
+ "overlay_rows": 6,
  "overlay_variants": 3,
  "overlays": {
   "forest": "terrain/overlay_forest.png",
-  "grass": "terrain/overlay_grass.png",
-  "rock": "terrain/overlay_rock.png",
   "soil": "terrain/overlay_soil.png",
   "vein": "terrain/overlay_vein.png"
  },

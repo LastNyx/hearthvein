@@ -4,9 +4,9 @@ Usage: python3 tools/export_art.py [out_dir]     (default: <repo>/assets)
 
 mockups.py stays the single art source: palettes, textures, tree/boulder/crystal sprites and the b_* building
 functions are imported, never copied. This file only adds what a tile game needs on top of the scene renderer:
-seamless 32x32 terrain tiles, soft transition overlays (blob autotile, 46 tiles per ground), connectable road
-tiles, separate shadow / light-and-smoke images, and the manifest the GDScript loader (render/art_library.gd)
-reads. Every random choice uses a fixed seed, so running twice writes identical bytes.
+seamless 32x32 terrain tiles, soft transition overlays (blob autotile, 46 tiles per ground), dual-grid water
+and rock edges (16 corner configurations per lower ground), connectable road tiles, separate shadow /
+light-and-smoke images, and the manifest the GDScript loader (render/art_library.gd) reads. Every random choice uses a fixed seed, so running twice writes identical bytes.
 """
 import json
 import math
@@ -327,34 +327,6 @@ def soft_overlay(ground, mask, seed, reach):
     return Image.fromarray(src, "RGBA")
 
 
-def shore_overlay(ground, mask, seed):
-    """Land of `ground` pushing into a water cell: land, dark bank, then lighter shallows fading to deep water."""
-    d = edge_dist(mask)
-    if not mask & (BN | BE | BS | BW):
-        d = d - 5.0  # lone diagonal land: bigger round corner, so river bends are not square
-    wob = 0.65 * pnoise(8, 600 + seed) + 0.35 * pnoise(4, 620 + seed)
-    rl = np.maximum(1.5, 3.5 + (wob - 0.5) * 7)
-    out = np.array(ground_tile(ground, 3 + seed))
-    alpha = np.zeros((T, T), dtype=np.uint8)
-    cov = d < rl
-    alpha[cov] = 255
-    bank = A(M.BANK)
-    for k, ci in ((0, 0), (1, 1), (2, 2)):
-        band = (d >= rl + k) & (d < rl + k + 1)
-        out[band, :3] = bank[ci]
-        alpha[band] = 255
-    wd = d - (rl + 2.5)
-    wp = A(M.WATER)
-    for lo, hi, lvl in ((-1, 1, 5), (1, 3, 4), (3, 6, 3), (6, 10, 2)):
-        band = (wd > lo) & (wd <= hi) & (alpha == 0)
-        if lvl == 2:  # outer shallows fade out by thinning the band by distance, not by a dither (no corner hatching)
-            band &= wd <= 7.5
-        out[band, :3] = wp[lvl]
-        alpha[band] = 255
-    out[..., 3] = alpha
-    return Image.fromarray(out, "RGBA")
-
-
 REACH = {"grass": 7, "forest": 7, "soil": 9, "rock": 8, "vein": 9, "sky": 6}
 # Width in px of the dithered fade of a transition (rock and vein keep a crisp edge, ground tones blend wide).
 RAMP = {"grass": 9.0, "forest": 11.0, "soil": 12.0, "rock": 10.0, "vein": 11.0, "sky": 4.0}
@@ -368,22 +340,118 @@ def export_overlays(manifest):
     manifest["overlay_index"] = index
     manifest["overlay_cols"] = 8
     rows_per = (len(uniq) + 7) // 8
-    manifest["overlay_shore_row"] = rows_per
+    manifest["overlay_rows"] = rows_per
     manifest["overlay_variants"] = OVERLAY_VARIANTS
     manifest["overlays"] = {}
     for gi, g in enumerate(GROUND_ORDER):
-        if g in ("water", "sky"):
+        if g in ("water", "grass", "rock", "sky"):  # water shores and rock edges are dual-grid autotiles (ticket 54)
             continue
-        im = Image.new("RGBA", (8 * T, OVERLAY_VARIANTS * 2 * rows_per * T))
+        im = Image.new("RGBA", (8 * T, OVERLAY_VARIANTS * rows_per * T))
         for v in range(OVERLAY_VARIANTS):  # variants differ in edge wobble so a long border is not one repeated tile
             soft = [soft_overlay(g, m, gi * 10 + v * 100, REACH[g]) for m in uniq]
-            shore = [shore_overlay(g, m, gi * 10 + v * 100) for m in uniq]
             a1, _ = pack_atlas(soft, 8)
-            a2, _ = pack_atlas(shore, 8)
-            im.paste(a1, (0, v * 2 * rows_per * T))
-            im.paste(a2, (0, (v * 2 + 1) * rows_per * T))
+            im.paste(a1, (0, v * rows_per * T))
         save(im, OUT / "terrain" / f"overlay_{g}.png")
         manifest["overlays"][g] = f"terrain/overlay_{g}.png"
+
+
+# ---------------------------------------------------------------- dual-grid autotiles (ticket 54)
+# A dual cell sits on a map corner and covers a quarter of the four map tiles around it. Its 16 corner
+# configurations are indexed by a bit per tile (TL=1, TR=2, BR=4, BL=8) flagging the upper ground (water or
+# rock). Lone upper corners are a quarter disc of radius half a tile around the map tile's centre, straight
+# borders are a line through the corner, and the two diagonal cases draw the two *lower* corners as rounded
+# lobes so the upper ground runs between them: a diagonal shore is a smooth band, never a stair-step. The lobes
+# meet the cell's edge midpoints, which is exactly where the neighbouring cell's border crosses, so tiles join
+# without a seam. The layers are drawn half a tile up-left in the map view.
+AUTOTILE_PAIRS = {
+    # pair -> lower grounds that get their own atlas (the upper ground edges onto each of them)
+    "water": ["grass", "forest", "soil", "rock", "vein", "sky"],
+    "rock": ["grass", "forest", "soil"],
+}
+AT_UP = {"water": "water", "rock": "rock"}
+AT_R = T / 2.0
+
+
+def at_dist(mask):
+    """Signed distance in px to the autotile edge, positive inside the upper ground."""
+    corners = [(1, 0.0, 0.0), (2, float(T), 0.0), (4, float(T), float(T)), (8, 0.0, float(T))]
+    ups = [(x, y) for b, x, y in corners if mask & b]
+    lows = [(x, y) for b, x, y in corners if not mask & b]
+    if not ups or not lows:  # all land / all water: the map view never draws these cells
+        return np.full((T, T), -1e9 if not ups else 1e9, np.float32)
+    if len(ups) == 1:  # lone upper corner: round lobe around that map tile's centre
+        x, y = ups[0]
+        return AT_R - np.hypot(XS - x, YS - y)
+    if len(ups) == 3:  # lone lower corner: the upper ground wraps a round notch around it
+        x, y = lows[0]
+        return np.hypot(XS - x, YS - y) - AT_R
+    (ax, ay), (bx, by) = ups
+    if ax == bx:  # left or right half
+        return (T / 2.0 - XS) if ax == 0.0 else (XS - T / 2.0)
+    if ay == by:  # top or bottom half
+        return (T / 2.0 - YS) if ay == 0.0 else (YS - T / 2.0)
+    # diagonal: both lower corners are rounded lobes and the upper ground flows between them
+    return np.minimum(np.hypot(XS - lows[0][0], YS - lows[0][1]),
+                      np.hypot(XS - lows[1][0], YS - lows[1][1])) - AT_R
+
+
+def at_cover(t):
+    """Ordered-dither coverage: 255 where the fraction t of pixels should be kept (BAY is seamless across tiles)."""
+    return np.where(BAY < np.clip(t, 0.0, 1.0), 255, 0).astype(np.uint8)
+
+
+WATER_BANDS = [(9.5, 13.0, M.WATER[2]), (6.5, 9.5, M.WATER[3]), (4.5, 6.5, M.WATER[4]),
+               (3.0, 4.5, M.WATER[5]), (2.0, 3.0, M.BANK[2]), (1.0, 2.0, M.BANK[1]),
+               (0.0, 1.0, M.BANK[0])]
+
+
+def at_tile(mask, pair, ground, seed):
+    """One dual-cell tile: the upper ground on its side of the smooth edge, `ground` on the other, with a soft
+    bank/edge band. Outside a band of ~11 px the tile is transparent and the map tile below shows through, so the
+    transition never repeats as a stamped patch."""
+    d = at_dist(mask)
+    wob = (pnoise(8, 410 + seed) - 0.5) * 3.0  # same seamless field in every tile: bands wobble, edges join
+    db = d + wob * np.clip(1.0 - np.abs(d) / 22.0, 0.0, 1.0)
+    rgb = np.zeros((T, T, 3), np.uint8)
+    alpha = np.zeros((T, T), np.uint8)
+    up = np.array(ground_tile(AT_UP[pair], 3 + seed))
+    low = np.array(ground_tile(ground, 5 + seed))
+    land = db <= 0.0
+    rgb[land] = low[land, :3]
+    land_a = np.where(db > -7.0, 255, at_cover((-db - 7.0) / 4.0))
+    alpha[land] = land_a[land]
+    upper = db > 0.0
+    if pair == "water":
+        rgb[upper] = up[upper, :3]
+        alpha[upper] = at_cover((12.5 - db) / 3.0)[upper]
+        for lo, hi, c in WATER_BANDS:
+            band = (db > lo) & (db <= hi) & upper
+            rgb[band] = c[:3]
+            alpha[band] = at_cover((12.5 - db) / 3.0)[band] if lo >= 9.0 else 255
+        rim = (db > -1.3) & land  # dark waterline on the land side
+        rgb[rim] = (rgb[rim].astype(np.float32) * 0.78).astype(np.uint8)
+    else:  # rock: opaque rock, dithered soft edge creeping onto the lower ground as the old per-tile overlay did
+        rgb[upper] = up[upper, :3]
+        alpha[upper] = at_cover((11.0 - db) / 3.0)[upper]
+        creep = land & (db > -8.0)
+        a = at_cover(-db / 8.0)
+        rgb[creep] = np.where((a[creep] == 255)[:, None], up[creep, :3], rgb[creep])
+        alpha[creep] = np.maximum(alpha[creep], a[creep])
+    out = np.dstack([rgb, alpha])
+    return Image.fromarray(out, "RGBA")
+
+
+def export_autotiles(manifest):
+    manifest["autotiles"] = {}
+    for pair, grounds in AUTOTILE_PAIRS.items():
+        files = {}
+        for gi, g in enumerate(grounds):
+            tiles = [at_tile(m, pair, g, gi * 13 + 120) for m in range(16)]
+            im, _ = pack_atlas(tiles, 4)
+            rel = f"terrain/{'shore' if pair == 'water' else 'rockedge'}_{g}.png"
+            save(im, OUT / rel)
+            files[g] = rel
+        manifest["autotiles"][pair] = {"grounds": grounds, "files": files, "cols": 4, "rows": 4}
 
 
 # ------------------------------------------------------------------ blight and fouling (soft tile states)
@@ -889,6 +957,7 @@ def main():
     export_icons(manifest)
     export_terrain(manifest)
     export_overlays(manifest)
+    export_autotiles(manifest)
     export_states(manifest)
     export_roads(manifest)
     export_sites(manifest)

@@ -1,13 +1,18 @@
 class_name MapView
 extends Node2D
-## Draws a MapState: terrain base layer, soft transition overlays, y-sorted trees/boulders with shadows, and a
-## region overlay (dimmed locked regions, thin borders). Art comes from ArtLibrary only. Reads the sim only.
+## Draws a MapState: terrain base layer, soft ground blends, the water and rock dual-grid edges, y-sorted
+## trees/boulders with shadows, and a region overlay (dimmed locked regions, thin borders). Art comes from
+## ArtLibrary only. Reads the sim only.
 ##
-## Child order (back to front): Base, one overlay layer per ground (Shade, the broad tonal patches, sits after the
-## soil one), Roads (filled by PlacementView), Shadows, Objects (y-sorted: props and
-## buildings share it), Fx (glows, smoke), region overlay.
+## Child order (back to front): Base, the forest and soil blend layers, Shore and RockEdge (dual grid, half a tile
+## shifted), Shade (broad tonal patches), the vein blend layer, Roads (filled by PlacementView), Shadows, Objects
+## (y-sorted: props and buildings share it), Fx (glows, smoke), region overlay.
 
 const TILE := ArtLibrary.TILE
+## Dual-grid layers sit on map corners: the cell is drawn half a tile up-left of the corner it belongs to.
+const DUAL_SHIFT := Vector2(-TILE / 2.0, -TILE / 2.0)
+## The four map tiles around a corner, in the atlas bit order: TL=1, TR=2, BR=4, BL=8.
+const DUAL_CORNERS := [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(0, 0), Vector2i(-1, 0)]
 
 var map: MapState
 var roads: TileMapLayer
@@ -15,6 +20,8 @@ var shadows: Node2D
 var objects: Node2D
 var fx: Node2D
 var _base: TileMapLayer
+var _shore: TileMapLayer     # water/land dual grid
+var _rock_edge: TileMapLayer  # rock/land dual grid
 var _blight: TileMapLayer  # blighted ground tint, over the ground blends
 var _fouled: TileMapLayer  # fouled river tiles
 var _shade: Sprite2D
@@ -52,20 +59,22 @@ func setup(m: MapState) -> void:
 	for id in map.terrain_ids:
 		ground.append(ArtLibrary.ground_of(id) if ArtLibrary.has_terrain(id) else "grass")
 	var overlays := {}
+	# Ground blends first (forest and soil), then the water/rock dual-grid edges, then the broad meadow shade
+	# (so the shore's land band is shaded like the meadow around it), then the vein edges on top of the rock.
+	for g in ["forest", "soil"]:
+		if ArtLibrary.overlay_grounds().has(g):
+			overlays[g] = _overlay_layer(g)
+	_shore = _autotile_layer("Shore", "water")
+	_rock_edge = _autotile_layer("RockEdge", "rock")
+	_shade = Sprite2D.new()  # tonal patches over the ground blends but under the vein and sky edges
+	_shade.name = "Shade"
+	_shade.centered = false
+	_shade.scale = Vector2(TILE, TILE)
+	_shade.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	add_child(_shade)
 	for g in ArtLibrary.overlay_grounds():
-		var layer := TileMapLayer.new()
-		layer.name = "Overlay_" + g
-		layer.tile_set = ArtLibrary.overlay_tileset(g)
-		layer.rendering_quadrant_size = 16
-		add_child(layer)
-		overlays[g] = layer
-		if g == "soil":  # tonal patches sit over the ground blends but under rock, vein and sky edges
-			_shade = Sprite2D.new()
-			_shade.name = "Shade"
-			_shade.centered = false
-			_shade.scale = Vector2(TILE, TILE)
-			_shade.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-			add_child(_shade)
+		if not overlays.has(g):
+			overlays[g] = _overlay_layer(g)
 	_blight = _state_layer("Blight", "blight")
 	_fouled = _state_layer("Fouled", "fouled")
 	roads = TileMapLayer.new()
@@ -90,6 +99,25 @@ func setup(m: MapState) -> void:
 	_overlay = RegionOverlay.new()
 	_overlay.map = map
 	add_child(_overlay)
+
+
+func _overlay_layer(ground: String) -> TileMapLayer:
+	var layer := TileMapLayer.new()
+	layer.name = "Overlay_" + ground
+	layer.tile_set = ArtLibrary.overlay_tileset(ground)
+	layer.rendering_quadrant_size = 16
+	add_child(layer)
+	return layer
+
+
+func _autotile_layer(layer_name: String, pair: String) -> TileMapLayer:
+	var layer := TileMapLayer.new()
+	layer.name = layer_name
+	layer.tile_set = ArtLibrary.autotile_tileset(pair)
+	layer.rendering_quadrant_size = 16
+	layer.position = DUAL_SHIFT
+	add_child(layer)
+	return layer
 
 
 func _state_layer(layer_name: String, state: String) -> TileMapLayer:
@@ -172,6 +200,9 @@ func _fill() -> void:
 			_paint_overlays(x, y)
 			_paint_state(x, y)
 			_add_props(map.terrain_id_at(x, y), x, y)
+	for j in MapState.HEIGHT + 1:
+		for i in MapState.WIDTH + 1:
+			_paint_dual(i, j)
 
 
 func _paint_base(x: int, y: int) -> void:
@@ -191,7 +222,7 @@ func _paint_overlays(x: int, y: int) -> void:
 	for g in ArtLibrary.overlay_grounds():
 		var layer: TileMapLayer = _overlays[g]
 		layer.erase_cell(Vector2i(x, y))
-		if ArtLibrary.ground_rank(g) <= rank:
+		if here == "water" or ArtLibrary.ground_rank(g) <= rank:  # water shores come from the dual grid
 			continue
 		var mask := 0
 		for i in 8:
@@ -200,13 +231,49 @@ func _paint_overlays(x: int, y: int) -> void:
 			if MapState.in_bounds(nx, ny) and _ground_at(nx, ny) == g:
 				mask |= 1 << i
 		if mask != 0:
-			var c := ArtLibrary.overlay_coords(mask, here == "water", ArtLibrary.tile_hash(map.seed_used + 3, x, y))
+			var c := ArtLibrary.overlay_coords(mask, ArtLibrary.tile_hash(map.seed_used + 3, x, y))
 			if c.x >= 0:
 				layer.set_cell(Vector2i(x, y), 0, c)
 
 
+## Draw the water/land and rock/land dual cells around the map corner (i, j): each looks at the four map tiles
+## that meet there and picks the atlas by the highest lower ground among them.
+func _paint_dual(i: int, j: int) -> void:
+	_paint_dual_pair(_shore, "water", i, j)
+	_paint_dual_pair(_rock_edge, "rock", i, j)
+
+
+func _paint_dual_pair(layer: TileMapLayer, pair: String, i: int, j: int) -> void:
+	var cell := Vector2i(i, j)
+	layer.erase_cell(cell)
+	var mask := 0
+	var ground := ""
+	var ground_rank := -1
+	for k in 4:
+		var p: Vector2i = cell + DUAL_CORNERS[k]
+		if not MapState.in_bounds(p.x, p.y):
+			return  # the map border keeps its plain tile edge
+		var g := _ground_at(p.x, p.y)
+		if g == pair:
+			mask |= 1 << k
+			continue
+		var r := ArtLibrary.ground_rank(g)
+		# Water owns every shore (it draws rock onto water); a ground above rock (vein, sky) owns its own edge.
+		if pair == "rock" and (g == "water" or r >= ArtLibrary.ground_rank("rock")):
+			return
+		if r > ground_rank:
+			ground_rank = r
+			ground = g
+	if mask == 0 or mask == 15 or ground == "":
+		return
+	var src := ArtLibrary.autotile_source(pair, ground)
+	if src < 0:
+		return
+	layer.set_cell(cell, src, ArtLibrary.autotile_coords(mask))
+
+
 ## Redraw one tile after its terrain changed (Settlement event terrain_changed): base cell, the overlays of the
-## tile and its 8 neighbours, and the tile's props (trees go, stump appears).
+## tile and its 8 neighbours, the 4 dual cells at its corners, and the tile's props (trees go, stump appears).
 func refresh_tile(tile: Vector2i) -> void:
 	if map == null or not MapState.in_bounds(tile.x, tile.y):
 		return
@@ -219,6 +286,9 @@ func refresh_tile(tile: Vector2i) -> void:
 			var n := tile + Vector2i(dx, dy)
 			if MapState.in_bounds(n.x, n.y):
 				_paint_overlays(n.x, n.y)
+	for dy in 2:
+		for dx in 2:
+			_paint_dual(tile.x + dx, tile.y + dy)
 	for n in _props.get(tile, []):
 		(n as Node).queue_free()
 	_props.erase(tile)

@@ -85,9 +85,10 @@ func test_picks_do_not_touch_rng_state() -> void:
 
 func test_edge_masks_exist_and_stumps_are_forest_floor() -> void:
 	var m := ArtLibrary.manifest()
-	for g in ["forest", "soil", "rock"]:
-		assert_true(m["overlays"].has(g), "overlay atlas for %s" % g)
-		assert_true(FileAccess.file_exists(ArtLibrary.ROOT + m["overlays"][g]), g)
+	for g in ArtLibrary.overlay_grounds():
+		assert_true(FileAccess.file_exists(ArtLibrary.ROOT + m["overlays"][g]), "overlay atlas for %s" % g)
+	assert_false(m["overlays"].has("rock"), "rock edges come from the dual grid now")
+	assert_false(m["overlays"].has("water"), "water shores come from the dual grid now")
 	assert_eq(ArtLibrary.ground_of("stump"), "forest", "felled tiles read as forest floor")
 	var used := {}
 	for mask in 256:
@@ -244,8 +245,31 @@ func _border_has_edge(ground_hi: String, layer_name: String) -> int:
 	return checked
 
 
-func test_rock_borders_use_soft_edge_tiles() -> void:
-	assert_gt(_border_has_edge("rock", "Overlay_rock"), 0, "map has a rock/grass border")
+func test_rock_borders_use_dual_grid_cells() -> void:
+	var v := _mapview()
+	var rock := v.get_node("RockEdge") as TileMapLayer
+	var rock_ground := ArtLibrary.ground_rank("rock")
+	var checked := 0
+	var bad: Array[String] = []
+	for j in range(1, MapState.HEIGHT):
+		for i in range(1, MapState.WIDTH):
+			var corner := Vector2i(i, j)
+			var mask := 0
+			var blocked := false
+			for k in 4:
+				var p: Vector2i = corner + MapView.DUAL_CORNERS[k]
+				var g := ArtLibrary.ground_of(v.map.terrain_id_at(p.x, p.y))
+				if g == "rock":
+					mask |= 1 << k
+				elif g == "water" or ArtLibrary.ground_rank(g) > rock_ground:
+					blocked = true
+			if blocked or mask == 0 or mask == 15:
+				continue
+			if rock.get_cell_atlas_coords(corner) != ArtLibrary.autotile_coords(mask):
+				bad.append(str(corner))
+			checked += 1
+	assert_eq(bad.size(), 0, "rock corners with the wrong tile: %s" % [bad.slice(0, 8)])
+	assert_gt(checked, 20, "map has a rock/grass border")
 
 
 func test_vein_borders_use_soft_edge_tiles() -> void:
@@ -254,13 +278,13 @@ func test_vein_borders_use_soft_edge_tiles() -> void:
 	_border_has_edge("vein", "Overlay_vein")
 
 
-func test_rock_and_vein_edges_are_wide_dithers() -> void:
-	# soft outline: the edge tile of rock/vein must have partial coverage deep into the neighbour tile
-	for g in ["rock", "vein"]:
+func test_vein_edges_are_wide_dithers() -> void:
+	# soft outline: the edge tile of vein must have partial coverage deep into the neighbour tile
+	for g in ["vein"]:
 		var img := ArtLibrary.texture(ArtLibrary.manifest()["overlays"][g]).get_image()
 		var mask := 4  # east neighbour only
 		var idx := int(ArtLibrary.manifest()["overlay_index"][mask])
-		var c := ArtLibrary.overlay_coords(mask, false)
+		var c := ArtLibrary.overlay_coords(mask)
 		assert_eq(idx, c.y * 8 + c.x)
 		var covered := 0
 		var clear := 0
@@ -277,7 +301,7 @@ func test_rock_and_vein_edges_are_wide_dithers() -> void:
 func test_overlay_variants_exist_and_are_picked_by_hash() -> void:
 	var n := int(ArtLibrary.manifest()["overlay_variants"])
 	assert_gte(n, 2)
-	assert_ne(ArtLibrary.overlay_coords(4, false, 0), ArtLibrary.overlay_coords(4, false, 1))
+	assert_ne(ArtLibrary.overlay_coords(4, 0), ArtLibrary.overlay_coords(4, 1))
 
 
 func test_forest_edge_trees_jitter_and_thin_deterministically() -> void:
@@ -397,3 +421,157 @@ func test_refresh_tile_keeps_props_off_roads() -> void:
 	view.refresh_tile(t)
 	for n in view._props.get(t, []):
 		assert_false((n as CanvasItem).visible)
+
+
+# ---------------------------------------------------------------- shore and rock autotiles (ticket 54)
+
+func _autotile_region(pair: String, ground: String, mask: int) -> Image:
+	var img := ArtLibrary.texture(ArtLibrary.manifest()["autotiles"][pair]["files"][ground]).get_image()
+	var c := ArtLibrary.autotile_coords(mask)
+	return img.get_region(Rect2i(c * ArtLibrary.TILE, Vector2i(ArtLibrary.TILE, ArtLibrary.TILE)))
+
+
+## Mean colour of a square block inside a dual tile.
+func _block(img: Image, x: int, y: int, n: int = 4) -> Color:
+	var acc := Color(0, 0, 0, 0)
+	for py in range(y, y + n):
+		for px in range(x, x + n):
+			acc += img.get_pixel(px, py)
+	return acc * (1.0 / float(n * n))
+
+
+func _is_water(c: Color) -> bool:
+	return c.b > c.g and c.b > c.r  # every lake band leans blue; grass, soil, forest and bank browns do not
+
+
+func _is_rock(c: Color) -> bool:
+	var hi := maxf(c.r, maxf(c.g, c.b))
+	var lo := minf(c.r, minf(c.g, c.b))
+	return hi - lo < 0.08 and c.b >= c.g - 0.01  # neutral grey slate
+
+
+func test_autotile_pairs_cover_water_and_rock() -> void:
+	assert_eq(ArtLibrary.autotile_pairs(), ["rock", "water"] as Array[String])
+	assert_eq(ArtLibrary.autotile_grounds("water"), ["grass", "forest", "soil", "rock", "vein", "sky"])
+	assert_eq(ArtLibrary.autotile_grounds("rock"), ["grass", "forest", "soil"])
+	assert_eq(ArtLibrary.autotile_source("water", "forest"), 1)
+	assert_eq(ArtLibrary.autotile_source("rock", "vein"), -1, "vein is not a lower ground of rock")
+
+
+func test_every_corner_configuration_has_an_atlas_region() -> void:
+	for pair in ArtLibrary.autotile_pairs():
+		var ts := ArtLibrary.autotile_tileset(pair)
+		var grounds: Array = ArtLibrary.autotile_grounds(pair)
+		assert_eq(ts.get_source_count(), grounds.size(), "%s has one atlas per lower ground" % pair)
+		for gi in grounds.size():
+			var src := ts.get_source(gi) as TileSetAtlasSource
+			assert_not_null(src, "%s/%s source" % [pair, grounds[gi]])
+			assert_eq(ArtLibrary.autotile_source(pair, grounds[gi]), gi)
+			var img := src.texture.get_image()
+			assert_eq(img.get_size(), Vector2i(4 * ArtLibrary.TILE, 4 * ArtLibrary.TILE), "%s atlas size" % pair)
+			for mask in range(1, 15):  # 0 and 15 have no edge and are never drawn
+				var c := ArtLibrary.autotile_coords(mask)
+				assert_eq(c, Vector2i(mask % 4, mask / 4), "mask %d coords" % mask)
+				assert_true(src.has_tile(c), "%s/%s mask %d has a tile" % [pair, grounds[gi], mask])
+				assert_false(img.get_region(Rect2i(c * ArtLibrary.TILE, Vector2i(ArtLibrary.TILE, ArtLibrary.TILE))).is_invisible(),
+						"%s/%s mask %d is drawn" % [pair, grounds[gi], mask])
+
+
+func test_lone_corner_is_a_round_lobe_not_a_square() -> void:
+	# mask 1: only the top-left map tile is upper ground, so the lobe is the quarter disc around the dual cell corner
+	var tile := _autotile_region("water", "grass", 1)
+	assert_true(_is_water(_block(tile, 2, 2)), "around the corner is water")
+	assert_true(_is_water(_block(tile, 6, 6)), "10 px out on the diagonal still water")
+	assert_true(_is_water(_block(tile, 2, 8)), "10 px out along the left edge still water")
+	assert_true(_is_water(_block(tile, 8, 2)), "10 px out along the top edge still water")
+	assert_false(_is_water(_block(tile, 13, 13)), "the diagonal is land: the disc is round, not a square")
+	assert_false(_is_water(_block(tile, 24, 24)), "the far corner is land")
+	var rock := _autotile_region("rock", "grass", 1)
+	assert_true(_is_rock(_block(rock, 2, 2)), "rock at the corner")
+	assert_false(_is_rock(_block(rock, 24, 24)), "grass at the far corner")
+
+
+func test_diagonal_shore_connects_instead_of_pinching() -> void:
+	# mask 5: water at the top-left and bottom-right corners. A stair-step autotile pinches the diagonal to a
+	# point; the saddle shape keeps the water joined through the middle of the dual cell.
+	for mask in [5, 10]:
+		var t := _autotile_region("water", "forest", mask)
+		assert_true(_is_water(_block(t, 14, 14)), "mask %d keeps the diagonal connected" % mask)
+	# mask 10: the top-right and bottom-left map tiles are water, the other two are land lobes
+	var ten := _autotile_region("water", "forest", 10)
+	assert_false(_is_water(_block(ten, 24, 24)), "mask 10 land at the bottom-right")
+	assert_false(_is_water(_block(ten, 2, 2)), "mask 10 land at the top-left")
+
+
+func test_shore_and_rock_are_one_shifted_layer_per_pair() -> void:
+	var v := _mapview()
+	var shore := v.get_node("Shore") as TileMapLayer
+	var rock := v.get_node("RockEdge") as TileMapLayer
+	assert_not_null(shore, "one Shore layer")
+	assert_not_null(rock, "one RockEdge layer")
+	assert_null(v.get_node_or_null("Overlay_rock"), "no per-tile rock bank layer")
+	for layer in [shore, rock]:
+		assert_eq(layer.position, Vector2(-ArtLibrary.TILE / 2.0, -ArtLibrary.TILE / 2.0), "drawn on corners")
+		assert_eq(layer.get_child_count(), 0, "batched: no per-cell sprite nodes")
+		assert_eq(layer.tile_set.tile_size, Vector2i(ArtLibrary.TILE, ArtLibrary.TILE))
+
+
+func _clear_grass(v: MapView, radius: int) -> Vector2i:
+	for y in range(radius + 1, MapState.HEIGHT - radius - 1):
+		for x in range(radius + 1, MapState.WIDTH - radius - 1):
+			var clear := true
+			for dy in range(-radius, radius + 1):
+				for dx in range(-radius, radius + 1):
+					if v.map.terrain_id_at(x + dx, y + dy) != "grass":
+						clear = false
+			if clear:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
+func test_shore_cells_match_the_four_corners_of_each_map_corner() -> void:
+	var v := _mapview()
+	var shore := v.get_node("Shore") as TileMapLayer
+	var checked := 0
+	var bad: Array[String] = []
+	for j in range(1, MapState.HEIGHT):
+		for i in range(1, MapState.WIDTH):
+			var corner := Vector2i(i, j)
+			var mask := 0
+			for k in 4:
+				var p: Vector2i = corner + MapView.DUAL_CORNERS[k]
+				if ArtLibrary.ground_of(v.map.terrain_id_at(p.x, p.y)) == "water":
+					mask |= 1 << k
+			if mask == 0 or mask == 15:
+				if shore.get_cell_source_id(corner) != -1:
+					bad.append("%s should be empty" % corner)
+			else:
+				if shore.get_cell_atlas_coords(corner) != ArtLibrary.autotile_coords(mask):
+					bad.append("%s wrong tile" % corner)
+				checked += 1
+	assert_eq(bad.size(), 0, "shore corners: %s" % [bad.slice(0, 8)])
+	assert_gt(checked, 100, "the map has a long shore")
+
+
+func test_refresh_tile_updates_the_four_dual_cells_around_it() -> void:
+	var v := _mapview()
+	var shore := v.get_node("Shore") as TileMapLayer
+	var spot := _clear_grass(v, 2)
+	assert_true(spot.x >= 0, "found open grass")
+	var corner_cells := [spot, spot + Vector2i(1, 0), spot + Vector2i(0, 1), spot + Vector2i(1, 1)]
+	for c in corner_cells:
+		assert_eq(shore.get_cell_source_id(c), -1, "no shore at %s before" % c)
+	var untouched := spot + Vector2i(3, 3)  # not one of the four corners of the changed tile
+	var before_src := shore.get_cell_source_id(untouched)
+	var before_coords := shore.get_cell_atlas_coords(untouched)
+	v.map.set_terrain(spot.x, spot.y, v.map.terrain_index("water"))
+	v.refresh_tile(spot)
+	var expected := [4, 8, 2, 1]  # the new water tile is the BR, BL, TR and TL quadrant of the four corners
+	for i in 4:
+		var mask: int = expected[i]
+		assert_ne(shore.get_cell_source_id(corner_cells[i]), -1, "dual cell %s updated" % corner_cells[i])
+		assert_eq(shore.get_cell_atlas_coords(corner_cells[i]), ArtLibrary.autotile_coords(mask),
+				"mask at %s" % corner_cells[i])
+	assert_eq(shore.get_cell_source_id(untouched), before_src, "far cells untouched")
+	assert_eq(shore.get_cell_atlas_coords(untouched), before_coords, "far tile unchanged")
+	assert_eq(shore.get_cell_atlas_coords(spot), ArtLibrary.autotile_coords(4))
