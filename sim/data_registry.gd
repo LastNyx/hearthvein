@@ -19,6 +19,7 @@ var forest: ForestDef = null  # the single data/forest/forest.tres
 var water: WaterDef = null    # the single data/water/water.tres
 var regions: RegionsDef = null  # the single data/regions/regions.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
+var tiers: TierRuleDef = null       # the single data/tiers/tiers.tres (upgrade tier default rule)
 var errors: Array[String] = []
 
 
@@ -39,6 +40,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	water = null
 	regions = null
 	mapgen = null
+	tiers = null
 	errors.clear()
 	for path in _scan(root):
 		_index(path)
@@ -162,6 +164,10 @@ func _index(path: String) -> void:
 		if mapgen != null:
 			errors.append("%s: a second mapgen definition" % path)
 		mapgen = res
+	elif res is TierRuleDef:
+		if tiers != null:
+			errors.append("%s: a second tier rule definition" % path)
+		tiers = res
 	elif res is RoadDef:
 		_add(roads, res.id, res, path, "road")
 	else:
@@ -262,6 +268,7 @@ func _validate() -> void:
 			errors.append("regions: ruins_gold must not be negative")
 		_check_amounts(regions.ruins_goods, "regions ruins goods", false)
 	_validate_mapgen()
+	_validate_tiers()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():
 		_validate_building(b)
@@ -284,6 +291,32 @@ func _validate_mapgen() -> void:
 	if m.lake_radius_min <= 0.0 or m.lake_radius_max < m.lake_radius_min or m.pond_radius_min <= 0.0 \
 			or m.pond_radius_max < m.pond_radius_min:
 		errors.append("mapgen: lake/pond radii out of range")
+
+
+func _validate_tiers() -> void:
+	if tiers == null:
+		if not goods.is_empty():
+			errors.append("missing tier rule definition")
+		return
+	var t := tiers
+	if t.eras.size() != 2 or t.output_factors.size() != 2 or t.extra_worker_slots.size() != 2 \
+			or t.cost_fractions.size() != 2:
+		errors.append("tiers: eras, output_factors, extra_worker_slots and cost_fractions need one entry per tier (II, III)")
+		return
+	for e in t.eras:
+		if e != "" and not eras.has(e):
+			errors.append("tiers: unknown era '%s'" % e)
+	for f in t.output_factors:
+		if f <= 0.0:
+			errors.append("tiers: output factors must be positive")
+	for n in t.extra_worker_slots:
+		if n < 0:
+			errors.append("tiers: extra worker slots must not be negative")
+	for i in t.cost_fractions.size():
+		_check_amounts(t.cost_fractions[i], "tiers tier %d cost fraction" % (i + 2), false)
+		for g in t.cost_fractions[i]:
+			if float(t.cost_fractions[i][g]) > 1.0:
+				errors.append("tiers: cost fraction for '%s' must be at most 1" % g)
 
 
 func _validate_eras() -> void:
@@ -383,6 +416,11 @@ func _validate_building(b: BuildingDef) -> void:
 			errors.append("%s: null tier" % who)
 		else:
 			_check_amounts(t.cost, "%s tier '%s' cost" % [who, t.display_name], true)
+			if t.multiplier < 0.0:
+				errors.append("%s: tier '%s' multiplier must not be negative" % [who, t.display_name])
+			if t.extra_worker_slots < -1:
+				errors.append("%s: tier '%s' extra worker slots must be -1 (default) or more"
+						% [who, t.display_name])
 
 
 func _check_amounts(d: Dictionary, label: String, whole: bool) -> void:

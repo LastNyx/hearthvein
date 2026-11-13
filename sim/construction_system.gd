@@ -7,7 +7,11 @@ extends SimSystem
 ## of the Hearth (4) or a Builder's Yard (BuildingDef.builder_slots) that JobSystem fills automatically; slots only
 ## open while ready sites exist (crew size per site).
 ##
-## During the work shift (WalkerSystem 06-18) builders are spread over ready sites in site order, up to
+## In-place upgrades (design.md section 10) are worked the same way: once the tier's cost is delivered, builders work
+## Building.upgrade_work while the building keeps running at its old tier; completion calls Settlement.complete_upgrade.
+## Both kinds are "works" below; sites sort before upgrades at the same priority (they still take a spot in the world).
+##
+## During the work shift (WalkerSystem 06-18) builders are spread over ready works in site order, up to
 ## LogisticsDef.builder_crew per site; site order is priority high, normal, low, then lowest id (paused sites get
 ## nobody). So the highest-priority site gets builders first. Each builder is a controlled walker sent to the
 ## site's door. Work counts only while a builder stands at the site door (not walking), pro-rated over time like
@@ -30,26 +34,40 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	crews = SaveGame.unpairs(d["crews"])
 
 
-## Sites with the whole cost delivered and not paused, best first (priority, then id).
-static func ready_sites(s: Settlement) -> Array[Building]:
+## True when a building is a work item: a construction site or an in-place upgrade whose whole cost has arrived.
+static func is_ready(b: Building) -> bool:
+	if b.paused:
+		return false
+	if b.site:
+		return b.site_delivered()
+	return b.upgrading() and b.upgrade_delivered()
+
+
+## Sites and upgrades with the whole cost delivered and not paused, best first (priority, then id; a site before an
+## upgrade of the same priority).
+static func ready_works(s: Settlement) -> Array[Building]:
 	var out: Array[Building] = []
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
-		if b.site and not b.paused and b.site_delivered():
+		if is_ready(b):
 			out.append(b)
 	if out.is_empty():
 		return out
 	out.sort_custom(func(a: Building, b: Building) -> bool:
 		var pa := JobSystem.PRIORITY_ORDER.find(a.priority)
 		var pb := JobSystem.PRIORITY_ORDER.find(b.priority)
-		return pa < pb if pa != pb else a.id < b.id)
+		if pa != pb:
+			return pa < pb
+		if a.site != b.site:
+			return a.site
+		return a.id < b.id)
 	return out
 
 
 static func builders_wanted(s: Settlement) -> int:
 	if s.registry.logistics == null:
 		return 0
-	return ready_sites(s).size() * s.registry.logistics.builder_crew
+	return ready_works(s).size() * s.registry.logistics.builder_crew
 
 
 func on_seconds(s: Settlement, seconds: float) -> void:
@@ -68,7 +86,7 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var wanted := {}  # citizen id -> site
 	var sites: Array[Building] = []
 	if in_shift:
-		sites = ready_sites(s)
+		sites = ready_works(s)
 	var i := 0
 	for site in sites:
 		for k in s.registry.logistics.builder_crew:
@@ -95,16 +113,25 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 			work[site.id] = work.get(site.id, 0.0) + seconds / shift * SpiritSystem.work_multiplier(s)
 	var done: Array[Building] = []
 	for sid in work:
-		var site: Building = s.buildings[sid]
-		site.build_work += work[sid]
-		if site.build_work >= site.build_work_needed - Inventory.EPS:
-			done.append(site)
-	for site in done:
-		site.build_work = site.build_work_needed
+		var b: Building = s.buildings[sid]
+		if b.upgrading():
+			b.upgrade_work += work[sid]
+			if b.upgrade_work >= b.upgrade_work_needed - Inventory.EPS:
+				done.append(b)
+		else:
+			b.build_work += work[sid]
+			if b.build_work >= b.build_work_needed - Inventory.EPS:
+				done.append(b)
+	for b in done:
 		for cid in crews.keys():
-			if crews[cid] == site.id:
+			if crews[cid] == b.id:
 				_release(s, ws, cid, in_shift)
-		s.complete_site(site)
+		if b.upgrading():
+			b.upgrade_work = b.upgrade_work_needed
+			s.complete_upgrade(b)
+		else:
+			b.build_work = b.build_work_needed
+			s.complete_site(b)
 
 
 ## Hand the builder back to the schedule (walk home, or to the Hearth when homeless).

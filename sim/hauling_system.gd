@@ -30,7 +30,8 @@ class Trip extends RefCounted:
 	var src: int = -1
 	var src_door: bool = true  # true: producer door buffer, false: storage inventory
 	var dst: int = -1
-	var dst_input: bool = false  # true: consumer input buffer, false: storage inventory
+	var dst_input: bool = false  # true: a building buffer (input or upgrade), false: storage inventory
+	var dst_upgrade: bool = false  # true: the destination's upgrade buffer rather than its input buffer
 	var planned: float = 0.0
 	var carried: float = 0.0
 	var picked_up: bool = false
@@ -38,7 +39,8 @@ class Trip extends RefCounted:
 	func to_dict() -> Dictionary:
 		return {
 			"citizen_id": citizen_id, "good": good, "src": src, "src_door": src_door, "dst": dst,
-			"dst_input": dst_input, "planned": planned, "carried": carried, "picked_up": picked_up,
+			"dst_input": dst_input, "dst_upgrade": dst_upgrade, "planned": planned, "carried": carried,
+			"picked_up": picked_up,
 		}
 
 	static func from_dict(d: Dictionary) -> Trip:
@@ -49,6 +51,7 @@ class Trip extends RefCounted:
 		t.src_door = bool(d["src_door"])
 		t.dst = int(d["dst"])
 		t.dst_input = bool(d["dst_input"])
+		t.dst_upgrade = bool(d.get("dst_upgrade", false))
 		t.planned = float(d["planned"])
 		t.carried = float(d["carried"])
 		t.picked_up = bool(d["picked_up"])
@@ -82,7 +85,9 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 	return out
 
 
-## What a consumer should hold: a site's full cost (gold is paid on placement), else input_need of its def.
+## What a consumer or work item should hold: a site's full cost (gold is paid on placement), else input_need.
+## An upgrading building needs its normal production inputs too; the upgrade cost is a separate buffer and trip
+## target (upgrade_need), so the two never starve each other.
 static func need_of(reg: DataRegistry, b: Building) -> Dictionary:
 	if not b.site:
 		return input_need(reg, b.def)
@@ -91,6 +96,11 @@ static func need_of(reg: DataRegistry, b: Building) -> Dictionary:
 		if g != BuildingDef.GOLD:
 			out[g] = float(b.def.cost[g])
 	return out
+
+
+## What an in-place upgrade still needs in Building.upgrade_buffer: its whole tier cost.
+static func upgrade_need(b: Building) -> Dictionary:
+	return b.upgrade_cost if b.upgrading() else {}
 
 
 ## Trips in flight (with their walkers) and the reservations they hold. A trip is mid-walk, mid-carry or waiting for a
@@ -284,21 +294,36 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 			best_avail = avail
 	if best != null:
 		return best
-	# 2. storage -> consumer input buffers.
+	# 2. storage -> consumer input buffers and in-place upgrade buffers.
 	for id in ids:
 		var b: Building = s.buildings[id]
-		if b.input_buffer == null:
+		var t := _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
+		if t != null:
+			return t
+		if b.upgrading():
+			t = _plan_for_need(s, ws, b, b.upgrade_buffer, upgrade_need(b), true, load_cap)
+			if t != null:
+				return t
+	return null
+
+
+## One trip toward a buffer's deficit of `need`, or null. Upgrade deliveries reserve under their own kind "u", so a
+## production input of the same good can never collide with an upgrade cost.
+func _plan_for_need(s: Settlement, ws: WalkerSystem, b: Building, buf: Inventory, need: Dictionary,
+		upgrade: bool, load_cap: float) -> Trip:
+	if buf == null:
+		return null
+	var lg := s.registry.logistics
+	var kind := "u" if upgrade else "i"
+	for g in need:
+		var deficit: float = float(need[g]) - buf.amount_of(g) - _res(kind, b.id, g)
+		if deficit < lg.min_pickup - Inventory.EPS:
 			continue
-		var need := need_of(s.registry, b)
-		for g in need:
-			var deficit: float = need[g] - b.input_buffer.amount_of(g) - _res("i", b.id, g)
-			if deficit < lg.min_pickup - Inventory.EPS:
-				continue
-			var src := _nearest_source(s, ws, b, g, lg.min_pickup)
-			if src == null:
-				continue
-			var avail := src.inventory.amount_of(g) - _res("s", src.id, g)
-			return _trip(g, src.id, false, b.id, true, minf(load_cap, minf(deficit, avail)))
+		var src := _nearest_source(s, ws, b, g, lg.min_pickup)
+		if src == null:
+			continue
+		var avail := src.inventory.amount_of(g) - _res("s", src.id, g)
+		return _trip(g, src.id, false, b.id, true, minf(load_cap, minf(deficit, avail)), upgrade)
 	return null
 
 
@@ -316,15 +341,24 @@ func _nearest_source(s: Settlement, ws: WalkerSystem, consumer: Building, good: 
 	return best
 
 
-func _trip(good: String, src: int, src_door: bool, dst: int, dst_input: bool, load: float) -> Trip:
+func _trip(good: String, src: int, src_door: bool, dst: int, dst_input: bool, load: float,
+		dst_upgrade: bool = false) -> Trip:
 	var t := Trip.new()
 	t.good = good
 	t.src = src
 	t.src_door = src_door
 	t.dst = dst
 	t.dst_input = dst_input
+	t.dst_upgrade = dst_upgrade
 	t.planned = load
 	return t
+
+
+## Reservation kind of a trip's destination ("u" upgrade buffer, "i" input buffer, "r" storage).
+static func _dst_kind(t: Trip) -> String:
+	if t.dst_upgrade:
+		return "u"
+	return "i" if t.dst_input else "r"
 
 
 # ---------------------------------------------------------------- running a trip
@@ -332,7 +366,7 @@ func _trip(good: String, src: int, src_door: bool, dst: int, dst_input: bool, lo
 func _start(s: Settlement, ws: WalkerSystem, t: Trip) -> void:
 	var cid := t.citizen_id
 	_reserve("d" if t.src_door else "s", t.src, t.good, t.planned)
-	_reserve("i" if t.dst_input else "r", t.dst, t.good, t.planned)
+	_reserve(_dst_kind(t), t.dst, t.good, t.planned)
 	if not ws.walk_to_building(cid, t.src):
 		_abort(s, ws, t)
 
@@ -366,12 +400,12 @@ func _advance(s: Settlement, ws: WalkerSystem, t: Trip, in_shift: bool) -> bool:
 		return true
 	# Drop.
 	var dst: Building = s.buildings[t.dst]
-	var inv: Inventory = dst.input_buffer if t.dst_input else dst.inventory
-	_reserve("i" if t.dst_input else "r", t.dst, t.good, -t.planned)
+	var inv: Inventory = dst.upgrade_buffer if t.dst_upgrade else (dst.input_buffer if t.dst_input else dst.inventory)
+	_reserve(_dst_kind(t), t.dst, t.good, -t.planned)
 	var put := inv.add(t.good, t.carried) if inv != null else 0.0
 	s.events.emit("haul_delivered", {"hauler": cid, "good": t.good, "amount": put, "from": t.src, "to": t.dst})
 	t.carried -= put
-	if dst.site and dst.site_delivered():
+	if (dst.site and dst.site_delivered()) or (dst.upgrading() and dst.upgrade_delivered()):
 		s.refresh_population()  # builders can be allotted now
 	_refund(s, t)
 	trips.erase(cid)
@@ -404,7 +438,7 @@ func _release(s: Settlement, ws: WalkerSystem, cid: int, in_shift: bool) -> void
 func _abort(s: Settlement, ws: WalkerSystem, t: Trip) -> void:
 	if not t.picked_up:
 		_reserve("d" if t.src_door else "s", t.src, t.good, -t.planned)
-	_reserve("i" if t.dst_input else "r", t.dst, t.good, -t.planned)
+	_reserve(_dst_kind(t), t.dst, t.good, -t.planned)
 	_refund(s, t)
 	trips.erase(t.citizen_id)
 	_release(s, ws, t.citizen_id, _in_shift(s))

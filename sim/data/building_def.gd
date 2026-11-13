@@ -6,6 +6,9 @@ const CATEGORIES: Array[String] = [
 	"housing", "food", "materials", "lumen", "refining", "gold",
 	"water", "logistics", "civic", "sky", "landmark",
 ]
+## Categories whose buildings may upgrade in place (design.md section 10). Landmarks, civic, refiners, logistics,
+## water and gold buildings never upgrade, even if their def says upgradable.
+const UPGRADABLE_CATEGORIES: Array[String] = ["housing", "food", "materials", "lumen"]
 ## Known placement rule ids. The real checks come with the placement ticket.
 ##  any: any buildable tile. on_vein / on_rock: on that terrain. shore: next to water.
 ##  wet: any tile of the footprint is wet. on_wet: the origin tile is wet (Well, design.md section 9).

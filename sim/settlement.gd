@@ -681,7 +681,7 @@ func beds_total() -> int:
 	for id in buildings:
 		var b: Building = buildings[id]
 		if not b.site:
-			n += b.def.housing_beds
+			n += b.effective_beds(registry)
 	return n
 
 
@@ -707,6 +707,82 @@ func set_building_priority(building_id: int, priority: String) -> bool:
 	events.emit("building_priority_changed", {"id": building_id, "priority": priority})
 	refresh_population()
 	return true
+
+
+# ---------------------------------------------------------------- upgrade tiers (ticket 31)
+
+## Why a building cannot start an in-place upgrade: {"ok": bool, "reason": String}, shaped like can_pave_road.
+## Reasons: unknown_building, site (still under construction), category (not housing/food/materials/lumen),
+## not_upgradable (the def carries no tiers), in_progress, max_tier, era_locked (tier II needs Town, tier III City;
+## the eras live in data/tiers/tiers.tres).
+func can_upgrade(building_id: int) -> Dictionary:
+	var b: Building = buildings.get(building_id)
+	if b == null:
+		return {"ok": false, "reason": "unknown_building"}
+	if b.site:
+		return {"ok": false, "reason": "site"}
+	if not BuildingDef.UPGRADABLE_CATEGORIES.has(b.def.category):
+		return {"ok": false, "reason": "category"}
+	if not b.def.upgradable or b.def.tiers.is_empty():
+		return {"ok": false, "reason": "not_upgradable"}
+	if b.upgrading():
+		return {"ok": false, "reason": "in_progress"}
+	if b.tier >= 1 + b.def.tiers.size():
+		return {"ok": false, "reason": "max_tier"}
+	if not tier_unlocked(b.tier + 1):
+		return {"ok": false, "reason": "era_locked"}
+	return {"ok": true, "reason": ""}
+
+
+## True when the era required by a tier (TierRuleDef.eras) is the current one or an earlier one.
+func tier_unlocked(tier: int) -> bool:
+	var rule := registry.tiers
+	if rule == null:
+		return true
+	var req_id := rule.era_for(tier)
+	if req_id == "":
+		return true
+	var cur := registry.get_era(era_id())
+	var req := registry.get_era(req_id)
+	return cur == null or req == null or cur.order >= req.order
+
+
+## Command: start an in-place upgrade (design.md section 10). The building keeps its spot, its workers and its
+## current tier; haulers deliver the tier's cost into Building.upgrade_buffer and builders work it like a site
+## (ConstructionSystem), and only on completion does Building.tier move up. False and nothing changed when
+## can_upgrade says no.
+func upgrade(building_id: int) -> bool:
+	if not can_upgrade(building_id)["ok"]:
+		return false
+	var b: Building = buildings[building_id]
+	var target := b.tier + 1
+	var cost := b.tier_cost(registry, target)
+	var cap := 1.0
+	for g in cost:
+		cap = maxf(cap, float(cost[g]))
+	b.upgrade_tier = target
+	b.upgrade_cost = cost
+	b.upgrade_buffer = Inventory.new("per_good", cap)
+	b.upgrade_work = 0.0
+	b.upgrade_work_needed = build_days(b.def) * float(registry.logistics.builder_crew)
+	events.emit("upgrade_started", {"id": b.id, "def": b.def.id, "tier": target, "cost": cost.duplicate()})
+	refresh_population()  # an already-delivered (or free) upgrade must let JobSystem allot builders now
+	return true
+
+
+## Called by ConstructionSystem when the upgrade work is done: the building is now its target tier.
+func complete_upgrade(b: Building) -> void:
+	if not b.upgrading():
+		return
+	b.tier = b.upgrade_tier
+	b.upgrade_tier = 0
+	b.upgrade_cost.clear()
+	b.upgrade_buffer = null
+	b.upgrade_work = 0.0
+	b.upgrade_work_needed = 0.0
+	completion_version += 1
+	events.emit("building_upgraded", {"id": b.id, "def": b.def.id, "tier": b.tier, "origin": b.origin})
+	refresh_population()
 
 
 # ---------------------------------------------------------------- storage
