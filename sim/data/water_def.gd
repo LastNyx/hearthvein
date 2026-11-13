@@ -18,3 +18,7 @@ extends Resource
 @export var foul_spread_tiles_per_hour: int = 1
 ## Hours a fouled tile stays fouled after its source blight is gone (design.md: clears 2 days after the source).
 @export var foul_clear_hours: int = 48
+## Fishing Dock output multiplier when any water tile beside it is fouled (design.md: x0.5).
+@export var foul_dock_output_factor: float = 0.5
+## Farm output multiplier when its wetness comes only from fouled water (design.md: irrigated farms x0.75).
+@export var foul_farm_output_factor: float = 0.75

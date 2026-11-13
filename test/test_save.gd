@@ -80,6 +80,7 @@ const SKIP := {
 	"CoverageSystem._version": "covered-home cache version, rebuilt from the layout",
 	"CoverageSystem._covered": "covered-home set cache, rebuilt from the layout",
 	"CoverageSystem._water": "water-served home set cache, rebuilt from the layout",
+	"CoverageSystem._foul_version": "fouling version the water cache was built for, rebuilt on demand",
 	# EventBus
 	"EventBus._subs": "subscribers are views and UI, attached again after a load",
 }

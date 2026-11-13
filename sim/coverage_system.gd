@@ -13,10 +13,13 @@ extends SimSystem
 ## home. The Spirit "water" factor is -SpiritDef.water_max times the share of housed citizens in homes that need
 ## water and lack it (0 when no home needs water).
 ##
-## Both covered-home sets are cached on structure_version like the Market reach: placing or demolishing a building
-## rebuilds them, nothing else can change them. Pure caches, so they are left out of saves (test_save's SKIP list).
+## A Well standing on a tile wet only from fouled water gives unsafe water (design.md section 9, ticket 29c): it
+## serves nothing, so its homes count as missing water. Fouling changes hourly, so the water set is also keyed on
+## MapState.foul_version; the coverage set never is. Both are pure caches, so they are left out of saves (test_save's
+## SKIP list).
 
 var _version: int = -1
+var _foul_version: int = -1
 var _covered: Dictionary = {}  # home building id -> true when a finished coverage building reaches it
 var _water: Dictionary = {}    # home building id -> true when a finished water building reaches it
 
@@ -114,9 +117,10 @@ static func water_factor(s: Settlement) -> float:
 
 ## Rebuild the covered-home sets when roads or buildings changed (a source or a home placed/demolished).
 func _ensure(s: Settlement) -> void:
-	if _version == s.structure_version:
+	if _version == s.structure_version and _foul_version == s.map.foul_version:
 		return
 	_version = s.structure_version
+	_foul_version = s.map.foul_version
 	_covered.clear()
 	_water.clear()
 	var sources: Array[Building] = []
@@ -138,6 +142,9 @@ func _ensure(s: Settlement) -> void:
 				_covered[h.id] = true
 				break
 		for src in water_sources:
+			# Unsafe water: a source standing on a tile wet only from fouled water serves nothing.
+			if FoulingSystem.wet_only_from_fouled(s, src.origin):
+				continue
 			if building_serves_water(src, h):
 				_water[h.id] = true
 				break

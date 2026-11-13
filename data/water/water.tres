@@ -11,3 +11,5 @@ farm_wet_bonus = 1.25
 channel_cost_materials = 1.0
 foul_spread_tiles_per_hour = 1
 foul_clear_hours = 48
+foul_dock_output_factor = 0.5
+foul_farm_output_factor = 0.75

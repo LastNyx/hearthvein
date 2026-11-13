@@ -143,3 +143,109 @@ func _downstream(s: Settlement, i: int) -> int:
 		return -1
 	var j := MapState.idx(n.x, n.y)
 	return j if s.map.river_flow[j] != 0 else -1
+
+
+# ---------------------------------------------------------------- fouled water effects (ticket 29c)
+
+## True when a tile's wetness comes only from fouled water: no clean water tile within WaterDef.wet_radius_water and
+## no flowing channel within WaterDef.wet_radius_channel, but a fouled water tile within wet_radius_water.
+static func wet_only_from_fouled(s: Settlement, tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return false  # test fixtures put buildings off the map; they stand on no water at all
+	var fs := _system(s)
+	fs._ensure_mask(s)
+	return fs._only_foul[MapState.idx(tile.x, tile.y)] != 0
+
+
+## True when a building's footprint has at least one 4-adjacent water tile, and one of those is fouled (the Fishing
+## Dock's shore, design.md section 9).
+static func shore_fouled(s: Settlement, b: Building) -> bool:
+	var water := s.map.terrain_index("water")
+	if water < 0:
+		return false
+	for t in b.tiles():
+		for d in Placement.DIRS:
+			var n := t + d
+			if MapState.in_bounds(n.x, n.y) and s.map.get_terrain(n.x, n.y) == water and s.map.is_fouled(n.x, n.y):
+				return true
+	return false
+
+
+## True when `b` is a Farm getting its wet bonus and every wet footprint tile is wet only from fouled water.
+## A farm that has any clean water or a flowing channel watering it is not fouled.
+static func farm_wet_only_fouled(s: Settlement, b: Building) -> bool:
+	if not b.def.fertility_output or WaterSystem.wet_bonus(s, b) <= 1.0:
+		return false
+	var fs := _system(s)
+	fs._ensure_mask(s)
+	for t in b.tiles():
+		if s.map.is_wet(t.x, t.y) and fs._only_foul[MapState.idx(t.x, t.y)] == 0:
+			return false
+	return true
+
+
+## ProductionSystem modifier (design.md section 9): the Fishing Dock runs at WaterDef.foul_dock_output_factor when
+## its shore water is fouled, a farm whose wetness comes only from fouled water at WaterDef.foul_farm_output_factor,
+## and everything else at 1.0. Safe to append to ProductionSystem.modifiers for every producer.
+static func output_modifier(s: Settlement, b: Building) -> float:
+	var def := s.registry.water
+	if def == null:
+		return 1.0
+	if b.def.placement_rule == "shore" and shore_fouled(s, b):
+		return def.foul_dock_output_factor
+	if farm_wet_only_fouled(s, b):
+		return def.foul_farm_output_factor
+	return 1.0
+
+
+## The registered system, so the mask survives between calls. A settlement built without add_default_systems gets a
+## throwaway one: still correct, just without the cache.
+static func _system(s: Settlement) -> FoulingSystem:
+	var fs := s.get_system(FoulingSystem) as FoulingSystem
+	return fs if fs != null else FoulingSystem.new()
+
+
+## Rebuilds the wet-only-from-fouled mask when the water terrain, the channels or the fouling changed. WaterSystem's
+## flowing-channel query is the only expensive part, and this runs on the same infrequent events as its own passes.
+func _ensure_mask(s: Settlement) -> void:
+	if _mask_structure_version == s.structure_version and _mask_water_version == s.map.water_version \
+			and _mask_foul_version == s.map.foul_version:
+		return
+	_mask_structure_version = s.structure_version
+	_mask_water_version = s.map.water_version
+	_mask_foul_version = s.map.foul_version
+	var n := MapState.WIDTH * MapState.HEIGHT
+	_only_foul = PackedByteArray()
+	_only_foul.resize(n)
+	var def := s.registry.water
+	if def == null:
+		return
+	var clean := PackedByteArray()
+	var foul := PackedByteArray()
+	clean.resize(n)
+	foul.resize(n)
+	var water := s.map.terrain_index("water")
+	if water >= 0:
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				if s.map.get_terrain(x, y) != water:
+					continue
+				if s.map.is_fouled(x, y):
+					_stamp(foul, x, y, def.wet_radius_water)
+				else:
+					_stamp(clean, x, y, def.wet_radius_water)
+	for i in WaterSystem.flowing_tiles(s):
+		_stamp(clean, i % MapState.WIDTH, i / MapState.WIDTH, def.wet_radius_channel)
+	for i in n:
+		_only_foul[i] = 1 if foul[i] != 0 and clean[i] == 0 else 0
+
+
+## Writes 1 into the Chebyshev square around (x, y). Packed arrays are passed by reference, so the caller's buffer is
+## the one that changes (same helper WaterSystem uses for its wet base).
+static func _stamp(mask: PackedByteArray, x: int, y: int, radius: int) -> void:
+	var x0 := maxi(0, x - radius)
+	var x1 := mini(MapState.WIDTH, x + radius + 1)
+	for yy in range(maxi(0, y - radius), mini(MapState.HEIGHT, y + radius + 1)):
+		var row := yy * MapState.WIDTH
+		for xx in range(x0, x1):
+			mask[row + xx] = 1
