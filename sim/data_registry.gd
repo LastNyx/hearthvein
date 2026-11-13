@@ -245,9 +245,15 @@ func _validate() -> void:
 	if regions == null:
 		if not goods.is_empty():
 			errors.append("missing regions definition")
-	elif regions.prices.is_empty() or regions.prices.any(func(p: int) -> bool: return p <= 0) \
-			or regions.price_after <= 0:
-		errors.append("regions: prices must be positive")
+	else:
+		if regions.prices.is_empty() or regions.prices.any(func(p: int) -> bool: return p <= 0) \
+				or regions.price_after <= 0:
+			errors.append("regions: prices must be positive")
+		if regions.rich_vein_factor < 1.0:
+			errors.append("regions: rich_vein_factor must be at least 1")
+		if regions.ruins_gold < 0:
+			errors.append("regions: ruins_gold must not be negative")
+		_check_amounts(regions.ruins_goods, "regions ruins goods", false)
 	_validate_mapgen()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():

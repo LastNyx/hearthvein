@@ -89,12 +89,16 @@ func add_default_systems() -> void:
 	add_system(ForestSystem.new())  # reads the day's planet health; stumps regrow and Foresters plant here
 	add_system(MarketSystem.new())  # pays gold and caches Market reach; Spirit reads the reach for food variety
 	add_system(CoverageSystem.new())  # caches covered homes (Shrine r6); Spirit reads it for the coverage factor
+	add_system(RegionSystem.new())  # region rewards: modifier hooks, the spring wet pass and the one-time ruins claim
 	add_system(SpiritSystem.new())  # after Growth: reads its hunger report; after Planet: grief
 	var prod := get_system(ProductionSystem) as ProductionSystem
 	prod.modifiers.append(FertilitySystem.output_modifier)
 	prod.modifiers.append(SpiritSystem.work_modifier)
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
+	prod.modifiers.append(RegionSystem.rich_vein_modifier)
+	var forest_sys := get_system(ForestSystem) as ForestSystem
+	forest_sys.regrow_factors.append(RegionSystem.regrow_factor)
 	var sp := get_system(SpiritSystem) as SpiritSystem
 	sp.set_hook("coverage", CoverageSystem.spirit_factor)
 	sp.set_hook("blight", BlightSystem.spirit_factor)
@@ -468,6 +472,12 @@ func _refund_for(b: Building) -> Dictionary:
 		if have * share > Inventory.EPS:
 			out[g] = have * share
 	return out
+
+
+## Public form of _return_goods for a grant that is not a refund (the ruins reward, ticket 25b).
+## Gold goes to the counter; each good to the nearest storage with room (measured from `from`).
+func store_goods(goods: Dictionary, from: Vector2i) -> void:
+	_return_goods(goods, from)
 
 
 ## Gold goes to the counter; each good to the nearest storage with room (measured from `from`), spilling over to
@@ -904,6 +914,9 @@ func buy_region(r: int) -> bool:
 	var price := next_region_price()
 	gold -= float(price)
 	map.set_region_owned(r, true)
+	var rs := get_system(RegionSystem) as RegionSystem
+	if rs != null:
+		rs.apply_rewards(self, r)  # ticket 25b: rich vein, ruins, fertile valley, old forest, spring
 	structure_version += 1
 	events.emit("region_bought", {"region": r, "price": price, "gold": gold, "reward": map.get_region_reward(r)})
 	return true

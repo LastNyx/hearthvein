@@ -7,3 +7,10 @@ extends Resource
 @export var prices: Array[int] = [50, 100, 200, 350, 500]
 ## Price of every further region once `prices` runs out (design: 600 each).
 @export var price_after: int = 600
+
+## Rich vein reward (ticket 25b): Lumen yield multiplier for vein extractors in the region (design: x1.5).
+@export var rich_vein_factor: float = 1.5
+## Ruins reward (ticket 25b): gold paid once when the region is bought.
+@export var ruins_gold: int = 0
+## Ruins reward (ticket 25b): refined goods paid once into the nearest storage, good id -> amount.
+@export var ruins_goods: Dictionary = {}

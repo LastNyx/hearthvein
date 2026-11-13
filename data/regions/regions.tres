@@ -6,3 +6,6 @@
 script = ExtResource("1")
 prices = Array[int]([50, 100, 200, 350, 500])
 price_after = 600
+rich_vein_factor = 1.5
+ruins_gold = 100
+ruins_goods = {}
