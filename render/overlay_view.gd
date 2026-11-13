@@ -21,7 +21,7 @@ func setup(s: Settlement, m: HudModel) -> void:
 	model = m
 	z_index = 15
 	for kind in ["blight_changed", "building_connection_changed", "building_placed", "building_demolished",
-			"road_changed", "building_completed", "channel_changed"]:
+			"road_changed", "building_completed", "channel_changed", "fouled_changed"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _dirty = true)
 
 
@@ -60,6 +60,7 @@ func _draw() -> void:
 					draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.2, 0.5, 0.95, 0.32))
 				elif not map.is_wet(x, y):
 					draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.85, 0.6, 0.25, 0.07))
+		_draw_water_extras()
 	if model.overlay_on("coverage"):
 		_draw_coverage()
 	if model.overlay_on("roads"):
@@ -115,3 +116,36 @@ func _draw_coverage() -> void:
 			draw_circle(c, 8.0, Color(0.25, 0.05, 0.05, 0.7))
 			draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
 			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
+
+
+## Water overlay extras: Well-type supply range (blue-teal tint over the union of areas, outline each, check / cross on
+## homes that need water) and every fouled river tile (sickly green tint with an outline).
+func _draw_water_extras() -> void:
+	var col := Color(0.3, 0.85, 0.95)
+	var areas := model.reach_areas("water")
+	var seen := {}
+	for a in areas:
+		for y in range(a.position.y, a.end.y):
+			for x in range(a.position.x, a.end.x):
+				var key := MapState.idx(x, y)
+				if not seen.has(key):
+					seen[key] = true
+					draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(col, 0.16))
+	for a in areas:
+		var r := Rect2(Vector2(a.position) * TILE, Vector2(a.size) * TILE)
+		draw_rect(r, Color(0.02, 0.12, 0.2, 0.8), false, 4.0)
+		draw_rect(r, Color(col, 0.95), false, 2.0)
+	for h: Dictionary in model.water_homes():
+		var b: Building = settlement.buildings[h["id"]]
+		var c := (Vector2(b.origin) + Vector2(b.def.size)) * TILE - Vector2(9, 9)
+		if h["watered"]:
+			draw_circle(c, 8.0, Color(0.03, 0.2, 0.3, 0.9))
+			draw_polyline(PackedVector2Array([c + Vector2(-4, 0), c + Vector2(-1, 3), c + Vector2(4, -3)]),
+					Color(0.5, 0.95, 1.0), 2.5)
+		else:
+			draw_circle(c, 8.0, Color(0.25, 0.05, 0.05, 0.7))
+			draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
+			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
+	for t in model.fouled_tiles():
+		draw_rect(Rect2(t.x * TILE, t.y * TILE, TILE, TILE), Color(0.55, 0.75, 0.15, 0.5))
+		draw_rect(Rect2(t.x * TILE + 1, t.y * TILE + 1, TILE - 2, TILE - 2), Color(0.8, 0.95, 0.3, 0.8), false, 1.0)

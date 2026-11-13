@@ -282,6 +282,29 @@ func test_coverage_overlay_toggle_and_geometry() -> void:
 	assert_true(found)
 
 
+func test_water_overlay_marks_fouled_tiles_and_well_range() -> void:
+	assert_eq(m.fouled_tiles().size(), 0)
+	assert_eq(m.reach_areas("water").size(), 0)
+	var river: Vector2i = s.map.river_path[0]
+	assert_true(s.set_fouled(river, true))
+	assert_true(s.set_fouled(s.map.river_path[1], true))
+	var f := m.fouled_tiles()
+	assert_eq(f.size(), 2)
+	assert_true(f.has(river))
+	s.set_fouled(river, false)
+	assert_eq(m.fouled_tiles(), [s.map.river_path[1]] as Array[Vector2i])
+	# a Well inserted off the map edge keeps the fixture simple: its water_radius area is clipped to the map
+	var wb := Building.new()
+	wb.id = 9001
+	wb.def = reg.get_building("well")
+	wb.origin = Vector2i(10, 10)
+	s.buildings[wb.id] = wb
+	var areas := m.reach_areas("water")
+	assert_eq(areas.size(), 1)
+	assert_eq(areas[0], wb.footprint().grow(wb.def.water_radius).intersection(Rect2i(0, 0, MapState.WIDTH, MapState.HEIGHT)))
+	assert_eq(m.reach_areas("coverage").size(), 0, "a Well is not Shrine coverage")
+
+
 # ---------------------------------------------------------------- region map (ticket 25c)
 
 func test_region_rows_owned_buyable_locked() -> void:

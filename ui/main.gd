@@ -64,6 +64,7 @@ func _build_world(s: Settlement) -> void:
 	map_view.setup(s.map)
 	var view := map_view
 	s.events.subscribe("blight_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
+	s.events.subscribe("fouled_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	s.events.subscribe("terrain_changed", func(e: Dictionary) -> void: view.refresh_tile(e["data"]["tile"]))
 	# Dimming: darken the world (CanvasModulate does not touch the CanvasLayer HUD).
 	var dim := CanvasModulate.new()

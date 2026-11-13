@@ -349,9 +349,36 @@ func reach_areas(kind: String) -> Array[Rect2i]:
 		var b: Building = s.buildings[bid]
 		if b.site:
 			continue
-		var r := b.def.coverage_radius if kind == "coverage" else b.def.market_reach
+		var r := b.def.market_reach
+		if kind == "coverage":
+			r = b.def.coverage_radius
+		elif kind == "water":
+			r = b.def.water_radius
 		if r > 0:
 			out.append(b.footprint().grow(r).intersection(bounds))
+	return out
+
+
+## Every fouled tile as a Vector2i, row by row (the water overlay marks them). Reads the sim's fouled mask.
+func fouled_tiles() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var f := s.map.fouled
+	for i in f.size():
+		if f[i] != 0:
+			out.append(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
+	return out
+
+
+## [{id, watered}] for every finished home that needs drinking water: served by a Well-type source. The water overlay's
+## check / cross marks.
+func water_homes() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var sys := s.get_system(CoverageSystem) as CoverageSystem
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or not b.def.needs_water:
+			continue
+		out.append({"id": bid, "watered": sys != null and sys.home_has_water(s, bid)})
 	return out
 
 

@@ -3,6 +3,9 @@ extends SceneTree
 ## Ticket 21b: a channel dug from the river toward a farm (flowing look, wet tint around it) and one dry
 ## disconnected channel (dry look, no wet tint). Writes /tmp/hv_water_off.png (overlay off) and
 ## /tmp/hv_water_on.png (water overlay on, the T key / Overlays menu Water entry).
+## Ticket 29d: a blight patch on the bank upstream of the channel and a Well beside the channel. After the shot steps
+## 12 hours the fouling front has run downstream from the blight, so the overlay shows a fouled river stretch (sickly
+## green) and the Well's range (blue-teal outline). The fouled tiles also show in the overlay-off shot (fouled art).
 
 const T := ArtLibrary.TILE
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
@@ -35,10 +38,23 @@ func _init() -> void:
 	if dry_at.x >= 0:
 		for i in 4:
 			s.place_channel(dry_at + Vector2i(i, 0))
-	s.step_hours(24)  # one daily pass, as a normal day would
+	var well := _well_spot(s, line)
+	if well.x >= 0:
+		s.place_building_instant("well", well)
+	var blight := _blight_patch(s, line[0])
+	print("WATER blight=%s well=%s" % [blight, well])
+	for t: Vector2i in blight:
+		s.set_blighted(t, true)
+	s.step_hours(24)  # one daily pass, as a normal day would; the fouling front also travels downstream
+	var fouled := 0
+	for i in s.map.fouled.size():
+		fouled += s.map.fouled[i]
+	print("WATER fouled tiles=%d" % fouled)
 	var mid: Vector2 = (Vector2(line[0]) + Vector2(end)) / 2.0
 	if dry_at.x >= 0:
 		mid = (mid + Vector2(dry_at)) / 2.0
+	if not blight.is_empty():
+		mid = (mid + Vector2(blight[0])) / 2.0
 	var cam: CameraController = main.get_node("Camera")
 	cam.position = (mid + Vector2(0.5, 0.5)) * T
 	cam.set_zoom_step(3)
@@ -114,4 +130,40 @@ func _farm_spot(s: Settlement, end: Vector2i, start: Vector2i) -> Vector2i:
 			var t: Vector2i = end + d * k + off
 			if s.can_place("farm", t, true)["ok"]:
 				return t
+	return Vector2i(-1, -1)
+
+
+## A 2x2 blight patch on land beside the river, a few river tiles upstream of the channel's first tile.
+func _blight_patch(s: Settlement, first: Vector2i) -> Array[Vector2i]:
+	var path := s.map.river_path
+	var at := 0
+	var best := 9999
+	for i in path.size():
+		var d := absi(path[i].x - first.x) + absi(path[i].y - first.y)
+		if d < best:
+			best = d
+			at = i
+	for i in range(maxi(at - 6, 0), maxi(at - 1, 0) + 1):
+		for dir in DIRS:
+			var o: Vector2i = path[i]
+			while MapState.in_bounds(o.x, o.y) and s.map.terrain_id_at(o.x, o.y) == "water":
+				o += dir  # first land tile past the river's edge, so the patch touches the water (a fouling source)
+			var out: Array[Vector2i] = []
+			for q in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+				var t: Vector2i = o + q
+				if MapState.in_bounds(t.x, t.y) and s.map.terrain_id_at(t.x, t.y) != "water":
+					out.append(t)
+			if out.size() == 4 and MapState.in_bounds(o.x, o.y):
+				return out
+	return []
+
+
+## A wet land tile next to the channel line that can take a Well.
+func _well_spot(s: Settlement, line: Array[Vector2i]) -> Vector2i:
+	for l in line:
+		for dy in range(-2, 3):
+			for dx in range(-2, 3):
+				var t := l + Vector2i(dx, dy)
+				if MapState.in_bounds(t.x, t.y) and s.can_place("well", t, true)["ok"]:
+					return t
 	return Vector2i(-1, -1)
