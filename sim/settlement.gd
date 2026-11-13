@@ -30,6 +30,11 @@ const PRIORITIES: Array[String] = ["low", "normal", "high", "paused"]
 var _next_building_id: int = 0
 ## Bumped whenever roads or buildings change, so path caches know to drop themselves.
 var grid_version: int = 0
+## Bumped when a tile becomes forest (the only change that can bring a forest tile nearer to a woodcutter).
+var forest_gain_version: int = 0
+## Road reachability from the Hearth (see _recompute_connections).
+var _reached := {}
+var _roads_dirty := true
 ## Game seconds already spent inside the current hour (only non-zero between step_seconds calls).
 var _hour_acc: float = 0.0
 
@@ -267,8 +272,9 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false)
 	grid_version += 1
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = b.id
-	_recompute_connections()
-	refresh_population()
+	_recompute_connections(b)
+	if hearth == null:
+		refresh_population()  # the Hearth itself: no connection pass yet
 	return b
 
 
@@ -284,8 +290,7 @@ func demolish(id: int) -> bool:
 	var refund := _refund_for(b)
 	_return_goods(refund, b.origin)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin, "site": b.site, "refund": refund})
-	_recompute_connections()
-	refresh_population()
+	refresh_population()  # removing a building changes no road, so no connection can change
 	return true
 
 
@@ -332,6 +337,8 @@ func set_terrain(tile: Vector2i, terrain_id: String) -> bool:
 		return false
 	map.set_terrain_id(tile.x, tile.y, terrain_id)
 	grid_version += 1
+	if terrain_id == "forest":
+		forest_gain_version += 1
 	events.emit("terrain_changed", {"tile": tile, "from": from, "to": terrain_id})
 	return true
 
@@ -557,6 +564,7 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT) -> bool:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = level
 	grid_version += 1
+	_roads_dirty = true
 	events.emit("road_changed", {"tile": tile, "level": level})
 	_recompute_connections()
 	return true
@@ -567,6 +575,7 @@ func remove_road(tile: Vector2i) -> bool:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
 	grid_version += 1
+	_roads_dirty = true
 	events.emit("road_changed", {"tile": tile, "level": ROAD_NONE})
 	_recompute_connections()
 	return true
@@ -586,27 +595,34 @@ func _ring(b: Building) -> Array[Vector2i]:
 	return out
 
 
-## BFS over road tiles from the road tiles touching the Hearth; updates every building's connected flag.
-func _recompute_connections() -> void:
+## BFS over road tiles from the road tiles touching the Hearth; updates every building's connected flag (or only
+## `only`'s when given and no road changed since the last BFS). Ends with refresh_population().
+## The BFS result only depends on roads, so it is kept until a road is placed or removed (_roads_dirty).
+func _recompute_connections(only: Building = null) -> void:
 	if hearth == null:
 		return
-	var reached := {}
-	var queue: Array[Vector2i] = []
-	for t in _ring(hearth):
-		if road_at(t) != ROAD_NONE and not reached.has(t):
-			reached[t] = true
-			queue.append(t)
-	var head := 0
-	while head < queue.size():
-		var c := queue[head]
-		head += 1
-		for d in Placement.DIRS:
-			var n := c + d
-			if not reached.has(n) and road_at(n) != ROAD_NONE:
-				reached[n] = true
-				queue.append(n)
-	for id in buildings:
-		var b: Building = buildings[id]
+	var all := only == null
+	if _roads_dirty:
+		all = true
+		_roads_dirty = false
+		_reached.clear()
+		var queue: Array[Vector2i] = []
+		for t in _ring(hearth):
+			if road_at(t) != ROAD_NONE and not _reached.has(t):
+				_reached[t] = true
+				queue.append(t)
+		var head := 0
+		while head < queue.size():
+			var c := queue[head]
+			head += 1
+			for d in Placement.DIRS:
+				var n := c + d
+				if not _reached.has(n) and road_at(n) != ROAD_NONE:
+					_reached[n] = true
+					queue.append(n)
+	var reached := _reached
+	var check: Array = buildings.values() if all else [only]
+	for b: Building in check:
 		var now := b == hearth
 		if not now:
 			for t in _ring(b):

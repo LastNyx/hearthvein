@@ -74,10 +74,11 @@ static func _assign_homes(s: Settlement) -> void:
 				break
 
 
-## Slot entries {building, kind, slots} in fill order: category rank, priority, building id.
+## Slot entries {building, kind, slots} in fill order: category rank, priority, building id, then kind.
+## Each entry gets one int sort key (rank, priority, id, kind) so a plain int sort does the ordering.
 static func _job_entries(s: Settlement) -> Array:
-	var entries: Array = []
-	for bid in _sorted_building_ids(s):
+	var by_key := {}
+	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
 		if b.paused or not b.connected or b.site:
 			continue
@@ -85,20 +86,25 @@ static func _job_entries(s: Settlement) -> Array:
 		if pr < 0:
 			pr = PRIORITY_ORDER.find("normal")
 		if b.def.worker_slots > 0:
-			entries.append({"building": b, "kind": Citizen.JOB_WORK, "slots": b.def.worker_slots,
-				"key": [category_rank(b.def.category), pr, bid]})
+			by_key[_order_key(category_rank(b.def.category), pr, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
+				"slots": b.def.worker_slots}
 		if b.def.hauler_slots > 0:
-			entries.append({"building": b, "kind": Citizen.JOB_HAUL, "slots": b.def.hauler_slots,
-				"key": [category_rank(HAUL_CATEGORY), pr, bid]})
+			by_key[_order_key(category_rank(HAUL_CATEGORY), pr, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
+				"slots": b.def.hauler_slots}
 		if b.def.builder_slots > 0:
-			entries.append({"building": b, "kind": Citizen.JOB_BUILD, "slots": b.def.builder_slots,
-				"key": [category_rank(BUILD_CATEGORY), pr, bid]})
-	entries.sort_custom(func(a, b):
-		for i in 3:
-			if a["key"][i] != b["key"][i]:
-				return a["key"][i] < b["key"][i]
-		return a["kind"] < b["kind"])
+			by_key[_order_key(category_rank(BUILD_CATEGORY), pr, bid, 0)] = {"building": b, "kind": Citizen.JOB_BUILD,
+				"slots": b.def.builder_slots}
+	var keys: Array = by_key.keys()
+	keys.sort()
+	var entries: Array = []
+	for k in keys:
+		entries.append(by_key[k])
 	return _cap_builders(s, entries)
+
+
+## Sort key: rank, then priority, then building id, then kind code (build 0 < haul 1 < work 2, alphabetical).
+static func _order_key(rank: int, pr: int, bid: int, kind_code: int) -> int:
+	return (((rank * 4 + pr) << 24) + bid) * 4 + kind_code
 
 
 ## Builders are only wanted while sites are ready to build (full cost delivered, not paused): crew size per such
@@ -116,6 +122,11 @@ static func _cap_builders(s: Settlement, entries: Array) -> Array:
 	return out
 
 
+## Int key of a (building, job kind) slot; cheaper than a formatted string.
+static func _slot_key(building_id: int, kind: String) -> int:
+	return building_id * 4 + (1 if kind == Citizen.JOB_WORK else (2 if kind == Citizen.JOB_HAUL else (3 if kind == Citizen.JOB_BUILD else 0)))
+
+
 ## Slots are allotted in priority order until citizens run out. Citizens already in an allotted slot keep it
 ## (no churn), everyone else goes idle, then idle citizens (lowest id first) fill what is left.
 static func _assign_jobs(s: Settlement) -> void:
@@ -127,11 +138,11 @@ static func _assign_jobs(s: Settlement) -> void:
 		left -= n
 	var by_slot := {}
 	for e in entries:
-		by_slot["%d:%s" % [e["building"].id, e["kind"]]] = e
+		by_slot[_slot_key(e["building"].id, e["kind"])] = e
 	var idle: Array = []
 	for cid in _sorted_citizen_ids(s):
 		var c: Citizen = s.citizens[cid]
-		var e = by_slot.get("%d:%s" % [c.job_id, c.job_kind])
+		var e = by_slot.get(_slot_key(c.job_id, c.job_kind)) if c.job_id >= 0 else null
 		if e != null and e["want"] > 0:
 			e["want"] -= 1
 		else:

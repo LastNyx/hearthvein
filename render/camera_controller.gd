@@ -11,6 +11,11 @@ var zoom_step: int = START_STEP
 var _dragging := false
 
 
+## True at the farthest zoom step (D46: walkers and prop shadows are not drawn there).
+static func is_farthest_zoom(zoom_value: float) -> bool:
+	return zoom_value <= ZOOM_STEPS[0] + 0.0001
+
+
 ## Next zoom step index after a wheel notch (dir > 0 zooms in), clamped to the valid range.
 static func step_index(current: int, dir: int) -> int:
 	return clampi(current + signi(dir), 0, ZOOM_STEPS.size() - 1)

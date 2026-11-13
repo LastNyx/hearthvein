@@ -30,9 +30,19 @@ func setup(s: Settlement) -> void:
 	z_index = 10  # above the y-sorted objects, below the no-road icons
 
 
+## D46: walkers are hidden at the farthest zoom step (CameraController.ZOOM_STEPS[0]).
+static func shown_at_zoom(zoom_value: float) -> bool:
+	return not CameraController.is_farthest_zoom(zoom_value)
+
+
 func _process(delta: float) -> void:
 	_time += delta
-	queue_redraw()
+	var cam := get_viewport().get_camera_2d() if is_inside_tree() else null
+	var show_walkers := cam == null or shown_at_zoom(cam.zoom.x)
+	if show_walkers != visible:
+		visible = show_walkers
+	if show_walkers:
+		queue_redraw()
 
 
 ## Movement vector in tiles of a walker (zero when it has no path).
@@ -53,12 +63,16 @@ func _draw() -> void:
 	var sh_off := Vector2(e["shadow_offset"][0], e["shadow_offset"][1])
 	var map_seed := settlement.map.seed_used
 	var tile := float(ArtLibrary.TILE)
-	var order: Array = _system.walkers.keys()
+	# Only walkers inside the view (plus a margin) are drawn.
+	var view := get_viewport_transform().affine_inverse() * get_viewport_rect()
+	view = view.grow(64.0)
 	var items: Array = []
-	for id in order:
+	for id in _system.walkers:
 		var w: Walker = _system.walkers[id]
 		var moving := w.is_walking()
 		if not moving and w.at_building >= 0:
+			continue
+		if not view.has_point(w.position() * tile):
 			continue
 		var dir: int = ArtLibrary.facing_for(move_vector(w), _facing.get(id, ArtLibrary.DIR_DOWN))
 		_facing[id] = dir

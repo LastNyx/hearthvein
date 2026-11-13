@@ -30,6 +30,16 @@ var _ground := PackedStringArray()
 var _overlays: Dictionary = {}  # ground -> TileMapLayer
 
 
+## At the farthest zoom step the soft prop and building shadows are too small to see: skip drawing them (ticket 18).
+func _process(_delta: float) -> void:
+	if shadows == null or not is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_2d()
+	var show_shadows := cam == null or not CameraController.is_farthest_zoom(cam.zoom.x)
+	if shadows.visible != show_shadows:
+		shadows.visible = show_shadows
+
+
 func setup(m: MapState) -> void:
 	map = m
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

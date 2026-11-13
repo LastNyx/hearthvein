@@ -95,6 +95,20 @@ func workers_at(building_id: int) -> Array:
 	return out
 
 
+## One pass over all walkers: building id -> number of JOB_WORK citizens at work there right now. Same answer as
+## counting workers_at per building, without scanning every walker once per building.
+func work_counts() -> Dictionary:
+	var out := {}
+	for id in walkers:
+		var w: Walker = walkers[id]
+		if w.at_building < 0 or not w.path.is_empty():
+			continue
+		var c: Citizen = _s.citizens.get(id)
+		if c != null and c.job_kind == Citizen.JOB_WORK and c.job_id == w.at_building:
+			out[c.job_id] = out.get(c.job_id, 0) + 1
+	return out
+
+
 ## The door tile of a building (see class comment).
 func door_tile(b: Building) -> Vector2i:
 	var r := b.footprint()
@@ -138,8 +152,7 @@ func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if not _grid.is_point_solid(from) and not _grid.is_point_solid(to):
 		path_computations += 1
-		for p in _grid.get_id_path(from, to):
-			out.append(p)
+		out.assign(_grid.get_id_path(from, to))
 	for t in reopen:
 		_grid.set_point_solid(t, true)
 	_cache[key] = out

@@ -21,12 +21,12 @@ var crews: Dictionary = {}  # citizen id -> site building id the builder was sen
 ## Sites with the whole cost delivered and not paused, best first (priority, then id).
 static func ready_sites(s: Settlement) -> Array[Building]:
 	var out: Array[Building] = []
-	var ids: Array = s.buildings.keys()
-	ids.sort()
-	for id in ids:
+	for id in s.buildings:
 		var b: Building = s.buildings[id]
 		if b.site and not b.paused and b.site_delivered():
 			out.append(b)
+	if out.is_empty():
+		return out
 	out.sort_custom(func(a: Building, b: Building) -> bool:
 		var pa := JobSystem.PRIORITY_ORDER.find(a.priority)
 		var pb := JobSystem.PRIORITY_ORDER.find(b.priority)
@@ -47,11 +47,12 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var h := s.clock.hour()
 	var in_shift := h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
 	var builders: Array = []
-	var ids: Array = s.citizens.keys()
-	ids.sort()
-	for cid in ids:
+	for cid in s.citizens:
 		if (s.citizens[cid] as Citizen).job_kind == Citizen.JOB_BUILD:
 			builders.append(cid)
+	if builders.is_empty() and crews.is_empty():
+		return  # nobody builds and nobody is on a crew: nothing below would do anything
+	builders.sort()
 	var wanted := {}  # citizen id -> site
 	var sites: Array[Building] = []
 	if in_shift:
