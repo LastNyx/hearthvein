@@ -8,6 +8,8 @@ extends SimSystem
 ## Recipes with inputs eat from the input buffer that haulers fill; an empty one halts with "no_input".
 ## A building with fells_forest (Woodcutter) turns the nearest forest tile in its radius into a stump per
 ## LogisticsDef.units_per_felled_tile produced; no forest left = halt "no_forest".
+## A farm tier that only works on wet ground (the Irrigated Farm, WaterSystem.dry_halt) halts with "dry" when its
+## footprint is not half wet.
 ##
 ## Modifiers: `modifiers` is a list of Callables (settlement, building) -> float. Their product multiplies output
 ## (and input use). Later tickets append here (tiers, Spirit, health, Dimming); nothing else needs to change.
@@ -145,6 +147,10 @@ func multiplier(s: Settlement, b: Building) -> float:
 
 
 func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> void:
+	var dry := WaterSystem.dry_halt(s, b)
+	if dry != "":
+		_set_halt(s, b, dry)
+		return
 	var recipe := b.def.recipe
 	if not _first_out.has(recipe):
 		_first_out[recipe] = recipe.outputs.keys()[0]

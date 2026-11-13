@@ -13,8 +13,8 @@ extends SimSystem
 ## hourly pass visits those tiles and nothing else. Tile flags live in MapState.fouled; the per-tile countdown is
 ## this system's state (SAVE_KEY "fouling"), so a save mid-spread resumes exactly.
 ##
-## Also the fouled-water production modifiers (ticket 29c): the Fishing Dock x0.5 on fouled shore water and a farm
-## whose wetness comes only from fouled water x0.75 (see output_modifier and wet_only_from_fouled).
+## Also the fouled-water production modifiers (ticket 29c): the Fishing Dock x0.5 on fouled shore water and an
+## Irrigated Farm whose wetness comes only from fouled water x0.75 (see output_modifier and wet_only_from_fouled).
 
 const SAVE_KEY := "fouling"
 
@@ -171,10 +171,11 @@ static func shore_fouled(s: Settlement, b: Building) -> bool:
 	return false
 
 
-## True when `b` is a Farm getting its wet bonus and every wet footprint tile is wet only from fouled water.
-## A farm that has any clean water or a flowing channel watering it is not fouled.
+## True when `b` is an Irrigated Farm (a tier whose def needs wet, design.md section 10) getting its wet bonus and
+## every wet footprint tile is wet only from fouled water. A plain farm is not penalised (design.md section 9 names
+## irrigated farms only), and a farm that has any clean water or a flowing channel watering it is not fouled.
 static func farm_wet_only_fouled(s: Settlement, b: Building) -> bool:
-	if not b.def.fertility_output or WaterSystem.wet_bonus(s, b) <= 1.0:
+	if not WaterSystem.needs_wet(s, b) or WaterSystem.wet_bonus(s, b) <= 1.0:
 		return false
 	var fs := _system(s)
 	fs._ensure_mask(s)
@@ -185,8 +186,9 @@ static func farm_wet_only_fouled(s: Settlement, b: Building) -> bool:
 
 
 ## ProductionSystem modifier (design.md section 9): the Fishing Dock runs at WaterDef.foul_dock_output_factor when
-## its shore water is fouled, a farm whose wetness comes only from fouled water at WaterDef.foul_farm_output_factor,
-## and everything else at 1.0. Safe to append to ProductionSystem.modifiers for every producer.
+## its shore water is fouled, an Irrigated Farm whose wetness comes only from fouled water at
+## WaterDef.foul_farm_output_factor, and everything else at 1.0. Safe to append to ProductionSystem.modifiers for
+## every producer.
 static func output_modifier(s: Settlement, b: Building) -> float:
 	var def := s.registry.water
 	if def == null:

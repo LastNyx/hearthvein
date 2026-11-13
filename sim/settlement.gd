@@ -721,7 +721,8 @@ func set_building_priority(building_id: int, priority: String) -> bool:
 ## Why a building cannot start an in-place upgrade: {"ok": bool, "reason": String}, shaped like can_pave_road.
 ## Reasons: unknown_building, site (still under construction), category (not housing/food/materials/lumen),
 ## not_upgradable (the def carries no tiers), in_progress, max_tier, era_locked (tier II needs Town, tier III City;
-## the eras live in data/tiers/tiers.tres).
+## the eras live in data/tiers/tiers.tres), needs_wet (the target tier only works on wet ground and the footprint
+## is not half wet, e.g. the Irrigated Farm).
 func can_upgrade(building_id: int) -> Dictionary:
 	var b: Building = buildings.get(building_id)
 	if b == null:
@@ -738,6 +739,9 @@ func can_upgrade(building_id: int) -> Dictionary:
 		return {"ok": false, "reason": "max_tier"}
 	if not tier_unlocked(b.tier + 1):
 		return {"ok": false, "reason": "era_locked"}
+	var target := b.tier_def(registry, b.tier + 1)
+	if target != null and target.needs_wet and not WaterSystem.footprint_wet(self, b):
+		return {"ok": false, "reason": "needs_wet"}
 	return {"ok": true, "reason": ""}
 
 

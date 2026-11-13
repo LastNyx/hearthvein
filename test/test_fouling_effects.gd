@@ -146,7 +146,7 @@ func test_fishing_dock_output_is_halved_on_fouled_water() -> void:
 	assert_almost_eq(FoulingSystem.output_modifier(s, dock), 1.0, 0.001, "clean water again, full rate")
 
 
-# AC1a: a farm watered only by a fouled pond loses a quarter of its output; clean water is no penalty.
+# AC1a: an Irrigated Farm watered only by a fouled pond loses a quarter of its output; clean water is no penalty.
 func test_a_farm_wet_only_from_fouled_water_runs_at_three_quarters() -> void:
 	var b := _dry_block(2, 2, 2)
 	assert_ne(b, Vector2i(-1, -1), "a dry grass 2x2")
@@ -154,11 +154,12 @@ func test_a_farm_wet_only_from_fouled_water_runs_at_three_quarters() -> void:
 		return
 	var farm: Building = s.buildings.get(s.place_building_instant("farm", b))
 	assert_not_null(farm)
+	farm.tier = 2  # the fouled x0.75 is for the Irrigated Farm only (ticket 31c)
 	var pond := b + Vector2i(-1, 0)
 	assert_false(_is_water(pond), "the stage starts dry")
 	s.set_terrain(pond, "water")
 	WaterSystem.recompute(s)
-	assert_almost_eq(WaterSystem.wet_bonus(s, farm), 1.25, 0.001, "the pond waters the farm (wet-farm path)")
+	assert_almost_eq(WaterSystem.wet_bonus(s, farm), 1.5, 0.001, "the pond waters the Irrigated Farm")
 	assert_almost_eq(FoulingSystem.output_modifier(s, farm), 1.0, 0.001, "clean water is no penalty")
 	var clean := prod.multiplier(s, farm)
 	assert_true(s.set_fouled(pond, true))
@@ -168,8 +169,26 @@ func test_a_farm_wet_only_from_fouled_water_runs_at_three_quarters() -> void:
 	assert_almost_eq(FoulingSystem.output_modifier(s, farm), 1.0, 0.001, "clean pond, no penalty")
 	s.set_terrain(pond, "grass")
 	WaterSystem.recompute(s)
-	assert_almost_eq(WaterSystem.wet_bonus(s, farm), 1.0, 0.001, "the farm is dry again")
+	assert_almost_eq(WaterSystem.wet_bonus(s, farm), 0.0, 0.001, "a dry Irrigated Farm stops")
 	assert_almost_eq(FoulingSystem.output_modifier(s, farm), 1.0, 0.001, "a dry farm has no wetness to foul")
+
+
+# A plain tier-I Farm is not penalised: design.md section 9 names irrigated farms only (ticket 31c gate).
+func test_a_plain_farm_is_not_penalised_by_fouled_water() -> void:
+	var b := _dry_block(2, 2, 2)
+	assert_ne(b, Vector2i(-1, -1), "a dry grass 2x2")
+	if b == Vector2i(-1, -1):
+		return
+	var farm: Building = s.buildings.get(s.place_building_instant("farm", b))
+	assert_not_null(farm)
+	assert_eq(farm.tier, 1)
+	var pond := b + Vector2i(-1, 0)
+	s.set_terrain(pond, "water")
+	WaterSystem.recompute(s)
+	assert_almost_eq(WaterSystem.wet_bonus(s, farm), 1.25, 0.001, "a plain wet farm keeps its x1.25")
+	assert_true(s.set_fouled(pond, true))
+	assert_false(FoulingSystem.farm_wet_only_fouled(s, farm), "a plain farm is not gated on fouled water")
+	assert_almost_eq(FoulingSystem.output_modifier(s, farm), 1.0, 0.001, "fouled water does not touch a plain farm")
 
 
 # AC1b: a Well on a tile wet only from fouled water gives no coverage, so its homes count as missing water.

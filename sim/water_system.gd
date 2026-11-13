@@ -127,19 +127,47 @@ static func flowing_tiles(s: Settlement) -> Array[int]:
 	return out
 
 
-## A Farm's wet multiplier: WaterDef.farm_wet_bonus when at least farm_wet_fraction of its footprint is wet, else 1.0.
-## 1.0 for every building that is not a Farm (so callers may apply it to any producer).
+## A Farm's wet multiplier. A plain farm gets WaterDef.farm_wet_bonus when at least farm_wet_fraction of its
+## footprint is wet (design.md section 9). A tier with needs_wet (the Irrigated Farm, design.md section 10) instead
+## gets that tier's wet_bonus when wet -- the irrigation x1.5 replaces the plain x1.25, they do not stack -- and 0
+## when dry: it only works on wet ground. 1.0 for every building that is not a Farm (so callers may apply it to any
+## producer).
 static func wet_bonus(s: Settlement, b: Building) -> float:
 	var def := s.registry.water
 	if def == null or not b.def.fertility_output:
 		return 1.0
+	var wet := footprint_wet(s, b)
+	var td := b.tier_def(s.registry)
+	if td != null and td.needs_wet:
+		return td.wet_bonus if wet else 0.0
+	return def.farm_wet_bonus if wet else 1.0
+
+
+## True when at least WaterDef.farm_wet_fraction of the building's footprint is wet (design.md: half). The one wet
+## test the farm rules use: the plain wet bonus, the Irrigated Farm and its upgrade check.
+static func footprint_wet(s: Settlement, b: Building) -> bool:
+	var def := s.registry.water
+	if def == null:
+		return false
 	var tiles := b.tiles()
 	if tiles.is_empty():
-		return 1.0
+		return false
 	var n := 0
 	for t in tiles:
 		if s.map.is_wet(t.x, t.y):
 			n += 1
-	if float(n) >= def.farm_wet_fraction * float(tiles.size()):
-		return def.farm_wet_bonus
-	return 1.0
+	return float(n) >= def.farm_wet_fraction * float(tiles.size())
+
+
+## True when the building's current tier only works on wet ground (the Irrigated Farm, design.md section 10).
+static func needs_wet(s: Settlement, b: Building) -> bool:
+	var td := b.tier_def(s.registry)
+	return td != null and td.needs_wet
+
+
+## ProductionSystem halt reason for a building that cannot work on dry ground: "dry" for an Irrigated Farm (a
+## needs_wet tier) whose footprint is not half wet, otherwise "".
+static func dry_halt(s: Settlement, b: Building) -> String:
+	if s.registry.water == null or not b.def.fertility_output or not needs_wet(s, b):
+		return ""
+	return "" if footprint_wet(s, b) else "dry"

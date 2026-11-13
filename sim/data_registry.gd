@@ -421,6 +421,10 @@ func _validate_building(b: BuildingDef) -> void:
 			if t.extra_worker_slots < -1:
 				errors.append("%s: tier '%s' extra worker slots must be -1 (default) or more"
 						% [who, t.display_name])
+			if t.wet_bonus < 1.0:
+				errors.append("%s: tier '%s' wet_bonus must be at least 1" % [who, t.display_name])
+			if t.needs_wet and not b.fertility_output:
+				errors.append("%s: tier '%s' needs_wet without fertility_output" % [who, t.display_name])
 
 
 func _check_amounts(d: Dictionary, label: String, whole: bool) -> void:
