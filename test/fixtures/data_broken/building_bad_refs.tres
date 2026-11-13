@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "hut"
+era = "camp"
+category = "housing"
+cost = {"wood": 5, "unobtainium": 2}
+placement_rule = "on_moon"

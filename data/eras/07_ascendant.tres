@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EraDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/era_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "ascendant"
+display_name = "Ascendant"
+order = 7
+gate_pop = 450
+gate_gold = 4000
+gate_landmark = "dawn_beacon"
+dimming_base_days = 8

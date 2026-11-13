@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EraDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/era_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "conflux"
+display_name = "Conflux"
+order = 5
+gate_pop = 200
+gate_gold = 1200
+gate_landmark = "lumen_nexus"
+dimming_base_days = 6
