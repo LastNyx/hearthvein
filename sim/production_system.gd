@@ -24,6 +24,9 @@ const SLICES := 12
 var batch_seconds: float = GameClock.REAL_SECONDS_PER_HOUR / 12.0
 var _acc: PackedFloat64Array = PackedFloat64Array()
 var _cursor: int = 0
+## Single-group ticks since every group last ran. At SLICES the rotation has covered all groups, so the hour end has
+## nothing left to flush (ticket 57c: the flush cost about 1.2 ms in the frame that ends an hour).
+var _ticks_since_full: int = 0
 var _counts: Dictionary = {}
 ## Units made since the game started (all goods); a statistic for tests and the HUD, not needed to resume a save.
 var produced_total: float = 0.0
@@ -47,10 +50,11 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 		return
 	_run(s, _cursor, 1)
 	_cursor = (_cursor + 1) % SLICES
+	_ticks_since_full += 1
 
 
 func on_hour(s: Settlement) -> void:
-	if _acc.size() == SLICES:
+	if _acc.size() == SLICES and _ticks_since_full < SLICES:
 		_run(s, 0, SLICES)
 
 
@@ -60,6 +64,8 @@ func _run(s: Settlement, first: int, n: int) -> void:
 	if ws == null or s.registry.logistics == null:
 		return
 	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
+	if n == SLICES:
+		_ticks_since_full = 0
 	if n == SLICES or first == 0:
 		_counts = ws.work_counts()
 	var list := _producers(s)

@@ -71,19 +71,29 @@ func on_day(settlement: Settlement) -> void:
 
 	# 1. eating
 	var stores := _food_stores(s, goods)
+	var store_regions: Array[int] = []  # region of each store, same order (regions do not change while eating)
+	for b in stores:
+		store_regions.append(s_region(b))
 	var ids: Array = s.citizens.keys()
 	ids.sort()
 	var hungry := 0
 	var types := {}
-	for id in ids:
-		var c: Citizen = s.citizens[id]
+	var spots := {}  # home tile -> region (citizens of one home share it)
+	for n in ids.size():
+		if stores.is_empty():  # no food left anywhere: everybody still to eat goes hungry
+			hungry += ids.size() - n
+			break
+		var c: Citizen = s.citizens[ids[n]]
 		var from := _home_tile(s, c)
-		var region := s.map.get_region(from.x, from.y)
+		if not spots.has(from):
+			spots[from] = s.map.get_region(from.x, from.y)
+		var region: int = spots[from]
 		var need := gd.food_per_citizen
 		while need > Inventory.EPS:
-			var st := _nearest(stores, goods, from, region)
-			if st == null:
+			var si := _nearest(stores, store_regions, goods, from, region)
+			if si < 0:
 				break
+			var st := stores[si]
 			for g in goods:
 				if need <= Inventory.EPS:
 					break
@@ -92,6 +102,9 @@ func on_day(settlement: Settlement) -> void:
 				report["eaten"] += took
 				if took > Inventory.EPS:
 					types[food_type_of(s.registry, g)] = true
+			if _food_in(st, goods) <= Inventory.EPS:  # empty store: leave the list so nobody scans it again
+				stores.remove_at(si)
+				store_regions.remove_at(si)
 		if need > Inventory.EPS:
 			hungry += 1
 	report["hungry"] = hungry
@@ -172,18 +185,19 @@ func _food_total(s: Settlement, goods: Array[String]) -> float:
 
 
 ## Nearest (Manhattan, footprint) store in `region` that still has food; ties lowest id (stores are id-sorted).
-func _nearest(stores: Array[Building], goods: Array[String], from: Vector2i, region: int) -> Building:
-	var best: Building = null
+## Returns its index in `stores`, or -1.
+func _nearest(stores: Array[Building], regions: Array[int], _goods: Array[String], from: Vector2i, region: int) -> int:
+	var best := -1
 	var best_d := 0
-	for b in stores:
-		if s_region(b) != region or _food_in(b, goods) <= Inventory.EPS:
+	for i in stores.size():
+		if regions[i] != region:
 			continue
-		var r := b.footprint()
+		var r := stores[i].footprint()
 		var dx := maxi(maxi(r.position.x - from.x, from.x - (r.end.x - 1)), 0)
 		var dy := maxi(maxi(r.position.y - from.y, from.y - (r.end.y - 1)), 0)
 		var d := dx + dy
-		if best == null or d < best_d:
-			best = b
+		if best < 0 or d < best_d:
+			best = i
 			best_d = d
 	return best
 

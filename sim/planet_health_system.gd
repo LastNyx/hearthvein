@@ -34,11 +34,13 @@ func trend(s: Settlement) -> float:
 
 
 ## Is this building contributing to health right now (works, or needs no workers)?
-static func is_working(s: Settlement, b: Building) -> bool:
+static func is_working(s: Settlement, b: Building, staffed: Dictionary = {}) -> bool:
 	if b.site or b.paused or b.def.health_per_day == 0.0:
 		return false
 	if b.def.worker_slots <= 0:
 		return true
+	if not staffed.is_empty():
+		return staffed.has(b.id)
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
 		if c.job_id == b.id and c.job_kind == Citizen.JOB_WORK:
@@ -49,15 +51,17 @@ static func is_working(s: Settlement, b: Building) -> bool:
 ## {"blight": x, "forest": x, "buildings": x, "extra": x, "total": x} for today (percent points).
 func daily_breakdown(s: Settlement) -> Dictionary:
 	var pd := s.registry.planet
-	var forest := 0
 	var fi := s.map.terrain_index("forest")
-	for v in s.map.terrain:
-		if v == fi:
-			forest += 1
+	var forest := s.map.terrain.count(fi) if fi >= 0 else 0
+	var staffed := {}  # building ids with at least one working citizen, one pass instead of one per building
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_kind == Citizen.JOB_WORK:
+			staffed[c.job_id] = true
 	var bld := 0.0
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
-		if is_working(s, b):
+		if is_working(s, b, staffed):
 			bld += b.def.health_per_day
 	var extra := 0.0
 	for f in extra_sources:

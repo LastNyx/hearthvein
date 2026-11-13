@@ -72,10 +72,7 @@ func _blocked(s: Settlement, t: Vector2i) -> bool:
 
 ## Number of blighted tiles on the map.
 static func count(s: Settlement) -> int:
-	var n := 0
-	for v in s.map.blight:
-		n += v
-	return n
+	return s.map.blight.count(1)  # native count; blight bytes are 0/1
 
 
 ## True when the tile or any tile within HOME_REACH of the building's footprint is blighted.
@@ -90,6 +87,8 @@ static func near_blight(s: Settlement, b: Building) -> bool:
 
 ## Spirit hook "blight": -blight_max x (share of homes with blight within 2 tiles). Homes = finished buildings with beds.
 static func spirit_factor(s: Settlement) -> float:
+	if count(s) == 0:  # nothing is blighted, so no home is near blight
+		return 0.0
 	var homes := 0
 	var hit := 0
 	for id in s.buildings:

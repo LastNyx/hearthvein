@@ -5,6 +5,7 @@ extends SceneTree
 
 const SECONDS := 20.0
 const WARMUP_FRAMES := 30
+const WORST_COUNT := 5
 
 
 func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: String) -> void:
@@ -22,7 +23,10 @@ func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: 
 	var calls_sum := 0.0
 	var calls_max := 0.0
 	var last := Time.get_ticks_usec()
+	var worst_frames: Array = []  # [ms, "clock", "hooks"], sorted, longest first, at most WORST_COUNT
 	while t < SECONDS:
+		var hours_before := s.clock.total_hours
+		var pending_before := s._deferred.size() > 0  # a day/season hook runs in this frame's step
 		await process_frame
 		var now := Time.get_ticks_usec()
 		var dt := (now - last) / 1e6
@@ -33,6 +37,14 @@ func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: 
 		t += dt
 		sum += dt
 		worst = maxf(worst, dt)
+		var hour_ran := s.clock.total_hours != hours_before
+		var day_ran := (hour_ran and s.clock.is_day_start()) or pending_before
+		var minute := int(s._hour_acc / GameClock.REAL_SECONDS_PER_HOUR * 60.0)
+		worst_frames.append([dt * 1000.0, "%02d:%02d" % [s.clock.hour(), minute], "hour hook %s, day hook %s" % [
+				"yes" if hour_ran else "no", "yes" if day_ran else "no"]])
+		worst_frames.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+		if worst_frames.size() > WORST_COUNT:
+			worst_frames.resize(WORST_COUNT)
 		var calls := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 		calls_sum += calls
 		calls_max = maxf(calls_max, calls)
@@ -45,6 +57,8 @@ func _run(main: Node, cam: CameraController, step: int, start_hour: int, label: 
 	print("%s: zoom %.2f, avg %.1f FPS (%.2f ms), min %.1f FPS (worst frame %.1f ms), %d frames, walking now %d of %d, clock %s" % [
 		label, CameraController.ZOOM_STEPS[step], n / sum, sum / n * 1000.0, 1.0 / worst, worst * 1000.0, n, walking,
 		ws.walkers.size(), s.clock.label()])
+	for wf in worst_frames:
+		print("%s: worst frame %.1f ms at clock %s, %s" % [label, wf[0], wf[1], wf[2]])
 	print("%s: draw calls per frame avg %.0f, max %.0f (Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)" % [label, calls_sum / n, calls_max])
 
 

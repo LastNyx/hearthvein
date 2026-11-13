@@ -330,3 +330,101 @@ func test_props_of_different_textures_are_strictly_y_sorted_within_a_band() -> v
 			last = by
 			checked += 1
 	assert_gt(checked, 1000)
+
+
+# ---------------------------------------------------------------- ticket 57c: hour and day boundary
+## Milliseconds each system's hook takes when called directly on a world that stands at 05:00 (probe numbers).
+func _hook_ms(world: Settlement, hook: String) -> Dictionary:
+	var out := {}
+	for sys in world.systems:
+		var t0 := Time.get_ticks_usec()
+		sys.call(hook, world)
+		out[sys.get_script().get_global_name()] = (Time.get_ticks_usec() - t0) / 1000.0
+	return out
+
+
+func test_hour_and_day_hooks_cost() -> void:
+	var world := _world()
+	_to_hour(world, 5)
+	for i in 30:
+		world.step_seconds(CHUNK)
+	var hour := _hook_ms(world, "on_hour")
+	var day := _hook_ms(world, "on_day")
+	print("PERF on_hour ms per system: %s" % [hour])
+	print("PERF on_day ms per system: %s" % [day])
+	var h := 0.0
+	var d := 0.0
+	for k in hour:
+		h += hour[k]
+	for k in day:
+		d += day[k]
+	print("PERF on_hour total %.2f ms, on_day total %.2f ms" % [h, d])
+	assert_lt(h, 8.0, "all on_hour hooks together under 8 ms")
+	assert_lt(d, 8.0, "all on_day hooks together under 8 ms")
+
+
+## Worst frame-sized step_seconds call that crosses an hour boundary, and the worst one that crosses midnight.
+func test_boundary_frames_under_eight_ms() -> void:
+	var world := _world()
+	_to_hour(world, 4)
+	var worst_hour := 0.0
+	var worst_day := 0.0
+	var worst_plain := 0.0
+	var frames := 0
+	while frames < 150 * 52:  # a bit over two game days
+		var h0 := world.clock.total_hours
+		var t0 := Time.get_ticks_usec()
+		world.step_seconds(CHUNK)
+		var ms := (Time.get_ticks_usec() - t0) / 1000.0
+		if world.clock.total_hours != h0:
+			if world.clock.is_day_start():
+				worst_day = maxf(worst_day, ms)
+			else:
+				worst_hour = maxf(worst_hour, ms)
+		else:
+			worst_plain = maxf(worst_plain, ms)
+		frames += 1
+	print("PERF worst frame: hour end %.2f ms, day end %.2f ms, no boundary %.2f ms" % [worst_hour, worst_day, worst_plain])
+	assert_lt(worst_hour, 8.0, "the frame that ends an hour")
+	assert_lt(worst_day, 8.0, "the frame that ends a day")
+
+
+class DayCounter extends SimSystem:
+	var days := 0
+	var seasons := 0
+
+	func on_day(_s: Settlement) -> void:
+		days += 1
+
+	func on_season(_s: Settlement) -> void:
+		seasons += 1
+
+
+## Frame-sized steps spread the day hooks over the following steps; coarse steps and flush_deferred run them at once.
+func test_day_hooks_spread_over_frames_and_flush_on_demand() -> void:
+	var world := _world()
+	var counter := DayCounter.new()
+	world.add_system(counter)  # last: runs after every default system's day hook
+	_to_hour(world, 23)
+	var guard := 0
+	while not world.clock.is_day_start() and guard < 1000:
+		world.step_seconds(CHUNK)
+		guard += 1
+	assert_true(world.clock.is_day_start(), "crossed midnight")
+	assert_eq(counter.days, 0, "the frame that ends the day has not run the day hooks of the last system yet")
+	var frames := 0
+	while counter.days == 0 and frames < 100:
+		world.step_seconds(CHUNK)
+		frames += 1
+	print("PERF the last day hook ran %d frames after midnight" % frames)
+	assert_eq(counter.days, 1, "day hook ran once")
+	assert_lte(frames, world.systems.size() + 2, "all day work done within a few frames")
+	# Same again, flushed at once.
+	_to_hour(world, 23)
+	while not world.clock.is_day_start() and guard < 2000:
+		world.step_seconds(CHUNK)
+		guard += 1
+	world.flush_deferred()
+	assert_eq(counter.days, 2, "flush_deferred runs what is pending")
+	world.step_seconds(GameClock.REAL_SECONDS_PER_HOUR * 24.0)  # a coarse step: no hook is left pending
+	assert_eq(counter.days, 3)
