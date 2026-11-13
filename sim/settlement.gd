@@ -55,6 +55,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 
 ## Every game system a real game runs, in hook order. Each feature ticket appends its system here.
 func add_default_systems() -> void:
+	add_system(EraSystem.new())
 	add_system(StorageSystem.new())
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
@@ -150,10 +151,14 @@ func road_at(tile: Vector2i) -> int:
 
 
 ## Returns {ok: bool, reason: String}. Reason is "" when ok.
-func can_place(def_id: String, origin: Vector2i) -> Dictionary:
+## Reason "era_locked" when the building's era is later than era_id() (ticket 16); ignore_era skips only that check
+## (used by place_building_instant, the debug/test path).
+func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Dictionary:
 	var def := registry.get_building(def_id)
 	if def == null:
 		return {"ok": false, "reason": "unknown_building"}
+	if not ignore_era and not is_unlocked(def):
+		return {"ok": false, "reason": "era_locked"}
 	if def_id == "hearth" and hearth != null:
 		return {"ok": false, "reason": "unique"}
 	for y in range(origin.y, origin.y + def.size.y):
@@ -198,8 +203,9 @@ func place_building(def_id: String, origin: Vector2i) -> int:
 
 ## Debug and test path: a finished building at once, free, no site. Never used by normal play (the build UI calls
 ## place_building). Same validity rules as place_building. Returns the building id, or -1.
+## Bypasses the era lock (tests and tools may place later-era buildings).
 func place_building_instant(def_id: String, origin: Vector2i) -> int:
-	if not can_place(def_id, origin)["ok"]:
+	if not can_place(def_id, origin, true)["ok"]:
 		return -1
 	var def := registry.get_building(def_id)
 	var b := _insert_building(def, origin, false)
@@ -340,12 +346,57 @@ func set_blighted(tile: Vector2i, v: bool) -> bool:
 	return true
 
 
-## Era id now. Ticket 16 (eras) replaces the body; era_override (non-empty) pins it for tests.
+## Era reached by the real progression (EraSystem advances it, one era at a time). Save state for ticket 19.
+var era_current: String = "camp"
+## Tests and debug: non-empty pins era_id() (the progression state is kept underneath).
 var era_override: String = ""
 
 
 func era_id() -> String:
-	return era_override if era_override != "" else "camp"
+	return era_override if era_override != "" else era_current
+
+
+## True when the building's era is the current era or an earlier one.
+func is_unlocked(def: BuildingDef) -> bool:
+	var cur := registry.get_era(era_id())
+	var e := registry.get_era(def.era)
+	if cur == null or e == null:
+		return true
+	return e.order <= cur.order
+
+
+## Building defs that can be placed now (build menu list), sorted by era order then id.
+func unlocked_buildings() -> Array[BuildingDef]:
+	var out: Array[BuildingDef] = []
+	for d: BuildingDef in registry.buildings.values():
+		if is_unlocked(d):
+			out.append(d)
+	out.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool:
+		var oa := registry.get_era(a.era).order
+		var ob := registry.get_era(b.era).order
+		return oa < ob or (oa == ob and a.id < b.id))
+	return out
+
+
+## Gate state for the era after the current one (HUD, ticket 17): {next, pop, pop_need, gold, gold_need, landmark,
+## landmark_built, met}. next is "" at the last era. Needs come from the EraDef row only.
+func era_gate() -> Dictionary:
+	var cur := registry.get_era(era_current)
+	var nxt: EraDef = null
+	for e in registry.eras_in_order():
+		if cur != null and e.order == cur.order + 1:
+			nxt = e
+	if nxt == null:
+		return {"next": "", "met": false}
+	var built := false
+	for b: Building in buildings.values():
+		if not b.site and b.def.id == nxt.gate_landmark:
+			built = true
+			break
+	var pop := citizens.size()
+	return {"next": nxt.id, "pop": pop, "pop_need": nxt.gate_pop, "gold": gold, "gold_need": nxt.gate_gold,
+		"landmark": nxt.gate_landmark, "landmark_built": built,
+		"met": pop >= nxt.gate_pop and gold + Inventory.EPS >= nxt.gate_gold and built}
 
 
 var planet_health_override: float = -1.0  # tests and debug: >= 0 pins planet health

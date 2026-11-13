@@ -13,6 +13,8 @@ var _painting := false
 var _last_tile := Vector2i(-1, -1)
 var _panel: PanelContainer
 var _hint: Label
+var _box: VBoxContainer
+var _building_buttons: Array[Button] = []
 
 
 func setup(s: Settlement, g: GhostView, ui_layer: CanvasLayer) -> void:
@@ -25,24 +27,38 @@ func setup(s: Settlement, g: GhostView, ui_layer: CanvasLayer) -> void:
 	var title := Label.new()
 	title.text = "Build (B)"
 	box.add_child(title)
-	for def in s.registry.buildings_of_era("camp"):
-		if def.id == "hearth":
-			continue
-		var btn := Button.new()
-		btn.text = "%s  %dx%d" % [def.display_name, def.size.x, def.size.y]
-		btn.pressed.connect(set_build.bind(def.id))
-		box.add_child(btn)
+	_box = box
+	_rebuild_buttons()
 	for pair in [["Road (R)", Mode.ROAD], ["Demolish (X)", Mode.DEMOLISH]]:
 		var b := Button.new()
 		b.text = pair[0]
 		b.pressed.connect(set_mode.bind(pair[1]))
 		box.add_child(b)
+	s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_buttons())
 	_panel.visible = false
 	ui_layer.add_child(_panel)
 	_hint = Label.new()
 	_hint.position = Vector2(12, 28)
 	ui_layer.add_child(_hint)
 	_hint.visible = false
+
+
+## Only unlocked buildings are offered; rebuilt on the era_changed event.
+func _rebuild_buttons() -> void:
+	for b in _building_buttons:
+		b.queue_free()
+	_building_buttons.clear()
+	var at := 1  # after the title
+	for def in settlement.unlocked_buildings():
+		if def.id == "hearth":
+			continue
+		var btn := Button.new()
+		btn.text = "%s  %dx%d" % [def.display_name, def.size.x, def.size.y]
+		btn.pressed.connect(set_build.bind(def.id))
+		_box.add_child(btn)
+		_box.move_child(btn, at)
+		at += 1
+		_building_buttons.append(btn)
 
 
 func set_build(id: String) -> void:
