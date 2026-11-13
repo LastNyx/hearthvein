@@ -13,6 +13,20 @@ extends SimSystem
 ## (and input use). Later tickets append here (tiers, Spirit, health, Dimming); nothing else needs to change.
 
 var modifiers: Array[Callable] = []
+## Production runs in batches (ticket 57). The producers are dealt into SLICES groups; each tick of a frame-sized
+## step works one group, with all the game time that passed since that group last ran (so a tick costs 1/SLICES of
+## a full pass, and a group runs every SLICES ticks, about 5 game minutes at 60 fps and 1x). A step of at least
+## `batch_seconds` (step_hours) and the end of every hour run all groups, so the on_hour hooks of later systems
+## (hauling, growth) see the output. Workers at work are counted once per full cycle. batch_seconds 0 = every
+## group every call, like before. The pending times are runtime state; a save in the middle of an hour loses at
+## most 5 game minutes of production.
+const SLICES := 12
+var batch_seconds: float = GameClock.REAL_SECONDS_PER_HOUR / 12.0
+var _acc: PackedFloat64Array = PackedFloat64Array()
+var _cursor: int = 0
+var _counts: Dictionary = {}
+## Units made since the game started (all goods); a statistic for tests and the HUD, not needed to resume a save.
+var produced_total: float = 0.0
 var _felled_acc: Dictionary = {}  # building id -> units made since the last felled tile
 var _forest_cache: Dictionary = {}  # building id -> nearest forest tile, see _forest_of
 var _forest_version: int = -1
@@ -23,16 +37,45 @@ var _first_out: Dictionary = {}  # recipe -> first output good id
 
 
 func on_seconds(s: Settlement, seconds: float) -> void:
+	if _acc.size() != SLICES:
+		_acc.resize(SLICES)
+		_acc.fill(0.0)
+	for k in SLICES:
+		_acc[k] += seconds
+	if seconds + 0.000001 >= batch_seconds:
+		_run(s, 0, SLICES)
+		return
+	_run(s, _cursor, 1)
+	_cursor = (_cursor + 1) % SLICES
+
+
+func on_hour(s: Settlement) -> void:
+	if _acc.size() == SLICES:
+		_run(s, 0, SLICES)
+
+
+## Work `n` groups starting at `first` with the time each has collected.
+func _run(s: Settlement, first: int, n: int) -> void:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	if ws == null or s.registry.logistics == null:
 		return
 	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
-	var counts := ws.work_counts()
-	var part := seconds / shift
-	for b: Building in _producers(s):
-		if b.paused:
+	if n == SLICES or first == 0:
+		_counts = ws.work_counts()
+	var list := _producers(s)
+	for g in n:
+		var k := (first + g) % SLICES
+		var seconds := _acc[k]
+		_acc[k] = 0.0
+		if seconds <= 0.0:
 			continue
-		_produce(s, b, counts.get(b.id, 0), part)
+		var part := seconds / shift
+		var i := k
+		while i < list.size():
+			var b: Building = list[i]
+			i += SLICES
+			if not b.paused:
+				_produce(s, b, _counts.get(b.id, 0), part)
 
 
 ## Buildings with a door buffer, in id order. Rebuilt when the set of buildings changes (grid_version moves on
@@ -92,6 +135,7 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	var made := 0.0
 	for g in recipe.outputs:
 		made += b.door_buffer.add(g, float(recipe.outputs[g]) * f)
+	produced_total += made
 	if b.def.fells_forest:
 		_fell(s, b, made)
 	if b.door_buffer.free_for(first_out) <= Inventory.EPS:

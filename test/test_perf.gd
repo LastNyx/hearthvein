@@ -250,3 +250,19 @@ func test_set_props_visible_updates_the_batch() -> void:
 	v.set_props_visible(tile, true)
 	assert_eq(v._prop_batch.prop_count(), total, "props come back")
 
+
+
+# ---------------------------------------------------------------- ticket 57: production cadence
+func test_batched_production_matches_per_frame_within_one_percent() -> void:
+	var fast := _world()
+	var exact := _world()
+	(exact.get_system(ProductionSystem) as ProductionSystem).batch_seconds = 0.0
+	for w in [fast, exact]:
+		_to_hour(w, 5)
+		for i in int(GameClock.HOURS_PER_DAY * 150):
+			w.step_seconds(CHUNK)
+	var a := (fast.get_system(ProductionSystem) as ProductionSystem).produced_total
+	var b := (exact.get_system(ProductionSystem) as ProductionSystem).produced_total
+	print("PERF one game day of production: batched %.2f, per frame %.2f" % [a, b])
+	assert_gt(b, 10.0, "the fixture produces something")
+	assert_almost_eq(a, b, b * 0.01, "daily totals within 1%")
