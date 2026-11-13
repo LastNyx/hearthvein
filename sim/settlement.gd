@@ -22,8 +22,13 @@ var roads := PackedByteArray()
 var hearth: Building = null
 ## Global gold counter. Gold is never stored in inventories.
 var gold: float = 0.0
+## Citizens by id (plain sim objects, see Citizen). Housing and jobs are kept current by JobSystem.
+var citizens: Dictionary = {}  # int -> Citizen
+var _next_citizen_id: int = 0
 ## New-game stock (design.md section 5), put in the Hearth.
 const START_STOCK := {"food": 60.0, "materials": 40.0, "lumen": 10.0}
+const START_CITIZENS := 8
+const PRIORITIES: Array[String] = ["low", "normal", "high", "paused"]
 var _next_building_id: int = 0
 
 
@@ -40,6 +45,8 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 		for g in START_STOCK:
 			s.hearth.inventory.add(g, START_STOCK[g])
 		s.place_road(s.map.hearth_spot + Vector2i(hdef.size.x, 0))
+		for i in START_CITIZENS:
+			s.add_citizen()
 	s.add_default_systems()
 	return s
 
@@ -47,6 +54,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 ## Every game system a real game runs, in hook order. Each feature ticket appends its system here.
 func add_default_systems() -> void:
 	add_system(StorageSystem.new())
+	add_system(JobSystem.new())
 
 
 func add_system(system: SimSystem) -> void:
@@ -149,6 +157,7 @@ func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = b.id
 	_recompute_connections()
+	refresh_population()
 	return b
 
 
@@ -162,6 +171,67 @@ func demolish(id: int) -> bool:
 	buildings.erase(id)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin})
 	_recompute_connections()
+	refresh_population()
+	return true
+
+
+# ---------------------------------------------------------------- citizens and jobs
+
+## Re-run housing and job assignment now (also runs every hour via JobSystem).
+func refresh_population() -> void:
+	JobSystem.refresh(self)
+
+
+## Adds a homeless idle citizen, then assigns a bed and a job if available. Returns the citizen id.
+## Tickets 12 (growth/immigration) call this; the Hearth is where newcomers appear.
+func add_citizen() -> int:
+	var c := Citizen.new()
+	c.id = _next_citizen_id
+	_next_citizen_id += 1
+	citizens[c.id] = c
+	refresh_population()
+	events.emit("citizen_added", {"id": c.id})
+	return c.id
+
+
+## Removes a citizen (emigration, starvation). Frees their bed and slot.
+func remove_citizen(id: int) -> bool:
+	if not citizens.has(id):
+		return false
+	citizens.erase(id)
+	refresh_population()
+	events.emit("citizen_removed", {"id": id})
+	return true
+
+
+func beds_total() -> int:
+	var n := 0
+	for id in buildings:
+		n += (buildings[id] as Building).def.housing_beds
+	return n
+
+
+func idle_citizens() -> Array:
+	var out: Array = []
+	for id in citizens:
+		if (citizens[id] as Citizen).is_idle():
+			out.append(citizens[id])
+	return out
+
+
+## Command: set one building's priority. One of "low", "normal", "high", "paused". "paused" keeps the old
+## priority so un-pausing (any other value) restores a normal run; never assigns a person (D15).
+func set_building_priority(building_id: int, priority: String) -> bool:
+	var b: Building = buildings.get(building_id)
+	if b == null or not PRIORITIES.has(priority):
+		return false
+	if priority == "paused":
+		b.paused = true
+	else:
+		b.paused = false
+		b.priority = priority
+	events.emit("building_priority_changed", {"id": building_id, "priority": priority})
+	refresh_population()
 	return true
 
 
@@ -284,3 +354,4 @@ func _recompute_connections() -> void:
 		if now != b.connected:
 			b.connected = now
 			events.emit("building_connection_changed", {"id": b.id, "connected": now})
+	refresh_population()
