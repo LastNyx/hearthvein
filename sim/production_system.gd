@@ -157,10 +157,16 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 		_set_halt(s, b, "")
 		return
 	var f := float(workers) * shift_part * multiplier(s, b)  # worker-days of work done this tick
+	var flex := flexible_inputs(recipe, b.input_buffer)
+	if recipe.any_input_count > 0 and flex.size() < recipe.any_input_count:
+		_set_halt(s, b, "no_input")
+		return
 	for g in recipe.inputs:
 		f = minf(f, b.input_buffer.amount_of(g) / float(recipe.inputs[g])) if b.input_buffer != null else 0.0
+	for g in flex:
+		f = minf(f, b.input_buffer.amount_of(g) / float(recipe.any_input_amount))
 	if f <= Inventory.EPS:
-		_set_halt(s, b, "no_input" if not recipe.inputs.is_empty() else "")
+		_set_halt(s, b, "no_input" if not recipe.inputs.is_empty() or not flex.is_empty() else "")
 		return
 	var out_total := 0.0
 	for g in recipe.outputs:
@@ -169,6 +175,8 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	_set_halt(s, b, "")
 	for g in recipe.inputs:
 		b.input_buffer.remove(g, float(recipe.inputs[g]) * f)
+	for g in flex:
+		b.input_buffer.remove(g, float(recipe.any_input_amount) * f)
 	var made := 0.0
 	for g in recipe.outputs:
 		made += b.door_buffer.add(g, float(recipe.outputs[g]) * f)
@@ -177,6 +185,30 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 		_fell(s, b, made)
 	if b.door_buffer.free_for(first_out) <= Inventory.EPS:
 		_set_halt(s, b, "door_full")
+
+
+## Goods a flexible-input recipe takes this batch (Kitchen): the `any_input_count` goods from `any_input_goods`
+## with the most in the input buffer, ties in list order. Fewer than `any_input_count` when too few have any.
+static func flexible_inputs(recipe: RecipeDef, buffer: Inventory) -> Array[String]:
+	var out: Array[String] = []
+	if recipe == null or buffer == null or recipe.any_input_count <= 0:
+		return out
+	var used := {}
+	for i in recipe.any_input_count:
+		var best := ""
+		var best_n := Inventory.EPS
+		for g in recipe.any_input_goods:
+			if used.has(g):
+				continue
+			var n := buffer.amount_of(g)
+			if n > best_n:
+				best = g
+				best_n = n
+		if best == "":
+			break
+		used[best] = true
+		out.append(best)
+	return out
 
 
 func _fell(s: Settlement, b: Building, made: float) -> void:

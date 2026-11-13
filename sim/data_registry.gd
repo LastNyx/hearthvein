@@ -335,6 +335,15 @@ func _validate_building(b: BuildingDef) -> void:
 			errors.append("%s: recipe has no outputs" % who)
 		if b.worker_slots <= 0:
 			errors.append("%s: has a recipe but no worker slots" % who)
+		if b.recipe.any_input_count > 0:
+			if b.recipe.any_input_count > b.recipe.any_input_goods.size():
+				errors.append("%s: recipe needs %d flexible inputs but lists %d" % [who,
+						b.recipe.any_input_count, b.recipe.any_input_goods.size()])
+			if b.recipe.any_input_amount <= 0.0:
+				errors.append("%s: recipe flexible input amount must be positive" % who)
+			for g in b.recipe.any_input_goods:
+				if not goods.has(g):
+					errors.append("%s: recipe unknown flexible input '%s'" % [who, g])
 	if b.upgradable and b.tiers.size() != 2:
 		errors.append("%s: upgradable needs exactly 2 tiers (II, III)" % who)
 	if b.fertility_output and b.recipe == null:

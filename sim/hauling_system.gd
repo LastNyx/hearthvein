@@ -70,6 +70,12 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 	if def.recipe != null:
 		for g in def.recipe.inputs:
 			out[g] = float(def.recipe.inputs[g]) * def.worker_slots * reg.logistics.input_buffer_days
+		# Flexible inputs (Kitchen): every listed food type gets two days of one batch's share, so haulers keep
+		# whichever two types the Kitchen picks in stock. The per-good buffer cap comes from this same need.
+		if def.recipe.any_input_count > 0:
+			var each := float(def.recipe.any_input_amount) * def.worker_slots * reg.logistics.input_buffer_days
+			for g in def.recipe.any_input_goods:
+				out[g] = maxf(float(out.get(g, 0.0)), each)
 	if def.upkeep_lumen > 0.0:
 		out["lumen"] = float(out.get("lumen", 0.0)) + def.upkeep_lumen * reg.logistics.input_buffer_days
 	return out
