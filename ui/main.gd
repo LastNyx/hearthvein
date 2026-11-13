@@ -15,6 +15,7 @@ func _ready() -> void:
 	view.name = "MapView"
 	add_child(view)
 	view.setup(driver.settlement.map)
+	settlement.events.subscribe("blight_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	settlement.events.subscribe("terrain_changed", func(e: Dictionary) -> void: view.refresh_tile(e["data"]["tile"]))
 	var placed := PlacementView.new()
 	placed.name = "PlacementView"

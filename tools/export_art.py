@@ -373,6 +373,37 @@ def export_overlays(manifest):
         manifest["overlays"][g] = f"terrain/overlay_{g}.png"
 
 
+# ------------------------------------------------------------------ blight and fouling (translucent tile states)
+BLIGHT = [(78, 66, 96), (110, 95, 126), (141, 126, 160)]  # mockups_v1 blight_d / blight / blight_l
+FOUL = [(70, 82, 52), (96, 108, 62), (128, 138, 84)]
+
+
+def state_tile(seed, pal, base_alpha):
+    """Translucent tile-state overlay (blighted ground, fouled water): blotchy tint plus specks, drawn over the ground."""
+    v = pfbm(seed, 14)
+    gi = pquant(v, 3, 0.0, 0.6)
+    rgb = A(pal)[np.clip(gi, 0, 2)]
+    alpha = np.clip(base_alpha + (v - 0.5) * 90, 40, 220).astype(np.uint8)
+    img = to_img(rgb, alpha)
+    d = ImageDraw.Draw(img)
+    rng = random.Random(seed * 13 + 5)
+    for _ in range(3):  # darker pits, as in the mockup
+        x, y = rng.randrange(3, T - 7), rng.randrange(3, T - 6)
+        d.ellipse([x, y, x + 4, y + 3], fill=pal[0] + (190,))
+    for _ in range(14):
+        d.point((rng.randrange(1, T - 1), rng.randrange(1, T - 1)), fill=rng.choice([pal[0], pal[2]]) + (210,))
+    return img
+
+
+def export_states(manifest):
+    im, rows = pack_atlas([state_tile(900 + i, BLIGHT, 135) for i in range(4)], 4)
+    save(im, OUT / "terrain" / "blight.png")
+    im, rows = pack_atlas([state_tile(950 + i, FOUL, 120) for i in range(4)], 4)
+    save(im, OUT / "terrain" / "fouled.png")
+    manifest["states"] = {"blight": {"file": "terrain/blight.png", "cols": 4, "rows": 1},
+                          "fouled": {"file": "terrain/fouled.png", "cols": 4, "rows": 1}}
+
+
 # ------------------------------------------------------------------ terrain tiles
 def export_terrain(manifest):
     tiles = {}
@@ -714,6 +745,7 @@ def main():
     manifest = {"tile": T}
     export_terrain(manifest)
     export_overlays(manifest)
+    export_states(manifest)
     export_roads(manifest)
     export_props(manifest)
     export_buildings(manifest)

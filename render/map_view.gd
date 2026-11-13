@@ -15,6 +15,8 @@ var shadows: Node2D
 var objects: Node2D
 var fx: Node2D
 var _base: TileMapLayer
+var _blight: TileMapLayer  # blighted ground tint, over the ground blends
+var _fouled: TileMapLayer  # fouled river tiles
 var _shade: Sprite2D
 var _shade_image: Image
 var _shade_dirty := false
@@ -50,6 +52,8 @@ func setup(m: MapState) -> void:
 			_shade.scale = Vector2(TILE, TILE)
 			_shade.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 			add_child(_shade)
+	_blight = _state_layer("Blight", "blight")
+	_fouled = _state_layer("Fouled", "fouled")
 	roads = TileMapLayer.new()
 	roads.name = "Roads"
 	roads.tile_set = ArtLibrary.road_tileset()
@@ -74,6 +78,33 @@ func setup(m: MapState) -> void:
 	add_child(_overlay)
 
 
+func _state_layer(layer_name: String, state: String) -> TileMapLayer:
+	var layer := TileMapLayer.new()
+	layer.name = layer_name
+	layer.tile_set = ArtLibrary.state_tileset(state)
+	layer.rendering_quadrant_size = 16
+	add_child(layer)
+	return layer
+
+
+## Redraw the blight and fouled tint of one tile (Settlement event blight_changed; ticket 29 calls it for fouling).
+func refresh_state(tile: Vector2i) -> void:
+	if map == null or not MapState.in_bounds(tile.x, tile.y):
+		return
+	_paint_state(tile.x, tile.y)
+
+
+func _paint_state(x: int, y: int) -> void:
+	var c := Vector2i(x, y)
+	for pair in [[_blight, "blight", map.is_blighted(x, y)], [_fouled, "fouled", map.is_fouled(x, y)]]:
+		var layer: TileMapLayer = pair[0]
+		if pair[2]:
+			var v := ArtLibrary.tile_hash(map.seed_used + 5, x, y) % ArtLibrary.state_variants(pair[1])
+			layer.set_cell(c, 0, Vector2i(v, 0))
+		else:
+			layer.erase_cell(c)
+
+
 func _ground_at(x: int, y: int) -> String:
 	return _ground[map.get_terrain(x, y)]
 
@@ -83,6 +114,7 @@ func _fill() -> void:
 		for x in MapState.WIDTH:
 			_paint_base(x, y)
 			_paint_overlays(x, y)
+			_paint_state(x, y)
 			_add_props(map.terrain_id_at(x, y), x, y)
 
 

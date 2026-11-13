@@ -13,6 +13,7 @@ var roads: Dictionary = {}      # id -> RoadDef
 var logistics: LogisticsDef = null  # the single data/logistics/logistics.tres
 var spirit: SpiritDef = null  # the single data/spirit/spirit.tres
 var growth: GrowthDef = null  # the single data/growth/growth.tres
+var planet: PlanetDef = null  # the single data/planet/planet.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var errors: Array[String] = []
 
@@ -28,6 +29,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	logistics = null
 	growth = null
 	spirit = null
+	planet = null
 	mapgen = null
 	errors.clear()
 	for path in _scan(root):
@@ -128,6 +130,10 @@ func _index(path: String) -> void:
 		if spirit != null:
 			errors.append("%s: a second spirit definition" % path)
 		spirit = res
+	elif res is PlanetDef:
+		if planet != null:
+			errors.append("%s: a second planet definition" % path)
+		planet = res
 	elif res is MapGenDef:
 		if mapgen != null:
 			errors.append("%s: a second mapgen definition" % path)
@@ -185,6 +191,12 @@ func _validate() -> void:
 	elif spirit.step_per_day <= 0.0 or spirit.start < 0.0 or spirit.start > 100.0 or spirit.low_at >= spirit.high_at \
 			or spirit.grief_divisor <= 0.0 or spirit.leave_after_days <= 0 or spirit.leave_every_days <= 0:
 		errors.append("spirit: invalid numbers")
+	if planet == null:
+		if not goods.is_empty():
+			errors.append("missing planet definition")
+	elif planet.start < 0.0 or planet.start > 100.0 or planet.vein_divisor <= 0.0 or planet.dieback_divisor <= 0.0 \
+			or planet.trend_days <= 0 or not terrain.has(planet.dieback_terrain):
+		errors.append("planet: invalid numbers")
 	_validate_mapgen()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():

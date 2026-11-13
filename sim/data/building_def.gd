@@ -37,6 +37,14 @@ const GOLD := "gold"
 @export var placement_radius: int = 0
 ## True for the Woodcutter: production turns forest tiles in placement_radius into stumps.
 @export var fells_forest: bool = false
+## Lumen extractors (design.md section 12): each period (days) the nearest non-blighted tile within radius turns
+## blighted. 0 = no blight (Aether Collector, Heartroot Tap, every non-extractor). Tiers do not change these.
+@export var blight_radius: int = 0
+@export var blight_period_days: int = 0
+## True for extractors that sit on a vein: their output scales with the vein yield factor (section 13).
+@export var vein_extractor: bool = false
+## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
+@export var health_per_day: float = 0.0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

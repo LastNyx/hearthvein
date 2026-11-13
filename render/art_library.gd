@@ -90,6 +90,19 @@ static func overlay_tileset(ground: String) -> TileSet:
 	return ts
 
 
+## Tile-state overlays (blight, fouled): one atlas of translucent variants each, drawn over the ground.
+static func state_tileset(state: String) -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	var st: Dictionary = manifest()["states"][state]
+	ts.add_source(_atlas(st["file"], int(st["cols"]), int(st["rows"])), 0)
+	return ts
+
+
+static func state_variants(state: String) -> int:
+	return int(manifest()["states"][state]["cols"])
+
+
 ## Deterministic variant hash of (seed, tile): no RNG state, so drawing never touches the simulation.
 static func tile_hash(seed: int, x: int, y: int) -> int:
 	var h := ((x * 73856093) ^ (y * 19349663) ^ (seed * 83492791)) & 0x7fffffff

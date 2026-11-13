@@ -62,9 +62,15 @@ func add_default_systems() -> void:
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
 	add_system(GrowthSystem.new())
-	add_system(SpiritSystem.new())  # after Growth: reads its hunger and food-type report
+	add_system(BlightSystem.new())  # blight first, so the day's health sees it
+	add_system(PlanetHealthSystem.new())
+	add_system(SpiritSystem.new())  # after Growth: reads its hunger and food-type report; after Planet: grief
 	var prod := get_system(ProductionSystem) as ProductionSystem
 	prod.modifiers.append(SpiritSystem.work_modifier)
+	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
+	var sp := get_system(SpiritSystem) as SpiritSystem
+	sp.set_hook("blight", BlightSystem.spirit_factor)
+	sp.set_hook("planet_grief", PlanetHealthSystem.grief_factor)
 
 
 func add_system(system: SimSystem) -> void:
@@ -319,6 +325,29 @@ func set_terrain(tile: Vector2i, terrain_id: String) -> bool:
 	grid_version += 1
 	events.emit("terrain_changed", {"tile": tile, "from": from, "to": terrain_id})
 	return true
+
+
+## Command: set or clear blight on one tile (spreaders, cleaners). Emits blight_changed {tile, blighted} so views
+## redraw it. False when nothing changed.
+func set_blighted(tile: Vector2i, v: bool) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or map.is_blighted(tile.x, tile.y) == v:
+		return false
+	map.set_blighted(tile.x, tile.y, v)
+	events.emit("blight_changed", {"tile": tile, "blighted": v})
+	return true
+
+
+var planet_health_override: float = -1.0  # tests and debug: >= 0 pins planet health
+
+
+## Planet health now (0-100). planet_health_override wins when >= 0; 100 with no PlanetHealthSystem.
+func planet_health() -> float:
+	if planet_health_override >= 0.0:
+		return planet_health_override
+	var sys := get_system(PlanetHealthSystem) as PlanetHealthSystem
+	if sys == null:
+		return 100.0
+	return sys.current(self)
 
 
 # ---------------------------------------------------------------- citizens and jobs

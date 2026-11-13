@@ -2729,6 +2729,18 @@
    0.17
   ]
  },
+ "states": {
+  "blight": {
+   "cols": 4,
+   "file": "terrain/blight.png",
+   "rows": 1
+  },
+  "fouled": {
+   "cols": 4,
+   "file": "terrain/fouled.png",
+   "rows": 1
+  }
+ },
  "terrain": {
   "fertile_soil": {
    "cols": 4,
