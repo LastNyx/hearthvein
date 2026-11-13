@@ -69,7 +69,7 @@ func test_rows_list_eight_manual_slots_and_existing_autosaves_with_metadata() ->
 	assert_string_contains(r["detail"], s.clock.label())
 	assert_string_contains(r["detail"], "pop %d" % s.citizens.size())
 	assert_string_contains(r["detail"], reg.get_era(s.era_id()).display_name)
-	assert_string_contains(r["detail"], "saved 20")
+	assert_string_contains(r["detail"], "saved ")
 
 
 func test_save_load_and_delete_go_through_save_slots() -> void:
@@ -86,6 +86,36 @@ func test_save_load_and_delete_go_through_save_slots() -> void:
 	assert_eq(m.delete_slot(4), OK)
 	assert_true(_row("manual", 4)["empty"])
 	assert_eq(m.delete_slot(4), ERR_FILE_NOT_FOUND)
+
+
+func test_overwrite_and_delete_ask_before_acting() -> void:
+	assert_true(m.request_save(1), "empty slot saves at once")
+	assert_eq(_row("manual", 1)["confirm"], "")
+	s.step_days(2)
+	assert_false(m.request_save(1), "filled slot asks")
+	assert_eq(_row("manual", 1)["confirm"], "overwrite")
+	assert_eq(_row("manual", 0)["confirm"], "")
+	m.cancel()
+	assert_eq(_row("manual", 1)["confirm"], "")
+	assert_eq(slots.load_slot(1, reg).clock.total_hours, 0, "cancel leaves the old save")
+	m.request_save(1)
+	m.confirm()
+	assert_eq(slots.load_slot(1, reg).clock.total_hours, s.clock.total_hours, "yes overwrites")
+	assert_eq(_row("manual", 1)["confirm"], "")
+	m.request_delete(1)
+	assert_eq(_row("manual", 1)["confirm"], "delete")
+	assert_false(_row("manual", 1)["empty"], "nothing deleted yet")
+	m.cancel()
+	assert_false(_row("manual", 1)["empty"])
+	m.request_delete(1)
+	m.confirm()
+	assert_true(_row("manual", 1)["empty"], "yes deletes")
+
+
+func test_saved_text_is_short() -> void:
+	var t := SaveMenuModel.saved_text(1763073300)
+	assert_true(t.length() <= 12, t)
+	assert_eq(SaveMenuModel.saved_text(0), "unknown")
 
 
 func test_continue_loads_the_latest_autosave() -> void:

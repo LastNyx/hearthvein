@@ -31,7 +31,7 @@ func setup(m: SaveMenuModel) -> void:
 	_dim.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(Hud.PANEL_BG, Hud.PANEL_EDGE, 8, 2, 18))
+	panel.add_theme_stylebox_override("panel", _style(Color(Hud.PANEL_BG, 1.0), Hud.PANEL_EDGE, 8, 2, 18))
 	center.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
@@ -68,6 +68,7 @@ func open() -> void:
 func close() -> void:
 	if not visible:
 		return
+	model.pending = {}
 	visible = false
 	_dim.visible = false
 	if is_inside_tree():
@@ -96,7 +97,7 @@ func refresh() -> void:
 		if r["kind"] == "manual":
 			var del := _button(row, "Delete", 16)
 			del.disabled = not r["can_delete"]
-			del.pressed.connect(func() -> void: model.delete_slot(slot); refresh())
+			del.pressed.connect(func() -> void: model.request_delete(slot); refresh())
 	_continue.disabled = not model.has_continue()
 	_status.text = model.status
 

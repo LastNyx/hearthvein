@@ -8,6 +8,8 @@ var registry: DataRegistry
 ## Returns the Settlement being played right now (what Save writes).
 var current: Callable
 var status: String = ""
+## Row waiting for a Yes/No: {"action": "overwrite" | "delete", "slot": int}, or empty.
+var pending: Dictionary = {}
 
 
 func _init(save_slots: SaveSlots, reg: DataRegistry, current_settlement: Callable) -> void:
@@ -32,16 +34,17 @@ func rows() -> Array[Dictionary]:
 	for n in autos.size():
 		var e: Dictionary = autos[n]
 		out.append({"kind": "auto", "slot": e["slot"], "title": "Autosave %d" % (n + 1), "empty": false,
-				"detail": detail_text(e), "can_save": false, "can_load": true, "can_delete": false})
+				"detail": detail_text(e), "can_save": false, "can_load": true, "can_delete": false, "confirm": ""})
 	for i in SaveSlots.MANUAL_SLOTS:
 		var filled: bool = manual.has(i)
 		out.append({"kind": "manual", "slot": i, "title": "Slot %d" % (i + 1), "empty": not filled,
 				"detail": detail_text(manual[i]) if filled else "Empty",
-				"can_save": true, "can_load": filled, "can_delete": filled})
+				"can_save": true, "can_load": filled, "can_delete": filled,
+					"confirm": str(pending["action"]) if not pending.is_empty() and pending["slot"] == i else ""})
 	return out
 
 
-## "Village, Spring 3 Year 2, pop 24, saved 2026-11-13 10:12".
+## "Village, Spring 3 Year 2, pop 24, saved 13 Nov 10:12".
 func detail_text(e: Dictionary) -> String:
 	var era := registry.get_era(e["era"])
 	var parts: Array[String] = [era.display_name if era != null else str(e["era"])]
@@ -58,11 +61,52 @@ static func saved_text(unix: int) -> String:
 		return "unknown"
 	var local := unix + int(Time.get_time_zone_from_system().get("bias", 0)) * 60
 	var d := Time.get_datetime_dict_from_unix_time(local)
-	return "%04d-%02d-%02d %02d:%02d" % [d["year"], d["month"], d["day"], d["hour"], d["minute"]]
+	const MONTHS := ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+	return "%d %s %02d:%02d" % [d["day"], MONTHS[int(d["month"]) - 1], d["hour"], d["minute"]]
 
 
 func has_continue() -> bool:
 	return slots.latest_auto() >= 0
+
+
+## Save button: a filled slot asks first (pending = overwrite), an empty one saves at once. Returns true if it saved.
+func request_save(slot: int) -> bool:
+	if _filled(slot):
+		pending = {"action": "overwrite", "slot": slot}
+		status = "Overwrite Slot %d?" % (slot + 1)
+		return false
+	return save_to(slot) == OK
+
+
+func _filled(slot: int) -> bool:
+	for e in slots.list():
+		if e["kind"] == "manual" and e["slot"] == slot:
+			return true
+	return false
+
+
+## Delete button: always asks first.
+func request_delete(slot: int) -> void:
+	pending = {"action": "delete", "slot": slot}
+	status = "Delete Slot %d?" % (slot + 1)
+
+
+## Yes: run the pending action.
+func confirm() -> void:
+	var p := pending
+	pending = {}
+	if p.is_empty():
+		return
+	if p["action"] == "overwrite":
+		save_to(p["slot"])
+	else:
+		delete_slot(p["slot"])
+
+
+## No: drop the pending action.
+func cancel() -> void:
+	pending = {}
+	status = ""
 
 
 func save_to(slot: int) -> Error:

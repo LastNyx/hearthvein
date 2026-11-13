@@ -39,6 +39,12 @@ func _init() -> void:
 		await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("/tmp/hv_save_menu.png")
+	main.menu_model.request_save(1)
+	main.menu.refresh()
+	for i in 4:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("/tmp/hv_save_menu_confirm.png")
 	main.menu.close()
 	_clean()
 	quit()
