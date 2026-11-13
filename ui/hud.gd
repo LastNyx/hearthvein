@@ -458,6 +458,11 @@ func _process(delta: float) -> void:
 		refresh()
 
 
+## True when Esc would still cancel something (build tool, selection, open build flyout): then it is not the menu's.
+func has_cancelable() -> bool:
+	return (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match (event as InputEventKey).keycode:

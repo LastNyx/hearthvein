@@ -24,6 +24,11 @@ func subscribe(kind: String, callback: Callable) -> void:
 	_subs[kind].append(callback)
 
 
+## Drops every subscriber (a swapped-out Settlement's bus: nothing wired to it may fire again).
+func clear_subscribers() -> void:
+	_subs.clear()
+
+
 func unsubscribe(kind: String, callback: Callable) -> void:
 	if _subs.has(kind):
 		_subs[kind].erase(callback)
