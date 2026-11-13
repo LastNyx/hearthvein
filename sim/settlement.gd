@@ -14,11 +14,16 @@ var _system_cache: Dictionary = {}  # script -> system, so per-building lookups 
 const ROAD_NONE := 0
 const ROAD_DIRT := 1
 const ROAD_PAVED := 2  # stored only for now; the paving tool comes in Town
+## Irrigation channels (design.md section 9) are a separate overlay grid, like roads: 1 where a channel is dug.
+const CHANNEL_NONE := 0
+const CHANNEL_DUG := 1
 
 ## Building instances by id, plus an occupancy grid (building id per tile, -1 free) and a road grid.
 var buildings: Dictionary = {}  # int -> Building
 var occupancy := PackedInt32Array()
 var roads := PackedByteArray()
+## Channel grid, parallel to roads. Whether a channel flows is derived (WaterSystem.flowing_channels), not stored.
+var channels := PackedByteArray()
 var hearth: Building = null
 ## Global gold counter. Gold is never stored in inventories.
 var gold: float = 0.0
@@ -52,6 +57,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	s.occupancy.resize(MapState.WIDTH * MapState.HEIGHT)
 	s.occupancy.fill(-1)
 	s.roads.resize(MapState.WIDTH * MapState.HEIGHT)
+	s.channels.resize(MapState.WIDTH * MapState.HEIGHT)
 	var hdef := reg.get_building("hearth")
 	if hdef != null and s.map.hearth_spot.x >= 0:
 		s.hearth = s._insert_building(hdef, s.map.hearth_spot, false)
@@ -61,6 +67,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 		for i in START_CITIZENS:
 			s.add_citizen()
 	s.add_default_systems()
+	WaterSystem.recompute(s)  # the map starts dry; a new game's first day should not wait for the day hook
 	return s
 
 
@@ -70,6 +77,7 @@ func add_default_systems() -> void:
 	add_system(StorageSystem.new())
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
+	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
 	add_system(FertilitySystem.new())  # before Production: supplies the farm fertility modifier
 	add_system(ProductionSystem.new())
 	add_system(HaulingSystem.new())
@@ -217,6 +225,7 @@ func to_dict() -> Dictionary:
 		"map": map.to_dict(),
 		"occupancy": occupancy,
 		"roads": roads,
+		"channels": channels,
 		"buildings": bl,
 		"citizens": cl,
 		"hearth": hearth.id if hearth != null else -1,
@@ -247,6 +256,7 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 	s.map = MapState.from_dict(d["map"])
 	s.occupancy = d["occupancy"]
 	s.roads = d["roads"]
+	s.channels = d["channels"]
 	for pair in d["buildings"]:
 		var b := Building.from_dict(pair[1], registry)
 		if b == null:
@@ -326,6 +336,8 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Di
 				return {"ok": false, "reason": "overlap"}
 			if roads[i] != ROAD_NONE:
 				return {"ok": false, "reason": "road"}
+			if channels[i] != CHANNEL_NONE:
+				return {"ok": false, "reason": "channel"}
 	var why := Placement.check_rule(map, registry, def, origin)
 	if why != "":
 		return {"ok": false, "reason": why}
@@ -704,7 +716,8 @@ func can_place_road(tile: Vector2i) -> bool:
 	var tdef := registry.get_terrain(tid)
 	if tid == "water" or (tdef != null and not tdef.buildable):
 		return false
-	return occupancy[MapState.idx(tile.x, tile.y)] < 0
+	var i := MapState.idx(tile.x, tile.y)
+	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE
 
 
 ## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
@@ -729,6 +742,50 @@ func remove_road(tile: Vector2i) -> bool:
 	_roads_dirty = true
 	events.emit("road_changed", {"tile": tile, "level": ROAD_NONE})
 	_recompute_connections()
+	return true
+
+
+# ---------------------------------------------------------------- irrigation channels
+
+func channel_at(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return false
+	return channels[MapState.idx(tile.x, tile.y)] != CHANNEL_NONE
+
+
+## Irrigation channels are dug like roads: on owned, buildable land, never under a building or on a road (a channel
+## and a road are different overlays of the same tile; pick one). They do not block walking.
+func can_place_channel(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return false
+	var tid := map.terrain_id_at(tile.x, tile.y)
+	var tdef := registry.get_terrain(tid)
+	if tid == "water" or (tdef != null and not tdef.buildable):
+		return false
+	var i := MapState.idx(tile.x, tile.y)
+	return occupancy[i] < 0 and roads[i] == ROAD_NONE and channels[i] == CHANNEL_NONE
+
+
+## Digs one Irrigation Channel tile (design.md section 9, 1 materials per tile). No materials are charged here,
+## exactly like place_road: the sim has no goods treasury and road tiles are not charged either. Returns false when
+## nothing changed. The wet map itself is rebuilt by WaterSystem on the next day; a channel's flow is derived.
+func place_channel(tile: Vector2i) -> bool:
+	if not can_place_channel(tile):
+		return false
+	channels[MapState.idx(tile.x, tile.y)] = CHANNEL_DUG
+	grid_version += 1
+	structure_version += 1
+	events.emit("channel_changed", {"tile": tile, "level": CHANNEL_DUG})
+	return true
+
+
+func remove_channel(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or channels[MapState.idx(tile.x, tile.y)] == CHANNEL_NONE:
+		return false
+	channels[MapState.idx(tile.x, tile.y)] = CHANNEL_NONE
+	grid_version += 1
+	structure_version += 1
+	events.emit("channel_changed", {"tile": tile, "level": CHANNEL_NONE})
 	return true
 
 

@@ -7,7 +7,7 @@ extends RefCounted
 ## A file older than CURRENT_VERSION is upgraded by MIGRATIONS, one step per version and in order (see
 ## migrate_chain). A file from a newer build, or one that fails _validate, is refused: load returns null.
 
-const CURRENT_VERSION := 1
+const CURRENT_VERSION := 2
 
 ## Migration steps: source version -> Callable(state: Dictionary) -> Dictionary of the next version.
 ## The chain is run by version number, so the dictionary order does not matter. To add a version: write the step,
@@ -16,11 +16,12 @@ const CURRENT_VERSION := 1
 ##     static var MIGRATIONS := {0: migrate_v0_to_v1, 1: migrate_v1_to_v2}
 static var MIGRATIONS: Dictionary = {
 	0: migrate_v0_to_v1,
+	1: migrate_v1_to_v2,
 }
 
 ## Keys Settlement.from_dict reads from a state dictionary.
 const REQUIRED_STATE_KEYS: Array[String] = [
-	"map", "occupancy", "roads", "buildings", "citizens", "hearth", "gold",
+	"map", "occupancy", "roads", "channels", "buildings", "citizens", "hearth", "gold",
 	"next_building_id", "next_citizen_id", "grid_version", "structure_version",
 	"forest_gain_version", "terrain_dirty", "hour_acc", "clock", "events",
 	"era_current", "era_override", "planet_health_override", "spirit_override", "systems",
@@ -153,6 +154,19 @@ static func migrate_v0_to_v1(state: Variant) -> Variant:
 	return d
 
 
+## v1 -> v2: the irrigation channel grid (ticket 21) joined the settlement state. An older save has no channels.
+static func migrate_v1_to_v2(state: Variant) -> Variant:
+	if typeof(state) != TYPE_DICTIONARY:
+		push_error("SaveGame migration 1 -> 2: state is not a dictionary")
+		return null
+	var d: Dictionary = state
+	if not d.has("channels"):
+		var ch := PackedByteArray()
+		ch.resize(MapState.WIDTH * MapState.HEIGHT)
+		d["channels"] = ch
+	return d
+
+
 # ---------------------------------------------------------------- validation
 
 ## True when `state` has the shape Settlement.from_dict needs: every required key, tile-sized packed arrays, the
@@ -180,6 +194,9 @@ static func _validate(state: Dictionary, registry: DataRegistry) -> bool:
 		return false
 	if not _packed_size(state["roads"], TYPE_PACKED_BYTE_ARRAY, cells):
 		push_error("SaveGame.load: roads is not a PackedByteArray of %d cells" % cells)
+		return false
+	if not _packed_size(state["channels"], TYPE_PACKED_BYTE_ARRAY, cells):
+		push_error("SaveGame.load: channels is not a PackedByteArray of %d cells" % cells)
 		return false
 	for key in ["clock", "events", "systems"]:
 		if typeof(state[key]) != TYPE_DICTIONARY:

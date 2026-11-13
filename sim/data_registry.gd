@@ -15,6 +15,7 @@ var spirit: SpiritDef = null  # the single data/spirit/spirit.tres
 var growth: GrowthDef = null  # the single data/growth/growth.tres
 var planet: PlanetDef = null  # the single data/planet/planet.tres
 var soil: SoilDef = null      # the single data/soil/soil.tres
+var water: WaterDef = null    # the single data/water/water.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var errors: Array[String] = []
 
@@ -32,6 +33,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	spirit = null
 	planet = null
 	soil = null
+	water = null
 	mapgen = null
 	errors.clear()
 	for path in _scan(root):
@@ -140,6 +142,10 @@ func _index(path: String) -> void:
 		if soil != null:
 			errors.append("%s: a second soil definition" % path)
 		soil = res
+	elif res is WaterDef:
+		if water != null:
+			errors.append("%s: a second water definition" % path)
+		water = res
 	elif res is MapGenDef:
 		if mapgen != null:
 			errors.append("%s: a second mapgen definition" % path)
@@ -209,6 +215,12 @@ func _validate() -> void:
 	elif soil.wear_per_season < 0.0 or soil.recovery_per_season <= 0.0 \
 			or soil.blight_factor < 0.0 or soil.blight_factor > 1.0:
 		errors.append("soil: invalid numbers")
+	if water == null:
+		if not goods.is_empty():
+			errors.append("missing water definition")
+	elif water.wet_radius_water < 0 or water.wet_radius_channel < 0 \
+			or water.farm_wet_fraction <= 0.0 or water.farm_wet_fraction > 1.0 or water.farm_wet_bonus < 1.0:
+		errors.append("water: invalid numbers")
 	_validate_mapgen()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():

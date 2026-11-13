@@ -29,13 +29,14 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 
 
 ## ProductionSystem modifier: (Settlement, Building) -> float. 1.0 for everything that is not a farm, so it is safe
-## to append to ProductionSystem.modifiers for every producer.
+## to append to ProductionSystem.modifiers for every producer. A farm that is at least half wet (WaterSystem) also
+## gets the WaterDef.farm_wet_bonus here, so the wet and soil rules live in one factor.
 static func output_modifier(s: Settlement, b: Building) -> float:
 	if not b.def.fertility_output:
 		return 1.0
 	var sys := s.get_system(FertilitySystem) as FertilitySystem
 	var mean := sys.mean_fertility(s, b) if sys != null else plain_mean_fertility(s, b)
-	return mean * origin_bonus(s, b)
+	return mean * origin_bonus(s, b) * WaterSystem.wet_bonus(s, b)
 
 
 ## Fertility of one tile now, 0..100, including the quarter points kept outside the byte.

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="WaterDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/water_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+wet_radius_water = 2
+wet_radius_channel = 1
+farm_wet_fraction = 0.5
+farm_wet_bonus = 1.25
