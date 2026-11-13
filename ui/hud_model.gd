@@ -293,6 +293,9 @@ func build_bar() -> Array[Dictionary]:
 			if s.channels_unlocked():
 				road_entries.append({"kind": "channel", "id": "channel", "label": "Irrigation channel (C)",
 						"cost": channel_cost_text(), "size": ""})
+			if s.paved_roads_unlocked():
+				road_entries.append({"kind": "paved", "id": "paved", "label": "Paved road (P)",
+						"cost": paved_cost_text(), "size": ""})
 			road_entries.append({"kind": "demolish", "id": "demolish", "label": "Demolish (X)", "cost": "", "size": ""})
 			out.append({"id": "roads", "label": "Roads", "entries": road_entries})
 		elif by_cat.has(cat):
@@ -308,6 +311,29 @@ func build_bar() -> Array[Dictionary]:
 func channel_cost_text() -> String:
 	var c := s.registry.water.channel_cost_materials if s.registry.water != null else 0.0
 	return "%d materials" % roundi(c) if c > 0.0 else ""
+
+
+## "1 materials 1 cut_stone" style text for one paved tile, from the paved RoadDef (stone shown per whole tile as
+## the data states it, e.g. 0.2 cut_stone).
+func paved_cost_text() -> String:
+	var rd := s.registry.get_road_by_level(Settlement.ROAD_PAVED)
+	if rd == null or rd.cost.is_empty():
+		return ""
+	var parts: Array[String] = []
+	var ids: Array = rd.cost.keys()
+	ids.sort()
+	for g in ids:
+		var v := float(rd.cost[g])
+		parts.append(("%d %s" % [int(v), g]) if is_equal_approx(v, roundf(v)) else ("%s %s" % [str(v), g]))
+	return " ".join(parts)
+
+
+## Player-facing reason a paved tile cannot be laid ("" is never asked for).
+static func paved_refusal_text(reason: String) -> String:
+	return {"materials": "Not enough materials", "cut_stone": "Not enough cut stone", "era_locked": "Needs the Town era",
+			"already_paved": "Already paved", "locked_region": "Region not owned", "water": "Cannot pave water",
+			"out_of_bounds": "Off the map", "blocked_terrain": "Blocked", "overlap": "A building is here",
+			"channel": "A channel is here"}.get(reason, "Blocked")
 
 
 ## Player-facing reason a channel cannot be dug on a tile ("" when it can).

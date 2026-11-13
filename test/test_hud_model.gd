@@ -238,6 +238,18 @@ func test_roads_category_offers_channel_from_village() -> void:
 	assert_eq(HudModel.channel_refusal_text("materials"), "Not enough materials")
 
 
+func test_roads_category_offers_paved_in_town() -> void:
+	var kinds := func(bar: Array[Dictionary]) -> Array:
+		return bar[0]["entries"].map(func(e: Dictionary) -> String: return e["kind"])
+	s.era_override = "village"
+	assert_false(kinds.call(m.build_bar()).has("paved"))
+	s.era_override = "town"
+	assert_true(kinds.call(m.build_bar()).has("paved"))
+	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "paved")[0]
+	assert_eq(e["cost"], "0.2 cut_stone 1 materials")
+	assert_eq(HudModel.paved_refusal_text("cut_stone"), "Not enough cut stone")
+
+
 func test_hud_overlay_keys_and_menu_buttons() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED
