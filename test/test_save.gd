@@ -29,9 +29,16 @@ const SKIP := {
 	"Settlement._frame_step": "only meaningful inside a step_seconds call",
 	# MapState
 	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
+	"MapState.foul_version": "counter of fouling changes, not saved; a load rebuilds the fouling mask and caches",
 	# WaterSystem
 	"WaterSystem._base": "wet base from water terrain, a cache rebuilt from the map on the first pass after a load",
 	"WaterSystem._base_version": "version the water base was built for, a cache rebuilt on the first pass after a load",
+	# FoulingSystem
+	"FoulingSystem._tiles": "river tile list, a cache of the map's flow grid",
+	"FoulingSystem._only_foul": "wet-only-from-fouled tile mask, a cache rebuilt from map, channels and fouling",
+	"FoulingSystem._mask_water_version": "version the fouling mask was built for, rebuilt on demand",
+	"FoulingSystem._mask_foul_version": "version the fouling mask was built for, rebuilt on demand",
+	"FoulingSystem._mask_structure_version": "version the fouling mask was built for, rebuilt on demand",
 	# WalkerSystem
 	"WalkerSystem._s": "back-reference to the settlement, set on the first hook after load",
 	"WalkerSystem._grid": "AStarGrid2D, rebuilt from the loaded map and buildings",

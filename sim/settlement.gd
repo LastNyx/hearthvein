@@ -78,6 +78,7 @@ func add_default_systems() -> void:
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
+	add_system(FoulingSystem.new())  # hourly river fouling; its modifier feeds Production (ticket 29c)
 	add_system(FertilitySystem.new())  # before Production: supplies the farm fertility modifier
 	add_system(ProductionSystem.new())
 	add_system(UpkeepSystem.new())  # spends the day's Lumen before Production and Market gold read the flag
@@ -532,6 +533,18 @@ func set_blighted(tile: Vector2i, v: bool) -> bool:
 		return false
 	map.set_blighted(tile.x, tile.y, v)
 	events.emit("blight_changed", {"tile": tile, "blighted": v})
+	return true
+
+
+## Command: set or clear fouling on one water tile (FoulingSystem, and tests). Bumps MapState.foul_version so the
+## fouling mask and the water-coverage cache drop themselves, and emits fouled_changed {tile, fouled} for views.
+## False when nothing changed. Only river tiles foul in normal play; this command does not enforce that.
+func set_fouled(tile: Vector2i, v: bool) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or map.is_fouled(tile.x, tile.y) == v:
+		return false
+	map.set_fouled(tile.x, tile.y, v)
+	map.foul_version += 1
+	events.emit("fouled_changed", {"tile": tile, "fouled": v})
 	return true
 
 

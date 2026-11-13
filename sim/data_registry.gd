@@ -241,7 +241,8 @@ func _validate() -> void:
 			errors.append("missing water definition")
 	elif water.wet_radius_water < 0 or water.wet_radius_channel < 0 \
 			or water.farm_wet_fraction <= 0.0 or water.farm_wet_fraction > 1.0 or water.farm_wet_bonus < 1.0 \
-			or water.channel_cost_materials < 0.0:
+			or water.channel_cost_materials < 0.0 or water.foul_spread_tiles_per_hour < 1 \
+			or water.foul_clear_hours < 0:
 		errors.append("water: invalid numbers")
 	if regions == null:
 		if not goods.is_empty():

@@ -46,6 +46,9 @@ var river_flow: PackedByteArray = PackedByteArray()  # FLOW_*
 ## Bumped by Settlement.set_terrain when a tile turns into or out of water. WaterSystem caches the water-terrain
 ## part of the wet map per version (nothing else changes it). Not part of a save: a load rebuilds that cache.
 var water_version: int = 0
+## Bumped by Settlement.set_fouled whenever a tile's fouled flag changes. FoulingSystem's clean/fouled water mask and
+## CoverageSystem's water cache key on it. Not part of a save (map.fouled is): a load rebuilds those caches.
+var foul_version: int = 0
 
 ## Per region (index row * 4 + col).
 var region_owned: PackedByteArray = PackedByteArray()  # 0/1
