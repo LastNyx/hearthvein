@@ -184,3 +184,16 @@ func test_pending_upgrade_round_trips_through_a_save() -> void:
 	assert_eq(b.upgrade_work_needed, forager.upgrade_work_needed)
 	assert_eq(b.upgrade_buffer.to_dict(), forager.upgrade_buffer.to_dict())
 	assert_false(b.site)
+
+
+func test_demolish_mid_upgrade_refunds_delivered_upgrade_goods() -> void:
+	var forager := _strip_building("forager", 4)
+	assert_true(s.upgrade(forager.id))
+	for g in forager.upgrade_cost:
+		forager.upgrade_buffer.add(g, float(forager.upgrade_cost[g]))
+	var share := reg.logistics.demolish_refund
+	var refund := s._refund_for(forager)
+	for g in forager.upgrade_cost:
+		var base := float(forager.def.cost.get(g, 0.0)) * share
+		assert_almost_eq(float(refund.get(g, 0.0)), base + float(forager.upgrade_cost[g]) * share, 0.001,
+				"%s delivered for the upgrade comes back at the refund share" % g)

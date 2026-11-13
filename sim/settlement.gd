@@ -490,6 +490,12 @@ func _refund_for(b: Building) -> Dictionary:
 			have = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
 		if have * share > Inventory.EPS:
 			out[g] = have * share
+	# An in-place upgrade in flight: goods already delivered for it come back at the same share (like a site's).
+	if b.upgrading() and b.upgrade_buffer != null:
+		for g in b.upgrade_cost:
+			var got := b.upgrade_buffer.amount_of(g) * share
+			if got > Inventory.EPS:
+				out[g] = float(out.get(g, 0.0)) + got
 	return out
 
 
