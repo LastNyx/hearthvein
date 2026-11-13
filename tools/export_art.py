@@ -200,16 +200,24 @@ def forest_tile(seed, bare=False):
 # Broad meadow shading is computed per tile in world space at map build time (ArtLibrary.shade_image): low-frequency
 # value noise from the map seed, no atlas and no period. The manifest carries the look so the loader holds no art data.
 def rock_tile(seed):
-    gi = pquant(pfbm(seed, 13), 4)
-    img = to_img(A([M.ROCK[0], M.ROCK[1], M.ROCK[1], M.ROCK[2]])[gi])
+    """Rock ground (ticket 56): stony grass, a darker grey-green gravel with bare soil patches and pebbles. The
+    boulder props on top carry the rock look; the ground only has to read as 'not meadow' for placement."""
+    v = 0.5 + 0.6 * (pfbm(seed, 14) - 0.5)
+    gi = pquant(v, 3, 0.0, 0.8)
+    stone = [mix(PG[0], M.ROCK[1], 0.62), mix(PG[1], M.ROCK[1], 0.66), mix(PG[1], M.ROCK[2], 0.62)]
+    img = to_img(A(stone)[gi])
     d = ImageDraw.Draw(img)
     rng = random.Random(seed * 3 + 5)
-    for _ in range(9):
-        x, y = rng.randrange(2, T - 5), rng.randrange(2, T - 3)
-        d.ellipse([x, y, x + rng.randint(2, 4), y + rng.randint(1, 2)], fill=M.ROCK[3])
+    for _ in range(3):  # bare dark soil under and between the boulders
+        x, y = rng.randrange(1, T - 8), rng.randrange(2, T - 5)
+        d.ellipse([x, y, x + rng.randint(4, 7), y + rng.randint(2, 4)], fill=mix(M.BANK[0], M.ROCK[0], 0.35))
+    for _ in range(11):  # pebbles
+        x, y = rng.randrange(2, T - 4), rng.randrange(2, T - 3)
+        d.ellipse([x, y, x + rng.randint(1, 2), y + 1], fill=mix(M.ROCK[2], M.ROCK[3], rng.random()))
         d.point((x, y + 2), fill=M.ROCK[0])
-    for _ in range(6):
-        d.point((rng.randrange(1, T - 1), rng.randrange(1, T - 1)), fill=M.LEAF["deep"][2])
+    for _ in range(4):  # a few grass tufts still poking through
+        x, y = rng.randrange(3, T - 3), rng.randrange(3, T - 2)
+        d.point([(x, y), (x - 1, y - 1)], fill=PG[1])
     return img
 
 
@@ -785,6 +793,8 @@ PROPS = {
     "pine_0": lambda: M.pine(1041, 0.9), "pine_1": lambda: M.pine(1042, 1.0), "pine_2": lambda: M.pine(1043, 1.1),
     "boulder_0": lambda: M.boulder(1051, 0.8), "boulder_1": lambda: M.boulder(1052, 1.0),
     "boulder_2": lambda: M.boulder(1053, 1.15), "boulder_3": lambda: M.boulder(1054, 1.3),
+    "boulder_4": lambda: M.boulder(1055, 0.5), "boulder_5": lambda: M.boulder(1056, 0.6),
+    "boulder_6": lambda: M.boulder(1057, 1.5), "boulder_7": lambda: M.boulder(1058, 0.7),
     "crystal_0": lambda: M.crystal_cluster(1061), "crystal_1": lambda: M.crystal_cluster(1062),
     "crystal_2": lambda: M.crystal_cluster(1063),
     "mushrooms_0": lambda: M.mushrooms(1071, False), "mushrooms_1": lambda: M.mushrooms(1072, True),
@@ -800,8 +810,9 @@ SCATTER = {
         ["pine_0", 0.1], ["pine_1", 0.1], ["pine_2", 0.1], ["oak_autumn_0", 0.075], ["oak_autumn_1", 0.075],
         ["oak_deep_0", 0.04], ["oak_lumen_0", 0.006], ["oak_green_0", 0.13], ["oak_green_1", 0.13],
         ["oak_green_2", 0.13], ["oak_green_3", 0.13]]},
-    "rock": {"p_first": 1.0, "p_second": 0.5, "x": [8, 24], "y": [18, 30], "choices": [
-        ["boulder_0", 1], ["boulder_1", 1], ["boulder_2", 1], ["boulder_3", 1]]},
+    "rock": {"p_first": 1.0, "p_second": 0.75, "x": [6, 26], "y": [14, 31], "choices": [
+        ["boulder_0", 1], ["boulder_1", 1], ["boulder_2", 1], ["boulder_3", 0.8], ["boulder_4", 1.2],
+        ["boulder_5", 1.2], ["boulder_6", 0.5], ["boulder_7", 1.2]]},
     "lumen_vein": {"p_first": 0.7, "p_second": 0.0, "x": [12, 20], "y": [28, 31], "choices": [
         ["crystal_0", 1], ["crystal_1", 1], ["crystal_2", 1]]},
     "stump": {"p_first": 1.0, "p_second": 0.0, "x": [14, 18], "y": [24, 28], "choices": [["stump_0", 1]]},

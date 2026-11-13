@@ -467,7 +467,7 @@ func _is_water(c: Color) -> bool:
 func _is_rock(c: Color) -> bool:
 	var hi := maxf(c.r, maxf(c.g, c.b))
 	var lo := minf(c.r, minf(c.g, c.b))
-	return c.a > 0.5 and hi - lo < 0.08 and c.b >= c.g - 0.01  # neutral grey slate, not empty pixels
+	return c.a > 0.5 and c.g - c.r < 0.12 and hi - lo < 0.22  # stony grey-green gravel (ticket 56): not meadow, not empty
 
 
 func test_autotile_pairs_cover_water_and_rock() -> void:

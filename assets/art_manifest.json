@@ -2218,6 +2218,86 @@
    },
    "w": 28
   },
+  "boulder_4": {
+   "base": [
+    6,
+    8
+   ],
+   "file": "props/boulder_4.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 9,
+   "shadow": {
+    "file": "props/boulder_4_shadow.png",
+    "offset": [
+     -5,
+     -3
+    ]
+   },
+   "w": 12
+  },
+  "boulder_5": {
+   "base": [
+    7,
+    10
+   ],
+   "file": "props/boulder_5.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 11,
+   "shadow": {
+    "file": "props/boulder_5_shadow.png",
+    "offset": [
+     -5,
+     -3
+    ]
+   },
+   "w": 14
+  },
+  "boulder_6": {
+   "base": [
+    16,
+    23
+   ],
+   "file": "props/boulder_6.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 24,
+   "shadow": {
+    "file": "props/boulder_6_shadow.png",
+    "offset": [
+     -11,
+     -3
+    ]
+   },
+   "w": 32
+  },
+  "boulder_7": {
+   "base": [
+    8,
+    11
+   ],
+   "file": "props/boulder_7.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 12,
+   "shadow": {
+    "file": "props/boulder_7_shadow.png",
+    "offset": [
+     -6,
+     -3
+    ]
+   },
+   "w": 16
+  },
   "crystal_0": {
    "base": [
     16,
@@ -2821,18 +2901,34 @@
     ],
     [
      "boulder_3",
-     1
+     0.8
+    ],
+    [
+     "boulder_4",
+     1.2
+    ],
+    [
+     "boulder_5",
+     1.2
+    ],
+    [
+     "boulder_6",
+     0.5
+    ],
+    [
+     "boulder_7",
+     1.2
     ]
    ],
    "p_first": 1.0,
-   "p_second": 0.5,
+   "p_second": 0.75,
    "x": [
-    8,
-    24
+    6,
+    26
    ],
    "y": [
-    18,
-    30
+    14,
+    31
    ]
   },
   "stump": {
