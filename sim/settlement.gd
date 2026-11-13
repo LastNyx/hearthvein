@@ -677,6 +677,27 @@ func totals() -> Dictionary:
 	return out
 
 
+## Removes `amount` of `good` from the settlement's storage, all or nothing. Buildings with an inventory are spent
+## from in building-id order (the Hearth is normally id 0), so exactly which storehouse pays is deterministic.
+## Returns false and removes nothing when the total stock (see `totals`) is short.
+func spend_good(good: String, amount: float) -> bool:
+	if amount <= 0.0:
+		return true
+	if float(totals().get(good, 0.0)) + Inventory.EPS < amount:
+		return false
+	var ids := buildings.keys()
+	ids.sort()
+	var left := amount
+	for id in ids:
+		if left <= Inventory.EPS:
+			break
+		var inv: Inventory = (buildings[id] as Building).inventory
+		if inv == null:
+			continue
+		left -= inv.remove(good, left)
+	return true
+
+
 ## Command: restrict a storage building to the given good ids. Empty array = accept all.
 func set_storage_filter(building_id: int, goods: Array) -> bool:
 	var b: Building = buildings.get(building_id)
@@ -753,32 +774,57 @@ func channel_at(tile: Vector2i) -> bool:
 	return channels[MapState.idx(tile.x, tile.y)] != CHANNEL_NONE
 
 
-## Irrigation channels are dug like roads: on owned, buildable land, never under a building or on a road (a channel
-## and a road are different overlays of the same tile; pick one). They do not block walking.
-func can_place_channel(tile: Vector2i) -> bool:
-	if not MapState.in_bounds(tile.x, tile.y) or not map.is_region_owned(map.get_region(tile.x, tile.y)):
-		return false
+## Why an Irrigation Channel cannot be dug here: {"ok": bool, "reason": String}, shaped like can_place(). Channels
+## are dug like roads: on owned, buildable land, never under a building or on a road (a channel and a road are
+## different overlays of the same tile; pick one). They do not block walking. The last reason is "materials" when the
+## settlement's storage holds less than WaterDef.channel_cost_materials of materials.
+func can_place_channel(tile: Vector2i) -> Dictionary:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return {"ok": false, "reason": "out_of_bounds"}
+	if not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return {"ok": false, "reason": "locked_region"}
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water" or (tdef != null and not tdef.buildable):
-		return false
+	if tid == "water":
+		return {"ok": false, "reason": "water"}
+	if tdef != null and not tdef.buildable:
+		return {"ok": false, "reason": "blocked_terrain"}
 	var i := MapState.idx(tile.x, tile.y)
-	return occupancy[i] < 0 and roads[i] == ROAD_NONE and channels[i] == CHANNEL_NONE
+	if occupancy[i] >= 0:
+		return {"ok": false, "reason": "overlap"}
+	if roads[i] != ROAD_NONE:
+		return {"ok": false, "reason": "road"}
+	if channels[i] != CHANNEL_NONE:
+		return {"ok": false, "reason": "channel"}
+	var def := registry.water
+	var cost := def.channel_cost_materials if def != null else 0.0
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < cost:
+		return {"ok": false, "reason": "materials"}
+	return {"ok": true, "reason": ""}
 
 
-## Digs one Irrigation Channel tile (design.md section 9, 1 materials per tile). No materials are charged here,
-## exactly like place_road: the sim has no goods treasury and road tiles are not charged either. Returns false when
-## nothing changed. The wet map itself is rebuilt by WaterSystem on the next day; a channel's flow is derived.
+## Digs one Irrigation Channel tile, paying WaterDef.channel_cost_materials from storage at once (design.md section 9:
+## 1 materials per tile). Returns false when the tile is invalid or the materials are short; nothing is spent then.
+## Wetness is rebuilt immediately so the player sees the effect without waiting for the day, and the daily pass
+## (WaterSystem.on_day) still runs. Whether the channel flows is derived (WaterSystem.flowing_channels).
 func place_channel(tile: Vector2i) -> bool:
-	if not can_place_channel(tile):
+	if not can_place_channel(tile)["ok"]:
+		return false
+	var def := registry.water
+	var cost := def.channel_cost_materials if def != null else 0.0
+	if not spend_good("materials", cost):
 		return false
 	channels[MapState.idx(tile.x, tile.y)] = CHANNEL_DUG
 	grid_version += 1
 	structure_version += 1
 	events.emit("channel_changed", {"tile": tile, "level": CHANNEL_DUG})
+	WaterSystem.recompute(self)
 	return true
 
 
+## Removes a channel, giving back LogisticsDef.demolish_refund of its cost into the nearest storage with room
+## (measured from the tile; the Hearth at new game), spilling over to the next nearest, like demolish. The wet map is
+## rebuilt immediately.
 func remove_channel(tile: Vector2i) -> bool:
 	if not MapState.in_bounds(tile.x, tile.y) or channels[MapState.idx(tile.x, tile.y)] == CHANNEL_NONE:
 		return false
@@ -786,6 +832,12 @@ func remove_channel(tile: Vector2i) -> bool:
 	grid_version += 1
 	structure_version += 1
 	events.emit("channel_changed", {"tile": tile, "level": CHANNEL_NONE})
+	var def := registry.water
+	if def != null and registry.logistics != null:
+		var refund := def.channel_cost_materials * registry.logistics.demolish_refund
+		if refund > Inventory.EPS:
+			_return_goods({"materials": refund}, tile)
+	WaterSystem.recompute(self)
 	return true
 
 

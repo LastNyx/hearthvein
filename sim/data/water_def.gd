@@ -11,3 +11,5 @@ extends Resource
 @export var farm_wet_fraction: float = 0.5
 ## Farm output multiplier when the wet share is met (design.md: x1.25).
 @export var farm_wet_bonus: float = 1.25
+## Materials one Irrigation Channel tile costs, taken from storage when it is dug (design.md: 1 materials/tile).
+@export var channel_cost_materials: float = 0.0
