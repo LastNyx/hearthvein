@@ -402,6 +402,39 @@ class DayCounter extends SimSystem:
 		seasons += 1
 
 
+# ---------------------------------------------------------------- ticket 21: water map cost
+## The daily wet pass copies the cached water-terrain base and stamps flowing channels. The base is built once per
+## water-terrain change (here: the warm-up call), never per day, so a frame-sized day hook stays cheap.
+func test_water_day_hook_and_channel_dig_under_one_ms() -> void:
+	var world := _world()
+	_to_hour(world, 5)
+	var ws := world.get_system(WaterSystem) as WaterSystem
+	ws.on_day(world)  # warm the base mask; later calls only copy it and stamp channels
+	var t0 := Time.get_ticks_usec()
+	ws.on_day(world)
+	var day_ms := (Time.get_ticks_usec() - t0) / 1000.0
+	print("PERF WaterSystem.on_day: %.3f ms" % day_ms)
+	assert_lt(day_ms, 1.0, "the daily wet pass stays under 1 ms with 600 citizens")
+
+	var tile := Vector2i(-1, -1)
+	for y in range(2, MapState.HEIGHT - 2):
+		for x in range(2, MapState.WIDTH - 2):
+			if world.can_place_channel(Vector2i(x, y))["ok"]:
+				tile = Vector2i(x, y)
+				break
+		if tile.x >= 0:
+			break
+	assert_gt(tile.x, -1, "the fixture has a free tile for a channel")
+	if tile.x < 0:
+		return
+	t0 = Time.get_ticks_usec()
+	var dug := world.place_channel(tile)
+	var dig_ms := (Time.get_ticks_usec() - t0) / 1000.0
+	print("PERF place_channel: %.3f ms" % dig_ms)
+	assert_true(dug, "the channel was dug")
+	assert_lt(dig_ms, 1.0, "digging a channel stays under 1 ms")
+
+
 ## Frame-sized steps spread the day hooks over the following steps; coarse steps and flush_deferred run them at once.
 func test_day_hooks_spread_over_frames_and_flush_on_demand() -> void:
 	var world := _world()

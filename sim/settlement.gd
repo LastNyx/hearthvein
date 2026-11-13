@@ -494,6 +494,8 @@ func set_terrain(tile: Vector2i, terrain_id: String) -> bool:
 		return false
 	map.set_terrain_id(tile.x, tile.y, terrain_id)
 	grid_version += 1
+	if from == "water" or terrain_id == "water":
+		map.water_version += 1  # invalidates WaterSystem's cached water-terrain wet base
 	terrain_dirty.append(tile)
 	if terrain_dirty.size() > 512:
 		structure_version += 1

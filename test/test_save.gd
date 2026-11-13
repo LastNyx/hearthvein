@@ -27,6 +27,11 @@ const SKIP := {
 	"Settlement._deferred": "pending day hooks; SaveGame.save flushes them, so a save never holds any",
 	"Settlement._deferred_head": "pending day hooks; SaveGame.save flushes them",
 	"Settlement._frame_step": "only meaningful inside a step_seconds call",
+	# MapState
+	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
+	# WaterSystem
+	"WaterSystem._base": "wet base from water terrain, a cache rebuilt from the map on the first pass after a load",
+	"WaterSystem._base_version": "version the water base was built for, a cache rebuilt on the first pass after a load",
 	# WalkerSystem
 	"WalkerSystem._s": "back-reference to the settlement, set on the first hook after load",
 	"WalkerSystem._grid": "AStarGrid2D, rebuilt from the loaded map and buildings",

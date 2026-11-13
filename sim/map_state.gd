@@ -39,6 +39,9 @@ var fertility: PackedByteArray = PackedByteArray()   # 0..100
 var wet: PackedByteArray = PackedByteArray()         # 0/1
 var fouled: PackedByteArray = PackedByteArray()      # 0/1
 var river_flow: PackedByteArray = PackedByteArray()  # FLOW_*
+## Bumped by Settlement.set_terrain when a tile turns into or out of water. WaterSystem caches the water-terrain
+## part of the wet map per version (nothing else changes it). Not part of a save: a load rebuilds that cache.
+var water_version: int = 0
 
 ## Per region (index row * 4 + col).
 var region_owned: PackedByteArray = PackedByteArray()  # 0/1
