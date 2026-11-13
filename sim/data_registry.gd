@@ -9,6 +9,7 @@ var goods: Dictionary = {}      # id -> GoodDef
 var buildings: Dictionary = {}  # id -> BuildingDef
 var eras: Dictionary = {}       # id -> EraDef
 var terrain: Dictionary = {}    # id -> TerrainDef
+var roads: Dictionary = {}      # id -> RoadDef
 var errors: Array[String] = []
 
 
@@ -19,6 +20,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	buildings.clear()
 	eras.clear()
 	terrain.clear()
+	roads.clear()
 	errors.clear()
 	for path in _scan(root):
 		_index(path)
@@ -42,6 +44,18 @@ func get_era(id: String) -> EraDef:
 
 func get_terrain(id: String) -> TerrainDef:
 	return terrain.get(id)
+
+
+func get_road(id: String) -> RoadDef:
+	return roads.get(id)
+
+
+## Road def for a Settlement.ROAD_* level, or null.
+func get_road_by_level(level: int) -> RoadDef:
+	for r: RoadDef in roads.values():
+		if r.level == level:
+			return r
+	return null
 
 
 ## Eras sorted by order.
@@ -94,6 +108,8 @@ func _index(path: String) -> void:
 		_add(eras, res.id, res, path, "era")
 	elif res is TerrainDef:
 		_add(terrain, res.id, res, path, "terrain")
+	elif res is RoadDef:
+		_add(roads, res.id, res, path, "road")
 	else:
 		errors.append("%s: not a known definition type" % path)
 
@@ -114,6 +130,16 @@ func _validate() -> void:
 	for t: TerrainDef in terrain.values():
 		if t.fertility_start < 0.0 or t.fertility_start > 1.0:
 			errors.append("terrain '%s': fertility_start out of 0..1" % t.id)
+	for t: TerrainDef in terrain.values():
+		if t.walk_speed < 0.0:
+			errors.append("terrain '%s': walk_speed must not be negative" % t.id)
+	var levels := {}
+	for r: RoadDef in roads.values():
+		if r.walk_speed <= 0.0:
+			errors.append("road '%s': walk_speed must be positive" % r.id)
+		if levels.has(r.level):
+			errors.append("road '%s': level %d already used by '%s'" % [r.id, r.level, levels[r.level]])
+		levels[r.level] = r.id
 	_validate_eras()
 	for b: BuildingDef in buildings.values():
 		_validate_building(b)

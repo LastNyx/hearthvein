@@ -1,6 +1,6 @@
 class_name SimDriver
 extends Node
-## Real-time driver: accumulates real seconds x speed and feeds whole hours to Settlement.step_hours.
+## Real-time driver: feeds real seconds x speed to Settlement.step_seconds.
 ## Space toggles pause, 1/2/3 set speed. Optional Label shows the clock.
 
 const SPEEDS: Array[int] = [0, 1, 2, 3]
@@ -8,18 +8,13 @@ const SPEEDS: Array[int] = [0, 1, 2, 3]
 var settlement: Settlement
 var speed: int = 1
 var label: Label
-var _acc_scaled_seconds: float = 0.0
 var _last_speed: int = 1
 
 
 func advance(delta: float) -> void:
 	if settlement == null or speed == 0:
 		return
-	_acc_scaled_seconds += delta * speed
-	var whole := int(_acc_scaled_seconds / GameClock.REAL_SECONDS_PER_HOUR)
-	if whole > 0:
-		_acc_scaled_seconds -= whole * GameClock.REAL_SECONDS_PER_HOUR
-		settlement.step_hours(whole)
+	settlement.step_seconds(delta * speed)
 
 
 func set_speed(s: int) -> void:

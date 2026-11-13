@@ -8,3 +8,4 @@ id = "forest"
 display_name = "Forest"
 buildable = false
 fertility_start = 0.0
+walk_speed = 0.5

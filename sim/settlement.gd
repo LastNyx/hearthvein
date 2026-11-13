@@ -30,6 +30,10 @@ const START_STOCK := {"food": 60.0, "materials": 40.0, "lumen": 10.0}
 const START_CITIZENS := 8
 const PRIORITIES: Array[String] = ["low", "normal", "high", "paused"]
 var _next_building_id: int = 0
+## Bumped whenever roads or buildings change, so path caches know to drop themselves.
+var grid_version: int = 0
+## Game seconds already spent inside the current hour (only non-zero between step_seconds calls).
+var _hour_acc: float = 0.0
 
 
 static func new_game(seed: int, reg: DataRegistry) -> Settlement:
@@ -55,28 +59,61 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 func add_default_systems() -> void:
 	add_system(StorageSystem.new())
 	add_system(JobSystem.new())
+	add_system(WalkerSystem.new())
 
 
 func add_system(system: SimSystem) -> void:
 	systems.append(system)
 
 
-## Deterministic advance, one hour at a time. Per hour: clock moves, then on_hour hooks run; when the new
-## hour starts a day, day_started is emitted and on_day hooks run; likewise season_started / on_season.
+## Deterministic advance, one hour at a time. Per hour: on_seconds hooks get the hour's game seconds, the clock
+## moves, then on_hour hooks run; when the new hour starts a day, day_started is emitted and on_day hooks run;
+## likewise season_started / on_season.
 func step_hours(n: int) -> void:
 	for i in n:
-		clock.total_hours += 1
-		events.now_hours = clock.total_hours
+		var rest := GameClock.REAL_SECONDS_PER_HOUR - _hour_acc
+		_hour_acc = 0.0
 		for sys in systems:
-			sys.on_hour(self)
-		if clock.is_day_start():
-			events.emit("day_started", {"day": clock.day(), "season": clock.season_name(), "year": clock.year()})
+			sys.on_seconds(self, rest)
+		_advance_hour()
+
+
+## Finer seam for movement: advance `seconds` of game time (1x seconds). on_seconds hooks see the time in pieces that
+## never cross an hour boundary; every completed hour runs exactly the hooks step_hours(1) would.
+func step_seconds(seconds: float) -> void:
+	var left := seconds
+	while left > 0.0:
+		var chunk := minf(left, GameClock.REAL_SECONDS_PER_HOUR - _hour_acc)
+		for sys in systems:
+			sys.on_seconds(self, chunk)
+		left -= chunk
+		_hour_acc += chunk
+		if _hour_acc >= GameClock.REAL_SECONDS_PER_HOUR - 0.000001:
+			_hour_acc = 0.0
+			_advance_hour()
+
+
+func _advance_hour() -> void:
+	clock.total_hours += 1
+	events.now_hours = clock.total_hours
+	for sys in systems:
+		sys.on_hour(self)
+	if clock.is_day_start():
+		events.emit("day_started", {"day": clock.day(), "season": clock.season_name(), "year": clock.year()})
+		for sys in systems:
+			sys.on_day(self)
+		if clock.is_season_start():
+			events.emit("season_started", {"season": clock.season_name(), "year": clock.year()})
 			for sys in systems:
-				sys.on_day(self)
-			if clock.is_season_start():
-				events.emit("season_started", {"season": clock.season_name(), "year": clock.year()})
-				for sys in systems:
-					sys.on_season(self)
+				sys.on_season(self)
+
+
+## The registered system of a class, or null.
+func get_system(script: GDScript) -> SimSystem:
+	for sys in systems:
+		if is_instance_of(sys, script):
+			return sys
+	return null
 
 
 func step_days(n: int) -> void:
@@ -154,6 +191,7 @@ func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
 	if def.storage_mode != "none":
 		b.inventory = Inventory.new(def.storage_mode, float(def.storage_cap))
 	buildings[b.id] = b
+	grid_version += 1
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = b.id
 	_recompute_connections()
@@ -169,6 +207,7 @@ func demolish(id: int) -> bool:
 		occupancy[MapState.idx(t.x, t.y)] = -1
 	# Contents of a demolished storehouse are lost for now; ticket 11 may refund.
 	buildings.erase(id)
+	grid_version += 1
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin})
 	_recompute_connections()
 	refresh_population()
@@ -296,6 +335,7 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT) -> bool:
 	if not can_place_road(tile) or roads[MapState.idx(tile.x, tile.y)] >= level:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = level
+	grid_version += 1
 	events.emit("road_changed", {"tile": tile, "level": level})
 	_recompute_connections()
 	return true
@@ -305,6 +345,7 @@ func remove_road(tile: Vector2i) -> bool:
 	if not MapState.in_bounds(tile.x, tile.y) or roads[MapState.idx(tile.x, tile.y)] == ROAD_NONE:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
+	grid_version += 1
 	events.emit("road_changed", {"tile": tile, "level": ROAD_NONE})
 	_recompute_connections()
 	return true

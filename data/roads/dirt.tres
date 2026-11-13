@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="RoadDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/road_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dirt"
+display_name = "Dirt road"
+level = 1
+walk_speed = 1.5

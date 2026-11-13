@@ -8,3 +8,4 @@ id = "water"
 display_name = "Water"
 buildable = false
 fertility_start = 0.0
+walk_speed = 0.0

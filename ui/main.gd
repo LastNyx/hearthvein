@@ -19,6 +19,10 @@ func _ready() -> void:
 	placed.name = "PlacementView"
 	view.add_child(placed)
 	placed.setup(settlement, view)
+	var walkers := WalkerView.new()
+	walkers.name = "WalkerView"
+	view.add_child(walkers)
+	walkers.setup(settlement)
 	var ghost := GhostView.new()
 	ghost.name = "Ghost"
 	ghost.visible = false
