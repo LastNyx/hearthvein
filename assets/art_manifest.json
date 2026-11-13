@@ -1852,6 +1852,18 @@
    "w": 62
   }
  },
+ "channels": {
+  "dry": {
+   "cols": 16,
+   "file": "channels/dry.png",
+   "rows": 1
+  },
+  "flowing": {
+   "cols": 16,
+   "file": "channels/flowing.png",
+   "rows": 1
+  }
+ },
  "ground_order": [
   "water",
   "grass",

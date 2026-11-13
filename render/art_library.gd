@@ -303,6 +303,21 @@ static func road_coords(mask: int, x: int, y: int) -> Vector2i:
 	return Vector2i(mask, ((x * 31 + y * 17) >> 1) & 1)
 
 
+# ---------------------------------------------------------------- irrigation channels
+const CHANNEL_DRY := 0
+const CHANNEL_FLOWING := 1
+
+
+## Source CHANNEL_DRY / CHANNEL_FLOWING; atlas coords are (mask, 0) like roads (N=1, E=2, S=4, W=8).
+static func channel_tileset() -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	for pair in [[CHANNEL_DRY, "dry"], [CHANNEL_FLOWING, "flowing"]]:
+		var r: Dictionary = manifest()["channels"][pair[1]]
+		ts.add_source(_atlas(r["file"], int(r["cols"]), int(r["rows"])), pair[0])
+	return ts
+
+
 # ---------------------------------------------------------------- props
 ## Props to stand on a terrain cell: [{name, pos}] with pos the sprite base point in world pixels.
 ## `open` is the direction of the nearest open (non-same-ground) neighbour tiles summed, for edge tiles of a stand:

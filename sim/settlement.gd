@@ -770,6 +770,14 @@ func remove_road(tile: Vector2i) -> bool:
 
 # ---------------------------------------------------------------- irrigation channels
 
+## True from the Village era on: the build bar and the C key offer channels only then (place_channel itself does
+## not check the era, like place_road).
+func channels_unlocked() -> bool:
+	var cur := registry.get_era(era_id())
+	var v := registry.get_era("village")
+	return cur == null or v == null or cur.order >= v.order
+
+
 func channel_at(tile: Vector2i) -> bool:
 	if not MapState.in_bounds(tile.x, tile.y):
 		return false

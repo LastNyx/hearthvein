@@ -1,9 +1,9 @@
 class_name BuildController
 extends Node
-## Build mode input: R road tool (click-drag), X demolish, right click / Esc cancel, left click places.
+## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), X demolish, right click / Esc cancel, left click places.
 ## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
-enum Mode { NONE, BUILD, ROAD, DEMOLISH }
+enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL }
 
 var settlement: Settlement
 var ghost: GhostView
@@ -50,6 +50,7 @@ func _refresh() -> void:
 	match mode:
 		Mode.BUILD: _hint.text = "Placing %s (right click cancels)" % def_id
 		Mode.ROAD: _hint.text = "Road: click-drag (right click cancels)"
+		Mode.CHANNEL: _hint.text = "Channel (1 materials a tile): click-drag (right click cancels)"
 		Mode.DEMOLISH: _hint.text = "Demolish: click (right click cancels)"
 	if mode == Mode.NONE:
 		ghost.set_state(null, Vector2i.ZERO, false, false)
@@ -70,15 +71,28 @@ func _process(_d: float) -> void:
 			ghost.set_state(def, t, settlement.can_place(def_id, t)["ok"], true)
 		Mode.ROAD:
 			ghost.set_state(null, t, settlement.can_place_road(t) and settlement.road_at(t) == 0, true)
+		Mode.CHANNEL:
+			var c := settlement.can_place_channel(t)
+			ghost.set_state(null, t, c["ok"] or settlement.channel_at(t), true)
+			if c["ok"]:
+				_hint.text = "Channel (%s a tile): click-drag (right click cancels)" % _channel_cost()
+			elif settlement.channel_at(t):
+				_hint.text = "Channel: already dug (X removes it)"
+			else:
+				_hint.text = "Channel: %s" % HudModel.channel_refusal_text(str(c["reason"]))
 		Mode.DEMOLISH:
 			var b := settlement.building_at(t)
-			ghost.set_state(null, t, (b != null and b != settlement.hearth) or settlement.road_at(t) != 0, true)
+			ghost.set_state(null, t, (b != null and b != settlement.hearth) or settlement.road_at(t) != 0
+					or settlement.channel_at(t), true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match (event as InputEventKey).keycode:
 			KEY_R: set_mode(Mode.ROAD)
+			KEY_C:
+				if settlement.channels_unlocked():
+					set_mode(Mode.CHANNEL)
 			KEY_X: set_mode(Mode.DEMOLISH)
 			KEY_ESCAPE: cancel()
 	elif event is InputEventMouseButton and mode != Mode.NONE:
@@ -90,7 +104,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_click(_mouse_tile())
 			else:
 				_painting = false
-	elif event is InputEventMouseMotion and _painting and mode == Mode.ROAD:
+	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL):
 		_paint_to(_mouse_tile())
 
 
@@ -102,15 +116,26 @@ func _click(t: Vector2i) -> void:
 			_painting = true
 			_last_tile = t
 			settlement.place_road(t)
+		Mode.CHANNEL:
+			_painting = true
+			_last_tile = t
+			settlement.place_channel(t)
 		Mode.DEMOLISH:
 			var b := settlement.building_at(t)
 			if b != null:
 				settlement.demolish(b.id)
+			elif settlement.channel_at(t):
+				settlement.remove_channel(t)
 			else:
 				settlement.remove_road(t)
 
 
-## Paint a gap-free line of dirt road from the last painted tile to t.
+func _channel_cost() -> String:
+	var c := settlement.registry.water.channel_cost_materials if settlement.registry.water != null else 0.0
+	return "%d materials" % roundi(c)
+
+
+## Paint a gap-free line of dirt road (or channel) from the last painted tile to t.
 func _paint_to(t: Vector2i) -> void:
 	var cur := _last_tile
 	while cur != t:
@@ -119,5 +144,8 @@ func _paint_to(t: Vector2i) -> void:
 			cur.x += signi(d.x)
 		else:
 			cur.y += signi(d.y)
-		settlement.place_road(cur)
+		if mode == Mode.CHANNEL:
+			settlement.place_channel(cur)
+		else:
+			settlement.place_road(cur)
 	_last_tile = t

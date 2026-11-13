@@ -216,3 +216,23 @@ func test_selection_names_the_made_good_and_skips_empty_output() -> void:
 func test_population_reports_growth_share() -> void:
 	var g: float = m.population()["growth"]
 	assert_true(g >= 0.0 and g <= 1.0)
+
+
+func test_water_overlay_toggle() -> void:
+	assert_false(m.overlay_on("water"))
+	assert_true(m.toggle_overlay("water"))
+	assert_true(m.overlay_on("water"))
+	assert_false(m.overlay_on("blight"))
+	assert_false(m.toggle_overlay("water"))
+
+
+func test_roads_category_offers_channel_from_village() -> void:
+	var kinds := func(bar: Array[Dictionary]) -> Array:
+		return bar[0]["entries"].map(func(e: Dictionary) -> String: return e["kind"])
+	s.era_override = "camp"
+	assert_false(kinds.call(m.build_bar()).has("channel"))
+	s.era_override = "village"
+	assert_true(kinds.call(m.build_bar()).has("channel"))
+	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "channel")[0]
+	assert_eq(e["cost"], "1 materials")
+	assert_eq(HudModel.channel_refusal_text("materials"), "Not enough materials")

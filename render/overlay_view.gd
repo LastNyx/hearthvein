@@ -1,6 +1,6 @@
 class_name OverlayView
 extends Node2D
-## Map overlays toggled from the HUD (HudModel.overlays): blight (strong tint on every blighted tile) and road
+## Map overlays toggled from the HUD (HudModel.overlays): blight (strong tint on every blighted tile), water (wet land tinted blue, dry land faintly warm) and road
 ## connection (green footprint = connected to the Hearth, red = not, road tiles outlined). Also outlines the selected
 ## building. Reads the sim and the view-model only; redraws when something it shows changes.
 
@@ -12,6 +12,7 @@ var _dirty := true
 var _seen_selected := -2
 var _seen_blight := false
 var _seen_roads := false
+var _seen_water := false
 
 
 func setup(s: Settlement, m: HudModel) -> void:
@@ -19,7 +20,7 @@ func setup(s: Settlement, m: HudModel) -> void:
 	model = m
 	z_index = 15
 	for kind in ["blight_changed", "building_connection_changed", "building_placed", "building_demolished",
-			"road_changed", "building_completed"]:
+			"road_changed", "building_completed", "channel_changed"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _dirty = true)
 
 
@@ -27,10 +28,12 @@ func _process(_d: float) -> void:
 	if model == null:
 		return
 	var sel := model.selected_id
-	if sel != _seen_selected or model.overlay_on("blight") != _seen_blight or model.overlay_on("roads") != _seen_roads:
+	if sel != _seen_selected or model.overlay_on("blight") != _seen_blight or model.overlay_on("roads") != _seen_roads \
+			or model.overlay_on("water") != _seen_water:
 		_seen_selected = sel
 		_seen_blight = model.overlay_on("blight")
 		_seen_roads = model.overlay_on("roads")
+		_seen_water = model.overlay_on("water")
 		_dirty = true
 	if _dirty:
 		_dirty = false
@@ -47,6 +50,14 @@ func _draw() -> void:
 				if map.is_blighted(x, y):
 					draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.62, 0.2, 0.85, 0.42))
 					draw_rect(Rect2(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2), Color(0.85, 0.5, 1.0, 0.5), false, 1.0)
+	if model.overlay_on("water"):
+		var map := settlement.map
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				if map.is_wet(x, y) and map.terrain_id_at(x, y) != "water":
+					draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.2, 0.5, 0.95, 0.32))
+				elif not map.is_wet(x, y):
+					draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.85, 0.6, 0.25, 0.07))
 	if model.overlay_on("roads"):
 		for y in MapState.HEIGHT:
 			for x in MapState.WIDTH:

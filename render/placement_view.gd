@@ -11,12 +11,14 @@ const TILE := ArtLibrary.TILE
 var settlement: Settlement
 var view: MapView
 var _nodes: Dictionary = {}  # building id -> Array[Node]
+var _channels_dirty := false
+var _drawn_channels: Dictionary = {}  # tile -> true for every channel cell currently on the layer
 
 
 func setup(s: Settlement, v: MapView) -> void:
 	settlement = s
 	view = v
-	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or settlement.building_at(t) != null
+	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or _dug(t) or settlement.building_at(t) != null
 	z_index = 20  # the no-road icon sits above sprites and glows
 	for kind in ["building_placed", "building_demolished", "road_changed", "building_connection_changed", "building_completed"]:
 		s.events.subscribe(kind, func(entry: Dictionary) -> void: _on_event(entry["kind"], entry["data"]))
@@ -24,9 +26,13 @@ func setup(s: Settlement, v: MapView) -> void:
 		for x in MapState.WIDTH:
 			if s.roads[MapState.idx(x, y)] > 0:
 				_refresh_road(Vector2i(x, y))
+	s.events.subscribe("channel_changed", func(_e: Dictionary) -> void: _channels_dirty = true)
 	for id in s.buildings:
 		_add_building(s.buildings[id])
+	_refresh_channels()
 	queue_redraw()
+
+
 
 
 func _on_event(kind: String, e: Dictionary) -> void:
@@ -70,6 +76,36 @@ func _refresh_road(t: Vector2i) -> void:
 	view.roads.set_cell(t, lv, ArtLibrary.road_coords(mask, t.x, t.y))
 
 
+func _dug(t: Vector2i) -> bool:
+	return settlement.channel_at(t)
+
+
+## Redraw every channel tile: flow is global (one new tile can make a whole line flow), so the layer is rebuilt
+## from the channel grid and WaterSystem.flowing_channels. Looks: dry earth ditch, or the same with water in it.
+func _refresh_channels() -> void:
+	_channels_dirty = false
+	var flow := WaterSystem.flowing_channels(settlement)
+	var now: Dictionary = {}
+	var at := settlement.channels.find(Settlement.CHANNEL_DUG)
+	while at >= 0:
+		now[Vector2i(at % MapState.WIDTH, at / MapState.WIDTH)] = true
+		at = settlement.channels.find(Settlement.CHANNEL_DUG, at + 1)
+	for t: Vector2i in _drawn_channels:
+		if not now.has(t):
+			view.channels.erase_cell(t)
+			view.set_props_visible(t, settlement.building_at(t) == null and _level(t) <= 0)
+	for t: Vector2i in now:
+		var mask := 0
+		var dirs := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+		for i in 4:
+			if now.has(t + dirs[i]):
+				mask |= 1 << i
+		var src := ArtLibrary.CHANNEL_FLOWING if flow[MapState.idx(t.x, t.y)] != 0 else ArtLibrary.CHANNEL_DRY
+		view.channels.set_cell(t, src, Vector2i(mask, 0))
+		view.set_props_visible(t, false)
+	_drawn_channels = now
+
+
 func _add_building(b: Building) -> void:
 	var e := ArtLibrary.building_entry(b.def.id)
 	var base := ArtLibrary.base_point(b.origin, b.def.size)
@@ -111,6 +147,8 @@ func _remove_building(id: int, origin: Vector2i, def_id: String) -> void:
 func _process(_d: float) -> void:
 	if settlement == null:
 		return
+	if _channels_dirty:
+		_refresh_channels()
 	for id in settlement.buildings:
 		if (settlement.buildings[id] as Building).site:
 			queue_redraw()

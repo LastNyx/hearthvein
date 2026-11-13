@@ -17,6 +17,7 @@ const DUAL_CORNERS := [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(0, 0), Vector
 
 var map: MapState
 var roads: TileMapLayer
+var channels: TileMapLayer
 var shadows: Node2D
 var objects: Node2D
 var fx: Node2D
@@ -86,6 +87,10 @@ func setup(m: MapState) -> void:
 	roads.name = "Roads"
 	roads.tile_set = ArtLibrary.road_tileset()
 	add_child(roads)
+	channels = TileMapLayer.new()
+	channels.name = "Channels"
+	channels.tile_set = ArtLibrary.channel_tileset()
+	add_child(channels)
 	shadows = Node2D.new()
 	shadows.name = "Shadows"
 	add_child(shadows)

@@ -713,6 +713,42 @@ def export_roads(manifest):
         manifest["roads"][str(level)] = {"file": f"roads/{name}.png", "cols": 16, "rows": rows}
 
 
+# ------------------------------------------------------------------ irrigation channels
+def channel_tile(flowing, mask):
+    """Narrow dug ditch for a connection mask (N=1, E=2, S=4, W=8): earth banks, and a water bed with a bright
+    centre line when the channel flows (it reaches the river), a dry dark earth bed when it does not."""
+    rd = np.full((T, T), 99.0, dtype=np.float32)
+    for bit, (a, b) in ROAD_SEGS.items():
+        if mask & bit:
+            rd = np.minimum(rd, M.seg_dist(XS, YS, a, b))
+    if mask == 0:
+        rd = np.hypot(XS - 16, YS - 16) + 1.5
+    outer = rd < 6.5 + (BAY - 0.5) * 1.0
+    bed = rd < 4.0
+    mid = rd < 1.6
+    rgb = np.zeros((T, T, 3), dtype=np.uint8)
+    rgb[:] = M.DIRT[1][:3]
+    rim = outer & ~bed
+    rgb[rim] = (M.DIRT[3] if flowing else M.DIRT[2])[:3]
+    if flowing:
+        rgb[bed] = M.WATER[2][:3]
+        rgb[mid] = M.WATER[4][:3]
+        rgb[bed & (BAY > 0.6) & ~mid] = M.WATER[3][:3]
+    else:
+        rgb[bed] = M.DIRT[0][:3]
+        rgb[mid] = M.DIRT[1][:3]
+    return to_img(rgb, np.where(outer, 255, 0))
+
+
+def export_channels(manifest):
+    manifest["channels"] = {}
+    for key, flowing in (("dry", False), ("flowing", True)):
+        tiles = [channel_tile(flowing, m) for m in range(16)]
+        im, rows = pack_atlas(tiles, 16)
+        save(im, OUT / "channels" / f"{key}.png")
+        manifest["channels"][key] = {"file": f"channels/{key}.png", "cols": 16, "rows": rows}
+
+
 # ------------------------------------------------------------------ sprites (props and buildings)
 def shadow_image(sp, bx, by):
     W, H = sp.img.size
@@ -985,6 +1021,7 @@ def main():
     export_autotiles(manifest)
     export_states(manifest)
     export_roads(manifest)
+    export_channels(manifest)
     export_sites(manifest)
     export_props(manifest)
     export_buildings(manifest)

@@ -4,7 +4,7 @@ extends RefCounted
 ## scenes (ui/hud.gd) only copy these values onto labels. Reads the Settlement; its only commands are the building
 ## priority and pause the selected-building panel offers.
 
-const OVERLAYS: Array[String] = ["blight", "roads"]
+const OVERLAYS: Array[String] = ["blight", "roads", "water"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "water",
 		"logistics", "civic", "sky", "landmark"]
 const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
@@ -13,7 +13,7 @@ const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 var s: Settlement
 var notifications: NotificationCenter
 var selected_id: int = -1
-var overlays := {"blight": false, "roads": false}
+var overlays := {"blight": false, "roads": false, "water": false}
 var _deltas := {"food": 0, "materials": 0, "lumen": 0, "gold": 0}
 var _mark: Dictionary = {}
 
@@ -286,9 +286,13 @@ func build_bar() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:
 		if cat == "roads":
-			out.append({"id": "roads", "label": "Roads", "entries": [
-					{"kind": "road", "id": "road", "label": "Dirt road (R)", "cost": "", "size": ""},
-					{"kind": "demolish", "id": "demolish", "label": "Demolish (X)", "cost": "", "size": ""}]})
+			var road_entries: Array = [
+					{"kind": "road", "id": "road", "label": "Dirt road (R)", "cost": "", "size": ""}]
+			if s.channels_unlocked():
+				road_entries.append({"kind": "channel", "id": "channel", "label": "Irrigation channel (C)",
+						"cost": channel_cost_text(), "size": ""})
+			road_entries.append({"kind": "demolish", "id": "demolish", "label": "Demolish (X)", "cost": "", "size": ""})
+			out.append({"id": "roads", "label": "Roads", "entries": road_entries})
 		elif by_cat.has(cat):
 			out.append({"id": cat, "label": category_label(cat), "entries": by_cat[cat]})
 	var rest: Array = by_cat.keys().filter(func(c: String) -> bool: return not CATEGORY_ORDER.has(c))
@@ -296,6 +300,19 @@ func build_bar() -> Array[Dictionary]:
 	for cat: String in rest:
 		out.append({"id": cat, "label": category_label(cat), "entries": by_cat[cat]})
 	return out
+
+
+## "1 materials" per channel tile, from WaterDef.
+func channel_cost_text() -> String:
+	var c := s.registry.water.channel_cost_materials if s.registry.water != null else 0.0
+	return "%d materials" % roundi(c) if c > 0.0 else ""
+
+
+## Player-facing reason a channel cannot be dug on a tile ("" when it can).
+static func channel_refusal_text(reason: String) -> String:
+	return {"materials": "Not enough materials", "locked_region": "Region not owned", "water": "Cannot dig in water",
+			"out_of_bounds": "Off the map", "blocked_terrain": "Blocked", "road": "A road is here",
+			"overlap": "A building is here", "channel": "Already a channel"}.get(reason, "Blocked")
 
 
 static func cost_text(cost: Dictionary) -> String:

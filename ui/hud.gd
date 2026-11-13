@@ -234,7 +234,7 @@ func _build_top_bar(parent: Node) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
-	for pair in [["blight", "Blight (V)"], ["roads", "Roads (G)"]]:
+	for pair in [["blight", "Blight (V)"], ["roads", "Roads (G)"], ["water", "Water (T)"]]:
 		var b := _button(row, pair[1], 14)
 		b.toggle_mode = false
 		b.pressed.connect(_on_overlay.bind(pair[0]))
@@ -416,6 +416,7 @@ func _pick(kind: String, id: String) -> void:
 	match kind:
 		"building": build.set_build(id)
 		"road": build.set_mode(BuildController.Mode.ROAD)
+		"channel": build.set_mode(BuildController.Mode.CHANNEL)
 		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
 
 
@@ -468,6 +469,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		match (event as InputEventKey).keycode:
 			KEY_V: _on_overlay("blight")
 			KEY_G: _on_overlay("roads")
+			KEY_T: _on_overlay("water")
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
 			KEY_ESCAPE:
 				model.clear_selection()
