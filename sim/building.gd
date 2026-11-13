@@ -13,6 +13,12 @@ var paused: bool = false
 var priority: String = "normal"
 ## Null unless def.storage_mode != "none".
 var inventory: Inventory = null
+## Producers (recipe != null): output waits here until a hauler carries it off (ProductionSystem makes it).
+var door_buffer: Inventory = null
+## Consumers (recipe with inputs): hauled-in inputs, per good.
+var input_buffer: Inventory = null
+## Why production stopped: "" running, "door_full", "no_input", "no_forest".
+var halt: String = ""
 
 
 func footprint() -> Rect2i:

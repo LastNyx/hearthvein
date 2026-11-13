@@ -10,6 +10,7 @@ var buildings: Dictionary = {}  # id -> BuildingDef
 var eras: Dictionary = {}       # id -> EraDef
 var terrain: Dictionary = {}    # id -> TerrainDef
 var roads: Dictionary = {}      # id -> RoadDef
+var logistics: LogisticsDef = null  # the single data/logistics/logistics.tres
 var errors: Array[String] = []
 
 
@@ -21,6 +22,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	eras.clear()
 	terrain.clear()
 	roads.clear()
+	logistics = null
 	errors.clear()
 	for path in _scan(root):
 		_index(path)
@@ -108,6 +110,10 @@ func _index(path: String) -> void:
 		_add(eras, res.id, res, path, "era")
 	elif res is TerrainDef:
 		_add(terrain, res.id, res, path, "terrain")
+	elif res is LogisticsDef:
+		if logistics != null:
+			errors.append("%s: a second logistics definition" % path)
+		logistics = res
 	elif res is RoadDef:
 		_add(roads, res.id, res, path, "road")
 	else:
@@ -140,6 +146,12 @@ func _validate() -> void:
 		if levels.has(r.level):
 			errors.append("road '%s': level %d already used by '%s'" % [r.id, r.level, levels[r.level]])
 		levels[r.level] = r.id
+	if logistics == null:
+		if not goods.is_empty():  # an unreadable data root is already one error
+			errors.append("missing logistics definition")
+	elif logistics.door_buffer_cap <= 0.0 or logistics.haul_load <= 0.0 or logistics.input_buffer_days <= 0.0 \
+			or logistics.min_pickup <= 0.0 or logistics.units_per_felled_tile <= 0.0:
+		errors.append("logistics: every number must be positive")
 	_validate_eras()
 	for b: BuildingDef in buildings.values():
 		_validate_building(b)

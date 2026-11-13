@@ -40,6 +40,7 @@ storage_mode = "none"
 storage_cap = 0
 placement_rule = "near_forest"
 placement_radius = 4
+fells_forest = true
 recipe = SubResource("Recipe")
 upgradable = true
 tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

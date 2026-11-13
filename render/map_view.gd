@@ -16,6 +16,8 @@ var fx: Node2D
 var _base: TileMapLayer
 var _overlay: RegionOverlay
 var _props: Dictionary = {}  # Vector2i -> Array[Node]
+var _ground := PackedStringArray()
+var _overlays: Dictionary = {}  # ground -> TileMapLayer
 
 
 func setup(m: MapState) -> void:
@@ -51,42 +53,69 @@ func setup(m: MapState) -> void:
 	fx = Node2D.new()
 	fx.name = "Fx"
 	add_child(fx)
-	_fill(ground, overlays)
+	_ground = ground
+	_overlays = overlays
+	_fill()
 	_overlay = RegionOverlay.new()
 	_overlay.map = map
 	add_child(_overlay)
 
 
-func _ground_at(ground: PackedStringArray, x: int, y: int) -> String:
-	return ground[map.get_terrain(x, y)]
+func _ground_at(x: int, y: int) -> String:
+	return _ground[map.get_terrain(x, y)]
 
 
-func _fill(ground: PackedStringArray, overlays: Dictionary) -> void:
-	var grounds: Array[String] = ArtLibrary.overlay_grounds()
-	var bits := [Vector2i(0, -1), Vector2i(1, -1), Vector2i(1, 0), Vector2i(1, 1),
-			Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1)]
+func _fill() -> void:
 	for y in MapState.HEIGHT:
 		for x in MapState.WIDTH:
-			var t := map.get_terrain(x, y)
-			var id := map.terrain_ids[t]
-			var cell := ArtLibrary.terrain_cell(id, x, y)
-			_base.set_cell(Vector2i(x, y), cell[0], cell[1])
-			var here := ground[t]
-			var rank := ArtLibrary.ground_rank(here)
-			for g in grounds:
-				if ArtLibrary.ground_rank(g) <= rank:
-					continue
-				var mask := 0
-				for i in 8:
-					var nx: int = x + bits[i].x
-					var ny: int = y + bits[i].y
-					if MapState.in_bounds(nx, ny) and _ground_at(ground, nx, ny) == g:
-						mask |= 1 << i
-				if mask != 0:
-					var c := ArtLibrary.overlay_coords(mask, here == "water")
-					if c.x >= 0:
-						(overlays[g] as TileMapLayer).set_cell(Vector2i(x, y), 0, c)
-			_add_props(id, x, y)
+			_paint_base(x, y)
+			_paint_overlays(x, y)
+			_add_props(map.terrain_id_at(x, y), x, y)
+
+
+func _paint_base(x: int, y: int) -> void:
+	var cell := ArtLibrary.terrain_cell(map.terrain_id_at(x, y), x, y)
+	_base.set_cell(Vector2i(x, y), cell[0], cell[1])
+
+
+## Soft transition overlays of higher grounds onto this tile (cleared first, so it can be called again).
+func _paint_overlays(x: int, y: int) -> void:
+	var bits := [Vector2i(0, -1), Vector2i(1, -1), Vector2i(1, 0), Vector2i(1, 1),
+			Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1)]
+	var here := _ground_at(x, y)
+	var rank := ArtLibrary.ground_rank(here)
+	for g in ArtLibrary.overlay_grounds():
+		var layer: TileMapLayer = _overlays[g]
+		layer.erase_cell(Vector2i(x, y))
+		if ArtLibrary.ground_rank(g) <= rank:
+			continue
+		var mask := 0
+		for i in 8:
+			var nx: int = x + bits[i].x
+			var ny: int = y + bits[i].y
+			if MapState.in_bounds(nx, ny) and _ground_at(nx, ny) == g:
+				mask |= 1 << i
+		if mask != 0:
+			var c := ArtLibrary.overlay_coords(mask, here == "water")
+			if c.x >= 0:
+				layer.set_cell(Vector2i(x, y), 0, c)
+
+
+## Redraw one tile after its terrain changed (Settlement event terrain_changed): base cell, the overlays of the
+## tile and its 8 neighbours, and the tile's props (trees go, stump appears).
+func refresh_tile(tile: Vector2i) -> void:
+	if map == null or not MapState.in_bounds(tile.x, tile.y):
+		return
+	_paint_base(tile.x, tile.y)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var n := tile + Vector2i(dx, dy)
+			if MapState.in_bounds(n.x, n.y):
+				_paint_overlays(n.x, n.y)
+	for n in _props.get(tile, []):
+		(n as Node).queue_free()
+	_props.erase(tile)
+	_add_props(map.terrain_id_at(tile.x, tile.y), tile.x, tile.y)
 
 
 func _add_props(terrain_id: String, x: int, y: int) -> void:

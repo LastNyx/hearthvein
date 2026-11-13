@@ -35,6 +35,8 @@ const GOLD := "gold"
 @export var placement_rule: String = "any"
 ## Radius in tiles used by rules that look around the tile (0 when unused).
 @export var placement_radius: int = 0
+## True for the Woodcutter: production turns forest tiles in placement_radius into stumps.
+@export var fells_forest: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

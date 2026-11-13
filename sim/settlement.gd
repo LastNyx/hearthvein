@@ -60,6 +60,8 @@ func add_default_systems() -> void:
 	add_system(StorageSystem.new())
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
+	add_system(ProductionSystem.new())
+	add_system(HaulingSystem.new())
 
 
 func add_system(system: SimSystem) -> void:
@@ -190,6 +192,14 @@ func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
 	b.origin = origin
 	if def.storage_mode != "none":
 		b.inventory = Inventory.new(def.storage_mode, float(def.storage_cap))
+	if def.recipe != null and registry.logistics != null:
+		b.door_buffer = Inventory.new("total", registry.logistics.door_buffer_cap)
+		var need := HaulingSystem.input_need(registry, def)
+		if not need.is_empty():
+			var cap := 0.0
+			for g in need:
+				cap = maxf(cap, need[g])
+			b.input_buffer = Inventory.new("per_good", cap)
 	buildings[b.id] = b
 	grid_version += 1
 	for t in b.tiles():
@@ -211,6 +221,20 @@ func demolish(id: int) -> bool:
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin})
 	_recompute_connections()
 	refresh_population()
+	return true
+
+
+## Command: change one tile's terrain (woodcutting, regrowth, blight later). Bumps grid_version because walk speeds
+## change, and emits terrain_changed {tile, from, to} so views redraw the tile. False when nothing changed.
+func set_terrain(tile: Vector2i, terrain_id: String) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or map.terrain_index(terrain_id) < 0:
+		return false
+	var from := map.terrain_id_at(tile.x, tile.y)
+	if from == terrain_id:
+		return false
+	map.set_terrain_id(tile.x, tile.y, terrain_id)
+	grid_version += 1
+	events.emit("terrain_changed", {"tile": tile, "from": from, "to": terrain_id})
 	return true
 
 
