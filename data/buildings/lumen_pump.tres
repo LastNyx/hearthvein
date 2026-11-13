@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"lumen": 7.0}
+
+[resource]
+script = ExtResource("1")
+id = "lumen_pump"
+display_name = "Lumen Pump"
+era = "town"
+category = "lumen"
+size = Vector2i(1, 1)
+cost = {"materials": 60, "gold": 15, "planks": 10}
+worker_slots = 3
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "on_vein"
+placement_radius = 0
+blight_radius = 4
+blight_period_days = 3
+vein_extractor = true
+health_per_day = -0.012
+recipe = SubResource("Recipe")
+upgradable = false
