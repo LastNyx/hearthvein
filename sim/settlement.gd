@@ -40,7 +40,13 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 		for g in START_STOCK:
 			s.hearth.inventory.add(g, START_STOCK[g])
 		s.place_road(s.map.hearth_spot + Vector2i(hdef.size.x, 0))
+	s.add_default_systems()
 	return s
+
+
+## Every game system a real game runs, in hook order. Each feature ticket appends its system here.
+func add_default_systems() -> void:
+	add_system(StorageSystem.new())
 
 
 func add_system(system: SimSystem) -> void:

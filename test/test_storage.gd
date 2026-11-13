@@ -79,7 +79,7 @@ func test_storehouse_respects_filter() -> void:
 
 func test_lumen_leaks_one_percent_per_day_cells_do_not() -> void:
 	var s := _new()
-	s.add_system(StorageSystem.new())
+	# StorageSystem is registered by new_game (add_default_systems).
 	s.hearth.inventory.add("lumen", 90.0)  # 100 total
 	s.hearth.inventory.add("lumen_cells", 20.0)
 	s.step_days(1)
