@@ -58,7 +58,10 @@ func _refresh_road(t: Vector2i) -> void:
 	var lv := _level(t)
 	if lv <= 0:
 		view.roads.erase_cell(t)
+		# Props come back unless a building still covers the tile.
+		view.set_props_visible(t, settlement.building_at(t) == null)
 		return
+	view.set_props_visible(t, false)  # roads cover rock/vein/tree props
 	var mask := 0
 	for i in 4:
 		if _level(t + [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT][i]) > 0:
