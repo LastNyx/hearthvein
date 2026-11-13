@@ -366,8 +366,8 @@ func hearth_world_pos() -> Vector2:
 
 class RegionOverlay extends Node2D:
 	const DIM := Color(0.02, 0.03, 0.08, 0.42)
-	const BORDER_OWNED := Color(1.0, 0.9, 0.5, 0.55)
-	const BORDER_LOCKED := Color(0.8, 0.85, 1.0, 0.35)
+	const BORDER_OWNED := Color(1.0, 1.0, 1.0, 0.16)
+	const BORDER_LOCKED := Color(0.8, 0.85, 1.0, 0.18)
 	var map: MapState
 	var _seen: PackedByteArray = PackedByteArray()
 
@@ -385,4 +385,4 @@ class RegionOverlay extends Node2D:
 			var owned := map.is_region_owned(r)
 			if not owned:
 				draw_rect(rect, DIM)
-			draw_rect(rect, BORDER_OWNED if owned else BORDER_LOCKED, false, 2.0)
+			draw_rect(rect, BORDER_OWNED if owned else BORDER_LOCKED, false, 1.0)

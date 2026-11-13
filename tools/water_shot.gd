@@ -2,7 +2,7 @@ extends SceneTree
 ## Windowed water/channel shots: godot --path . -s tools/water_shot.gd [-- seed]
 ## Ticket 21b: a channel dug from the river toward a farm (flowing look, wet tint around it) and one dry
 ## disconnected channel (dry look, no wet tint). Writes /tmp/hv_water_off.png (overlay off) and
-## /tmp/hv_water_on.png (water overlay on, the T key / "Water (T)" button).
+## /tmp/hv_water_on.png (water overlay on, the T key / Overlays menu Water entry).
 
 const T := ArtLibrary.TILE
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]

@@ -14,6 +14,7 @@ const PURPLE := Color("b496d2")
 const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
+const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"]]  # id, label, key
 
 var model: HudModel
 var build: BuildController
@@ -30,6 +31,8 @@ var _spirit_label: Label
 var _spirit_box: Control
 var _planet_label: Label
 var _overlay_buttons: Dictionary = {}
+var _overlay_toggle: Button
+var _overlay_panel: PanelContainer
 var _era_title: Label
 var _era_dimming: Label
 var _era_gate: Label
@@ -88,6 +91,7 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(right)
+	_build_overlay_menu(right)
 	_build_era_panel(right)
 	_build_notes(center)
 	_float = Control.new()
@@ -234,11 +238,29 @@ func _build_top_bar(parent: Node) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
-	for pair in [["blight", "Blight (V)"], ["roads", "Roads (G)"], ["water", "Water (T)"]]:
-		var b := _button(row, pair[1], 14)
-		b.toggle_mode = false
+	_overlay_toggle = _button(row, "Overlays", 14)
+	_overlay_toggle.pressed.connect(toggle_overlay_menu)
+
+
+## One compact flyout under the top bar holds every overlay toggle (room for more); keys work with it closed.
+func _build_overlay_menu(parent: Node) -> void:
+	_overlay_panel = _panel(parent)
+	_overlay_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_overlay_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	_overlay_panel.add_child(v)
+	for pair in OVERLAYS:
+		var b := _button(v, "%s (%s)" % [pair[1], pair[2]], 14)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.pressed.connect(_on_overlay.bind(pair[0]))
 		_overlay_buttons[pair[0]] = b
+	_overlay_panel.visible = false
+
+
+func toggle_overlay_menu() -> void:
+	_overlay_panel.visible = not _overlay_panel.visible
+	_refresh_overlay_buttons()
 
 
 func _on_overlay(id: String) -> void:
@@ -247,8 +269,11 @@ func _on_overlay(id: String) -> void:
 
 
 func _refresh_overlay_buttons() -> void:
+	var any := false
 	for id in _overlay_buttons:
 		_style_button(_overlay_buttons[id], model.overlay_on(id))
+		any = any or model.overlay_on(id)
+	_style_button(_overlay_toggle, any or _overlay_panel.visible)
 
 
 # ---------------------------------------------------------------- era and Dimming panel
@@ -257,6 +282,7 @@ func _build_era_panel(parent: Node) -> void:
 	_era_panel = _panel(parent)
 	_era_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_era_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_era_panel.custom_minimum_size = Vector2(360, 0)
 	var v := VBoxContainer.new()
 	_era_panel.add_child(v)
 	_era_title = _label(v, 18, GOLD)
@@ -266,6 +292,8 @@ func _build_era_panel(parent: Node) -> void:
 	_moon = _icon(row, "moon", 24)
 	_era_dimming = _label(row, 17, Color("c8d2f0"))
 	_era_gate = _label(v, 12, DIM)
+	_era_gate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_era_gate.custom_minimum_size = Vector2(336, 0)
 	_era_date = _label(v, 13, DIM)
 
 

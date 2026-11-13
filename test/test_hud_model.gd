@@ -236,3 +236,23 @@ func test_roads_category_offers_channel_from_village() -> void:
 	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "channel")[0]
 	assert_eq(e["cost"], "1 materials")
 	assert_eq(HudModel.channel_refusal_text("materials"), "Not enough materials")
+
+
+func test_hud_overlay_keys_and_menu_buttons() -> void:
+	var main: Node = load("res://ui/main.tscn").instantiate()
+	main.game_seed = SEED
+	add_child_autofree(main)
+	await get_tree().process_frame
+	var hud: Hud = main.get_node("Hud")
+	var model: HudModel = main.hud_model
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_T
+	ev.pressed = true
+	hud._unhandled_input(ev)
+	assert_true(model.overlay_on("water"))
+	hud.toggle_overlay_menu()
+	assert_true(hud._overlay_panel.visible)
+	(hud._overlay_buttons["roads"] as Button).pressed.emit()
+	assert_true(model.overlay_on("roads"))
+	(hud._overlay_buttons["water"] as Button).pressed.emit()
+	assert_false(model.overlay_on("water"))
