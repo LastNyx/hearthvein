@@ -17,6 +17,7 @@ var planet: PlanetDef = null  # the single data/planet/planet.tres
 var soil: SoilDef = null      # the single data/soil/soil.tres
 var forest: ForestDef = null  # the single data/forest/forest.tres
 var water: WaterDef = null    # the single data/water/water.tres
+var regions: RegionsDef = null  # the single data/regions/regions.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var errors: Array[String] = []
 
@@ -36,6 +37,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	soil = null
 	forest = null
 	water = null
+	regions = null
 	mapgen = null
 	errors.clear()
 	for path in _scan(root):
@@ -152,6 +154,10 @@ func _index(path: String) -> void:
 		if water != null:
 			errors.append("%s: a second water definition" % path)
 		water = res
+	elif res is RegionsDef:
+		if regions != null:
+			errors.append("%s: a second regions definition" % path)
+		regions = res
 	elif res is MapGenDef:
 		if mapgen != null:
 			errors.append("%s: a second mapgen definition" % path)
@@ -236,6 +242,12 @@ func _validate() -> void:
 			or water.farm_wet_fraction <= 0.0 or water.farm_wet_fraction > 1.0 or water.farm_wet_bonus < 1.0 \
 			or water.channel_cost_materials < 0.0:
 		errors.append("water: invalid numbers")
+	if regions == null:
+		if not goods.is_empty():
+			errors.append("missing regions definition")
+	elif regions.prices.is_empty() or regions.prices.any(func(p: int) -> bool: return p <= 0) \
+			or regions.price_after <= 0:
+		errors.append("regions: prices must be positive")
 	_validate_mapgen()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():

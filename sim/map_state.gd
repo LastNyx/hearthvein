@@ -83,6 +83,32 @@ static func region_rect(r: int) -> Rect2i:
 	return Rect2i((r % REGION_COLS) * REGION_W, (r / REGION_COLS) * REGION_H, REGION_W, REGION_H)
 
 
+## Regions sharing an edge with `r` on the 4x4 grid, in ascending order (region buying, design.md section 4).
+static func region_neighbours(r: int) -> Array[int]:
+	var out: Array[int] = []
+	if r < 0 or r >= REGION_COUNT:
+		return out
+	var col := r % REGION_COLS
+	var row := r / REGION_COLS
+	if col > 0:
+		out.append(r - 1)
+	if col < REGION_COLS - 1:
+		out.append(r + 1)
+	if row > 0:
+		out.append(r - REGION_COLS)
+	if row < REGION_ROWS - 1:
+		out.append(r + REGION_COLS)
+	out.sort()
+	return out
+
+
+## True when a and b are distinct regions sharing an edge (4-way, not diagonal).
+static func regions_adjacent(a: int, b: int) -> bool:
+	if a < 0 or b < 0 or a >= REGION_COUNT or b >= REGION_COUNT or a == b:
+		return false
+	return absi(a / REGION_COLS - b / REGION_COLS) + absi(a % REGION_COLS - b % REGION_COLS) == 1
+
+
 static func in_bounds(x: int, y: int) -> bool:
 	return x >= 0 and y >= 0 and x < WIDTH and y < HEIGHT
 

@@ -855,6 +855,60 @@ func remove_channel(tile: Vector2i) -> bool:
 	return true
 
 
+# ---------------------------------------------------------------- regions
+
+## Regions bought since the start. The start region is free and not counted, so this indexes RegionsDef.prices.
+func regions_bought() -> int:
+	var n := 0
+	for r in MapState.REGION_COUNT:
+		if map.is_region_owned(r):
+			n += 1
+	return maxi(0, n - 1)
+
+
+## Gold price of the next region bought: RegionsDef.prices[regions_bought()], then price_after for every further
+## region (design.md section 4: 50, 100, 200, 350, 500, then 600 each).
+func next_region_price() -> int:
+	var rd := registry.regions
+	if rd == null:
+		return 0
+	var i := regions_bought()
+	return rd.prices[i] if i < rd.prices.size() else rd.price_after
+
+
+## Whether region `r` can be bought now: {ok: bool, reason: String}. Reasons: "owned", "not_adjacent" (no owned
+## region shares an edge with it), "gold" (treasury short of next_region_price), "unknown" (not a region index).
+func can_buy_region(r: int) -> Dictionary:
+	if r < 0 or r >= MapState.REGION_COUNT:
+		return {"ok": false, "reason": "unknown"}
+	if map.is_region_owned(r):
+		return {"ok": false, "reason": "owned"}
+	var adjacent := false
+	for n in MapState.region_neighbours(r):
+		if map.is_region_owned(n):
+			adjacent = true
+			break
+	if not adjacent:
+		return {"ok": false, "reason": "not_adjacent"}
+	if gold + Inventory.EPS < float(next_region_price()):
+		return {"ok": false, "reason": "gold"}
+	return {"ok": true, "reason": ""}
+
+
+## Command: buys region `r` (design.md section 4), paying next_region_price from the treasury. False and nothing
+## spent when can_buy_region says no. Locked terrain stays visible, just dimmed (MapView reads region_owned), so the
+## only version bump is structure_version (views redraw dimming and borders; nothing about walking changed).
+func buy_region(r: int) -> bool:
+	if not can_buy_region(r)["ok"]:
+		return false
+	var price := next_region_price()
+	gold -= float(price)
+	map.set_region_owned(r, true)
+	structure_version += 1
+	events.emit("region_bought", {"region": r, "price": price, "gold": gold, "reward": map.get_region_reward(r)})
+	return true
+
+
 # ---------------------------------------------------------------- road connection
 
 func _ring(b: Building) -> Array[Vector2i]:
