@@ -61,11 +61,13 @@ func setup(m: MapState) -> void:
 	var overlays := {}
 	# Ground blends first (forest and soil), then the water/rock dual-grid edges, then the broad meadow shade
 	# (so the shore's land band is shaded like the meadow around it), then the vein edges on top of the rock.
+	# RockEdge goes under Shore: on a rock/water/grass corner the rock atlas paints water corners on its own
+	# side, and the shore draws the water back over them.
 	for g in ["forest", "soil"]:
 		if ArtLibrary.overlay_grounds().has(g):
 			overlays[g] = _overlay_layer(g)
-	_shore = _autotile_layer("Shore", "water")
 	_rock_edge = _autotile_layer("RockEdge", "rock")
+	_shore = _autotile_layer("Shore", "water")
 	_shade = Sprite2D.new()  # tonal patches over the ground blends but under the vein and sky edges
 	_shade.name = "Shade"
 	_shade.centered = false
@@ -247,6 +249,7 @@ func _paint_dual_pair(layer: TileMapLayer, pair: String, i: int, j: int) -> void
 	var cell := Vector2i(i, j)
 	layer.erase_cell(cell)
 	var mask := 0
+	var water_bits := 0
 	var ground := ""
 	var ground_rank := -1
 	for k in 4:
@@ -258,13 +261,22 @@ func _paint_dual_pair(layer: TileMapLayer, pair: String, i: int, j: int) -> void
 			mask |= 1 << k
 			continue
 		var r := ArtLibrary.ground_rank(g)
-		# Water owns every shore (it draws rock onto water); a ground above rock (vein, sky) owns its own edge.
-		if pair == "rock" and (g == "water" or r >= ArtLibrary.ground_rank("rock")):
-			return
+		if pair == "rock":
+			if g == "water":  # three-way corner: shape the rock against the land, the shore draws the water
+				water_bits |= 1 << k
+				continue
+			# a ground above rock (vein, sky) owns its own edge
+			if r >= ArtLibrary.ground_rank("rock"):
+				return
 		if r > ground_rank:
 			ground_rank = r
 			ground = g
-	if mask == 0 or mask == 15 or ground == "":
+	if mask == 0 or ground == "":
+		return
+	# Water counts as the pair side of the rock atlas, so a rock/water/grass corner still rounds the rock against
+	# the grass instead of leaving a square corner; the Shore layer above repaints the water over it.
+	mask |= water_bits
+	if mask == 15:
 		return
 	var src := ArtLibrary.autotile_source(pair, ground)
 	if src < 0:
