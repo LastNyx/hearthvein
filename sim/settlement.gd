@@ -37,6 +37,10 @@ const PRIORITIES: Array[String] = ["low", "normal", "high", "paused"]
 var _next_building_id: int = 0
 ## Bumped whenever roads or buildings change, so path caches know to drop themselves.
 var grid_version: int = 0
+## Cut stone still owed toward the next whole unit of paving (design.md section 6: 0.2 per tile). Kept here so a run
+## of tiles pays whole cut stone as it accumulates and no fractional cut stone ever sits in storage. Saved; older
+## saves without the key load it as 0, so it is not in SaveGame.REQUIRED_STATE_KEYS.
+var _pave_stone_debt: float = 0.0
 ## Bumps with grid_version for roads and buildings only (not terrain). WalkerSystem rewrites its whole A* grid when this
 ## moves and only the tiles in terrain_dirty when just terrain changed (ticket 55).
 var structure_version: int = 0
@@ -246,6 +250,7 @@ func to_dict() -> Dictionary:
 		"next_building_id": _next_building_id,
 		"next_citizen_id": _next_citizen_id,
 		"grid_version": grid_version,
+		"pave_stone_debt": _pave_stone_debt,
 		"structure_version": structure_version,
 		"forest_gain_version": forest_gain_version,
 		"terrain_dirty": dirty,
@@ -283,6 +288,7 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 	s._next_building_id = int(d["next_building_id"])
 	s._next_citizen_id = int(d["next_citizen_id"])
 	s.grid_version = int(d["grid_version"])
+	s._pave_stone_debt = float(d.get("pave_stone_debt", 0.0))
 	s.structure_version = int(d["structure_version"])
 	s.forest_gain_version = int(d["forest_gain_version"])
 	s.terrain_dirty.assign(d["terrain_dirty"])
@@ -798,6 +804,84 @@ func remove_road(tile: Vector2i) -> bool:
 	_roads_dirty = true
 	events.emit("road_changed", {"tile": tile, "level": ROAD_NONE})
 	_recompute_connections()
+	return true
+
+
+# ---------------------------------------------------------------- paved roads (ticket 30b)
+
+## True from the Town era on (design.md section 6): the build bar offers paved roads only then. place_road and
+## pave_road themselves gate on the RoadDef's era; this is the same query for views.
+func paved_roads_unlocked() -> bool:
+	return _road_unlocked(ROAD_PAVED)
+
+
+## True when the road level's RoadDef names no era or the current era is at least that one.
+func _road_unlocked(level: int) -> bool:
+	var rd := registry.get_road_by_level(level)
+	if rd == null or rd.era == "":
+		return true
+	var cur := registry.get_era(era_id())
+	var req := registry.get_era(rd.era)
+	return cur == null or req == null or cur.order >= req.order
+
+
+## Whole cut stone the next paved tile costs, given the running debt (see _pave_stone_debt).
+func _pave_stone_units(cost: Dictionary) -> int:
+	return int(floor(_pave_stone_debt + float(cost.get("cut_stone", 0.0)) + Inventory.EPS))
+
+
+## Why a tile cannot be paved: {"ok": bool, "reason": String}, shaped like can_place_channel. Paving works on a new
+## tile or upgrades a dirt road. The cost is the paved RoadDef's `cost` (design.md section 6: 1 materials + 0.2 cut
+## stone, Town). Cut stone is charged in whole units: each tile adds its 0.2 to a running debt and a whole unit is
+## spent as the debt fills, so five tiles cost one stone and storage never holds a fraction of a good.
+## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, channel, already_paved, era_locked,
+## materials, cut_stone.
+func can_pave_road(tile: Vector2i) -> Dictionary:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return {"ok": false, "reason": "out_of_bounds"}
+	if not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return {"ok": false, "reason": "locked_region"}
+	var tid := map.terrain_id_at(tile.x, tile.y)
+	var tdef := registry.get_terrain(tid)
+	if tid == "water":
+		return {"ok": false, "reason": "water"}
+	if tdef != null and not tdef.buildable:
+		return {"ok": false, "reason": "blocked_terrain"}
+	var i := MapState.idx(tile.x, tile.y)
+	if occupancy[i] >= 0:
+		return {"ok": false, "reason": "overlap"}
+	if channels[i] != CHANNEL_NONE:
+		return {"ok": false, "reason": "channel"}
+	if roads[i] >= ROAD_PAVED:
+		return {"ok": false, "reason": "already_paved"}
+	if not _road_unlocked(ROAD_PAVED):
+		return {"ok": false, "reason": "era_locked"}
+	var rd := registry.get_road_by_level(ROAD_PAVED)
+	var cost: Dictionary = rd.cost if rd != null else {}
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < float(cost.get("materials", 0.0)):
+		return {"ok": false, "reason": "materials"}
+	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < float(_pave_stone_units(cost)):
+		return {"ok": false, "reason": "cut_stone"}
+	return {"ok": true, "reason": ""}
+
+
+## Paves one tile, or upgrades a dirt road to paved, paying the paved RoadDef cost from storage at once (materials)
+## and in whole cut-stone units as the debt fills. Returns false when can_pave_road says no; nothing is spent then.
+## Bumps grid_version and structure_version through place_road, so walker paths re-plan with the faster tiles.
+func pave_road(tile: Vector2i) -> bool:
+	if not can_pave_road(tile)["ok"]:
+		return false
+	var rd := registry.get_road_by_level(ROAD_PAVED)
+	var cost: Dictionary = rd.cost if rd != null else {}
+	var materials := float(cost.get("materials", 0.0))
+	var stone_units := _pave_stone_units(cost)
+	if not spend_good("materials", materials):
+		return false
+	if stone_units > 0 and not spend_good("cut_stone", float(stone_units)):
+		_return_goods({"materials": materials}, tile)  # can_pave_road checked both already, so this is defensive
+		return false
+	_pave_stone_debt = _pave_stone_debt + float(cost.get("cut_stone", 0.0)) - float(stone_units)
+	place_road(tile, ROAD_PAVED)
 	return true
 
 

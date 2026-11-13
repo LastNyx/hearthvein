@@ -8,3 +8,8 @@ id = "paved"
 display_name = "Paved road"
 level = 2
 walk_speed = 2.0
+era = "town"
+cost = {
+"materials": 1.0,
+"cut_stone": 0.2
+}
