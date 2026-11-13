@@ -199,6 +199,12 @@ func _compare_state(a: Variant, b: Variant, path: String) -> void:
 				var name := str(p["name"])
 				if SKIP.has(cls + "." + name):
 					continue
+				if a is EventBus and name == "log":
+					# The saved log keeps only the newest EventBus.SAVED_LOG_LIMIT entries (ticket 19c), so a
+					# long-running settlement has a longer in-memory log than a save. Compare the tails both sides
+					# keep; the cap itself is tested in test_save_slots.gd.
+					_compare_event_log(a as EventBus, b as EventBus, path + "." + name)
+					continue
 				_compare_state((a as Object).get(name), (b as Object).get(name), path + "." + name)
 		TYPE_ARRAY:
 			if a.size() != b.size():
@@ -222,6 +228,18 @@ func _compare_state(a: Variant, b: Variant, path: String) -> void:
 		_:
 			if a != b:
 				_diffs.append("%s: %s != %s" % [path, a, b])
+
+
+## Compares what two EventBus logs share: the newest EventBus.SAVED_LOG_LIMIT entries. A loaded settlement's in-memory
+## log starts shorter than the live one only when the save dropped its oldest entries; from then on both grow alike.
+func _compare_event_log(a: EventBus, b: EventBus, path: String) -> void:
+	var tail_a: Array = a.log.slice(maxi(0, a.log.size() - EventBus.SAVED_LOG_LIMIT))
+	var tail_b: Array = b.log.slice(maxi(0, b.log.size() - EventBus.SAVED_LOG_LIMIT))
+	if tail_a.size() != tail_b.size():
+		_diffs.append("%s: log tail size %d != %d" % [path, tail_a.size(), tail_b.size()])
+		return
+	for i in tail_a.size():
+		_compare_state(tail_a[i], tail_b[i], "%s[%d]" % [path, i])
 
 
 # ---------------------------------------------------------------- tests

@@ -48,23 +48,34 @@ const SIZED_MAP_ARRAYS := {
 ## Writes `s` to `path`, compressed. Pending day/season hooks (Settlement._deferred) are run first, so a save never
 ## sits between a day change and the hooks of that day. In a debug build the payload is walked and an error is pushed
 ## for any object or Callable in it: store_var() would silently write an object as an id instead of failing.
-## Returns OK or the FileAccess error.
+##
+## Atomic (ticket 19c): the save is written to `path + ".tmp"` and renamed over `path` only when the write returned
+## OK, so a crash or a full disk mid-write cannot destroy the previous save. Returns OK or the FileAccess error.
 static func save(s: Settlement, path: String) -> Error:
 	s.flush_deferred()
 	var payload := {"version": CURRENT_VERSION, "state": s.to_dict()}
 	if OS.is_debug_build():
 		_check_plain(payload, "save")
-	var f := FileAccess.open_compressed(path, FileAccess.WRITE, FileAccess.COMPRESSION_ZSTD)
+	var tmp := path + ".tmp"
+	var f := FileAccess.open_compressed(tmp, FileAccess.WRITE, FileAccess.COMPRESSION_ZSTD)
 	if f == null:
 		var err := FileAccess.get_open_error()
-		push_error("SaveGame.save: cannot write %s (error %d)" % [path, err])
+		DirAccess.remove_absolute(tmp)  # a stale file from an earlier crash must not linger
+		push_error("SaveGame.save: cannot write %s (error %d)" % [tmp, err])
 		return err
 	f.store_var(payload, false)
 	var err := f.get_error()
 	f.close()
 	if err != OK:
-		push_error("SaveGame.save: write to %s failed (error %d)" % [path, err])
-	return err
+		DirAccess.remove_absolute(tmp)
+		push_error("SaveGame.save: write to %s failed (error %d)" % [tmp, err])
+		return err
+	var rename_err := DirAccess.rename_absolute(tmp, path)
+	if rename_err != OK:
+		DirAccess.remove_absolute(tmp)
+		push_error("SaveGame.save: cannot move %s over %s (error %d)" % [tmp, path, rename_err])
+		return rename_err
+	return OK
 
 
 ## Reads a save written by save(), migrating older files up to CURRENT_VERSION. Null (and a pushed error) when the

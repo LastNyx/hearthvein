@@ -37,9 +37,14 @@ func log_of(kind: String) -> Array[Dictionary]:
 	return out
 
 
+## Only the newest entries of the log are saved (ticket 19c): walker_arrived fires on every arrival, so an untrimmed
+## log would make the save grow with years of play. The in-memory log is not trimmed; the loaded one is just shorter.
+const SAVED_LOG_LIMIT := 500
+
 ## The log and its clock stamp, for a save. Subscribers are views: they attach again after a load.
 func to_dict() -> Dictionary:
-	return {"now_hours": now_hours, "log": log.duplicate(true)}
+	var start := maxi(0, log.size() - SAVED_LOG_LIMIT)
+	return {"now_hours": now_hours, "log": log.slice(start).duplicate(true)}
 
 
 static func from_dict(d: Dictionary) -> EventBus:
