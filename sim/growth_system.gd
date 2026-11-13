@@ -18,7 +18,7 @@ extends SimSystem
 var bar: float = 0.0
 ## Days since the last immigration check.
 var days_since_immigration: int = 0
-## Report of the last day: eaten, hungry, left, surplus, grown, immigrated.
+## Report of the last day: eaten, hungry, left, surplus, grown, immigrated, types (distinct food types eaten).
 var last_day: Dictionary = {}
 
 var _food_mark: float = -1.0
@@ -41,6 +41,12 @@ static func food_goods(reg: DataRegistry) -> Array[String]:
 	return out
 
 
+## Food type of a good for Spirit variety: its food_type, or its own id for plain food.
+static func food_type_of(reg: DataRegistry, good: String) -> String:
+	var g: GoodDef = reg.goods[good]
+	return g.food_type if g.food_type != "" else g.id
+
+
 ## Growth bar size for a population (design.md section 5 plus the D46 soft cap multiplier).
 static func bar_size(reg: DataRegistry, pop: int) -> float:
 	var gd := reg.growth
@@ -61,13 +67,14 @@ func on_day(settlement: Settlement) -> void:
 	var goods := food_goods(s.registry)
 	if _food_mark < 0.0:
 		_food_mark = _food_total(s, goods)
-	var report := {"eaten": 0.0, "hungry": 0, "left": 0, "surplus": 0.0, "grown": 0, "immigrated": 0}
+	var report := {"eaten": 0.0, "hungry": 0, "left": 0, "surplus": 0.0, "grown": 0, "immigrated": 0, "types": 0}
 
 	# 1. eating
 	var stores := _food_stores(s, goods)
 	var ids: Array = s.citizens.keys()
 	ids.sort()
 	var hungry := 0
+	var types := {}
 	for id in ids:
 		var c: Citizen = s.citizens[id]
 		var from := _home_tile(s, c)
@@ -83,14 +90,17 @@ func on_day(settlement: Settlement) -> void:
 				var took := st.inventory.remove(g, need)
 				need -= took
 				report["eaten"] += took
+				if took > Inventory.EPS:
+					types[food_type_of(s.registry, g)] = true
 		if need > Inventory.EPS:
 			hungry += 1
 	report["hungry"] = hungry
+	report["types"] = types.size()
 
 	# 2. starvation
 	if hungry > 0:
 		for i in gd.leave_per_day:
-			var who := _leaver(s)
+			var who := leaver(s)
 			if who >= 0 and s.remove_citizen(who):
 				report["left"] += 1
 
@@ -98,7 +108,7 @@ func on_day(settlement: Settlement) -> void:
 	var stock := _food_total(s, goods)
 	var surplus := 0.0
 	if hungry == 0:
-		surplus = maxf(0.0, stock - _food_mark)
+		surplus = maxf(0.0, stock - _food_mark) * SpiritSystem.growth_multiplier(s)
 	_food_mark = stock
 	report["surplus"] = surplus
 	var pop := s.citizens.size()
@@ -182,7 +192,7 @@ func s_region(b: Building) -> int:
 
 
 ## Homeless first, then the highest id.
-func _leaver(s: Settlement) -> int:
+static func leaver(s: Settlement) -> int:
 	var best := -1
 	var best_homeless := false
 	for id in s.citizens:

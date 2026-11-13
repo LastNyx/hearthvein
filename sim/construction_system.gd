@@ -79,7 +79,7 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 			if not here:
 				ws.walk_to_building(cid, site.id)
 		elif here:
-			work[site.id] = work.get(site.id, 0.0) + seconds / shift
+			work[site.id] = work.get(site.id, 0.0) + seconds / shift * SpiritSystem.work_multiplier(s)
 	var done: Array[Building] = []
 	for sid in work:
 		var site: Building = s.buildings[sid]

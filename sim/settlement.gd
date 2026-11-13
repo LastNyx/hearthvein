@@ -62,6 +62,9 @@ func add_default_systems() -> void:
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
 	add_system(GrowthSystem.new())
+	add_system(SpiritSystem.new())  # after Growth: reads its hunger and food-type report
+	var prod := get_system(ProductionSystem) as ProductionSystem
+	prod.modifiers.append(SpiritSystem.work_modifier)
 
 
 func add_system(system: SimSystem) -> void:
@@ -347,16 +350,17 @@ func remove_citizen(id: int) -> bool:
 	return true
 
 
-## SPIRIT SEAM for ticket 13. Spirit (0-100, D18) is owned by ticket 13; everything else reads it only through this
-## function. Until then it returns `spirit_override` when set (tests, debug), else GrowthDef.default_spirit.
-## Ticket 13: change the body to return the real meter and keep the signature.
-var spirit_override: float = -1.0
+var spirit_override: float = -1.0  # tests and debug: >= 0 pins Spirit
 
 
+## Spirit now (0-100). spirit_override wins when >= 0; with no SpiritSystem it is GrowthDef.default_spirit.
 func spirit() -> float:
 	if spirit_override >= 0.0:
 		return spirit_override
-	return registry.growth.default_spirit
+	var sys := get_system(SpiritSystem) as SpiritSystem
+	if sys == null:
+		return registry.growth.default_spirit
+	return sys.current(self)
 
 
 func homeless_count() -> int:

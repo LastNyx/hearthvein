@@ -1,0 +1,122 @@
+class_name SpiritSystem
+extends SimSystem
+## Spirit (design.md section 11, D18): one meter 0-100 that moves `step_per_day` towards a target each day.
+## Numbers: SpiritDef (data/spirit/spirit.tres). Read it only through Settlement.spirit().
+##
+## Target = base + the sum of the factor table below (clamped 0-100). Every factor is an entry {id, fn} where
+## fn(settlement) -> signed float; entries not built yet return 0 and a later ticket fills them with set_hook(id, fn):
+## coverage (shrine/park/hall), water, blight (ticket 14), darkness (15), planet_grief. Order of the table is the
+## order of breakdown().
+##
+## Effects: work_multiplier() feeds ProductionSystem.modifiers (registered in Settlement.add_default_systems) and
+## ConstructionSystem (builders work faster/slower too); growth_multiplier() scales the growth-bar surplus
+## (GrowthSystem); immigration is gated in GrowthSystem. Below leave_below for leave_after_days days in a row,
+## one citizen leaves every leave_every_days days (homeless first, then highest id, like starvation).
+##
+## Runs after GrowthSystem each day: hunger and food types come from GrowthSystem.last_day.
+
+var value: float = -1.0
+## Days in a row spent below SpiritDef.leave_below.
+var low_days: int = 0
+var _days_since_leave: int = 0
+var _hooks: Dictionary = {}  # factor id -> Callable
+var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
+		"tax_office", "planet_grief"]
+
+
+func _init() -> void:
+	for id in _order:
+		_hooks[id] = Callable()
+
+
+## Replace a factor's function (settlement) -> float (signed: negative lowers Spirit). Returns false for unknown ids.
+func set_hook(id: String, fn: Callable) -> bool:
+	if not _hooks.has(id):
+		return false
+	_hooks[id] = fn
+	return true
+
+
+func current(s: Settlement) -> float:
+	if value < 0.0:
+		value = s.registry.spirit.start
+	return value
+
+
+## Value of one factor now.
+func factor_value(s: Settlement, id: String) -> float:
+	var sd := s.registry.spirit
+	var gs := s.get_system(GrowthSystem) as GrowthSystem
+	match id:
+		"food_types":
+			var n: int = gs.last_day.get("types", 0) if gs != null else 0
+			return minf(float(maxi(n - 1, 0)) * sd.food_type_bonus, sd.food_type_max)
+		"hunger":
+			var h: int = gs.last_day.get("hungry", 0) if gs != null else 0
+			return -sd.hunger_penalty if h > 0 else 0.0
+		"homeless":
+			return -sd.homeless_penalty if s.homeless_count() > 0 else 0.0
+		"tax_office":
+			for bid in s.buildings:
+				var b: Building = s.buildings[bid]
+				if not b.site and b.def.id == "tax_office":
+					return -sd.tax_office_penalty
+			return 0.0
+	var fn: Callable = _hooks.get(id, Callable())
+	return float(fn.call(s)) if fn.is_valid() else 0.0
+
+
+## The sum of base and every factor, 0-100.
+func target(s: Settlement) -> float:
+	var t := s.registry.spirit.base
+	for id in _order:
+		t += factor_value(s, id)
+	return clampf(t, 0.0, 100.0)
+
+
+## For the UI: {"factors": {name: value} in stable order (starts with "base"), "target": float, "current": float}.
+func breakdown(s: Settlement) -> Dictionary:
+	var f := {"base": s.registry.spirit.base}
+	for id in _order:
+		f[id] = factor_value(s, id)
+	return {"factors": f, "target": target(s), "current": current(s)}
+
+
+static func work_multiplier(s: Settlement) -> float:
+	var sd := s.registry.spirit
+	var v := s.spirit()
+	if v >= sd.high_at:
+		return 1.0 + sd.work_high
+	if v <= sd.low_at:
+		return 1.0 + sd.work_low
+	return 1.0
+
+
+static func growth_multiplier(s: Settlement) -> float:
+	var sd := s.registry.spirit
+	return 1.0 + sd.growth_high if s.spirit() >= sd.high_at else 1.0
+
+
+## ProductionSystem modifier.
+static func work_modifier(s: Settlement, _b: Building) -> float:
+	return work_multiplier(s)
+
+
+func on_day(s: Settlement) -> void:
+	var sd := s.registry.spirit
+	var cur := current(s)
+	var t := target(s)
+	value = clampf(move_toward(cur, t, sd.step_per_day), 0.0, 100.0)
+	if value < sd.leave_below:
+		low_days += 1
+	else:
+		low_days = 0
+		_days_since_leave = 0
+	if low_days >= sd.leave_after_days:
+		_days_since_leave += 1
+		# The 5th day leaves at once; after that one every leave_every_days days.
+		if low_days == sd.leave_after_days or _days_since_leave >= sd.leave_every_days:
+			_days_since_leave = 0
+			var who := GrowthSystem.leaver(s)
+			if who >= 0 and s.remove_citizen(who):
+				s.events.emit("citizen_left_unhappy", {"id": who})
