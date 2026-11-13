@@ -109,6 +109,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
 	prod.modifiers.append(UpkeepSystem.output_modifier)
 	prod.modifiers.append(FoulingSystem.output_modifier)
+	prod.modifiers.append(ProductionSystem.tier_modifier)
 	var forest_sys := get_system(ForestSystem) as ForestSystem
 	forest_sys.regrow_factors.append(RegionSystem.regrow_factor)
 	var sp := get_system(SpiritSystem) as SpiritSystem

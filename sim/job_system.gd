@@ -68,8 +68,9 @@ static func _assign_homes(s: Settlement) -> void:
 	var free := {}  # building id -> free beds
 	for bid in _sorted_building_ids(s):
 		var b: Building = s.buildings[bid]
-		if b.def.housing_beds > 0 and not b.site:
-			free[bid] = b.def.housing_beds
+		var beds := b.effective_beds(s.registry)
+		if beds > 0 and not b.site:
+			free[bid] = beds
 	var homeless: Array = []
 	for cid in _sorted_citizen_ids(s):
 		var c: Citizen = s.citizens[cid]
@@ -99,9 +100,10 @@ static func _job_entries(s: Settlement) -> Array:
 		var pr := PRIORITY_ORDER.find(b.priority)
 		if pr < 0:
 			pr = PRIORITY_ORDER.find("normal")
-		if b.def.worker_slots > 0:
+		var slots := b.effective_worker_slots(s.registry)
+		if slots > 0:
 			by_key[_order_key(category_rank(b.def.category), pr, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
-				"slots": b.def.worker_slots}
+				"slots": slots}
 		if b.def.hauler_slots > 0:
 			by_key[_order_key(category_rank(HAUL_CATEGORY), pr, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
 				"slots": b.def.hauler_slots}

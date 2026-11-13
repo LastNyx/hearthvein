@@ -131,6 +131,11 @@ func _producers(s: Settlement) -> Array[Building]:
 	return _producer_list
 
 
+## Upgrade tier output factor (design.md section 10): tier II x1.5, tier III x2 of base, from the tier data.
+static func tier_modifier(s: Settlement, b: Building) -> float:
+	return b.output_factor(s.registry)
+
+
 ## Multiplier of every modifier for one building.
 func multiplier(s: Settlement, b: Building) -> float:
 	var m := 1.0

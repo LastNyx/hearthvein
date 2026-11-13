@@ -225,14 +225,17 @@ func selection() -> Dictionary:
 	var warn := ""
 	if b.def.upgradable:
 		lines.append("Tier %d" % b.tier)
+	if b.upgrading():
+		lines.append("Upgrading to Tier %d: %d%%" % [b.upgrade_tier, roundi(b.upgrade_progress() * 100.0)])
+		lines.append(_goods_line("Delivered", b.upgrade_buffer))
 	if b.site:
 		lines.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
 		lines.append(_goods_line("Delivered", b.input_buffer))
 	else:
-		if b.def.worker_slots > 0:
-			lines.append("Workers %d/%d" % [_workers(b), b.def.worker_slots])
-		if b.def.housing_beds > 0:
-			lines.append("Beds %d" % b.def.housing_beds)
+		if b.effective_worker_slots(s.registry) > 0:
+			lines.append("Workers %d/%d" % [_workers(b), b.effective_worker_slots(s.registry)])
+		if b.effective_beds(s.registry) > 0:
+			lines.append("Beds %d" % b.effective_beds(s.registry))
 		lines.append(_goods_line("Input", b.input_buffer))
 		var made := _makes_line(b)
 		lines.append(made)
@@ -253,7 +256,7 @@ func selection() -> Dictionary:
 	for l in lines:
 		if l != "":
 			clean.append(l)
-	return {"id": b.id, "title": b.def.display_name, "lines": clean, "halt": halt_text, "warn": warn,
+	return {"id": b.id, "title": b.display_name(s.registry), "lines": clean, "halt": halt_text, "warn": warn,
 			"priority": b.priority, "paused": b.paused, "site": b.site, "progress": b.build_progress()}
 
 
