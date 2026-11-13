@@ -1,15 +1,28 @@
 extends Node
 ## Main scene: builds a new Settlement, draws its map, runs it in real time.
 
+var game_seed: int = -1
+var settlement: Settlement
+
+
 func _ready() -> void:
 	var reg := DataRegistry.new()
 	reg.load_all()
 	var driver := SimDriver.new()
-	driver.settlement = Settlement.new_game(randi(), reg)
+	driver.settlement = Settlement.new_game(game_seed if game_seed >= 0 else randi(), reg)
+	settlement = driver.settlement
 	var view := MapView.new()
 	view.name = "MapView"
 	add_child(view)
 	view.setup(driver.settlement.map)
+	var placed := PlacementView.new()
+	placed.name = "PlacementView"
+	view.add_child(placed)
+	placed.setup(settlement)
+	var ghost := GhostView.new()
+	ghost.name = "Ghost"
+	ghost.visible = false
+	view.add_child(ghost)
 	var cam := CameraController.new()
 	cam.name = "Camera"
 	add_child(cam)
@@ -24,4 +37,8 @@ func _ready() -> void:
 	layer.add_child(label)
 	driver.label = label
 	add_child(driver)
+	var build := BuildController.new()
+	build.name = "BuildController"
+	add_child(build)
+	build.setup(settlement, ghost, layer)
 	add_child(layer)

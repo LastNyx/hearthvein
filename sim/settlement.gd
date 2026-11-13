@@ -9,11 +9,31 @@ var clock := GameClock.new()
 var events := EventBus.new()
 var systems: Array[SimSystem] = []
 
+const ROAD_NONE := 0
+const ROAD_DIRT := 1
+const ROAD_PAVED := 2  # stored only for now; the paving tool comes in Town
+
+## Placement is instant and free until ticket 11 (costs and construction) replaces _commit_placement.
+var instant_build: bool = true
+## Building instances by id, plus an occupancy grid (building id per tile, -1 free) and a road grid.
+var buildings: Dictionary = {}  # int -> Building
+var occupancy := PackedInt32Array()
+var roads := PackedByteArray()
+var hearth: Building = null
+var _next_building_id: int = 0
+
 
 static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	var s := Settlement.new()
 	s.registry = reg
 	s.map = MapGen.generate(seed, reg)
+	s.occupancy.resize(MapState.WIDTH * MapState.HEIGHT)
+	s.occupancy.fill(-1)
+	s.roads.resize(MapState.WIDTH * MapState.HEIGHT)
+	var hdef := reg.get_building("hearth")
+	if hdef != null and s.map.hearth_spot.x >= 0:
+		s.hearth = s._insert_building(hdef, s.map.hearth_spot)
+		s.place_road(s.map.hearth_spot + Vector2i(hdef.size.x, 0))
 	return s
 
 
@@ -41,3 +61,165 @@ func step_hours(n: int) -> void:
 
 func step_days(n: int) -> void:
 	step_hours(n * GameClock.HOURS_PER_DAY)
+
+
+# ---------------------------------------------------------------- placement
+
+func building_at(tile: Vector2i) -> Building:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return null
+	var id := occupancy[MapState.idx(tile.x, tile.y)]
+	return buildings.get(id) if id >= 0 else null
+
+
+func road_at(tile: Vector2i) -> int:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return ROAD_NONE
+	return roads[MapState.idx(tile.x, tile.y)]
+
+
+## Returns {ok: bool, reason: String}. Reason is "" when ok.
+func can_place(def_id: String, origin: Vector2i) -> Dictionary:
+	var def := registry.get_building(def_id)
+	if def == null:
+		return {"ok": false, "reason": "unknown_building"}
+	if def_id == "hearth" and hearth != null:
+		return {"ok": false, "reason": "unique"}
+	for y in range(origin.y, origin.y + def.size.y):
+		for x in range(origin.x, origin.x + def.size.x):
+			if not MapState.in_bounds(x, y):
+				return {"ok": false, "reason": "out_of_bounds"}
+			if not map.is_region_owned(map.get_region(x, y)):
+				return {"ok": false, "reason": "locked_region"}
+			var tid := map.terrain_id_at(x, y)
+			if tid == "water":
+				return {"ok": false, "reason": "water"}
+			var tdef := registry.get_terrain(tid)
+			if tdef != null and not tdef.buildable:
+				return {"ok": false, "reason": "blocked_terrain"}
+			var i := MapState.idx(x, y)
+			if occupancy[i] >= 0:
+				return {"ok": false, "reason": "overlap"}
+			if roads[i] != ROAD_NONE:
+				return {"ok": false, "reason": "road"}
+	var why := Placement.check_rule(map, registry, def, origin)
+	if why != "":
+		return {"ok": false, "reason": why}
+	return {"ok": true, "reason": ""}
+
+
+## Returns the new building id, or -1 when invalid.
+func place_building(def_id: String, origin: Vector2i) -> int:
+	if not can_place(def_id, origin)["ok"]:
+		return -1
+	var b := _commit_placement(registry.get_building(def_id), origin)
+	return b.id if b != null else -1
+
+
+## The single hook for ticket 11: charge the cost / create a construction site instead of an instant building.
+func _commit_placement(def: BuildingDef, origin: Vector2i) -> Building:
+	if not instant_build:
+		return null
+	var b := _insert_building(def, origin)
+	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin})
+	return b
+
+
+func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
+	var b := Building.new()
+	b.id = _next_building_id
+	_next_building_id += 1
+	b.def = def
+	b.origin = origin
+	buildings[b.id] = b
+	for t in b.tiles():
+		occupancy[MapState.idx(t.x, t.y)] = b.id
+	_recompute_connections()
+	return b
+
+
+func demolish(id: int) -> bool:
+	var b: Building = buildings.get(id)
+	if b == null or b == hearth:
+		return false
+	for t in b.tiles():
+		occupancy[MapState.idx(t.x, t.y)] = -1
+	buildings.erase(id)
+	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin})
+	_recompute_connections()
+	return true
+
+
+func can_place_road(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return false
+	var tid := map.terrain_id_at(tile.x, tile.y)
+	var tdef := registry.get_terrain(tid)
+	if tid == "water" or (tdef != null and not tdef.buildable):
+		return false
+	return occupancy[MapState.idx(tile.x, tile.y)] < 0
+
+
+## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
+func place_road(tile: Vector2i, level: int = ROAD_DIRT) -> bool:
+	if not can_place_road(tile) or roads[MapState.idx(tile.x, tile.y)] >= level:
+		return false
+	roads[MapState.idx(tile.x, tile.y)] = level
+	events.emit("road_changed", {"tile": tile, "level": level})
+	_recompute_connections()
+	return true
+
+
+func remove_road(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or roads[MapState.idx(tile.x, tile.y)] == ROAD_NONE:
+		return false
+	roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
+	events.emit("road_changed", {"tile": tile, "level": ROAD_NONE})
+	_recompute_connections()
+	return true
+
+
+# ---------------------------------------------------------------- road connection
+
+func _ring(b: Building) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var r := b.footprint()
+	for x in range(r.position.x, r.end.x):
+		out.append(Vector2i(x, r.position.y - 1))
+		out.append(Vector2i(x, r.end.y))
+	for y in range(r.position.y, r.end.y):
+		out.append(Vector2i(r.position.x - 1, y))
+		out.append(Vector2i(r.end.x, y))
+	return out
+
+
+## BFS over road tiles from the road tiles touching the Hearth; updates every building's connected flag.
+func _recompute_connections() -> void:
+	if hearth == null:
+		return
+	var reached := {}
+	var queue: Array[Vector2i] = []
+	for t in _ring(hearth):
+		if road_at(t) != ROAD_NONE and not reached.has(t):
+			reached[t] = true
+			queue.append(t)
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		for d in Placement.DIRS:
+			var n := c + d
+			if not reached.has(n) and road_at(n) != ROAD_NONE:
+				reached[n] = true
+				queue.append(n)
+	for id in buildings:
+		var b: Building = buildings[id]
+		var now := b == hearth
+		if not now:
+			for t in _ring(b):
+				if reached.has(t):
+					now = true
+					break
+		if now != b.connected:
+			b.connected = now
+			events.emit("building_connection_changed", {"id": b.id, "connected": now})
