@@ -41,6 +41,9 @@ var grid_version: int = 0
 ## of tiles pays whole cut stone as it accumulates and no fractional cut stone ever sits in storage. Saved; older
 ## saves without the key load it as 0, so it is not in SaveGame.REQUIRED_STATE_KEYS.
 var _pave_stone_debt: float = 0.0
+## Bumped whenever a construction site completes (complete_site). A cache key only (not saved): caches that depend
+## on which buildings are finished key on (structure_version, completion_version) and rebuild after a load.
+var completion_version: int = 0
 ## Bumps with grid_version for roads and buildings only (not terrain). WalkerSystem rewrites its whole A* grid when this
 ## moves and only the tiles in terrain_dirty when just terrain changed (ticket 55).
 var structure_version: int = 0
@@ -408,6 +411,7 @@ func complete_site(b: Building) -> void:
 	b.site = false
 	b.input_buffer = null
 	_init_buffers(b)
+	completion_version += 1
 	events.emit("building_completed", {"id": b.id, "def": b.def.id, "origin": b.origin})
 	refresh_population()
 

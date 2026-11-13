@@ -74,10 +74,12 @@ const _QUEUE_ID_MASK := 0xfffff
 ## Set by load_state() when the saved walker paths already match the saved layout: the first grid build must not
 ## re-plan them (a re-plan would rewrite paths and break the round trip). See load_state for when it is false.
 var _from_save: bool = false
-## Region -> [carry, paved speed factor] from completed Handcart Sheds, rebuilt at the start of every on_seconds call
-## (building completion does not bump a cached layout version, so it is cheap to refresh per step). Only read in
+## Region -> [carry, paved speed factor] from completed Handcart Sheds, rebuilt at the start of on_seconds only when
+## Settlement.structure_version or completion_version moved. Only read in
 ## _advance, where a hauler in such a region walks paved tiles faster (design.md section 6: 2.5 tiles/s).
 var _handcart_zones: Dictionary = {}
+## Cache key for _handcart_zones: Settlement (structure_version, completion_version) it was built at.
+var _zones_key := Vector2i(-1, -1)
 
 
 func save_state() -> Dictionary:
@@ -116,7 +118,10 @@ func load_state(d: Dictionary, settlement: Settlement) -> void:
 
 func on_seconds(settlement: Settlement, seconds: float) -> void:
 	_s = settlement
-	_handcart_zones = RegionSystem.handcart_zones(settlement)
+	var zk := Vector2i(settlement.structure_version, settlement.completion_version)
+	if zk != _zones_key:
+		_zones_key = zk
+		_handcart_zones = RegionSystem.handcart_zones(settlement)
 	if walkers.size() != settlement.citizens.size():
 		_sync()
 	_refresh_grid()
