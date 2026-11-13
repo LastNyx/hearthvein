@@ -48,6 +48,10 @@ const GOLD := "gold"
 @export var dimming_factor: float = 1.0
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
+## True for a Farm (design.md section 9): output is multiplied by the mean fertility of the footprint / 100.
+@export var fertility_output: bool = false
+## Multiplier applied when the tile under the origin started as fertile soil (Farm: 1.5). 1.0 = no bonus.
+@export var fertile_origin_bonus: float = 1.0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

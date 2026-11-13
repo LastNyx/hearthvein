@@ -70,6 +70,7 @@ func add_default_systems() -> void:
 	add_system(StorageSystem.new())
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
+	add_system(FertilitySystem.new())  # before Production: supplies the farm fertility modifier
 	add_system(ProductionSystem.new())
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
@@ -79,6 +80,7 @@ func add_default_systems() -> void:
 	add_system(PlanetHealthSystem.new())
 	add_system(SpiritSystem.new())  # after Growth: reads its hunger and food-type report; after Planet: grief
 	var prod := get_system(ProductionSystem) as ProductionSystem
+	prod.modifiers.append(FertilitySystem.output_modifier)
 	prod.modifiers.append(SpiritSystem.work_modifier)
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)

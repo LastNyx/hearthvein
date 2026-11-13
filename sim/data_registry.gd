@@ -279,6 +279,10 @@ func _validate_building(b: BuildingDef) -> void:
 			errors.append("%s: has a recipe but no worker slots" % who)
 	if b.upgradable and b.tiers.size() != 2:
 		errors.append("%s: upgradable needs exactly 2 tiers (II, III)" % who)
+	if b.fertility_output and b.recipe == null:
+		errors.append("%s: fertility_output without a recipe" % who)
+	if b.fertile_origin_bonus < 1.0:
+		errors.append("%s: fertile_origin_bonus must be at least 1" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:
