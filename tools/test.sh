@@ -4,9 +4,8 @@
 set -u
 cd "$(dirname "$0")/.."
 
-if [ ! -f .godot/global_script_class_cache.cfg ]; then
-	godot --headless --import >/dev/null 2>&1
-fi
+# Always import first so new class_name scripts are registered (about 4 s).
+godot --headless --import >/dev/null 2>&1
 
 args=(--headless --path . -s res://addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json)
 if [ $# -ge 1 ]; then
