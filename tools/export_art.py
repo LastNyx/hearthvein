@@ -478,8 +478,8 @@ def export_autotiles(manifest):
 
 # ------------------------------------------------------------------ blight and fouling (soft tile states)
 BLIGHT = [(48, 36, 70), (80, 58, 112), (108, 80, 146), (150, 120, 190)]  # saturated violet, as the village mockup
-FOUL = [(58, 78, 46), (88, 110, 56), (124, 140, 78), (160, 168, 96)]
-STATE_ALPHA = {"blight": 232, "fouled": 190}
+FOUL = [(70, 66, 30), (96, 86, 36), (118, 104, 46), (140, 122, 58)]  # murky olive-brown, tints the water tile
+STATE_ALPHA = {"blight": 232, "fouled": 104}  # fouled stays translucent so water ripples and lily pads read through
 
 
 def state_tile(seed, pal, base_alpha):

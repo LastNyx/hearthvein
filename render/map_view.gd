@@ -71,6 +71,7 @@ func setup(m: MapState) -> void:
 		if ArtLibrary.overlay_grounds().has(g):
 			overlays[g] = _overlay_layer(g)
 	_rock_edge = _autotile_layer("RockEdge", "rock")
+	_fouled = _state_layer("Fouled", "fouled")  # under the shore line so the bank stays crisp over the murk
 	_shore = _autotile_layer("Shore", "water")
 	_shade = Sprite2D.new()  # tonal patches over the ground blends but under the vein and sky edges
 	_shade.name = "Shade"
@@ -82,7 +83,6 @@ func setup(m: MapState) -> void:
 		if not overlays.has(g):
 			overlays[g] = _overlay_layer(g)
 	_blight = _state_layer("Blight", "blight")
-	_fouled = _state_layer("Fouled", "fouled")
 	roads = TileMapLayer.new()
 	roads.name = "Roads"
 	roads.tile_set = ArtLibrary.road_tileset()
