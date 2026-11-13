@@ -11,6 +11,8 @@ var connected: bool = false
 var tier: int = 1
 var paused: bool = false
 var priority: String = "normal"
+## Null unless def.storage_mode != "none".
+var inventory: Inventory = null
 
 
 func footprint() -> Rect2i:

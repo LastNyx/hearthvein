@@ -20,6 +20,10 @@ var buildings: Dictionary = {}  # int -> Building
 var occupancy := PackedInt32Array()
 var roads := PackedByteArray()
 var hearth: Building = null
+## Global gold counter. Gold is never stored in inventories.
+var gold: float = 0.0
+## New-game stock (design.md section 5), put in the Hearth.
+const START_STOCK := {"food": 60.0, "materials": 40.0, "lumen": 10.0}
 var _next_building_id: int = 0
 
 
@@ -33,6 +37,8 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	var hdef := reg.get_building("hearth")
 	if hdef != null and s.map.hearth_spot.x >= 0:
 		s.hearth = s._insert_building(hdef, s.map.hearth_spot)
+		for g in START_STOCK:
+			s.hearth.inventory.add(g, START_STOCK[g])
 		s.place_road(s.map.hearth_spot + Vector2i(hdef.size.x, 0))
 	return s
 
@@ -131,6 +137,8 @@ func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
 	_next_building_id += 1
 	b.def = def
 	b.origin = origin
+	if def.storage_mode != "none":
+		b.inventory = Inventory.new(def.storage_mode, float(def.storage_cap))
 	buildings[b.id] = b
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = b.id
@@ -144,10 +152,57 @@ func demolish(id: int) -> bool:
 		return false
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = -1
+	# Contents of a demolished storehouse are lost for now; ticket 11 may refund.
 	buildings.erase(id)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin})
 	_recompute_connections()
 	return true
+
+
+# ---------------------------------------------------------------- storage
+
+## good id -> total amount over every building inventory (gold excluded; see `gold`).
+func totals() -> Dictionary:
+	var out := {}
+	for id in buildings:
+		var inv: Inventory = (buildings[id] as Building).inventory
+		if inv == null:
+			continue
+		for g in inv.goods():
+			out[g] = out.get(g, 0.0) + inv.amount_of(g)
+	return out
+
+
+## Command: restrict a storage building to the given good ids. Empty array = accept all.
+func set_storage_filter(building_id: int, goods: Array) -> bool:
+	var b: Building = buildings.get(building_id)
+	if b == null or b.inventory == null:
+		return false
+	for g in goods:
+		if registry.get_good(str(g)) == null:
+			return false
+	b.inventory.set_filter(goods)
+	events.emit("storage_filter_changed", {"id": building_id, "goods": goods.duplicate()})
+	return true
+
+
+## Nearest storage building that can take at least `amount` (default any room) of `good`, measured as
+## Manhattan distance from `from` to the closest footprint tile (ties: lowest id). Null if none.
+## Walking distance replaces this in ticket 09.
+func find_storage_with_room(good: String, from: Vector2i, amount: float = 0.000001) -> Building:
+	var best: Building = null
+	var best_d := 0
+	for id in buildings:
+		var b: Building = buildings[id]
+		if b.inventory == null or b.inventory.free_for(good) < amount:
+			continue
+		var d := 1 << 30
+		for t in b.tiles():
+			d = mini(d, absi(t.x - from.x) + absi(t.y - from.y))
+		if best == null or d < best_d or (d == best_d and b.id < best.id):
+			best = b
+			best_d = d
+	return best
 
 
 func can_place_road(tile: Vector2i) -> bool:
