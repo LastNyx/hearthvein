@@ -16,6 +16,7 @@ var _nodes: Dictionary = {}  # building id -> Array[Node]
 func setup(s: Settlement, v: MapView) -> void:
 	settlement = s
 	view = v
+	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or settlement.building_at(t) != null
 	z_index = 20  # the no-road icon sits above sprites and glows
 	for kind in ["building_placed", "building_demolished", "road_changed", "building_connection_changed", "building_completed"]:
 		s.events.subscribe(kind, func(entry: Dictionary) -> void: _on_event(entry["kind"], entry["data"]))
@@ -142,26 +143,15 @@ func _draw_site(b: Building) -> void:
 	var fr := Rect2(Vector2(b.origin) * TILE, Vector2(b.def.size) * TILE)
 	var r := ArtLibrary.sprite_rect(b.def.id, b.origin, b.def.size)
 	var p := b.build_progress()
-	draw_rect(fr, Color(0.45, 0.34, 0.2, 0.7))
-	draw_rect(fr, Color(0.25, 0.17, 0.09, 0.9), false, 1.0)
-	if p > 0.0:
+	var art := ArtLibrary.site_art(b.def.size, r.size.y)
+	draw_texture(art["plot"], fr.position)
+	if p > 0.0:  # the finished sprite rises bottom-up behind the scaffold
 		var tex := ArtLibrary.texture(ArtLibrary.building_entry(b.def.id)["file"])
 		var h := r.size.y * p
 		draw_texture_rect_region(tex, Rect2(r.position.x, r.end.y - h, r.size.x, h),
-				Rect2(0, r.size.y - h, r.size.x, h), Color(1, 1, 1, 0.92))
-	var wood := Color("8a6235")
-	var dark := Color("4d3419")
-	var top := fr.end.y - maxf(r.size.y * 0.75, 40.0)
-	var xs := [fr.position.x + 1.0, fr.end.x - 1.0]
-	for x: float in xs:
-		draw_line(Vector2(x, fr.end.y), Vector2(x, top), dark, 4.0)
-		draw_line(Vector2(x, fr.end.y), Vector2(x, top), wood, 2.0)
-	var rungs := 3
-	for i in range(1, rungs + 1):
-		var y := fr.end.y - (fr.end.y - top) * float(i) / float(rungs)
-		draw_line(Vector2(xs[0], y), Vector2(xs[1], y), dark, 3.0)
-		draw_line(Vector2(xs[0], y), Vector2(xs[1], y), wood, 1.5)
-	draw_line(Vector2(xs[0], fr.end.y), Vector2(xs[1], top), wood, 1.5)
+				Rect2(0, r.size.y - h, r.size.x, h), Color(1, 1, 1, 0.95))
+	var sc: Texture2D = art["scaffold"]
+	draw_texture(sc, Vector2(fr.position.x, fr.end.y - sc.get_height()))
 	var bar := Rect2(fr.position.x, fr.end.y + 2.0, fr.size.x, 5.0)
 	draw_rect(bar.grow(1.0), Color(0.05, 0.05, 0.05, 0.85))
 	var building := b.site_delivered()

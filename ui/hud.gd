@@ -21,6 +21,8 @@ var driver: SimDriver
 var _font: FontFile
 var _res_labels: Dictionary = {}
 var _pop_label: Label
+var _growth_bar: ProgressBar
+var _float: Control
 var _spirit_bar: ProgressBar
 var _spirit_label: Label
 var _spirit_box: Control
@@ -87,7 +89,11 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	mid.add_child(right)
 	_build_era_panel(right)
 	_build_notes(center)
-	_build_selection_panel(left)
+	_float = Control.new()
+	_float.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_float)
+	_float.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_selection_panel(_float)
 	_build_bar(col)
 	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
 	refresh()
@@ -175,6 +181,15 @@ func _build_top_bar(parent: Node) -> void:
 	row.add_child(pop)
 	_icon(pop, "pop")
 	_pop_label = _label(pop, 17)
+	_growth_bar = ProgressBar.new()  # fills toward the next citizen
+	_growth_bar.custom_minimum_size = Vector2(46, 8)
+	_growth_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_growth_bar.show_percentage = false
+	_growth_bar.max_value = 1.0
+	_growth_bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+	_growth_bar.add_theme_stylebox_override("fill", _style(Color("78be5a"), Color(0, 0, 0, 0), 2, 0))
+	_growth_bar.tooltip_text = "Growth toward the next citizen"
+	pop.add_child(_growth_bar)
 	var sp := HBoxContainer.new()
 	sp.add_theme_constant_override("separation", 6)
 	sp.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -267,12 +282,7 @@ func _refresh_notes() -> void:
 # ---------------------------------------------------------------- selected building
 
 func _build_selection_panel(parent: Node) -> void:
-	var gap := Control.new()
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	parent.add_child(gap)
 	_sel_panel = _panel(parent)
-	_sel_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_sel_panel.custom_minimum_size = Vector2(290, 0)
 	var v := VBoxContainer.new()
 	_sel_panel.add_child(v)
@@ -298,6 +308,7 @@ func _refresh_selection() -> void:
 	_sel_panel.visible = not sel.is_empty()
 	if sel.is_empty():
 		return
+	_place_selection_panel()
 	_sel_title.text = sel["title"]
 	_sel_body.text = "\n".join(sel["lines"])
 	_sel_halt.text = sel["halt"]
@@ -307,6 +318,25 @@ func _refresh_selection() -> void:
 	for p in _prio_buttons:
 		var on: bool = sel["paused"] if p == "paused" else (sel["priority"] == p and not sel["paused"])
 		_style_button(_prio_buttons[p], on)
+
+
+## Float the panel beside the selected building (right of it, left when there is no room), clamped to the screen.
+func _place_selection_panel() -> void:
+	var b := model.selected()
+	if b == null or camera == null:
+		return
+	var xf := camera.get_viewport().get_canvas_transform()
+	var tl: Vector2 = xf * (Vector2(b.origin) * ArtLibrary.TILE)
+	var br: Vector2 = xf * (Vector2(b.origin + b.def.size) * ArtLibrary.TILE)
+	var vp := camera.get_viewport().get_visible_rect().size
+	var sz := _sel_panel.get_combined_minimum_size()
+	_sel_panel.size = sz
+	var pos := Vector2(br.x + 14.0, tl.y - 20.0)
+	if pos.x + sz.x > vp.x - 6.0:
+		pos.x = tl.x - sz.x - 14.0
+	pos.x = clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0))
+	pos.y = clampf(pos.y, 60.0, maxf(60.0, vp.y - sz.y - 70.0))
+	_sel_panel.position = pos
 
 
 # ---------------------------------------------------------------- build bar
@@ -376,6 +406,7 @@ func refresh() -> void:
 	var pop := model.population()
 	_pop_label.text = pop["text"]
 	_pop_label.add_theme_color_override("font_color", RED if pop["homeless"] > 0 else INK)
+	_growth_bar.value = pop["growth"]
 	var sp := model.spirit()
 	_spirit_bar.value = sp["value"]
 	var fill: Color = {"good": Color("78be5a"), "ok": Color("d2a03c"), "bad": Color("d2503c")}[sp["state"]]
@@ -398,6 +429,8 @@ func refresh() -> void:
 
 
 func _process(delta: float) -> void:
+	if _sel_panel.visible:
+		_place_selection_panel()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0

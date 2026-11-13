@@ -12,6 +12,7 @@ import json
 import math
 import random
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -114,7 +115,9 @@ def grass_tile(seed, bias=0.0, shift=0, kind="plain"):
     light/dark meadow areas come from the shade layer, so the 32px tile never shows as a repeat).
     kind: plain, tufts, flowers, clover; every kind carries some confetti, flowers the most."""
     v = 0.5 + 0.5 * (pfbm(seed, 11) - 0.5)
-    gi = pquant(v, 3, bias, 0.45) + 1 + shift
+    # Per-pixel random threshold, not the 4x4 Bayer matrix: Bayer makes a regular diagonal weave at zoom 2.
+    nz = np.random.default_rng(seed * 31 + 7).random((T, T)).astype(np.float32)
+    gi = np.clip(((v + bias) * 3 + (nz - 0.5) * 0.5).astype(int), 0, 2) + 1 + shift
     img = to_img(A(PG)[np.clip(gi, 0, 4)])
     d = ImageDraw.Draw(img)
     rng = random.Random(seed * 7 + 1)
@@ -126,7 +129,7 @@ def grass_tile(seed, bias=0.0, shift=0, kind="plain"):
         dc = tuple(int(q * 0.7) for q in base[:3]) + (255,)
         d.point([(x, y), (x - 1, y - 1), (x + 1, y - 1), (x, y - 2)], fill=c)
         d.point([(x, y + 1)], fill=dc)
-    n_conf = {"plain": 6, "tufts": 7, "flowers": 12, "clover": 7}[kind]
+    n_conf = {"plain": 12, "tufts": 13, "flowers": 20, "clover": 13}[kind]
     for _ in range(n_conf):  # tiny clusters of 1-3 coloured specks
         c = rng.choice(CONFETTI)
         x, y = rng.randrange(2, T - 2), rng.randrange(2, T - 2)
@@ -253,13 +256,22 @@ def water_tile(seed, lily=False):
     for _ in range(3):
         x, y = rng.randrange(2, T - 6), rng.randrange(2, T - 2)
         d.line([(x, y), (x + rng.randint(2, 4), y)], fill=M.WATER[4])
-    if lily:
-        for _ in range(2):
-            x, y = rng.randrange(7, T - 7), rng.randrange(6, T - 6)
-            d.ellipse([x - 4, y - 3, x + 4, y + 3], fill=M.LEAF["green"][1])
-            d.ellipse([x - 3, y - 3, x + 3, y + 2], fill=M.LEAF["green"][3])
-            d.point((x + 1, y - 1), fill=M.hexc("f4a0c0"))
     return img
+
+
+def lily_pad(seed, flower):
+    """A lily pad prop (separate sprite so pads are scattered by hash, not baked into a repeating tile)."""
+    rng = random.Random(seed)
+    w, h = rng.choice([(10, 6), (12, 7), (9, 6)])
+    im = Image.new("RGBA", (w + 4, h + 4))
+    d = ImageDraw.Draw(im)
+    d.ellipse([1, 1, 1 + w, 1 + h], fill=M.LEAF["green"][1])
+    d.ellipse([2, 1, 1 + w - 1, h], fill=M.LEAF["green"][3])
+    d.point((1 + w // 2 + rng.randint(1, 2), 1 + h // 2), fill=M.LEAF["green"][1])  # notch
+    if flower:
+        d.point((w // 2 + 1, h // 2), fill=M.hexc("f4a0c0"))
+        d.point((w // 2 + 2, h // 2), fill=M.hexc("f6f0e0"))
+    return types.SimpleNamespace(img=im, fw=1, fh=1, glows=[], smoke=[], shadow=None)
 
 
 def ground_tile(ground, seed):
@@ -374,35 +386,144 @@ def export_overlays(manifest):
         manifest["overlays"][g] = f"terrain/overlay_{g}.png"
 
 
-# ------------------------------------------------------------------ blight and fouling (translucent tile states)
-BLIGHT = [(78, 66, 96), (110, 95, 126), (141, 126, 160)]  # mockups_v1 blight_d / blight / blight_l
-FOUL = [(70, 82, 52), (96, 108, 62), (128, 138, 84)]
+# ------------------------------------------------------------------ blight and fouling (soft tile states)
+BLIGHT = [(48, 36, 70), (80, 58, 112), (108, 80, 146), (150, 120, 190)]  # saturated violet, as the village mockup
+FOUL = [(58, 78, 46), (88, 110, 56), (124, 140, 78), (160, 168, 96)]
+STATE_ALPHA = {"blight": 232, "fouled": 190}
 
 
 def state_tile(seed, pal, base_alpha):
-    """Translucent tile-state overlay (blighted ground, fouled water): blotchy tint plus specks, drawn over the ground."""
+    """Fill tile of a tile state (blighted ground, fouled water): saturated tint with darker pits and speckle.
+    Opaque enough to read as a purple blob; the soft edge comes from state_edge on the neighbours."""
     v = pfbm(seed, 14)
-    gi = pquant(v, 3, 0.0, 0.6)
-    rgb = A(pal)[np.clip(gi, 0, 2)]
-    alpha = np.clip(base_alpha + (v - 0.5) * 90, 40, 220).astype(np.uint8)
+    nz = np.random.default_rng(seed * 5 + 1).random((T, T)).astype(np.float32)
+    gi = np.clip(((v * 0.9 + 0.05) * 3 + (nz - 0.5) * 0.6).astype(int), 0, 2)
+    rgb = A(pal)[gi]
+    alpha = np.full((T, T), base_alpha, dtype=np.uint8)
     img = to_img(rgb, alpha)
     d = ImageDraw.Draw(img)
     rng = random.Random(seed * 13 + 5)
-    for _ in range(3):  # darker pits, as in the mockup
-        x, y = rng.randrange(3, T - 7), rng.randrange(3, T - 6)
-        d.ellipse([x, y, x + 4, y + 3], fill=pal[0] + (190,))
-    for _ in range(14):
-        d.point((rng.randrange(1, T - 1), rng.randrange(1, T - 1)), fill=rng.choice([pal[0], pal[2]]) + (210,))
+    for _ in range(4):  # darker pits, as in the mockup
+        x, y = rng.randrange(2, T - 7), rng.randrange(2, T - 6)
+        d.ellipse([x, y, x + rng.randint(2, 4), y + rng.randint(2, 3)], fill=pal[0] + (base_alpha,))
+    for _ in range(16):
+        d.point((rng.randrange(1, T - 1), rng.randrange(1, T - 1)),
+                fill=rng.choice([pal[0], pal[0], pal[3]]) + (base_alpha,))
     return img
 
 
+def state_edge(pal, base_alpha, mask, seed):
+    """Tint bleeding from the 8 neighbours flagged in `mask` into this clear tile: wobbly dithered fade, the same
+    texture as the fill tile so the blob has no seam at the tile border."""
+    d = edge_dist(mask)
+    wob = 0.65 * pnoise(8, 700 + seed) + 0.35 * pnoise(4, 720 + seed)
+    r = 9 + (wob - 0.5) * 12
+    nz = np.random.default_rng(seed * 3 + 11).random((T, T)).astype(np.float32)
+    cov = (r - d) + (nz - 0.5) * 9.0 > 0
+    src = np.array(state_tile(900 + seed % 4, pal, base_alpha))
+    src[..., 3] = np.where(cov, src[..., 3], 0)
+    return Image.fromarray(src, "RGBA")
+
+
 def export_states(manifest):
-    im, rows = pack_atlas([state_tile(900 + i, BLIGHT, 135) for i in range(4)], 4)
-    save(im, OUT / "terrain" / "blight.png")
-    im, rows = pack_atlas([state_tile(950 + i, FOUL, 120) for i in range(4)], 4)
-    save(im, OUT / "terrain" / "fouled.png")
-    manifest["states"] = {"blight": {"file": "terrain/blight.png", "cols": 4, "rows": 1},
-                          "fouled": {"file": "terrain/fouled.png", "cols": 4, "rows": 1}}
+    uniq, index = blob_set()
+    manifest["states"] = {}
+    for name, pal, seed0 in (("blight", BLIGHT, 900), ("fouled", FOUL, 950)):
+        al = STATE_ALPHA[name]
+        im, rows = pack_atlas([state_tile(seed0 + i, pal, al) for i in range(4)], 4)
+        save(im, OUT / "terrain" / f"{name}.png")
+        edges = [state_edge(pal, al, m, seed0 + k) for k, m in enumerate(uniq)]
+        eim, erows = pack_atlas(edges, 8)
+        save(eim, OUT / "terrain" / f"{name}_edge.png")
+        manifest["states"][name] = {"file": f"terrain/{name}.png", "cols": 4, "rows": 1,
+                                    "edge_file": f"terrain/{name}_edge.png", "edge_cols": 8, "edge_rows": erows}
+
+
+def sparkle(seed, big):
+    """Lumen sparkle prop for blighted ground: a small cyan cross with a pale core (static, sits in the Fx layer)."""
+    im = Image.new("RGBA", (9, 9) if big else (5, 5))
+    d = ImageDraw.Draw(im)
+    c = 4 if big else 2
+    arm = 3 if big else 1
+    cy = M.CRYSTAL[2][:3] + (170,)
+    d.line([(c - arm, c), (c + arm, c)], fill=cy)
+    d.line([(c, c - arm), (c, c + arm)], fill=cy)
+    d.point((c, c), fill=M.CRYSTAL[4])
+    return types.SimpleNamespace(img=im, fw=1, fh=1, glows=[(c, c, 5 if big else 3, M.CRYSTAL[3])], smoke=[], shadow=None)
+
+
+# ------------------------------------------------------------------ construction site art
+SCAFFOLD_TIERS = [40, 64, 88]  # pole heights in px; PlacementView picks the smallest that covers the building sprite
+
+
+def scaffold_image(fw, fh, tier):
+    """Wooden scaffold for a fw x fh footprint: front poles on the footprint's lower edge, shorter back poles, plank
+    decks, cross braces, a rope and a plank stack. Bottom edge of the image = bottom edge of the footprint."""
+    W = fw * T
+    H = tier + 10
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    wd = [M.WOOD[1], M.WOOD[2], M.WOOD[3], M.WOOD[4]]
+    back = H - 1 - fh * T // 2  # back poles stand further up the image (the plot's depth)
+    def pole(x, y1, y0, lit):
+        d.line([(x, y1), (x, y0)], fill=wd[0], width=3)
+        d.line([(x, y1), (x, y0)], fill=wd[2 if lit else 1], width=1)
+    bt = max(8, back - (tier - 6))
+    for x in (6, W - 7):
+        pole(x, back, bt, False)
+    d.line([(6, bt + 5), (W - 7, bt + 5)], fill=wd[1], width=2)
+    xs = (2, W - 3)
+    for x in xs:
+        pole(x, H - 2, 2, True)
+    levels = [H - 2 - int((tier - 2) * k / 3.0) for k in (1, 2, 3)]
+    for i, y in enumerate(levels):  # cross planks (decks) between the front poles, with plank lines
+        M.R(d, xs[0] - 1, y, xs[1] + 1, y + 2, wd[2])
+        d.line([(xs[0] - 1, y), (xs[1] + 1, y)], fill=wd[3])
+        d.line([(xs[0] - 1, y + 2), (xs[1] + 1, y + 2)], fill=wd[0])
+    d.line([(xs[0], H - 2), (xs[1], levels[1])], fill=wd[2], width=1)  # diagonal braces
+    d.line([(xs[1], H - 2), (xs[0], levels[1])], fill=wd[1], width=1)
+    d.line([(xs[0] + 4, levels[2]), (xs[0] + 4, levels[2] + 6)], fill=M.hexc("c8b890"))  # rope
+    d.point((xs[0] + 4, levels[2] + 7), fill=wd[0])
+    return im
+
+
+def site_plot(fw, fh):
+    """Trodden dirt plot with a plank stack and a few stones, drawn under the rising building."""
+    W, H = fw * T, fh * T
+    rng = np.random.default_rng(fw * 10 + fh)
+    base = np.array([(110, 84, 52), (128, 98, 60), (92, 68, 42)], dtype=np.uint8)
+    n = rng.random((H, W))
+    idx = np.where(n < 0.15, 2, np.where(n > 0.78, 1, 0))
+    out = np.zeros((H, W, 4), dtype=np.uint8)
+    out[..., :3] = base[idx]
+    out[..., 3] = 255
+    yy, xx = np.mgrid[0:H, 0:W]
+    edge = np.minimum(np.minimum(xx, W - 1 - xx), np.minimum(yy, H - 1 - yy)).astype(np.float32)
+    keep = edge + (rng.random((H, W)) - 0.5) * 7 > 1.5  # ragged outline
+    out[..., 3] = np.where(keep, 235, 0)
+    im = Image.fromarray(out, "RGBA")
+    d = ImageDraw.Draw(im)
+    for k in range(3):  # stacked planks in a corner
+        x, y = W - 12, H - 6 - k * 2
+        M.R(d, x, y, x + 9, y + 1, M.WOOD[3 - k % 2])
+        d.line([(x, y + 1), (x + 9, y + 1)], fill=M.WOOD[1])
+    for _ in range(max(2, fw * fh)):
+        x, y = int(rng.integers(3, W - 5)), int(rng.integers(3, H - 4))
+        d.ellipse([x, y, x + 2, y + 1], fill=(150, 142, 130, 255))
+    return im
+
+
+def export_sites(manifest):
+    manifest["site"] = {"tiers": SCAFFOLD_TIERS, "scaffold": {}, "plot": {}}
+    for fw in (1, 2, 3):
+        for fh in (1, 2, 3):
+            rel = f"sites/plot_{fw}x{fh}.png"
+            save(site_plot(fw, fh), OUT / rel)
+            manifest["site"]["plot"][f"{fw}x{fh}"] = rel
+            for tier in SCAFFOLD_TIERS:
+                rel = f"sites/scaffold_{fw}x{fh}_{tier}.png"
+                save(scaffold_image(fw, fh, tier), OUT / rel)
+                manifest["site"]["scaffold"][f"{fw}x{fh}_{tier}"] = rel
 
 
 # ------------------------------------------------------------------ terrain tiles
@@ -416,11 +537,11 @@ def export_terrain(manifest):
     tiles["rock"] = ([[rock_tile(500 + i) for i in range(4)]], [0, 1, 2, 3])
     tiles["lumen_vein"] = ([[vein_tile(600 + i) for i in range(4)]], [0, 1, 2, 3])
     tiles["skystone"] = ([[sky_tile(700 + i) for i in range(3)]], [0, 1, 2])
-    tiles["water"] = ([[water_tile(800 + i, lily=(i == 4)) for i in range(5)]], [0, 0, 1, 1, 2, 2, 3, 3, 4])
+    tiles["water"] = ([[water_tile(800 + i) for i in range(5)]], [0, 0, 1, 1, 2, 2, 3, 3, 4])
     manifest["ground_order"] = GROUND_ORDER
     manifest["shade"] = {"grounds": ["grass", "soil"], "cells": [14.0, 7.0, 3.5],
-                         "weights": [0.5, 0.33, 0.17], "dark": list(PG[0][:3]) + [150],
-                         "light": [190, 228, 108, 120], "dark_below": 0.46, "light_above": 0.56, "ramp": 0.2}
+                         "weights": [0.5, 0.33, 0.17], "dark": list(PG[0][:3]) + [105],
+                         "light": [190, 228, 108, 130], "dark_below": 0.46, "light_above": 0.56, "ramp": 0.2}
     manifest["terrain"] = {}
     for tid, (families, pick) in tiles.items():
         cols = len(families[0])
@@ -586,6 +707,9 @@ PROPS = {
     "crystal_2": lambda: M.crystal_cluster(1063),
     "mushrooms_0": lambda: M.mushrooms(1071, False), "mushrooms_1": lambda: M.mushrooms(1072, True),
     "stump_0": stump,
+    "lily_0": lambda: lily_pad(1, False), "lily_1": lambda: lily_pad(2, False), "lily_2": lambda: lily_pad(3, True),
+    "lily_3": lambda: lily_pad(4, False), "lily_4": lambda: lily_pad(5, True),
+    "sparkle_0": lambda: sparkle(1, False), "sparkle_1": lambda: sparkle(2, True),
 }
 
 # Prop scatter per terrain id (positions are hashed per tile by the loader). x/y: sprite base point inside the tile.
@@ -599,6 +723,8 @@ SCATTER = {
     "lumen_vein": {"p_first": 0.7, "p_second": 0.0, "x": [12, 20], "y": [28, 31], "choices": [
         ["crystal_0", 1], ["crystal_1", 1], ["crystal_2", 1]]},
     "stump": {"p_first": 1.0, "p_second": 0.0, "x": [14, 18], "y": [24, 28], "choices": [["stump_0", 1]]},
+    "water": {"p_first": 0.2, "p_second": 0.4, "interior_only": True, "x": [9, 23], "y": [14, 24], "choices": [
+        ["lily_0", 1], ["lily_1", 1], ["lily_2", 0.5], ["lily_3", 1], ["lily_4", 0.5]]},
     "grass": {"p_first": 0.012, "p_second": 0.0, "x": [6, 26], "y": [10, 30], "choices": [
         ["mushrooms_0", 1], ["mushrooms_1", 1]]},
 }
@@ -609,6 +735,7 @@ def export_props(manifest):
     for name, fn in PROPS.items():
         manifest["props"][name] = export_sprite(fn(), f"props/{name}.png")
     manifest["scatter"] = SCATTER
+    manifest["blight_sparkle"] = {"props": ["sparkle_0", "sparkle_1"], "chance_pct": 30}
 
 
 # Buildings that appear on the approved sheets (docs/mockups/buildings_*.png) use exactly those b_* functions.
@@ -764,6 +891,7 @@ def main():
     export_overlays(manifest)
     export_states(manifest)
     export_roads(manifest)
+    export_sites(manifest)
     export_props(manifest)
     export_buildings(manifest)
     export_walkers(manifest)

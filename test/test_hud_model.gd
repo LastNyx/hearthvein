@@ -202,3 +202,17 @@ func test_overlays_toggle() -> void:
 	assert_true(m.toggle_overlay("roads"))
 	assert_false(m.toggle_overlay("blight"))
 	assert_false(m.toggle_overlay("nonsense"))
+
+
+func test_selection_names_the_made_good_and_skips_empty_output() -> void:
+	var id := s.place_building_instant("woodcutter", _site_free_spot())
+	m.select(id)
+	var lines: Array = m.selection()["lines"]
+	assert_true("Makes: Materials" in lines)
+	for l in lines:
+		assert_false(String(l).begins_with("Output:"), "empty output buffer is not listed")
+
+
+func test_population_reports_growth_share() -> void:
+	var g: float = m.population()["growth"]
+	assert_true(g >= 0.0 and g <= 1.0)

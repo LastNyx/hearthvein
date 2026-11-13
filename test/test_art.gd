@@ -307,3 +307,93 @@ func test_grass_confetti_is_dense() -> void:
 				if c.is_equal_approx(p):
 					specks += 1
 	assert_gt(specks, 8, "flower tile carries confetti")
+
+
+# ---- ticket 53 polish pass
+
+func test_water_lilies_are_hashed_interior_and_vary() -> void:
+	var counts := {}
+	for y in 40:
+		for x in 40:
+			var a := ArtLibrary.scatter("water", x, y)
+			assert_eq(a, ArtLibrary.scatter("water", x, y), "same tile gives the same pads")
+			assert_eq(ArtLibrary.scatter("water", x, y, Vector2i(1, 0)), [], "no pads on shore tiles")
+			counts[a.size()] = true
+			for p in a:
+				assert_true(String(p["name"]).begins_with("lily"))
+	assert_true(counts.has(0) and counts.has(1) and counts.has(2), "0, 1 and 2 pads occur")
+
+
+func test_water_tiles_have_no_baked_lilies() -> void:
+	var t: Dictionary = ArtLibrary.manifest()["terrain"]["water"]
+	assert_eq(int(t["cols"]), 5)
+	var img := ArtLibrary.texture(t["file"]).get_image()
+	for v in 5:  # the pad green (leaf) never appears in a water tile
+		var found := false
+		for y in 32:
+			for x in 32:
+				var c := img.get_pixel(v * 32 + x, y)
+				if c.g > c.b + 0.05:
+					found = true
+		assert_false(found, "variant %d has no green pad pixels" % v)
+
+
+func test_state_edges_soft_blight() -> void:
+	var st: Dictionary = ArtLibrary.manifest()["states"]
+	assert_true(st["blight"].has("edge_file") and st["fouled"].has("edge_file"))
+	assert_eq(ArtLibrary.state_edge_coords(0), Vector2i(-1, -1))
+	assert_true(ArtLibrary.state_edge_coords(1 << 2).x >= 0)
+	# edge tile next to a blighted tile is partly transparent (soft bleed), not a flat square
+	var ts := ArtLibrary.state_tileset("blight")
+	assert_not_null(ts.get_source(1))
+	var img := ArtLibrary.texture(st["blight"]["edge_file"]).get_image()
+	var c := ArtLibrary.state_edge_coords(1 << 2)  # blight to the east
+	var east_a := img.get_pixel(c.x * 32 + 31, c.y * 32 + 16).a
+	var west_a := img.get_pixel(c.x * 32 + 1, c.y * 32 + 16).a
+	assert_true(east_a > 0.5 and west_a < 0.1, "opaque at the shared edge, clear far away")
+
+
+func test_blight_sparkles_are_hashed() -> void:
+	var n := 0
+	for y in 30:
+		for x in 30:
+			var a := ArtLibrary.blight_sparkle(42, x, y)
+			assert_eq(a, ArtLibrary.blight_sparkle(42, x, y))
+			if not a.is_empty():
+				n += 1
+				assert_true(ArtLibrary.manifest()["props"].has(a["name"]))
+	assert_true(n > 100 and n < 450, "about 30 percent of tiles: %d" % n)
+
+
+func test_site_art_picks_tier_and_exists() -> void:
+	var small := ArtLibrary.site_art(Vector2i(1, 1), 20.0)
+	var big := ArtLibrary.site_art(Vector2i(3, 2), 90.0)
+	assert_eq(small["plot"].get_width(), 32)
+	assert_eq(big["plot"].get_height(), 64)
+	assert_true(big["scaffold"].get_height() > small["scaffold"].get_height())
+	assert_eq(big["scaffold"].get_width(), 96)
+
+
+func test_refresh_tile_keeps_props_off_roads() -> void:
+	var s := Settlement.new_game(42, _reg)
+	var view := MapView.new()
+	add_child_autofree(view)
+	view.setup(s.map)
+	var pv := PlacementView.new()
+	add_child_autofree(pv)
+	pv.setup(s, view)
+	var t := Vector2i(-1, -1)
+	for y in MapState.HEIGHT:
+		for x in MapState.WIDTH:
+			if t.x < 0 and s.map.terrain_id_at(x, y) == "forest":
+				s.set_terrain(Vector2i(x, y), "grass")
+				if s.can_place_road(Vector2i(x, y)):
+					t = Vector2i(x, y)
+				else:
+					s.set_terrain(Vector2i(x, y), "forest")
+	assert_true(t.x >= 0)
+	assert_true(s.place_road(t))
+	s.set_terrain(t, "forest")  # terrain changes under the road: props must stay hidden
+	view.refresh_tile(t)
+	for n in view._props.get(t, []):
+		assert_false((n as CanvasItem).visible)

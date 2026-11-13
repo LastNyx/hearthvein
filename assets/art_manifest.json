@@ -1,4 +1,11 @@
 {
+ "blight_sparkle": {
+  "chance_pct": 30,
+  "props": [
+   "sparkle_0",
+   "sparkle_1"
+  ]
+ },
  "buildings": {
   "aether_collector": {
    "base": [
@@ -2258,6 +2265,71 @@
    },
    "w": 32
   },
+  "lily_0": {
+   "base": [
+    7,
+    9
+   ],
+   "file": "props/lily_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 10,
+   "w": 14
+  },
+  "lily_1": {
+   "base": [
+    7,
+    9
+   ],
+   "file": "props/lily_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 10,
+   "w": 14
+  },
+  "lily_2": {
+   "base": [
+    7,
+    9
+   ],
+   "file": "props/lily_2.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 10,
+   "w": 14
+  },
+  "lily_3": {
+   "base": [
+    7,
+    9
+   ],
+   "file": "props/lily_3.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 10,
+   "w": 14
+  },
+  "lily_4": {
+   "base": [
+    6,
+    9
+   ],
+   "file": "props/lily_4.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 10,
+   "w": 13
+  },
   "mushrooms_0": {
    "base": [
     8,
@@ -2518,6 +2590,46 @@
    },
    "w": 35
   },
+  "sparkle_0": {
+   "base": [
+    2,
+    4
+   ],
+   "file": "props/sparkle_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/sparkle_0_fx.png",
+    "offset": [
+     -3,
+     -5
+    ]
+   },
+   "h": 5,
+   "w": 5
+  },
+  "sparkle_1": {
+   "base": [
+    4,
+    8
+   ],
+   "file": "props/sparkle_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/sparkle_1_fx.png",
+    "offset": [
+     -5,
+     -9
+    ]
+   },
+   "h": 9,
+   "w": 9
+  },
   "stump_0": {
    "base": [
     10,
@@ -2706,6 +2818,41 @@
     24,
     28
    ]
+  },
+  "water": {
+   "choices": [
+    [
+     "lily_0",
+     1
+    ],
+    [
+     "lily_1",
+     1
+    ],
+    [
+     "lily_2",
+     0.5
+    ],
+    [
+     "lily_3",
+     1
+    ],
+    [
+     "lily_4",
+     0.5
+    ]
+   ],
+   "interior_only": true,
+   "p_first": 0.2,
+   "p_second": 0.4,
+   "x": [
+    9,
+    23
+   ],
+   "y": [
+    14,
+    24
+   ]
   }
  },
  "shade": {
@@ -2718,7 +2865,7 @@
    47,
    110,
    54,
-   150
+   105
   ],
   "dark_below": 0.46,
   "grounds": [
@@ -2729,7 +2876,7 @@
    190,
    228,
    108,
-   120
+   130
   ],
   "light_above": 0.56,
   "ramp": 0.2,
@@ -2739,14 +2886,67 @@
    0.17
   ]
  },
+ "site": {
+  "plot": {
+   "1x1": "sites/plot_1x1.png",
+   "1x2": "sites/plot_1x2.png",
+   "1x3": "sites/plot_1x3.png",
+   "2x1": "sites/plot_2x1.png",
+   "2x2": "sites/plot_2x2.png",
+   "2x3": "sites/plot_2x3.png",
+   "3x1": "sites/plot_3x1.png",
+   "3x2": "sites/plot_3x2.png",
+   "3x3": "sites/plot_3x3.png"
+  },
+  "scaffold": {
+   "1x1_40": "sites/scaffold_1x1_40.png",
+   "1x1_64": "sites/scaffold_1x1_64.png",
+   "1x1_88": "sites/scaffold_1x1_88.png",
+   "1x2_40": "sites/scaffold_1x2_40.png",
+   "1x2_64": "sites/scaffold_1x2_64.png",
+   "1x2_88": "sites/scaffold_1x2_88.png",
+   "1x3_40": "sites/scaffold_1x3_40.png",
+   "1x3_64": "sites/scaffold_1x3_64.png",
+   "1x3_88": "sites/scaffold_1x3_88.png",
+   "2x1_40": "sites/scaffold_2x1_40.png",
+   "2x1_64": "sites/scaffold_2x1_64.png",
+   "2x1_88": "sites/scaffold_2x1_88.png",
+   "2x2_40": "sites/scaffold_2x2_40.png",
+   "2x2_64": "sites/scaffold_2x2_64.png",
+   "2x2_88": "sites/scaffold_2x2_88.png",
+   "2x3_40": "sites/scaffold_2x3_40.png",
+   "2x3_64": "sites/scaffold_2x3_64.png",
+   "2x3_88": "sites/scaffold_2x3_88.png",
+   "3x1_40": "sites/scaffold_3x1_40.png",
+   "3x1_64": "sites/scaffold_3x1_64.png",
+   "3x1_88": "sites/scaffold_3x1_88.png",
+   "3x2_40": "sites/scaffold_3x2_40.png",
+   "3x2_64": "sites/scaffold_3x2_64.png",
+   "3x2_88": "sites/scaffold_3x2_88.png",
+   "3x3_40": "sites/scaffold_3x3_40.png",
+   "3x3_64": "sites/scaffold_3x3_64.png",
+   "3x3_88": "sites/scaffold_3x3_88.png"
+  },
+  "tiers": [
+   40,
+   64,
+   88
+  ]
+ },
  "states": {
   "blight": {
    "cols": 4,
+   "edge_cols": 8,
+   "edge_file": "terrain/blight_edge.png",
+   "edge_rows": 6,
    "file": "terrain/blight.png",
    "rows": 1
   },
   "fouled": {
    "cols": 4,
+   "edge_cols": 8,
+   "edge_file": "terrain/fouled_edge.png",
+   "edge_rows": 6,
    "file": "terrain/fouled.png",
    "rows": 1
   }

@@ -95,8 +95,29 @@ static func state_tileset(state: String) -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(TILE, TILE)
 	var st: Dictionary = manifest()["states"][state]
-	ts.add_source(_atlas(st["file"], int(st["cols"]), int(st["rows"])), 0)
+	ts.add_source(_atlas(st["file"], int(st["cols"]), int(st["rows"])), 0)  # fill tiles
+	ts.add_source(_atlas(st["edge_file"], int(st["edge_cols"]), int(st["edge_rows"])), 1)  # soft bleed onto neighbours
 	return ts
+
+
+## Atlas coords in the edge source of a state for the 8-neighbour mask of flagged tiles (-1,-1 when none).
+static func state_edge_coords(mask: int) -> Vector2i:
+	var idx: int = int(manifest()["overlay_index"][mask])
+	if idx < 0:
+		return Vector2i(-1, -1)
+	var cols: int = manifest()["overlay_cols"]
+	return Vector2i(idx % cols, idx / cols)
+
+
+## Lumen sparkle prop of a blighted tile, picked by seeded hash ("" for most tiles).
+static func blight_sparkle(seed: int, x: int, y: int) -> Dictionary:
+	var b: Dictionary = manifest()["blight_sparkle"]
+	var h := tile_hash(seed + 11, x, y)
+	if h % 100 >= int(b["chance_pct"]):
+		return {}
+	var names: Array = b["props"]
+	var h2 := tile_hash(seed + 12, x, y)
+	return {"name": names[h2 % names.size()], "pos": Vector2(x * TILE + 4 + (h2 >> 3) % 24, y * TILE + 6 + (h2 >> 9) % 22)}
 
 
 static func state_variants(state: String) -> int:
@@ -223,6 +244,8 @@ static func scatter(terrain_id: String, x: int, y: int, open: Vector2i = Vector2
 	if not rules.has(terrain_id):
 		return out
 	var r: Dictionary = rules[terrain_id]
+	if r.get("interior_only", false) and open != Vector2i.ZERO:
+		return out
 	var rng := RandomNumberGenerator.new()
 	rng.seed = ((x * 92821) ^ (y * 68917) ^ 0x5bd1e995) & 0x7fffffff
 	var count := 0
@@ -313,6 +336,20 @@ static func sprite_rect(id: String, origin: Vector2i, size: Vector2i) -> Rect2:
 	var e := building_entry(id)
 	var b := base_point(origin, size)
 	return Rect2(b - Vector2(e["base"][0], e["base"][1]), Vector2(e["w"], e["h"]))
+
+
+# ---------------------------------------------------------------- construction sites
+## {plot: Texture2D, scaffold: Texture2D} for a footprint; the scaffold is the smallest height tier covering
+## `sprite_h` (the finished building sprite height). Scaffold bottom = footprint bottom, left = footprint left.
+static func site_art(size: Vector2i, sprite_h: float) -> Dictionary:
+	var st: Dictionary = manifest()["site"]
+	var key := "%dx%d" % [clampi(size.x, 1, 3), clampi(size.y, 1, 3)]
+	var tier: int = int((st["tiers"] as Array).back())
+	for t in st["tiers"]:
+		if float(t) >= sprite_h * 0.8:
+			tier = int(t)
+			break
+	return {"plot": texture(st["plot"][key]), "scaffold": texture(st["scaffold"]["%s_%d" % [key, tier]])}
 
 
 # ---------------------------------------------------------------- walkers

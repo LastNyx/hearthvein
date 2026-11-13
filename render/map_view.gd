@@ -21,6 +21,10 @@ var _shade: Sprite2D
 var _shade_image: Image
 var _shade_dirty := false
 var _overlay: RegionOverlay
+## Optional Callable(tile) -> bool: true where roads or a building cover the tile (PlacementView sets it), so props
+## re-added by refresh_tile stay hidden there.
+var prop_blocked: Callable = Callable()
+var _sparkles: Dictionary = {}  # Vector2i -> Sprite2D
 var _props: Dictionary = {}  # Vector2i -> Array[Node]
 var _ground := PackedStringArray()
 var _overlays: Dictionary = {}  # ground -> TileMapLayer
@@ -87,22 +91,64 @@ func _state_layer(layer_name: String, state: String) -> TileMapLayer:
 	return layer
 
 
-## Redraw the blight and fouled tint of one tile (Settlement event blight_changed; ticket 29 calls it for fouling).
+## Redraw the blight and fouled tint around one tile (Settlement event blight_changed; ticket 29 calls it for
+## fouling). The 8 neighbours are repainted too, because their soft edge depends on this tile.
 func refresh_state(tile: Vector2i) -> void:
 	if map == null or not MapState.in_bounds(tile.x, tile.y):
 		return
-	_paint_state(tile.x, tile.y)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if MapState.in_bounds(tile.x + dx, tile.y + dy):
+				_paint_state(tile.x + dx, tile.y + dy)
+	_paint_sparkle(tile.x, tile.y)
+
+
+const _NBR_BITS := [Vector2i(0, -1), Vector2i(1, -1), Vector2i(1, 0), Vector2i(1, 1),
+		Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1)]
+
+
+func _flag(state: String, x: int, y: int) -> bool:
+	return map.is_blighted(x, y) if state == "blight" else map.is_fouled(x, y)
 
 
 func _paint_state(x: int, y: int) -> void:
 	var c := Vector2i(x, y)
-	for pair in [[_blight, "blight", map.is_blighted(x, y)], [_fouled, "fouled", map.is_fouled(x, y)]]:
+	for pair in [[_blight, "blight"], [_fouled, "fouled"]]:
 		var layer: TileMapLayer = pair[0]
-		if pair[2]:
-			var v := ArtLibrary.tile_hash(map.seed_used + 5, x, y) % ArtLibrary.state_variants(pair[1])
+		var st: String = pair[1]
+		if _flag(st, x, y):
+			var v := ArtLibrary.tile_hash(map.seed_used + 5, x, y) % ArtLibrary.state_variants(st)
 			layer.set_cell(c, 0, Vector2i(v, 0))
+			continue
+		var mask := 0
+		for i in 8:
+			var nx: int = x + _NBR_BITS[i].x
+			var ny: int = y + _NBR_BITS[i].y
+			if MapState.in_bounds(nx, ny) and _flag(st, nx, ny):
+				mask |= 1 << i
+		var e := ArtLibrary.state_edge_coords(mask) if mask != 0 else Vector2i(-1, -1)
+		if e.x >= 0 and not (st == "blight" and _ground_at(x, y) == "water") and not (st == "fouled" and _ground_at(x, y) != "water"):
+			layer.set_cell(c, 1, e)
 		else:
 			layer.erase_cell(c)
+	_paint_sparkle(x, y)
+
+
+## Seeded Lumen sparkle on some blighted tiles (Fx layer, so it sits above props).
+func _paint_sparkle(x: int, y: int) -> void:
+	var key := Vector2i(x, y)
+	if _sparkles.has(key):
+		(_sparkles[key] as Node).queue_free()
+		_sparkles.erase(key)
+	if not map.is_blighted(x, y) or _ground_at(x, y) == "water":
+		return
+	var sp := ArtLibrary.blight_sparkle(map.seed_used, x, y)
+	if sp.is_empty():
+		return
+	var spr := ArtLibrary.prop_sprite(sp["name"])
+	spr.position = sp["pos"]
+	fx.add_child(spr)
+	_sparkles[key] = spr
 
 
 func _ground_at(x: int, y: int) -> String:
@@ -167,6 +213,8 @@ func refresh_tile(tile: Vector2i) -> void:
 		(n as Node).queue_free()
 	_props.erase(tile)
 	_add_props(map.terrain_id_at(tile.x, tile.y), tile.x, tile.y)
+	if prop_blocked.is_valid() and prop_blocked.call(tile):
+		set_props_visible(tile, false)
 
 
 ## Sum of directions toward neighbouring tiles of another ground (zero inside a stand), for edge-tree jitter.

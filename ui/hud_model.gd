@@ -188,13 +188,29 @@ func _blight_near(b: Building) -> int:
 	return n
 
 
-func _goods_line(label: String, inv: Inventory) -> String:
+## "Makes: Materials" (the real good names of the recipe outputs), "" for buildings without a recipe.
+func _makes_line(b: Building) -> String:
+	if b.def.recipe == null or b.def.recipe.outputs.is_empty():
+		return ""
+	var names: Array[String] = []
+	for g in b.def.recipe.outputs:
+		var gd := s.registry.get_good(g)
+		names.append(gd.display_name if gd != null else str(g))
+	return "Makes: " + ", ".join(names)
+
+
+## `skip_empty`: leave goods at 0 out (an empty output buffer says nothing; "Makes:" names the good).
+func _goods_line(label: String, inv: Inventory, skip_empty: bool = false) -> String:
 	if inv == null or inv.goods().is_empty():
 		return ""
 	var parts: Array[String] = []
 	for g in inv.goods():
+		if skip_empty and floori(inv.amount_of(g)) <= 0:
+			continue
 		var gd := s.registry.get_good(g)
 		parts.append("%s %d" % [gd.display_name if gd != null else g, floori(inv.amount_of(g))])
+	if parts.is_empty():
+		return ""
 	return "%s: %s" % [label, ", ".join(parts)]
 
 
@@ -216,7 +232,9 @@ func selection() -> Dictionary:
 		if b.def.housing_beds > 0:
 			lines.append("Beds %d" % b.def.housing_beds)
 		lines.append(_goods_line("Input", b.input_buffer))
-		lines.append(_goods_line("Output", b.door_buffer))
+		var made := _makes_line(b)
+		lines.append(made)
+		lines.append(_goods_line("Output", b.door_buffer, true))
 		if b.inventory != null:
 			lines.append(_goods_line("Stored", b.inventory))
 		if not b.connected:
