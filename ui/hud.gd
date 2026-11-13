@@ -48,7 +48,8 @@ var _sel_body: Label
 var _sel_halt: Label
 var _sel_warn: Label
 var _prio_buttons: Dictionary = {}
-var _cat_box: HBoxContainer
+var _cat_box: GridContainer
+var _region_map: RegionMap
 var _cat_buttons: Dictionary = {}
 var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
@@ -100,6 +101,10 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	add_child(_float)
 	_float.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_selection_panel(_float)
+	_region_map = RegionMap.new()
+	_float.add_child(_region_map)
+	_region_map.setup(self, model)
+	_region_map.resized.connect(_center_region_map)
 	_build_bar(col)
 	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
 	refresh()
@@ -400,8 +405,9 @@ func _build_bar(parent: Node) -> void:
 	_fly_panel.visible = false
 	var p := _panel(parent)
 	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_cat_box = HBoxContainer.new()
-	_cat_box.add_theme_constant_override("separation", 6)
+	_cat_box = GridContainer.new()
+	_cat_box.add_theme_constant_override("h_separation", 4)
+	_cat_box.add_theme_constant_override("v_separation", 4)
 	p.add_child(_cat_box)
 	_rebuild_categories()
 
@@ -410,9 +416,12 @@ func _rebuild_categories() -> void:
 	for c in _cat_box.get_children():
 		c.queue_free()
 	_cat_buttons.clear()
-	for cat in model.build_bar():
+	var cats := model.build_bar()
+	# Up to 8 categories share one row; more wrap into two so 10-12 fit at 1280 px.
+	_cat_box.columns = cats.size() if cats.size() <= 8 else ceili(cats.size() / 2.0)
+	for cat in cats:
 		var b := _button(_cat_box, cat["label"], 16)
-		b.custom_minimum_size = Vector2(112, 34)
+		b.custom_minimum_size = Vector2(96, 34)
 		b.pressed.connect(open_category.bind(cat["id"]))
 		_cat_buttons[cat["id"]] = b
 	_show_flyout()
@@ -477,11 +486,23 @@ func refresh() -> void:
 	_refresh_overlay_buttons()
 	_refresh_selection()
 	_refresh_notes()
+	_region_map.refresh()
+
+
+func toggle_region_map() -> void:
+	_region_map.toggle()
+
+
+func _center_region_map() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	_region_map.position = ((vp - _region_map.size) / 2.0).floor()
 
 
 func _process(delta: float) -> void:
 	if _sel_panel.visible:
 		_place_selection_panel()
+	if _region_map.visible:
+		_center_region_map()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0
@@ -490,7 +511,7 @@ func _process(delta: float) -> void:
 
 ## True when Esc would still cancel something (build tool, selection, open build flyout): then it is not the menu's.
 func has_cancelable() -> bool:
-	return (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
+	return _region_map.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -500,8 +521,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_G: _on_overlay("roads")
 			KEY_T: _on_overlay("water")
 			KEY_H: _on_overlay("coverage")
+			KEY_M: _region_map.toggle()
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
 			KEY_ESCAPE:
+				_region_map.close()
 				model.clear_selection()
 				_open_cat = ""
 				_show_flyout()

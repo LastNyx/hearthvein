@@ -28,6 +28,10 @@ const REWARD_OLD_FOREST := "old_forest"
 const REWARD_SPRING := "spring"
 const REWARD_TYPES: Array[String] = [REWARD_RICH_VEIN, REWARD_RUINS, REWARD_FERTILE_VALLEY, REWARD_OLD_FOREST, REWARD_SPRING]
 
+## Marker colours of the reward types (the locked-region marker on the map and the region map).
+const REWARD_COLORS := {"rich_vein": Color("7fe0f0"), "ruins": Color("d8c08a"), "fertile_valley": Color("a4d25a"),
+		"old_forest": Color("4ea060"), "spring": Color("6ab4f0")}
+
 var seed_used: int = 0
 ## terrain byte -> terrain def id (sorted ids of DataRegistry.terrain at generation time).
 var terrain_ids: PackedStringArray = PackedStringArray()

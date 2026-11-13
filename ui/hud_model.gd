@@ -8,6 +8,8 @@ const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
 const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
+const REWARD_LABELS := {"rich_vein": "Rich vein", "ruins": "Ruins", "fertile_valley": "Fertile valley",
+		"old_forest": "Old forest", "spring": "Spring"}
 const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 
 var s: Settlement
@@ -363,3 +365,36 @@ func coverage_homes() -> Array[Dictionary]:
 			continue
 		out.append({"id": bid, "covered": sys != null and sys.home_covered(s, bid)})
 	return out
+
+
+# ---------------------------------------------------------------- region map
+
+## One row per region (index = row * 4 + col) for the region map (key M): {region, col, row, rect (tiles), owned, start,
+## state (owned|buyable|locked), price (gold, buyable regions only, else 0), can_buy, reason (Settlement.can_buy_region),
+## note (player text: "Owned", "Home", "Locked", "Need 50 gold" or ""), reward (id or ""), reward_label, reward_pos}.
+func region_rows() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var m := s.map
+	var price := s.next_region_price()
+	for r in MapState.REGION_COUNT:
+		var owned := m.is_region_owned(r)
+		var can := s.can_buy_region(r)
+		var reason: String = can["reason"]
+		var buyable := not owned and reason != "not_adjacent" and reason != "unknown"
+		var state := "owned" if owned else ("buyable" if buyable else "locked")
+		var note := ""
+		match state:
+			"owned": note = "Home" if r == m.start_region else "Owned"
+			"locked": note = "Locked"
+			_: note = "" if can["ok"] else "Need %d gold" % price
+		var reward := m.get_region_reward(r)
+		out.append({"region": r, "col": r % MapState.REGION_COLS, "row": r / MapState.REGION_COLS,
+				"rect": MapState.region_rect(r), "owned": owned, "start": r == m.start_region, "state": state,
+				"price": price if buyable else 0, "can_buy": can["ok"], "reason": reason, "note": note,
+				"reward": reward, "reward_label": REWARD_LABELS.get(reward, ""), "reward_pos": m.region_reward_pos[r]})
+	return out
+
+
+## Command: buy region r through the Settlement.
+func buy_region(r: int) -> bool:
+	return s.buy_region(r)

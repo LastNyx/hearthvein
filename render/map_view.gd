@@ -385,4 +385,17 @@ class RegionOverlay extends Node2D:
 			var owned := map.is_region_owned(r)
 			if not owned:
 				draw_rect(rect, DIM)
+				_draw_reward(map.get_region_reward(r), map.region_reward_pos[r])
 			draw_rect(rect, BORDER_OWNED if owned else BORDER_LOCKED, false, 1.0)
+
+	## Small diamond marker on the reward tile of a locked region (design section 4), bright enough to read through the dim.
+	func _draw_reward(reward: String, pos: Vector2i) -> void:
+		if reward == "" or pos.x < 0:
+			return
+		var c: Color = MapState.REWARD_COLORS.get(reward, Color.WHITE)
+		var o := (Vector2(pos) + Vector2(0.5, 0.5)) * TILE
+		var k := TILE * 1.1
+		var pts := PackedVector2Array([o + Vector2(0, -k), o + Vector2(k, 0), o + Vector2(0, k), o + Vector2(-k, 0)])
+		draw_colored_polygon(pts, Color(c, 0.9))
+		pts.append(pts[0])
+		draw_polyline(pts, Color(0.05, 0.05, 0.1, 0.9), 2.0)

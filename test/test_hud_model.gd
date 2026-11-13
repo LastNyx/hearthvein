@@ -280,3 +280,61 @@ func test_coverage_overlay_toggle_and_geometry() -> void:
 			found = true
 			assert_true(e["covered"])
 	assert_true(found)
+
+
+# ---------------------------------------------------------------- region map (ticket 25c)
+
+func test_region_rows_owned_buyable_locked() -> void:
+	var rows := m.region_rows()
+	assert_eq(rows.size(), 16)
+	var start: int = s.map.start_region
+	assert_eq(rows[start]["state"], "owned")
+	assert_eq(rows[start]["note"], "Home")
+	var buyable := 0
+	for r in rows:
+		if r["state"] == "buyable":
+			buyable += 1
+			assert_true(MapState.region_neighbours(r["region"]).has(start))
+			assert_eq(r["price"], 50)
+			assert_eq(r["reason"], "gold")
+			assert_eq(r["note"], "Need 50 gold")
+		elif r["state"] == "locked":
+			assert_eq(r["price"], 0)
+			assert_eq(r["note"], "Locked")
+	assert_eq(buyable, MapState.region_neighbours(start).size())
+
+
+func test_region_rows_buy_updates_price_and_state() -> void:
+	s.gold = 500.0
+	var target := -1
+	for r in m.region_rows():
+		if r["state"] == "buyable":
+			assert_true(r["can_buy"])
+			assert_eq(r["note"], "")
+			target = r["region"]
+	assert_true(m.buy_region(target))
+	var rows := m.region_rows()
+	assert_eq(rows[target]["state"], "owned")
+	assert_eq(rows[target]["note"], "Owned")
+	assert_eq(s.gold, 450.0)
+	for r in rows:
+		if r["state"] == "buyable":
+			assert_eq(r["price"], 100)
+	var locked_buy := -1
+	for r in rows:
+		if r["state"] == "locked":
+			locked_buy = r["region"]
+	assert_false(m.buy_region(locked_buy))
+
+
+func test_region_rows_rewards_shown_on_locked_regions() -> void:
+	var seen := 0
+	for r in m.region_rows():
+		var want := s.map.get_region_reward(r["region"])
+		assert_eq(r["reward"], want)
+		if want != "":
+			seen += 1
+			assert_ne(r["reward_label"], "")
+			assert_true(r["reward_pos"].x >= 0)
+			assert_true(MapState.region_rect(r["region"]).has_point(r["reward_pos"]))
+	assert_true(seen >= 4)
