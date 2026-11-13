@@ -134,3 +134,50 @@ func test_refresh_tile_updates_neighbour_edges() -> void:
 	v.refresh_tile(spot)
 	assert_ne(soil_layer.get_cell_source_id(spot + Vector2i(1, 0)), -1, "neighbour got an edge tile")
 	assert_ne(soil_layer.get_cell_source_id(spot + Vector2i(-1, -1)), -1, "diagonal neighbour got an edge tile")
+
+
+# ---------------------------------------------------------------- walker sprites (ticket 50)
+func test_walker_sheet_has_4_directions_and_walk_frames() -> void:
+	var e := ArtLibrary.walker_entry()
+	assert_eq((e["directions"] as Array).size(), 4)
+	assert_gte(int(e["frames"]), 3, "two steps plus a standing frame")
+	assert_gt(int(e["variants"]), 8, "several seeded looks")
+	var img := ArtLibrary.texture(e["file"]).get_image()
+	var cell: Array = e["cell"]
+	assert_eq(img.get_width(), int(e["frames"]) * int(cell[0]))
+	assert_eq(img.get_height(), int(e["variants"]) * 4 * int(cell[1]))
+	# every direction and frame cell of look 0 has pixels, and the two step frames differ
+	for d in 4:
+		for f in int(e["frames"]):
+			var r := ArtLibrary.walker_region(0, d, f)
+			assert_false(img.get_region(Rect2i(r)).is_invisible(), "dir %d frame %d drawn" % [d, f])
+		var a := img.get_region(Rect2i(ArtLibrary.walker_region(0, d, 0)))
+		var b := img.get_region(Rect2i(ArtLibrary.walker_region(0, d, 1)))
+		assert_ne(a.get_data(), b.get_data(), "step frames differ in dir %d" % d)
+	assert_true(FileAccess.file_exists(ArtLibrary.ROOT + e["shadow"]))
+	for k in e["bundle"]:
+		assert_true(FileAccess.file_exists(ArtLibrary.ROOT + e["bundle"][k]))
+
+
+func test_walker_facing_follows_movement_vector() -> void:
+	assert_eq(ArtLibrary.facing_for(Vector2(1, 0)), ArtLibrary.DIR_RIGHT)
+	assert_eq(ArtLibrary.facing_for(Vector2(-1, 0)), ArtLibrary.DIR_LEFT)
+	assert_eq(ArtLibrary.facing_for(Vector2(0, 1)), ArtLibrary.DIR_DOWN)
+	assert_eq(ArtLibrary.facing_for(Vector2(0, -1)), ArtLibrary.DIR_UP)
+	assert_eq(ArtLibrary.facing_for(Vector2.ZERO, ArtLibrary.DIR_LEFT), ArtLibrary.DIR_LEFT, "standing keeps facing")
+	var w := Walker.new()
+	w.tile = Vector2i(5, 5)
+	assert_eq(WalkerView.move_vector(w), Vector2.ZERO, "no path, not moving")
+	w.path = [Vector2i(4, 5)] as Array[Vector2i]
+	assert_eq(ArtLibrary.facing_for(WalkerView.move_vector(w)), ArtLibrary.DIR_LEFT)
+
+
+func test_same_citizen_keeps_the_same_look() -> void:
+	var n := int(ArtLibrary.walker_entry()["variants"])
+	var seen := {}
+	for id in 60:
+		var v := ArtLibrary.walker_variant(id, 42)
+		assert_eq(v, ArtLibrary.walker_variant(id, 42), "stable")
+		assert_true(v >= 0 and v < n)
+		seen[v] = true
+	assert_gt(seen.size(), 8, "a crowd is not cloned")

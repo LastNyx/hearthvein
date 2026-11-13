@@ -2813,5 +2813,52 @@
    "rows": 1
   }
  },
- "tile": 32
+ "tile": 32,
+ "walkers": {
+  "bundle": {
+   "back": "walkers/bundle_back.png",
+   "front": "walkers/bundle_front.png",
+   "side": "walkers/bundle_side.png"
+  },
+  "bundle_offset": {
+   "back": [
+    -5,
+    -15
+   ],
+   "front": [
+    -5,
+    -11
+   ],
+   "side": [
+    -4,
+    -11
+   ]
+  },
+  "bundle_size": [
+   10,
+   10
+  ],
+  "cell": [
+   16,
+   20
+  ],
+  "directions": [
+   "down",
+   "up",
+   "left",
+   "right"
+  ],
+  "file": "walkers/walkers.png",
+  "foot": [
+   8,
+   18
+  ],
+  "frames": 3,
+  "shadow": "walkers/shadow.png",
+  "shadow_offset": [
+   -7,
+   -3
+  ],
+  "variants": 24
+ }
 }

@@ -1358,27 +1358,33 @@ def b_skyheart():
 
 
 # ------------------------------------------------------------------ citizens
-def citizen(kind, facing, frame):
+def citizen(kind, facing, frame, cloth=None, hair=None, skin=None):
     """11x17 walker, about door height (D26: scaled down from 16x24). kinds: villager, weaver, farmer, mage."""
     im = Image.new("RGBA", (11, 17))
     d = ImageDraw.Draw(im)
-    skin, skin_d = hexc("eab48a"), hexc("c88a62")
-    cloth = {"villager": LEAF["green"][2], "weaver": hexc("b0403a"), "farmer": hexc("4a6a9a"),
+    skin_d = mul(skin, 0.8) if skin else hexc("c88a62")
+    skin = skin or hexc("eab48a")
+    cloth = cloth or {"villager": LEAF["green"][2], "weaver": hexc("b0403a"), "farmer": hexc("4a6a9a"),
              "mage": hexc("3a3a8a")}[kind]
     cloth_d, cloth_l = mul(cloth, 0.7), mul(cloth, 1.25)
-    hair = {"villager": hexc("6a4428"), "weaver": hexc("3a2418"), "farmer": hexc("a87a3a"),
+    hair = hair or {"villager": hexc("6a4428"), "weaver": hexc("3a2418"), "farmer": hexc("a87a3a"),
             "mage": hexc("e8e4dc")}[kind]
-    st = frame % 2
+    st = frame % 2 if frame < 2 else 0
+    mid = frame == 2  # standing pose between the two steps
     robe = kind in ("weaver", "mage")
     # legs
     if robe:
         d.point([(3 + st, 15), (4 + st, 15), (6 - st, 15), (7 - st, 15)], fill=WOOD[0])
     elif facing == "side":
-        R(d, 3 + st, 13, 4 + st, 15, WOOD[1])
-        R(d, 6 - st, 13, 7 - st, 15, WOOD[0])
+        if mid:
+            R(d, 4, 13, 5, 15, WOOD[1])
+            R(d, 5, 13, 6, 15, WOOD[0])
+        else:
+            R(d, 3 + st, 13, 4 + st, 15, WOOD[1])
+            R(d, 6 - st, 13, 7 - st, 15, WOOD[0])
     else:
-        R(d, 3, 13, 4, 15 - st, WOOD[1])
-        R(d, 6, 13, 7, 14 + st, WOOD[1])
+        R(d, 3, 13, 4, 15 if mid else 15 - st, WOOD[1])
+        R(d, 6, 13, 7, 15 if mid else 14 + st, WOOD[1])
     # body
     if robe:
         d.polygon([(3, 8), (7, 8), (8, 14), (2, 14)], fill=cloth)

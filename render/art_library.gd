@@ -240,3 +240,35 @@ static func sprite_rect(id: String, origin: Vector2i, size: Vector2i) -> Rect2:
 	var e := building_entry(id)
 	var b := base_point(origin, size)
 	return Rect2(b - Vector2(e["base"][0], e["base"][1]), Vector2(e["w"], e["h"]))
+
+
+# ---------------------------------------------------------------- walkers
+const DIR_DOWN := 0
+const DIR_UP := 1
+const DIR_LEFT := 2
+const DIR_RIGHT := 3
+
+
+static func walker_entry() -> Dictionary:
+	return manifest()["walkers"]
+
+
+## Facing row (DIR_*) for a movement vector in tiles; the larger axis wins, ties prefer the vertical.
+## A zero vector returns `fallback` so a standing walker keeps its last facing.
+static func facing_for(delta: Vector2, fallback: int = DIR_DOWN) -> int:
+	if delta.is_zero_approx():
+		return fallback
+	if absf(delta.x) > absf(delta.y):
+		return DIR_RIGHT if delta.x > 0.0 else DIR_LEFT
+	return DIR_DOWN if delta.y > 0.0 else DIR_UP
+
+
+## Look (atlas variant) of a citizen: seeded hash of id and map seed, never RNG state.
+static func walker_variant(citizen_id: int, map_seed: int) -> int:
+	return tile_hash(map_seed, citizen_id, 7919) % int(walker_entry()["variants"])
+
+
+## Region of the walker atlas for a look, facing (DIR_*) and frame.
+static func walker_region(variant: int, facing: int, frame: int) -> Rect2:
+	var cell: Array = walker_entry()["cell"]
+	return Rect2(frame * cell[0], (variant * 4 + facing) * cell[1], cell[0], cell[1])

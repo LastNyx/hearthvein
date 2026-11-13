@@ -1,6 +1,6 @@
 extends SceneTree
 ## Windowed screenshot of walkers in game: godot --path . -s tools/walker_shot.gd
-## Builds a small camp, lets the day run to the morning commute and writes /tmp/hv_walkers.png.
+## Builds a small camp, lets the day run to the morning commute and writes /tmp/hv_walkers_z1.png and _z2.png.
 
 func _free_spot(s: Settlement, id: String, skip: int = 0) -> Vector2i:
 	var h := s.map.hearth_spot
@@ -49,13 +49,13 @@ func _init() -> void:
 	for i in 4:
 		s.add_citizen()
 	var cam: CameraController = main.get_node("Camera")
-	cam.set_zoom_step(3)
-	var driver: SimDriver = main.get_node("SimDriver") if main.has_node("SimDriver") else null
 	# Evening to the next morning at the sim level, then real frames around the 6:00 departure.
 	s.step_hours(6)
 	s.step_seconds(0.8)
-	for i in 2:
-		await process_frame
-	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("/tmp/hv_walkers.png")
+	for pair in [[2, "/tmp/hv_walkers_z1.png"], [3, "/tmp/hv_walkers_z2.png"]]:
+		cam.set_zoom_step(pair[0])
+		for i in 3:
+			await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(pair[1])
 	quit()

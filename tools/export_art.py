@@ -649,6 +649,73 @@ def export_buildings(manifest):
                                                    {"generic": True, "category": cat})
 
 
+# ---------------------------------------------------------------- walkers (ticket 50)
+# Atlas: one row per (variant, direction), one column per frame (0 step A, 1 step B, 2 standing). Directions
+# 0 down, 1 up, 2 left, 3 right. Left is the mirrored right sprite, so the game never flips anything.
+WALK_KINDS = ["villager", "farmer", "weaver"]
+WALK_CLOTH = ["", "a8483c", "3e6aa0", "7a5aa0", "c8923a", "3e8a78", "8a8a94", "b0587a"]
+WALK_HAIR = ["", "2a1c14", "a8783a", "c8b878", "7a3a22", "4a3a30"]
+WALK_SKIN = ["", "d89c74", "b07a56", "f0c4a0"]
+WALK_DIRS = ["down", "up", "side"]
+WALK_CELL = (16, 20)
+WALK_FOOT = (8, 18)  # foot point inside a cell
+WALK_FRAMES = 3
+
+
+def walker_looks():
+    """Deterministic list of (kind, cloth, hair, skin); look 0 of each kind is the mockup original."""
+    rng = random.Random(5050)
+    looks = [(k, None, None, None) for k in WALK_KINDS]
+    while len(looks) < 24:
+        k = WALK_KINDS[len(looks) % 3]
+        c = WALK_CLOTH[rng.randrange(len(WALK_CLOTH))]
+        h = WALK_HAIR[rng.randrange(len(WALK_HAIR))]
+        sk = WALK_SKIN[rng.randrange(len(WALK_SKIN))]
+        look = (k, M.hexc(c) if c else None,
+                M.hexc(h) if h else None, M.hexc(sk) if sk else None)
+        if look not in looks:
+            looks.append(look)
+    return looks
+
+
+def export_walkers(manifest):
+    looks = walker_looks()
+    cw, ch = WALK_CELL
+    atlas = Image.new("RGBA", (cw * WALK_FRAMES, ch * len(looks) * 4))
+    for v, (kind, cloth, hair, skin) in enumerate(looks):
+        for di, facing in enumerate(WALK_DIRS):
+            for f in range(WALK_FRAMES):
+                im, _ = M.citizen(kind, facing, f, cloth, hair, skin)
+                cells = [(di, im)] if facing != "side" else [(3, im), (2, im.transpose(Image.FLIP_LEFT_RIGHT))]
+                for row, img in cells:
+                    # foot centre of the 11x17 sprite is (5, 16); put it on WALK_FOOT
+                    atlas.alpha_composite(img, (f * cw + WALK_FOOT[0] - 5, (v * 4 + row) * ch + WALK_FOOT[1] - 15))
+    save(atlas, OUT / "walkers/walkers.png")
+    sh = Image.new("RGBA", (14, 7))
+    ImageDraw.Draw(sh).ellipse([0, 0, 13, 6], fill=(4, 6, 18, 62))
+    save(sh, OUT / "walkers/shadow.png")
+    # carried bundle: a small crate with rope, drawn per direction (down/up/side) as 7x7
+    bd = {}
+    for name in ("front", "back", "side"):
+        im = Image.new("RGBA", (8, 8))
+        d = ImageDraw.Draw(im)
+        M.R(d, 1, 1, 6, 6, M.WOOD[2])
+        M.R(d, 1, 1, 6, 2, M.WOOD[3])
+        M.R(d, 1, 6, 6, 6, M.WOOD[0])
+        M.R(d, 3, 1, 4, 6, M.THATCH[2])
+        d.point([(1, 4), (6, 4)], fill=M.WOOD[1])
+        im = M.sel_outline(im)
+        save(im, OUT / f"walkers/bundle_{name}.png")
+        bd[name] = f"walkers/bundle_{name}.png"
+    manifest["walkers"] = {
+        "file": "walkers/walkers.png", "cell": [cw, ch], "foot": list(WALK_FOOT), "frames": WALK_FRAMES,
+        "variants": len(looks), "directions": ["down", "up", "left", "right"],
+        "shadow": "walkers/shadow.png", "shadow_offset": [-7, -3],
+        "bundle": bd, "bundle_size": [10, 10],
+        "bundle_offset": {"front": [-5, -11], "back": [-5, -15], "side": [-4, -11]},
+    }
+
+
 def main():
     manifest = {"tile": T}
     export_terrain(manifest)
@@ -656,6 +723,7 @@ def main():
     export_roads(manifest)
     export_props(manifest)
     export_buildings(manifest)
+    export_walkers(manifest)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "art_manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
     print("wrote", OUT)
