@@ -52,15 +52,21 @@ func on_day(s: Settlement) -> void:
 		var b: Building = s.buildings[bid]
 		if b.site or b.paused or b.def.upkeep_lumen <= 0.0:
 			continue
-		_paid[bid] = _pay(b)
+		_paid[bid] = _pay(s, b)
 
 
-## Takes one day's upkeep from the input buffer. Returns true when the full amount was there.
-func _pay(b: Building) -> bool:
+## Takes one day's upkeep from the input buffer. A shortfall is covered by Lumen cells when the settlement's storage
+## has no raw Lumen left (design.md section 7: cells are spent automatically, 1 cell = 5 Lumen); the cell is broken
+## in StorageSystem, not hauled. Returns true when the full amount was there.
+func _pay(s: Settlement, b: Building) -> bool:
 	var need := b.def.upkeep_lumen
 	if need <= 0.0:
 		return true
 	var got := b.input_buffer.remove("lumen", need) if b.input_buffer != null else 0.0
+	if got >= need - Inventory.EPS:
+		return true
+	if float(s.totals().get("lumen", 0.0)) <= Inventory.EPS:
+		got += StorageSystem.draw_cells_as_lumen(s, need - got)
 	return got >= need - Inventory.EPS
 
 
