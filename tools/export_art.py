@@ -405,10 +405,20 @@ WATER_BANDS = [(9.5, 13.0, M.WATER[2]), (6.5, 9.5, M.WATER[3]), (4.5, 6.5, M.WAT
                (0.0, 1.0, M.BANK[0])]
 
 
+def _quadrants(mask):
+    """Boolean per pixel: does the atlas quadrant around this pixel belong to a tile flagged in `mask`?
+    Atlas quadrants are TL=1, TR=2, BR=4, BL=8, matching the map tiles around the corner."""
+    out = np.zeros((T, T), bool)
+    for b, sx, sy in ((1, 0, 0), (2, T // 2, 0), (4, T // 2, T // 2), (8, 0, T // 2)):
+        if mask & b:
+            out[sy:sy + T // 2, sx:sx + T // 2] = True
+    return out
+
+
 def at_tile(mask, pair, ground, seed):
     """One dual-cell tile: the upper ground on its side of the smooth edge, `ground` on the other, with a soft
-    bank/edge band. Outside a band of ~11 px the tile is transparent and the map tile below shows through, so the
-    transition never repeats as a stamped patch."""
+    bank/edge band. The water side fades into the base water tile between the bands; the water tile's own land
+    side (its rounded-off quarters) is filled with `ground`, and land tiles are left to their base ground."""
     d = at_dist(mask)
     wob = (pnoise(8, 410 + seed) - 0.5) * 3.0  # same seamless field in every tile: bands wobble, edges join
     db = d + wob * np.clip(1.0 - np.abs(d) / 22.0, 0.0, 1.0)
@@ -417,9 +427,13 @@ def at_tile(mask, pair, ground, seed):
     up = np.array(ground_tile(AT_UP[pair], 3 + seed))
     low = np.array(ground_tile(ground, 5 + seed))
     land = db <= 0.0
-    rgb[land] = low[land, :3]
-    land_a = np.where(db > -7.0, 255, at_cover((-db - 7.0) / 4.0))
-    alpha[land] = land_a[land]
+    # The low ground only fills the pair tiles' own quarters (their rounded-off corners). Every other quarter
+    # belongs to a neighbour tile whose base ground is already right, and one atlas ground stamped over mixed
+    # corners (water + rock + soil) drew a square of the wrong ground there.
+    fill = land & _quadrants(mask)
+    rgb[fill] = low[fill, :3]
+    land_a = np.where(db > -7.0, 255, at_cover((db + 11.0) / 4.0))  # bank band, gone ~11 px from the edge
+    alpha[fill] = land_a[fill]
     upper = db > 0.0
     if pair == "water":
         rgb[upper] = up[upper, :3]
@@ -428,13 +442,13 @@ def at_tile(mask, pair, ground, seed):
             band = (db > lo) & (db <= hi) & upper
             rgb[band] = c[:3]
             alpha[band] = at_cover((12.5 - db) / 3.0)[band] if lo >= 9.0 else 255
-        rim = (db > -1.3) & land  # dark waterline on the land side
+        rim = (db > -1.3) & fill  # dark waterline on the land side
         rgb[rim] = (rgb[rim].astype(np.float32) * 0.78).astype(np.uint8)
     else:  # rock: opaque rock, dithered soft edge creeping onto the lower ground as the old per-tile overlay did
         rgb[upper] = up[upper, :3]
         alpha[upper] = at_cover((11.0 - db) / 3.0)[upper]
         creep = land & (db > -8.0)
-        a = at_cover(-db / 8.0)
+        a = at_cover(1.0 + db / 8.0)  # dense at the edge, thinning outward
         rgb[creep] = np.where((a[creep] == 255)[:, None], up[creep, :3], rgb[creep])
         alpha[creep] = np.maximum(alpha[creep], a[creep])
     out = np.dstack([rgb, alpha])

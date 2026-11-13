@@ -250,7 +250,7 @@ func test_rock_borders_use_dual_grid_cells() -> void:
 	var rock := v.get_node("RockEdge") as TileMapLayer
 	var rock_ground := ArtLibrary.ground_rank("rock")
 	var checked := 0
-	var water_corners := 0
+	var water_only := 0
 	var bad: Array[String] = []
 	for j in range(1, MapState.HEIGHT):
 		for i in range(1, MapState.WIDTH):
@@ -260,7 +260,6 @@ func test_rock_borders_use_dual_grid_cells() -> void:
 			var ground_rank := -1
 			var blocked := false
 			var has_rock := false
-			var has_water := false
 			for k in 4:
 				var p: Vector2i = corner + MapView.DUAL_CORNERS[k]
 				var g := ArtLibrary.ground_of(v.map.terrain_id_at(p.x, p.y))
@@ -268,27 +267,28 @@ func test_rock_borders_use_dual_grid_cells() -> void:
 					mask |= 1 << k
 					has_rock = true
 					continue
+				if g == "water":
+					continue  # the shore draws the rock/water boundary; the rock atlas has no water ground
 				var r := ArtLibrary.ground_rank(g)
-				if g == "water":  # counted on the rock side so the edge still rounds against the land
-					mask |= 1 << k
-					has_water = true
-					continue
 				if r >= rock_ground:
 					blocked = true
 					continue
 				if r > ground_rank:
 					ground_rank = r
 					ground = g
-			if blocked or not has_rock or mask == 15 or ground == "":
+			if blocked or not has_rock:
+				continue
+			if ground == "":  # rock against water only: no land ground to draw the rock edge onto
+				if rock.get_cell_source_id(corner) != -1:
+					bad.append("%s should be empty" % corner)
+				water_only += 1
 				continue
 			if rock.get_cell_atlas_coords(corner) != ArtLibrary.autotile_coords(mask):
-				bad.append(str(corner))
+				bad.append("%s wrong tile" % corner)
 			checked += 1
-			if has_water:
-				water_corners += 1
 	assert_eq(bad.size(), 0, "rock corners with the wrong tile: %s" % [bad.slice(0, 8)])
 	assert_gt(checked, 20, "map has a rock/grass border")
-	assert_gt(water_corners, 0, "map has rock/water/grass corners")
+	assert_gt(water_only, 0, "map has rock/water-only corners for the shore")
 
 
 func test_vein_borders_use_soft_edge_tiles() -> void:
@@ -460,13 +460,13 @@ func _block(img: Image, x: int, y: int, n: int = 4) -> Color:
 
 
 func _is_water(c: Color) -> bool:
-	return c.b > c.g and c.b > c.r  # every lake band leans blue; grass, soil, forest and bank browns do not
+	return c.a > 0.5 and c.b > c.g and c.b > c.r  # every lake band leans blue; the rest does not
 
 
 func _is_rock(c: Color) -> bool:
 	var hi := maxf(c.r, maxf(c.g, c.b))
 	var lo := minf(c.r, minf(c.g, c.b))
-	return hi - lo < 0.08 and c.b >= c.g - 0.01  # neutral grey slate
+	return c.a > 0.5 and hi - lo < 0.08 and c.b >= c.g - 0.01  # neutral grey slate, not empty pixels
 
 
 func test_autotile_pairs_cover_water_and_rock() -> void:
@@ -506,7 +506,10 @@ func test_lone_corner_is_a_round_lobe_not_a_square() -> void:
 	assert_false(_is_water(_block(tile, 13, 13)), "the diagonal is land: the disc is round, not a square")
 	assert_false(_is_water(_block(tile, 24, 24)), "the far corner is land")
 	var rock := _autotile_region("rock", "grass", 1)
-	assert_true(_is_rock(_block(rock, 2, 2)), "rock at the corner")
+	# The rock tile's base texture shows through where the atlas fades out (the tile centre), so sample the band
+	# the atlas actually paints and the lower-ground quarters where it must paint nothing.
+	assert_true(_is_rock(_block(rock, 8, 2)), "rock inside the lobe edge")
+	assert_true(_is_rock(_block(rock, 2, 8)), "rock inside the lobe edge on the other axis")
 	assert_false(_is_rock(_block(rock, 24, 24)), "grass at the far corner")
 
 
@@ -597,38 +600,72 @@ func test_refresh_tile_updates_the_four_dual_cells_around_it() -> void:
 	assert_eq(shore.get_cell_atlas_coords(spot), ArtLibrary.autotile_coords(4))
 
 
-## Three-way corner: a rock patch with a water tile cut into its left column. Fix round 1: the rock pair used to
-## bail out whenever a corner touched water, which left square rock corners next to grass.
-func test_rock_water_grass_corner_rounds_both_edges() -> void:
+## Three-way corner (fix round 2): water bottom-left, rock bottom-right, two land tiles on top. The shore used to
+## take the highest non-water ground (rock) as its atlas and stamp rock texture over the land tiles' quarters, which
+## read as a square rock corner at the lake. Land lowers than rock must win, and the shore must not paint the land
+## quarters at all; the rock tile keeps its own ground from RockEdge.
+func _three_way_corner(v: MapView, land_id: String) -> Vector2i:
+	var s := _clear_grass(v, 3)
+	assert_true(s.x >= 0, "found open grass")
+	for dy in 2:
+		for dx in 2:
+			v.map.set_terrain(s.x + dx, s.y + dy, v.map.terrain_index(land_id))
+	v.map.set_terrain(s.x, s.y + 1, v.map.terrain_index("water"))
+	v.map.set_terrain(s.x + 1, s.y + 1, v.map.terrain_index("rock"))
+	#                     land  land
+	#                     water rock  -> the corner at the tile centre
+	for dy in 2:
+		for dx in 2:
+			v.refresh_tile(s + Vector2i(dx, dy))
+	return s + Vector2i(1, 1)
+
+
+func test_three_way_corner_keeps_the_land_ground() -> void:
 	var v := _mapview()
 	var shore := v.get_node("Shore") as TileMapLayer
 	var rock := v.get_node("RockEdge") as TileMapLayer
+	for land_id in ["fertile_soil", "grass"]:
+		var ground := ArtLibrary.ground_of(land_id)
+		var c := _three_way_corner(v, land_id)
+		assert_eq(rock.get_cell_source_id(c), ArtLibrary.autotile_source("rock", ground),
+				"the rock edge is drawn (%s)" % ground)
+		assert_eq(rock.get_cell_atlas_coords(c), ArtLibrary.autotile_coords(4),
+				"only the rock tile is on the rock side (%s)" % ground)
+		var src := shore.get_cell_source_id(c)
+		assert_ne(src, ArtLibrary.autotile_source("water", "rock"),
+				"the shore does not use the rock atlas (%s)" % ground)
+		assert_eq(src, ArtLibrary.autotile_source("water", ground),
+				"the shore fills with the land below rock (%s)" % ground)
+		assert_eq(shore.get_cell_atlas_coords(c), ArtLibrary.autotile_coords(8),
+				"water in the bottom-left quadrant (%s)" % ground)
+		# Pixel level: the shore atlas tile paints nothing on the three land quadrants, so the soil/grass and
+		# rock tiles keep their own ground instead of a stamped square.
+		var img := ArtLibrary.texture(ArtLibrary.manifest()["autotiles"]["water"]["files"][ground]).get_image()
+		var ac := shore.get_cell_atlas_coords(c)
+		for q in [Vector2i(0, 0), Vector2i(16, 0), Vector2i(16, 16)]:
+			var opaque := 0
+			for y in 16:
+				for x in 16:
+					if img.get_pixel(ac.x * ArtLibrary.TILE + q.x + x, ac.y * ArtLibrary.TILE + q.y + y).a > 0.0:
+						opaque += 1
+			assert_eq(opaque, 0, "shore tile is clear on land quadrant %s (%s)" % [q, ground])
+
+
+func test_rock_water_only_corners_are_left_to_the_shore() -> void:
+	var v := _mapview()
+	var rock := v.get_node("RockEdge") as TileMapLayer
+	var shore := v.get_node("Shore") as TileMapLayer
 	var s := _clear_grass(v, 3)
 	assert_true(s.x >= 0, "found open grass")
-	var rock_tiles := [s + Vector2i(1, 1), s + Vector2i(2, 1), s + Vector2i(2, 2)]
-	var water := s + Vector2i(1, 2)  #   grass rock  rock
-	for t in rock_tiles:            #   grass water rock
-		v.map.set_terrain(t.x, t.y, v.map.terrain_index("rock"))
-	v.map.set_terrain(water.x, water.y, v.map.terrain_index("water"))
-	for t in rock_tiles + [water]:
-		v.refresh_tile(t)
-	var c := water  # rock top-right, water bottom-right, grass on the left: the three-way corner
-	assert_eq(rock.get_cell_source_id(c), ArtLibrary.autotile_source("rock", "grass"),
-			"the rock edge is drawn instead of a square corner")
-	assert_eq(rock.get_cell_atlas_coords(c), ArtLibrary.autotile_coords(2 | 4),
-			"water counts as the rock side, so the rock rounds against the grass")
-	assert_eq(shore.get_cell_source_id(c), ArtLibrary.autotile_source("water", "rock"), "the shore is still drawn")
-	assert_eq(shore.get_cell_atlas_coords(c), ArtLibrary.autotile_coords(4), "water in the bottom-right quadrant")
-	# The four corners of the water tile are all painted, one per shore configuration.
-	var cells := [water, water + Vector2i(1, 0), water + Vector2i(0, 1), water + Vector2i(1, 1)]
-	var masks := [4, 8, 2, 1]
-	var grounds := ["rock", "rock", "grass", "rock"]
-	for i in 4:
-		assert_eq(shore.get_cell_source_id(cells[i]), ArtLibrary.autotile_source("water", grounds[i]),
-				"shore at %s" % cells[i])
-		assert_eq(shore.get_cell_atlas_coords(cells[i]), ArtLibrary.autotile_coords(masks[i]),
-				"shore mask at %s" % cells[i])
-	assert_eq(rock.get_cell_atlas_coords(cells[3]), ArtLibrary.autotile_coords(2 | 1),
-			"the next rock/water/grass corner also rounds")
-	assert_eq(rock.get_cell_source_id(cells[1]), -1,
-			"three rock tiles and one water: the shore alone rounds the water into the rock")
+	for dy in 2:
+		for dx in 2:
+			v.map.set_terrain(s.x + dx, s.y + dy, v.map.terrain_index("rock"))
+	v.map.set_terrain(s.x, s.y + 1, v.map.terrain_index("water"))
+	for dy in 2:
+		for dx in 2:
+			v.refresh_tile(s + Vector2i(dx, dy))
+	var c := s + Vector2i(1, 1)
+	assert_eq(rock.get_cell_source_id(c), -1, "no rock edge atlas has a water ground: the shore draws this corner")
+	assert_eq(shore.get_cell_source_id(c), ArtLibrary.autotile_source("water", "rock"),
+			"the shore rounds the water against the rock")
+	assert_eq(shore.get_cell_atlas_coords(c), ArtLibrary.autotile_coords(8), "water in the bottom-left")

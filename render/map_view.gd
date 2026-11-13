@@ -5,7 +5,8 @@ extends Node2D
 ## ArtLibrary only. Reads the sim only.
 ##
 ## Child order (back to front): Base, the forest and soil blend layers, Shore and RockEdge (dual grid, half a tile
-## shifted), Shade (broad tonal patches), the vein blend layer, Roads (filled by PlacementView), Shadows, Objects
+## shifted; Shore on top so the water and its bank cover the rock edge's dithered creep at the water tile's
+## corner), Shade (broad tonal patches), the vein blend layer, Roads (filled by PlacementView), Shadows, Objects
 ## (y-sorted: props and buildings share it), Fx (glows, smoke), region overlay.
 
 const TILE := ArtLibrary.TILE
@@ -61,8 +62,8 @@ func setup(m: MapState) -> void:
 	var overlays := {}
 	# Ground blends first (forest and soil), then the water/rock dual-grid edges, then the broad meadow shade
 	# (so the shore's land band is shaded like the meadow around it), then the vein edges on top of the rock.
-	# RockEdge goes under Shore: on a rock/water/grass corner the rock atlas paints water corners on its own
-	# side, and the shore draws the water back over them.
+	# Shore goes above RockEdge: at a water corner the rock edge's dithered creep would otherwise speckle the
+	# bank, and the shore's own quarters do not reach into a rock tile, so nothing of the rock edge is lost.
 	for g in ["forest", "soil"]:
 		if ArtLibrary.overlay_grounds().has(g):
 			overlays[g] = _overlay_layer(g)
@@ -249,9 +250,11 @@ func _paint_dual_pair(layer: TileMapLayer, pair: String, i: int, j: int) -> void
 	var cell := Vector2i(i, j)
 	layer.erase_cell(cell)
 	var mask := 0
-	var water_bits := 0
 	var ground := ""
 	var ground_rank := -1
+	var low_ground := ""  # best ground below rock (the water atlas must not take rock itself)
+	var low_rank := -1
+	var rock_rank := ArtLibrary.ground_rank("rock")
 	for k in 4:
 		var p: Vector2i = cell + DUAL_CORNERS[k]
 		if not MapState.in_bounds(p.x, p.y):
@@ -262,20 +265,23 @@ func _paint_dual_pair(layer: TileMapLayer, pair: String, i: int, j: int) -> void
 			continue
 		var r := ArtLibrary.ground_rank(g)
 		if pair == "rock":
-			if g == "water":  # three-way corner: shape the rock against the land, the shore draws the water
-				water_bits |= 1 << k
-				continue
+			if g == "water":
+				continue  # the shore rounds the water; the rock atlas has no water ground
 			# a ground above rock (vein, sky) owns its own edge
-			if r >= ArtLibrary.ground_rank("rock"):
+			if r >= rock_rank:
 				return
 		if r > ground_rank:
 			ground_rank = r
 			ground = g
+		if r < rock_rank and r > low_rank:
+			low_rank = r
+			low_ground = g
 	if mask == 0 or ground == "":
 		return
-	# Water counts as the pair side of the rock atlas, so a rock/water/grass corner still rounds the rock against
-	# the grass instead of leaving a square corner; the Shore layer above repaints the water over it.
-	mask |= water_bits
+	# Water over rock and another land: fill the water tile's rounded quarters with the land below rock, so the
+	# rock tile keeps its own ground (RockEdge draws it) instead of the shore stamping rock over soil or grass.
+	if pair == "water" and low_ground != "":
+		ground = low_ground
 	if mask == 15:
 		return
 	var src := ArtLibrary.autotile_source(pair, ground)
