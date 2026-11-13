@@ -132,3 +132,18 @@ Ben wants an Oxygen Not Included-like long game. Reverses D7's 45-60 min target.
 - D46. Population target ~600 citizens, all simulated and drawn as walkers; walkers hidden at far zoom; above 600
   growth slows through a softer housing cap.
 - D47. Hearthvein lives in a private git repo (GitHub, Ben's account).
+
+## Round 11 (2026-11-13) - design.md review, Ben agreed all seven open points
+
+- D48. Construction: placing a building makes a site; haulers deliver its cost, builders (auto-filled job at the Hearth
+  and Builder's Yard) build it. Upgrades build the same way while the building keeps running.
+- D49. City's gate landmark is the Lumen Nexus (first Lumen grid node). Conflux gate: Sky Foundry. Skyborne gate:
+  Dawn Beacon. Ascendant: Skyheart (D32).
+- D50. Lumen is a hauled good until Conflux; the Lumen grid feeds buildings in pylon range directly.
+- D51. The Great Dimming is a fixed 16 days, not scaled by planet health.
+- D52. Planet health below 50% when the Great Dimming ends: no win in that run; play continues as endless.
+- D53. Airship Dock: freight between docked regions and islands, plus surveys of locked regions. No trade (v2).
+- D54. Conflux, Skyborne and Ascendant building lists as drafted in design.md section 17 (D45 closed); era gates
+  from City on and Skyheart stage costs stay first guesses until play checks.
+- D55. Tests run headless with GUT against the simulation; placeholder art is generated procedurally (like the
+  mockups) until the art decision. Work is tracked as one feature `v1` in `.scratch/v1/` (Nyx decided).

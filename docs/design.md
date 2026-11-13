@@ -1,8 +1,7 @@
 # Hearthvein design (v1)
 
-Source of truth for decisions: `decisions.md` (D1-D47). This doc turns them into rules and numbers.
+Source of truth for decisions: `decisions.md` (D1-D55). This doc turns them into rules and numbers.
 Every number here is a first guess, meant to be tuned in playtests; they live in data files, not code.
-Items marked **[draft]** are Nyx's proposals that no D-entry covers yet (D45 and the gaps listed in section 22).
 
 ## 1. Pitch
 Grow one settlement from a camp around the Hearth into a glowing sky city on a living planet. Lumen, the cyan
@@ -81,7 +80,7 @@ and the campaign win needs planet health >= 50% at the very end.
 - A building with no road connection to the Hearth (or, from Conflux, to a Rail Depot in its region) gets no
   workers and shows an icon (D22).
 - Roads: dirt free, paved 1 materials + 0.2 cut stone per tile (Town).
-- **[draft] Construction:** placing a building makes a site. Haulers deliver its cost, then builders build it
+- **Construction (D48):** placing a building makes a site. Haulers deliver its cost, then builders build it
   (Builder job: 4 slots at the Hearth, 4 per Builder's Yard). Build time 1-6 days by size and era. The player
   can raise one site's priority. Demolish refunds 50% to the nearest storehouse. Upgrades (section 10) work the
   same way and the building keeps running at its old tier until done.
@@ -235,7 +234,7 @@ Effects of low health:
 - Light (D43): each citizen needs 0.5 Lumen/day (Dawn Beacon: 0.35). Short = darkness: Spirit -20 target,
   no growth.
 - **Great Dimming:** starts one season after the Skyheart is finished; lasts 16 days (not scaled by health,
-  [draft]); vein output x0.1, all farms x0.5, light 0.75/citizen, planet health -0.5/day. The Skyheart's
+  D51); vein output x0.1, all farms x0.5, light 0.75/citizen, planet health -0.5/day. The Skyheart's
   reservoir (section 18) is what gets you through it.
 - Endless (D41): after the win, Dimming base keeps +1 day per 2 years, no cap.
 
@@ -245,9 +244,9 @@ Effects of low health:
 | Camp | start | Meeting Hall | tents, foraging, first tap |
 | Village | pop 15, gold 30, Meeting Hall | Bell Tower | farms, planks, channels |
 | Town | pop 40, gold 150, Bell Tower | Lumen Spire | upkeep, refining, wells, tier II |
-| City | pop 100, gold 500, Lumen Spire | **[draft]** Lumen Nexus | reactors, tools, tier III |
-| Conflux | pop 200, gold 1200, Lumen Nexus | **[draft]** Sky Foundry | Lumen grid, cargo rail, airships |
-| Skyborne | pop 320, gold 2500, Sky Foundry | **[draft]** Dawn Beacon | floating districts, clean sky Lumen |
+| City | pop 100, gold 500, Lumen Spire | Lumen Nexus | reactors, tools, tier III |
+| Conflux | pop 200, gold 1200, Lumen Nexus | Sky Foundry | Lumen grid, cargo rail, airships |
+| Skyborne | pop 320, gold 2500, Sky Foundry | Dawn Beacon | floating districts, clean sky Lumen |
 | Ascendant | pop 450, gold 4000, Dawn Beacon | Skyheart (final) | planet healing, the finale |
 
 Reaching an era unlocks its building set. No research tree (D19).
@@ -278,7 +277,7 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Shrine | 1x1 | 30M 5L | - | - | Spirit coverage r6 |
 | Sawmill | 2x1 | 35M | 2 | - | 2 M -> 1 P, 3/worker/day |
 | Forester | 1x1 | 20M | 1 | - | plants forest r5, halves regrowth |
-| Builder's Yard [draft] | 2x1 | 30M | 4 build, 2 haul | - | more builders |
+| Builder's Yard | 2x1 | 30M | 4 build, 2 haul | - | more builders |
 | Irrigation Channel | tile | 1M | - | - | carries water |
 | Bell Tower* | 1x1 | 120M 20G 20L 20P | - | - | Town gate |
 
@@ -307,9 +306,9 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Grand Bazaar | 3x2 | 120M 30G 30P | 4 | 1 | +1.5 G; counts as a food type |
 | Park | 2x2 | 40M 10G | - | 0 | Spirit coverage r5, blight-proof; planet +0.005 |
 | Toolsmith | 2x1 | 80M 30G 20S | 2 | 1 | 1 P + 1 C -> 1 T, 1.5/worker/day |
-| Lumen Nexus* [draft] | 3x3 | 400M 200G 300L 80S 40T 30C | - | 0 | Conflux gate; first grid node (r12) |
+| Lumen Nexus* | 3x3 | 400M 200G 300L 80S 40T 30C | - | 0 | Conflux gate; first grid node (r12) |
 
-## 17. Buildings, Conflux to Ascendant [draft, D45]
+## 17. Buildings, Conflux to Ascendant (D45, D54)
 Design intent: Conflux makes the settlement one connected machine (grid, rail, airships). Skyborne adds clean
 land and clean Lumen in the sky, so you can stop leaning on the veins. Ascendant turns the whole game around:
 heal the planet you spent 12 years draining, then face the Great Dimming.
@@ -370,8 +369,7 @@ Count: Conflux 8 + landmark, Skyborne 8 + landmark, Ascendant 8 + Skyheart.
 - Reservoir: the finished Skyheart holds up to 3000 L (grid-fed, lossless) and pours it into the grid and light
   during the Great Dimming. The season before is the last big stockpiling push.
 - Campaign win: Great Dimming ends with population > 0 and planet health >= 50%. If health is below 50% at the
-  end: no win, no loss; the game says so, play goes on into endless, and the win can't be retaken in this run.
-  [draft: Ben to confirm; alternative is to let a later Great Dimming retry]
+  end: no win, no loss; the game says so, play goes on into endless, and the win can't be retaken in this run (D52).
 - Lose: population 0, any time.
 
 ## 19. Endless and milestones (D41)
@@ -412,17 +410,8 @@ Count: Conflux 8 + landmark, Skyborne 8 + landmark, Ascendant 8 + Skyheart.
 - 600 walkers: drawn with batched sprites (MultiMesh or a custom draw), pathing on `AStarGrid2D` with cached
   home/job paths, re-planned only when roads change.
 
-## 22. Open points for Ben (Nyx's recommendation first)
-1. Construction by builders + hauled materials (section 6). No D-entry covers it. Recommend yes: it fits the ONI
-   feel and the hauling system already exists; the cost is one job type.
-2. City needs a gate landmark now that the Skyheart moved to Ascendant (D32). Drafted as Lumen Nexus.
-3. Before Conflux, Lumen is hauled like any good; the grid removes that. Recommend yes, it gives Conflux its point.
-4. Great Dimming length fixed at 16 days, not scaled by planet health; the 50% health check already punishes a
-   sick planet. Recommend fixed.
-5. Health below 50% at the end of the Great Dimming: no win this run (recommend), or allow a retry later.
-6. Airship Dock does freight and region surveys, no trade (trade is v2).
-7. Era gates for City onwards (pop 100/200/320/450, gold 500/1200/2500/4000) and the Skyheart stage costs are
-   pure guesses until the economy runs.
+## 22. Resolved review points
+All seven open points from the first draft were agreed as proposed: D48-D54.
 
 ## 23. Out of scope for v1
 Combat, neighbours, trade (v2). Citizen age, skills and families (later, D29). Random events (v1.x). Map size

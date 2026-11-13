@@ -18,7 +18,7 @@ Great Dimming with planet health >= 50%; lose: population 0. No combat in v1; Sp
 2. Grill rounds 7-10 closed (D27-D47). DONE 2026-11-13: `docs/design.md` rewritten to D1-D47, including the
    drafted Conflux/Skyborne/Ascendant lists (D45, section 17) and seven open points (section 22).
    Waiting on Ben's review of design.md, then cut tickets (whole game is v1, D44; build order era by era with a
-   play check after each). Tickets go in `.scratch/` (not created yet).
+   play check after each). DONE: spec + 47 tickets in `.scratch/v1/` (own local git repo, not pushed).
 3. Only after Ben's go: install Godot 4 (not installed; check pacman/flathub), create the project skeleton.
 
 ## Open for Ben
