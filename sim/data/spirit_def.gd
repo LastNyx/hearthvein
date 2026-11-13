@@ -8,7 +8,10 @@ extends Resource
 @export var step_per_day: float = 2.0
 @export var food_type_bonus: float = 5.0
 @export var food_type_max: float = 20.0
+## +coverage_bonus when more than coverage_min_share of the housed citizens live in a covered home (CoverageSystem).
+## "Most" is strict: exactly this share is not enough. design.md section 11: "+10 if most homes are inside coverage".
 @export var coverage_bonus: float = 10.0
+@export var coverage_min_share: float = 0.5
 @export var hunger_penalty: float = 15.0
 @export var homeless_penalty: float = 10.0
 @export var blight_max: float = 15.0

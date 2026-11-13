@@ -69,6 +69,9 @@ const SKIP := {
 	# MarketSystem
 	"MarketSystem._reach_version": "Market reach cache version, rebuilt from the layout",
 	"MarketSystem._in_reach": "Market reach per home cache, rebuilt from the layout",
+	# CoverageSystem
+	"CoverageSystem._version": "covered-home cache version, rebuilt from the layout",
+	"CoverageSystem._covered": "covered-home set cache, rebuilt from the layout",
 	# EventBus
 	"EventBus._subs": "subscribers are views and UI, attached again after a load",
 }

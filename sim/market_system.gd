@@ -70,17 +70,12 @@ func home_covered(s: Settlement, home_id: int) -> bool:
 	return _in_reach.get(home_id, false)
 
 
-## True when a Market's footprint is within its reach of the home's footprint (Chebyshev between rectangles). Static
-## so the geometry can be tested without placing anything.
+## True when a Market's footprint is within its reach of the home's footprint (Chebyshev between rectangles, the
+## shared Building.footprint_gap measure CoverageSystem uses too). Static so the geometry can be tested without
+## placing anything.
 static func market_covers(market: Building, home: Building) -> bool:
 	var reach := market.def.market_reach
-	if reach <= 0:
-		return false
-	var m := market.footprint()
-	var h := home.footprint()
-	var dx := maxi(maxi(m.position.x - (h.end.x - 1), h.position.x - (m.end.x - 1)), 0)
-	var dy := maxi(maxi(m.position.y - (h.end.y - 1), h.position.y - (m.end.y - 1)), 0)
-	return maxi(dx, dy) <= reach
+	return reach > 0 and Building.footprint_gap(market, home) <= reach
 
 
 ## Rebuild the per-home flags when roads or buildings changed (a Market or a home placed or demolished).

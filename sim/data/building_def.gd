@@ -60,6 +60,12 @@ const GOLD := "gold"
 ## Tiles a home must be within (Chebyshev, footprint to footprint) for the Market's food variety to serve it.
 ## 0 = no reach (only Market uses it). design.md gives no number; ticket 23 chose 12.
 @export var market_reach: int = 0
+## Tiles a home must be within (Chebyshev, footprint to footprint, measured like market_reach) to count as covered by
+## this building: Shrine 6, Park 5, Observatory 8, Hall of Seasons 12 (design.md sections 11, 16-17). 0 = no coverage.
+## CoverageSystem owns the query; the Spirit "coverage" factor reads it.
+@export var coverage_radius: int = 0
+## True when the building may not stand on a blighted tile (design.md section 12: Park, Shrine, Orchard).
+@export var blocked_by_blight: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

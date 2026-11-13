@@ -207,7 +207,8 @@ func _validate() -> void:
 		if not goods.is_empty():
 			errors.append("missing spirit definition")
 	elif spirit.step_per_day <= 0.0 or spirit.start < 0.0 or spirit.start > 100.0 or spirit.low_at >= spirit.high_at \
-			or spirit.grief_divisor <= 0.0 or spirit.leave_after_days <= 0 or spirit.leave_every_days <= 0:
+			or spirit.grief_divisor <= 0.0 or spirit.leave_after_days <= 0 or spirit.leave_every_days <= 0 \
+			or spirit.coverage_min_share < 0.0 or spirit.coverage_min_share > 1.0:
 		errors.append("spirit: invalid numbers")
 	if planet == null:
 		if not goods.is_empty():
@@ -327,6 +328,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: gold_per_worker_day must not be negative" % who)
 	if b.market_reach < 0:
 		errors.append("%s: market_reach must not be negative" % who)
+	if b.coverage_radius < 0:
+		errors.append("%s: coverage_radius must not be negative" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:

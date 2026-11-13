@@ -48,6 +48,16 @@ func footprint() -> Rect2i:
 	return Rect2i(origin, def.size)
 
 
+## Chebyshev distance in tiles between two footprints, tile edge to tile edge (0 when they touch or overlap).
+## The one measure Market reach (ticket 23) and coverage (ticket 23b) use, so both can be drawn the same way.
+static func footprint_gap(a: Building, b: Building) -> int:
+	var ra := a.footprint()
+	var rb := b.footprint()
+	var dx := maxi(maxi(ra.position.x - (rb.end.x - 1), rb.position.x - (ra.end.x - 1)), 0)
+	var dy := maxi(maxi(ra.position.y - (rb.end.y - 1), rb.position.y - (ra.end.y - 1)), 0)
+	return maxi(dx, dy)
+
+
 func tiles() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for y in range(origin.y, origin.y + def.size.y):

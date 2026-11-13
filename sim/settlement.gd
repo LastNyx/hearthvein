@@ -88,6 +88,7 @@ func add_default_systems() -> void:
 	add_system(PlanetHealthSystem.new())
 	add_system(ForestSystem.new())  # reads the day's planet health; stumps regrow and Foresters plant here
 	add_system(MarketSystem.new())  # pays gold and caches Market reach; Spirit reads the reach for food variety
+	add_system(CoverageSystem.new())  # caches covered homes (Shrine r6); Spirit reads it for the coverage factor
 	add_system(SpiritSystem.new())  # after Growth: reads its hunger report; after Planet: grief
 	var prod := get_system(ProductionSystem) as ProductionSystem
 	prod.modifiers.append(FertilitySystem.output_modifier)
@@ -95,6 +96,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
 	var sp := get_system(SpiritSystem) as SpiritSystem
+	sp.set_hook("coverage", CoverageSystem.spirit_factor)
 	sp.set_hook("blight", BlightSystem.spirit_factor)
 	sp.set_hook("darkness", DimmingSystem.darkness_factor)
 	sp.set_hook("planet_grief", PlanetHealthSystem.grief_factor)

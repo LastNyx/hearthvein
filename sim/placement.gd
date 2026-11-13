@@ -12,6 +12,11 @@ static func check_rule(map: MapState, reg: DataRegistry, def: BuildingDef, origi
 	for y in range(origin.y, origin.y + def.size.y):
 		for x in range(origin.x, origin.x + def.size.x):
 			tiles.append(Vector2i(x, y))
+	# design.md section 12: blighted ground cannot hold a Park, Shrine or Orchard (BuildingDef.blocked_by_blight).
+	if def.blocked_by_blight:
+		for t in tiles:
+			if map.is_blighted(t.x, t.y):
+				return "blighted"
 	match def.placement_rule:
 		"any":
 			return ""
