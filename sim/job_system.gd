@@ -22,7 +22,21 @@ const HAUL_CATEGORY := "logistics"
 const PRIORITY_ORDER: Array[String] = ["high", "normal", "low"]
 
 
+## The hourly refresh is a cheap idempotent pass, but it costs a few ms at 600 citizens (ticket 55), so skip it
+## when nothing that feeds it changed since the last hourly run: the citizen and building sets and the road/building
+## layout (structure_version, not terrain). Every other change (pausing, priorities, sites finishing) calls refresh_population itself.
+var _citizens: int = -1
+var _buildings: int = -1
+var _grid: int = -1
+
+
 func on_hour(settlement: Settlement) -> void:
+	if settlement.citizens.size() == _citizens and settlement.buildings.size() == _buildings \
+			and settlement.structure_version == _grid:
+		return
+	_citizens = settlement.citizens.size()
+	_buildings = settlement.buildings.size()
+	_grid = settlement.structure_version
 	refresh(settlement)
 
 

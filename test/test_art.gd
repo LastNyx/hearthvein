@@ -440,6 +440,7 @@ func test_refresh_tile_keeps_props_off_roads() -> void:
 	view.refresh_tile(t)
 	for n in view._props.get(t, []):
 		assert_false((n as CanvasItem).visible)
+	assert_true(view._prop_batch.is_hidden(t), "the batched tree instances are hidden under the road too")
 
 
 # ---------------------------------------------------------------- shore and rock autotiles (ticket 54)

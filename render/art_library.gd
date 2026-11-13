@@ -360,6 +360,20 @@ static func prop_entry(name: String) -> Dictionary:
 	return manifest()["props"][name]
 
 
+## Every prop name, sorted (stable texture order for PropBatch).
+static func prop_names() -> Array[String]:
+	var out: Array[String] = []
+	for k in manifest()["props"].keys():
+		out.append(k)
+	out.sort()
+	return out
+
+
+## The single-prop texture of a prop (props are one image each, not an atlas).
+static func prop_texture(name: String) -> Texture2D:
+	return texture(manifest()["props"][name]["file"])
+
+
 ## World position of a building's base point: bottom edge, centred on its footprint.
 static func base_point(origin: Vector2i, size: Vector2i) -> Vector2:
 	return Vector2((origin.x + size.x * 0.5) * TILE, (origin.y + size.y) * TILE)

@@ -8,6 +8,8 @@ var map: MapState
 var clock := GameClock.new()
 var events := EventBus.new()
 var systems: Array[SimSystem] = []
+var _system_cache_size: int = -1
+var _system_cache: Dictionary = {}  # script -> system, so per-building lookups (ticket 55) skip the scan
 
 const ROAD_NONE := 0
 const ROAD_DIRT := 1
@@ -30,6 +32,10 @@ const PRIORITIES: Array[String] = ["low", "normal", "high", "paused"]
 var _next_building_id: int = 0
 ## Bumped whenever roads or buildings change, so path caches know to drop themselves.
 var grid_version: int = 0
+## Bumps with grid_version for roads and buildings only (not terrain). WalkerSystem rewrites its whole A* grid when this
+## moves and only the tiles in terrain_dirty when just terrain changed (ticket 55).
+var structure_version: int = 0
+var terrain_dirty: Array[Vector2i] = []
 ## Bumped when a tile becomes forest (the only change that can bring a forest tile nearer to a woodcutter).
 var forest_gain_version: int = 0
 ## Road reachability from the Hearth (see _recompute_connections).
@@ -84,6 +90,7 @@ func add_default_systems() -> void:
 
 func add_system(system: SimSystem) -> void:
 	systems.append(system)
+	_system_cache.clear()
 
 
 ## Deterministic advance, one hour at a time. Per hour: on_seconds hooks get the hour's game seconds, the clock
@@ -130,8 +137,14 @@ func _advance_hour() -> void:
 
 ## The registered system of a class, or null.
 func get_system(script: GDScript) -> SimSystem:
+	if _system_cache_size != systems.size():  # added or erased since the cache was filled
+		_system_cache.clear()
+		_system_cache_size = systems.size()
+	if _system_cache.has(script):
+		return _system_cache[script]
 	for sys in systems:
 		if is_instance_of(sys, script):
+			_system_cache[script] = sys
 			return sys
 	return null
 
@@ -270,6 +283,7 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false)
 		_init_buffers(b)
 	buildings[b.id] = b
 	grid_version += 1
+	structure_version += 1
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = b.id
 	_recompute_connections(b)
@@ -287,6 +301,7 @@ func demolish(id: int) -> bool:
 	# Contents of a demolished storehouse are lost.
 	buildings.erase(id)
 	grid_version += 1
+	structure_version += 1
 	var refund := _refund_for(b)
 	_return_goods(refund, b.origin)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin, "site": b.site, "refund": refund})
@@ -337,6 +352,10 @@ func set_terrain(tile: Vector2i, terrain_id: String) -> bool:
 		return false
 	map.set_terrain_id(tile.x, tile.y, terrain_id)
 	grid_version += 1
+	terrain_dirty.append(tile)
+	if terrain_dirty.size() > 512:
+		structure_version += 1
+		terrain_dirty.clear()
 	if terrain_id == "forest":
 		forest_gain_version += 1
 	events.emit("terrain_changed", {"tile": tile, "from": from, "to": terrain_id})
@@ -564,6 +583,7 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT) -> bool:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = level
 	grid_version += 1
+	structure_version += 1
 	_roads_dirty = true
 	events.emit("road_changed", {"tile": tile, "level": level})
 	_recompute_connections()
@@ -575,6 +595,7 @@ func remove_road(tile: Vector2i) -> bool:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
 	grid_version += 1
+	structure_version += 1
 	_roads_dirty = true
 	events.emit("road_changed", {"tile": tile, "level": ROAD_NONE})
 	_recompute_connections()

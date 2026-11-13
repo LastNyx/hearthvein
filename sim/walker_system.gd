@@ -19,11 +19,29 @@ extends SimSystem
 ## everybody goes home at WORK_END_HOUR. Homeless citizens stay at the Hearth. Walkers with `controlled` set
 ## are skipped; ticket 10 haulers use walk_to_building / walk_to_tile and set it.
 ##
+## Departures are staggered (ticket 55): at a schedule hour every walker that wants to be somewhere else gets a
+## seeded offset in [0, DEPART_WINDOW) from the map seed and the citizen id, and leaves when the hour has run that
+## far (same offset every day, so saves and tests stay reproducible). Without this, ~600 A* runs landed in one
+## tick at 06:00 and 18:00. Spreading them over the hour is also what people do. To keep the work day as long as
+## before, the morning window is the hour BEFORE the shift (05:00-06:00, see _schedule_hour), so people arrive
+## about when the shift starts; going home spreads over 18:00-19:00. A per-call planning budget bounds the work of
+## a frame-sized step; a coarse step (step_hours) is not throttled, so nobody is stranded.
+##
 ## "At work": is_at_work(citizen_id) is true only while the citizen stands at the door of their job building;
 ## a walking citizen is never at work. Production reads is_at_work / workers_at.
 
 const WORK_START_HOUR := 6
 const WORK_END_HOUR := 18
+## Widest seeded departure delay after a schedule hour, in game seconds.
+const DEPART_WINDOW := GameClock.REAL_SECONDS_PER_HOUR
+## Most path plans one on_seconds call may start; a frame at 1x needs about 4 with 600 citizens.
+const PLAN_BUDGET := 8
+## A step of at least this many game seconds counts as coarse and is not throttled by PLAN_BUDGET.
+const COARSE_STEP := 0.25
+## Most moving walkers re-routed per call after a grid change; the rest are queued.
+const REPLAN_BUDGET := 12
+## Departure bins per game second; the seeded offset is quantized to this so the queue sorts as plain ints.
+const DEPART_BINS := 300
 
 var walkers: Dictionary = {}  # citizen id -> Walker, in citizen id order of creation
 
@@ -32,8 +50,24 @@ var _grid: AStarGrid2D
 var _speeds := PackedFloat32Array()
 var _grid_version: int = -1
 var _max_speed: float = 1.0
+var _last_max_speed: float = -1.0
+var _structure_version: int = -1
+var _solid := PackedByteArray()  # per tile: 1 when the A* grid has it solid
 var _cache: Dictionary = {}  # int key -> Array[Vector2i] (empty array = no path)
 var path_computations: int = 0  # for tests: how many real A* runs happened
+## Departures scheduled for the current hour: citizen ids encoded as (depart_bin << 20 | id), sorted by that int,
+## so the sort is the native int sort.
+var _queue: Array[int] = []
+var _queue_head: int = 0
+var _replan_queue: Array[int] = []
+var _replan_head: int = 0
+var _hour_elapsed: float = 0.0
+## Departure bin of each citizen, cached: the offset is a pure function of (map seed, id) and is asked for every
+## hour by every walker. Cleared when a different map seed shows up.
+var _bins: Dictionary = {}  # citizen id -> int bin
+var _bins_seed: int = -1
+## Decoded ids need 20 bits; the departure bin stays well below the rest of the int.
+const _QUEUE_ID_MASK := 0xfffff
 
 
 # ---------------------------------------------------------------- hooks
@@ -43,24 +77,87 @@ func on_seconds(settlement: Settlement, seconds: float) -> void:
 	if walkers.size() != settlement.citizens.size():
 		_sync()
 	_refresh_grid()
+	_drain_replans()
 	for id in walkers:
 		var w: Walker = walkers[id]
 		if not w.path.is_empty():
 			_advance(w, seconds)
+	_hour_elapsed += seconds
+	_dispatch_departures(seconds)
 
 
 func on_hour(settlement: Settlement) -> void:
 	_s = settlement
-	_sync()
+	if walkers.size() != settlement.citizens.size():  # on_seconds keeps them in step; a direct call may not
+		_sync()
 	_refresh_grid()
-	var hour := settlement.clock.hour()
+	_hour_elapsed = 0.0
+	_queue.clear()
+	_queue_head = 0
+	var hour := _schedule_hour()
+	var map_seed := settlement.map.seed_used
+	if map_seed != _bins_seed:
+		_bins.clear()
+		_bins_seed = map_seed
 	for id in walkers:
 		var w: Walker = walkers[id]
 		if w.controlled:
 			continue
 		var want := _desired_building(settlement.citizens[id], hour)
 		if want >= 0 and (w.blocked or w.dest_building != want):
-			walk_to_building(id, want)
+			var bin: int = _bins.get(id, -1)
+			if bin < 0:
+				bin = _depart_bin(map_seed, id)
+				_bins[id] = bin
+			_queue.append((bin << 20) | id)
+	_queue.sort()
+
+
+## The hour the schedule is evaluated for. The last hour before the shift already uses the shift's hour: people set
+## off for work spread over 05:00-06:00 so they arrive about when the shift starts and the work day keeps its length
+## (a stagger after 06:00 would cut an average half hour off every work day). Going home spreads over 18:00-19:00.
+func _schedule_hour() -> int:
+	var h := _s.clock.hour()
+	return WORK_START_HOUR if h == WORK_START_HOUR - 1 else h
+
+
+## Departure time of a citizen after a schedule hour, as an int bin (1/DEPART_BINS game seconds).
+static func _depart_bin(map_seed: int, citizen_id: int) -> int:
+	return mini(int(depart_offset(map_seed, citizen_id) * DEPART_BINS), int(DEPART_WINDOW * DEPART_BINS))
+
+
+## Seeded departure delay of a citizen after a schedule hour, in game seconds. Pure function of the map seed and
+## the citizen id, so the same citizens leave at the same time every day and after a load.
+static func depart_offset(map_seed: int, citizen_id: int) -> float:
+	var h := ((citizen_id * 73856093) ^ (map_seed * 19349663)) & 0x7fffffff
+	h = ((h ^ (h >> 15)) * 0x2c1b3c6d) & 0x7fffffff
+	h = ((h ^ (h >> 12)) * 0x297a2d39) & 0x7fffffff
+	h ^= h >> 15
+	return float(h & 0xffff) / 65536.0 * DEPART_WINDOW
+
+
+## Start the walks whose departure time has come, at most PLAN_BUDGET per call. Entries whose walker no longer
+## wants that building are dropped; the hour's own on_hour rebuilds the queue anyway.
+func _dispatch_departures(seconds: float) -> void:
+	var planned := 0
+	# A coarse step (step_hours) covers many frames at once, so it is not throttled; a frame-sized one is.
+	var budget := PLAN_BUDGET if seconds < COARSE_STEP else 1 << 30
+	var hour := _schedule_hour()
+	while _queue_head < _queue.size() and planned < budget:
+		var key: int = _queue[_queue_head]
+		if float(key >> 20) / DEPART_BINS > _hour_elapsed + 0.001:
+			break
+		_queue_head += 1
+		var id: int = key & _QUEUE_ID_MASK
+		var w: Walker = walkers.get(id)
+		var c: Citizen = _s.citizens.get(id)
+		if w == null or c == null or w.controlled:
+			continue
+		var want := _desired_building(c, hour)
+		if want < 0 or not _s.buildings.has(want) or not (w.blocked or w.dest_building != want):
+			continue
+		walk_to_building(id, want)
+		planned += 1
 
 
 ## Building id the schedule wants this citizen at, -1 for none.
@@ -238,28 +335,54 @@ func _refresh_grid() -> void:
 		_max_speed = maxf(_max_speed, sp)
 	if _max_speed <= 0.0:
 		_max_speed = 1.0
-	for y in MapState.HEIGHT:
-		for x in MapState.WIDTH:
-			var i := MapState.idx(x, y)
-			var sp: float = terrain_speed[_s.map.get_terrain(x, y)]
-			var level := _s.roads[i]
-			if level != Settlement.ROAD_NONE:
-				var rd := _s.registry.get_road_by_level(level)
-				if rd != null:
-					sp = rd.walk_speed
-			_speeds[i] = sp
-			var p := Vector2i(x, y)
-			_grid.set_point_solid(p, sp <= 0.0 or _s.occupancy[i] >= 0)
-			_grid.set_point_weight_scale(p, _max_speed / sp if sp > 0.0 else 1.0)
+	# Only touch the A* cells that changed. A felled tree used to rewrite all 16k cells (ticket 55: ~14 ms, a hitch
+	# in the middle of a work day), so a terrain-only change updates just the tiles Settlement listed.
+	var force := first or _max_speed != _last_max_speed
+	_last_max_speed = _max_speed
+	if force:
+		_solid.resize(n)
+	if force or _structure_version != _s.structure_version:
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				_update_cell(x, y, terrain_speed, force)
+	else:
+		for t in _s.terrain_dirty:
+			_update_cell(t.x, t.y, terrain_speed, false)
+	_structure_version = _s.structure_version
+	_s.terrain_dirty.clear()
 	_replan_all()
+
+
+func _update_cell(x: int, y: int, terrain_speed: Array[float], force: bool) -> void:
+	var i := MapState.idx(x, y)
+	var sp: float = terrain_speed[_s.map.get_terrain(x, y)]
+	var level := _s.roads[i]
+	if level != Settlement.ROAD_NONE:
+		var rd := _s.registry.get_road_by_level(level)
+		if rd != null:
+			sp = rd.walk_speed
+	var solid := 1 if (sp <= 0.0 or _s.occupancy[i] >= 0) else 0
+	if not force and _speeds[i] == sp and _solid[i] == solid:
+		return
+	_speeds[i] = sp
+	_solid[i] = solid
+	var p := Vector2i(x, y)
+	_grid.set_point_solid(p, solid == 1)
+	_grid.set_point_weight_scale(p, _max_speed / sp if sp > 0.0 else 1.0)
 
 
 func _passable(t: Vector2i) -> bool:
 	return MapState.in_bounds(t.x, t.y) and _speeds[MapState.idx(t.x, t.y)] > 0.0 and not _grid.is_point_solid(t)
 
 
-## Roads or buildings changed: doors move, standing walkers follow, moving walkers get fresh paths.
+## Roads, buildings or terrain changed: doors move, standing walkers follow, moving walkers get fresh paths. The
+## first REPLAN_BUDGET moving walkers are re-routed at once; the rest wait in a queue that on_seconds drains, so one
+## felled tree with 600 citizens on the road is a few cheap frames instead of one 15 ms one (ticket 55). A small
+## settlement never reaches the budget and behaves exactly as before.
 func _replan_all() -> void:
+	_replan_queue.clear()
+	_replan_head = 0
+	var routed := 0
 	for id in walkers:
 		var w: Walker = walkers[id]
 		if w.path.is_empty():
@@ -274,14 +397,33 @@ func _replan_all() -> void:
 			elif not _passable(w.tile) and _speeds[MapState.idx(w.tile.x, w.tile.y)] > 0.0 and _s.occupancy[MapState.idx(w.tile.x, w.tile.y)] >= 0:
 				w.tile = _nearest_passable(w.tile)
 			continue
-		if w.dest_building >= 0:
-			var db: Building = _s.buildings.get(w.dest_building)
-			if db == null:
-				# Destination is gone: stop here, the schedule picks a new one next hour.
-				_stop(w)
-				continue
-			w.dest_tile = door_tile(db)
-		_route(w, w.dest_tile, w.dest_building)
+		if routed >= REPLAN_BUDGET:
+			_replan_queue.append(id)
+			continue
+		routed += 1
+		_replan_walker(w)
+
+
+func _replan_walker(w: Walker) -> void:
+	if w.dest_building >= 0:
+		var db: Building = _s.buildings.get(w.dest_building)
+		if db == null:
+			# Destination is gone: stop here, the schedule picks a new one next hour.
+			_stop(w)
+			return
+		w.dest_tile = door_tile(db)
+	_route(w, w.dest_tile, w.dest_building)
+
+
+## Re-route queued walkers, at most REPLAN_BUDGET per call.
+func _drain_replans() -> void:
+	var n := 0
+	while _replan_head < _replan_queue.size() and n < REPLAN_BUDGET:
+		var w: Walker = walkers.get(_replan_queue[_replan_head])
+		_replan_head += 1
+		if w != null and not w.path.is_empty() and not w.controlled:
+			_replan_walker(w)
+			n += 1
 
 
 func _stop(w: Walker) -> void:

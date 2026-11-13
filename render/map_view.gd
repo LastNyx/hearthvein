@@ -33,7 +33,9 @@ var _overlay: RegionOverlay
 ## re-added by refresh_tile stay hidden there.
 var prop_blocked: Callable = Callable()
 var _sparkles: Dictionary = {}  # Vector2i -> Sprite2D
+## Shadow and glow sprites of each tile's props (the prop sprites themselves are batched by PropBatch).
 var _props: Dictionary = {}  # Vector2i -> Array[Node]
+var _prop_batch: PropBatch = PropBatch.new()
 var _ground := PackedStringArray()
 var _overlays: Dictionary = {}  # ground -> TileMapLayer
 
@@ -91,12 +93,14 @@ func setup(m: MapState) -> void:
 	objects.name = "Objects"
 	objects.y_sort_enabled = true
 	add_child(objects)
+	_prop_batch.setup(objects)  # bands are y-sorted children of Objects, added before any building
 	fx = Node2D.new()
 	fx.name = "Fx"
 	add_child(fx)
 	_ground = ground
 	_overlays = overlays
 	_fill()
+	_prop_batch.flush()
 	_shade_image = ArtLibrary.shade_image(map.seed_used, MapState.WIDTH, MapState.HEIGHT, _ground_at)
 	_shade.texture = ImageTexture.create_from_image(_shade_image)
 	_overlay = RegionOverlay.new()
@@ -311,29 +315,16 @@ func refresh_tile(tile: Vector2i) -> void:
 		(n as Node).queue_free()
 	_props.erase(tile)
 	_add_props(map.terrain_id_at(tile.x, tile.y), tile.x, tile.y)
+	_prop_batch.flush()
 	if prop_blocked.is_valid() and prop_blocked.call(tile):
 		set_props_visible(tile, false)
 
 
-## Sum of directions toward neighbouring tiles of another ground (zero inside a stand), for edge-tree jitter.
-func _open_dir(x: int, y: int) -> Vector2i:
-	var here := _ground_at(x, y)
-	var d := Vector2i.ZERO
-	for o in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]:
-		if MapState.in_bounds(x + o.x, y + o.y) and _ground_at(x + o.x, y + o.y) != here:
-			d += o
-	return d
-
-
 func _add_props(terrain_id: String, x: int, y: int) -> void:
-	for p in ArtLibrary.scatter(terrain_id, x, y, _open_dir(x, y)):
+	var tile := Vector2i(x, y)
+	for p in _prop_batch.add_tile(terrain_id, tile, _open_dir(x, y)):
 		var e := ArtLibrary.prop_entry(p["name"])
-		var holder := Node2D.new()
-		holder.position = p["pos"]
-		holder.add_child(ArtLibrary.prop_sprite(p["name"]))
-		objects.add_child(holder)
-		var list: Array = _props.get(Vector2i(x, y), [])
-		list.append(holder)
+		var list: Array = _props.get(tile, [])
 		var sh := ArtLibrary.shadow_sprite(e)
 		if sh != null:
 			sh.position = p["pos"]
@@ -344,13 +335,20 @@ func _add_props(terrain_id: String, x: int, y: int) -> void:
 			f.position = p["pos"]
 			fx.add_child(f)
 			list.append(f)
-		_props[Vector2i(x, y)] = list
+		_props[tile] = list
 
 
-## Hide or show the props of a tile (buildings cover vein/rock props).
+## Sum of directions toward neighbouring tiles of another ground (zero inside a stand), for edge-tree jitter.
+func _open_dir(x: int, y: int) -> Vector2i:
+	return PropBatch.open_dir(map, x, y)
+
+
+## Hide or show the props of a tile (buildings cover vein/rock props). The batched sprites are rebuilt for the
+## tile's base row; shadow and glow sprites are toggled in place.
 func set_props_visible(tile: Vector2i, vis: bool) -> void:
 	for n in _props.get(tile, []):
 		(n as CanvasItem).visible = vis
+	_prop_batch.set_visible(tile, vis)
 
 
 func world_size() -> Vector2:
