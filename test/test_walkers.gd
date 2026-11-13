@@ -210,7 +210,14 @@ func test_door_is_only_way_into_building() -> void:
 
 
 func test_citizens_commute_home_work() -> void:
-	var wc := s.place_building("woodcutter", _free_spot("woodcutter"))
+	# Explicit layout (independent of the generated map): a grass block east of the Hearth with one forest tile.
+	var h := s.map.hearth_spot
+	for y in range(h.y - 2, h.y + 6):
+		for x in range(h.x + 3, h.x + 12):
+			s.set_terrain(Vector2i(x, y), "grass")
+	s.set_terrain(Vector2i(h.x + 9, h.y + 1), "forest")
+	var wc := s.place_building("woodcutter", Vector2i(h.x + 7, h.y + 1))
+	assert_gt(wc, 0, "woodcutter placed")
 	_connect(s.buildings[wc])
 	for i in 3:
 		s.place_building("tent", _free_spot("tent"))

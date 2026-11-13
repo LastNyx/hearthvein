@@ -1,6 +1,6 @@
 extends SceneTree
 ## Windowed terrain screenshots: godot --path . -s tools/terrain_shot.gd [-- seed]
-## Writes /tmp/hv_terrain_z1.png and /tmp/hv_terrain_z2.png around the Hearth, /tmp/hv_terrain_river.png at the river
+## Writes /tmp/hv_terrain_z1.png and /tmp/hv_terrain_z2.png around the Hearth, /tmp/hv_terrain_river.png at the river, /tmp/hv_terrain_lake.png at a lake
 ## and /tmp/hv_terrain_stumps.png (a felled clearing in a forest).
 
 func _shot(path: String) -> void:
@@ -32,16 +32,38 @@ func _init() -> void:
 		await _shot(pair[1])
 	# River bend close-up.
 	var path := s.map.river_path
+	# The bend with the strongest turn within 45 tiles of the Hearth (chord vs. path over +-10 steps).
 	var best := path[path.size() / 2]
-	for i in range(1, path.size() - 1):
-		var a: Vector2i = path[i - 1]
-		var b: Vector2i = path[i + 1]
-		if a.x != b.x and a.y != b.y and absi(path[i].x - h.x) < 40:
+	var best_turn := -1.0
+	for i in range(10, path.size() - 10):
+		if absi(path[i].x - h.x) > 45:
+			continue
+		var a: Vector2 = path[i - 10]
+		var b: Vector2 = path[i + 10]
+		var turn := (Vector2(path[i]) - (a + b) / 2.0).length()
+		if turn > best_turn:
+			best_turn = turn
 			best = path[i]
-			break
 	cam.set_zoom_step(3)
 	cam.position = (Vector2(best) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
 	await _shot("/tmp/hv_terrain_river.png")
+	# The roundest, widest water within 50 tiles of the Hearth (a lake on the river).
+	var lake := best
+	var lake_n := -1
+	for y in range(h.y - 30, h.y + 30):
+		for x in range(h.x - 50, h.x + 50):
+			if not s.map.is_river(x, y):
+				continue
+			var n := 0
+			for dy in range(-4, 5):
+				for dx in range(-4, 5):
+					if MapState.in_bounds(x + dx, y + dy) and s.map.terrain_id_at(x + dx, y + dy) == "water":
+						n += 1
+			if n > lake_n:
+				lake_n = n
+				lake = Vector2i(x, y)
+	cam.position = (Vector2(lake) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
+	await _shot("/tmp/hv_terrain_lake.png")
 	# Clear a forest patch through the terrain_changed hook and shoot it.
 	var spot := Vector2i(-1, -1)
 	for y in range(h.y - 20, h.y + 20):

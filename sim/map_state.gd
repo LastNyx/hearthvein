@@ -47,8 +47,10 @@ var region_reward_pos: Array[Vector2i] = []  # marker tile, (-1,-1) when no rewa
 
 var start_region: int = -1
 var hearth_spot: Vector2i = Vector2i(-1, -1)
-## River tiles in downstream order, entry first.
+## River centreline tiles in downstream order, entry first (the wide river and its lakes are river_flow != 0).
 var river_path: Array[Vector2i] = []
+## River width in tiles at each river_path index (2..4, smooth).
+var river_width: Array[float] = []
 
 
 func _init(ids: PackedStringArray = PackedStringArray()) -> void:

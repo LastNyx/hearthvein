@@ -11,6 +11,7 @@ var eras: Dictionary = {}       # id -> EraDef
 var terrain: Dictionary = {}    # id -> TerrainDef
 var roads: Dictionary = {}      # id -> RoadDef
 var logistics: LogisticsDef = null  # the single data/logistics/logistics.tres
+var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var errors: Array[String] = []
 
 
@@ -23,6 +24,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	terrain.clear()
 	roads.clear()
 	logistics = null
+	mapgen = null
 	errors.clear()
 	for path in _scan(root):
 		_index(path)
@@ -114,6 +116,10 @@ func _index(path: String) -> void:
 		if logistics != null:
 			errors.append("%s: a second logistics definition" % path)
 		logistics = res
+	elif res is MapGenDef:
+		if mapgen != null:
+			errors.append("%s: a second mapgen definition" % path)
+		mapgen = res
 	elif res is RoadDef:
 		_add(roads, res.id, res, path, "road")
 	else:
@@ -152,9 +158,29 @@ func _validate() -> void:
 	elif logistics.door_buffer_cap <= 0.0 or logistics.haul_load <= 0.0 or logistics.input_buffer_days <= 0.0 \
 			or logistics.min_pickup <= 0.0 or logistics.units_per_felled_tile <= 0.0:
 		errors.append("logistics: every number must be positive")
+	_validate_mapgen()
 	_validate_eras()
 	for b: BuildingDef in buildings.values():
 		_validate_building(b)
+
+
+func _validate_mapgen() -> void:
+	if mapgen == null:
+		if not goods.is_empty():
+			errors.append("missing mapgen definition")
+		return
+	var m := mapgen
+	if m.river_width_min < 2.0 or m.river_width_max > 4.0 or m.river_width_min > m.river_width_max:
+		errors.append("mapgen: river width must satisfy 2 <= min <= max <= 4")
+	if m.river_width_freq <= 0.0 or m.river_smooth_window < 0 or m.river_meander_spacing <= 0 \
+			or m.river_meander_jitter < 0 or m.river_start_offset < 7:
+		errors.append("mapgen: river numbers out of range")
+	if m.lake_count_min < 0 or m.lake_count_max < m.lake_count_min or m.pond_count_min < 0 \
+			or m.pond_count_max < m.pond_count_min:
+		errors.append("mapgen: lake/pond counts out of range")
+	if m.lake_radius_min <= 0.0 or m.lake_radius_max < m.lake_radius_min or m.pond_radius_min <= 0.0 \
+			or m.pond_radius_max < m.pond_radius_min:
+		errors.append("mapgen: lake/pond radii out of range")
 
 
 func _validate_eras() -> void:

@@ -15,6 +15,13 @@ var _t_forest: int
 var _t_rock: int
 var _t_water: int
 var _t_vein: int
+var _cfg: MapGenDef
+var _flip := false
+var _flow_exit_x := 0
+var _key := PackedInt32Array()       # river tile -> centreline index of the nearest stamp, -1 = not river
+var _dist := PackedFloat32Array()
+var _river_tiles: Array[Vector2i] = []
+var _reach := PackedByteArray()      # land tiles reachable from the Hearth
 
 
 static func generate(seed: int, registry: DataRegistry) -> MapState:
@@ -28,6 +35,7 @@ func _run(seed: int, registry: DataRegistry) -> MapState:
 	keys.sort()
 	for k in keys:
 		ids.append(k)
+	_cfg = registry.mapgen
 	_s = MapState.new(ids)
 	_s.seed_used = seed
 	_rng = RandomNumberGenerator.new()
@@ -43,6 +51,10 @@ func _run(seed: int, registry: DataRegistry) -> MapState:
 	_base_terrain(seed)
 	_carve_river()
 	_place_hearth()
+	_carve_lakes()
+	_smooth_banks()
+	_assign_flow()
+	_land_reach()
 	_start_guarantees()
 	_scatter_veins()
 	_place_rewards()
@@ -82,19 +94,30 @@ func _base_terrain(seed: int) -> void:
 
 # ---------- river ----------
 
+const FLOW_FROM_STEP := {
+	Vector2i(0, -1): MapState.FLOW_N,
+	Vector2i(1, 0): MapState.FLOW_E,
+	Vector2i(0, 1): MapState.FLOW_S,
+	Vector2i(-1, 0): MapState.FLOW_W,
+}
+
+
+## River in four steps. 1) A 4-connected walk through jittered waypoints (the centreline, map.river_path).
+## 2) A moving average makes it a smooth curve. 3) Discs of a smoothly varying width (cfg river_width_*) are stamped
+## along it. 4) Flow is assigned later by _assign_flow (after lakes are added).
 func _carve_river() -> void:
 	var sr := _s.start_region
 	var srow := sr / MapState.REGION_COLS
 	var rect := MapState.region_rect(sr)
 	var cy := rect.position.y + rect.size.y / 2
 	var cx := rect.position.x + rect.size.x / 2
-	var flip := _rng.randi() % 2 == 1  # flow east to west
+	_flip = _rng.randi() % 2 == 1  # flow east to west
 	# Row 1 start: enter in the top row, leave in the bottom row; row 2 start: the reverse.
 	var side := 1 if srow == 1 else -1
 	var ya := _rng.randi_range(8, 20) if side == 1 else _rng.randi_range(75, 87)
 	var yb := _rng.randi_range(75, 87) if side == 1 else _rng.randi_range(8, 20)
-	var hu := (W - 1 - cx) if flip else cx  # progress coordinate of the start region centre
-	var ys := cy + 7 * side
+	var hu := (W - 1 - cx) if _flip else cx  # progress coordinate of the start region centre
+	var ys := cy + _cfg.river_start_offset * side
 
 	var pts: Array[Vector2i] = [Vector2i(0, ya), Vector2i(7, ya)]
 	_add_meander(pts, Vector2i(hu - 12, ys))
@@ -126,40 +149,202 @@ func _carve_river() -> void:
 			visited[cur] = true
 			path.append(cur)
 
-	# Map progress coordinates to real x and set flow directions.
+	# Map progress coordinates to real x.
 	for i in path.size():
 		var p := path[i]
-		var real := Vector2i(W - 1 - p.x if flip else p.x, p.y)
-		path[i] = real
-	for i in path.size():
-		var p := path[i]
-		var d: int
-		if i + 1 < path.size():
-			var step := path[i + 1] - p
-			d = FLOW_FROM_STEP[step]
+		path[i] = Vector2i(W - 1 - p.x if _flip else p.x, p.y)
+
+	# Smooth centreline (ends pinned: the window shrinks towards them).
+	var n := path.size()
+	var curve := PackedVector2Array()
+	curve.resize(n)
+	for i in n:
+		var k := mini(_cfg.river_smooth_window, mini(i, n - 1 - i))
+		var sum := Vector2.ZERO
+		for j in range(i - k, i + k + 1):
+			sum += Vector2(path[j])
+		curve[i] = sum / float(2 * k + 1)
+
+	# Width: smooth noise along the river, mapped into [min, max]; the epsilon keeps the cross-section in 2..4 tiles.
+	var wn := FastNoiseLite.new()
+	wn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	wn.seed = (_s.seed_used + 4) & 0x7FFFFFFF
+	wn.frequency = _cfg.river_width_freq
+	var lo := _cfg.river_width_min + 0.02
+	var hi := _cfg.river_width_max - 0.02
+	_key.resize(W * H)
+	_key.fill(-1)
+	_dist.resize(W * H)
+	_dist.fill(1e9)
+	_s.river_width.clear()
+	_s.river_path.clear()
+	for i in n:
+		var k := mini(6, mini(i, n - 1 - i))
+		var sum := 0.0
+		for j in range(i - k, i + k + 1):
+			sum += wn.get_noise_1d(j)
+		var t := clampf(0.5 + 0.5 * sum / float(2 * k + 1) * 2.6, 0.0, 1.0)
+		var w := lerpf(lo, hi, t)
+		var tile := Vector2i(curve[i].round())
+		if _s.river_path.is_empty() or _s.river_path[_s.river_path.size() - 1] != tile:
+			_s.river_path.append(tile)  # centreline: the smoothed curve rounded to tiles, always river water
+			_s.river_width.append(w)
 		else:
-			d = MapState.FLOW_W if flip else MapState.FLOW_E
-		_s.set_terrain(p.x, p.y, _t_water)
-		_s.set_flow(p.x, p.y, d)
-	_s.river_path = path
+			_s.river_width[_s.river_width.size() - 1] = w
+		_stamp_disc(curve[i], w * 0.5, _s.river_path.size() - 1, 0.0, 0.0)
+	_flow_exit_x = 0 if _flip else W - 1
 
 
-const FLOW_FROM_STEP := {
-	Vector2i(0, -1): MapState.FLOW_N,
-	Vector2i(1, 0): MapState.FLOW_E,
-	Vector2i(0, 1): MapState.FLOW_S,
-	Vector2i(-1, 0): MapState.FLOW_W,
-}
+## Marks water tiles within `radius` of `c` as river water owned by centreline index `idx`. With wobble > 0 the
+## radius varies with the angle (lobed lakes and ponds), using phases `ph`.
+func _stamp_disc(c: Vector2, radius: float, idx: int, wobble: float, ph: float, mark_river: bool = true) -> void:
+	var r := ceili(radius * (1.0 + wobble) + 1.0)
+	for y in range(int(c.y) - r, int(c.y) + r + 1):
+		for x in range(int(c.x) - r, int(c.x) + r + 1):
+			if not MapState.in_bounds(x, y) or y < BAND or y >= H - BAND:
+				continue
+			if wobble > 0.0 and MapState.is_edge_band(x, y):
+				continue
+			var off := Vector2(x, y) - c
+			var rr := radius
+			if wobble > 0.0:
+				var a := off.angle()
+				rr = radius * (1.0 + wobble * (0.6 * sin(2.0 * a + ph) + 0.4 * sin(3.0 * a + ph * 1.7)))
+			var d := off.length()
+			if d >= rr:
+				continue
+			var i := y * W + x
+			_s.terrain[i] = _t_water
+			if mark_river:
+				if _key[i] == -1:
+					_river_tiles.append(Vector2i(x, y))
+				if d < _dist[i] or _key[i] == -1:
+					_dist[i] = d
+					_key[i] = idx
 
 
-## Appends jittered waypoints between the last point and `to`, roughly every 12 tiles of progress.
+## Bank clean-up: fills one-tile notches (land with 3+ water sides) and drops one-tile spits (water with at most one
+## water side), so bends read as round banks instead of stair steps. Ponds are not touched.
+func _smooth_banks() -> void:
+	for pass_i in 2:
+		var changes: Array[Vector3i] = []  # x, y, 1 = fill / 0 = drop
+		for y in range(BAND, H - BAND):
+			for x in range(1, W - 1):
+				var i := y * W + x
+				var n := 0
+				var nk := -1
+				for o in MapState.FLOW_VECTORS.slice(1):
+					var k := _key[(y + o.y) * W + x + o.x]
+					if k != -1:
+						n += 1
+						nk = k
+				if _key[i] == -1:
+					if n >= 3 and _s.terrain[i] != _t_water:
+						changes.append(Vector3i(x, y, 1))
+				elif n <= 1:
+					changes.append(Vector3i(x, y, 0))
+		for c in changes:
+			var i := c.y * W + c.x
+			if c.z == 1:
+				var best := -1
+				for o in MapState.FLOW_VECTORS.slice(1):
+					best = maxi(best, _key[(c.y + o.y) * W + c.x + o.x])
+				_key[i] = best
+				_s.terrain[i] = _t_water
+			elif c.x > 0 and c.x < W - 1:
+				_key[i] = -1
+				_s.terrain[i] = _t_grass
+	_river_tiles.clear()
+	for i in W * H:
+		if _key[i] != -1:
+			_river_tiles.append(Vector2i(i % W, i / W))
+
+
+## Flow for every river tile (rivers and the lakes on them): breadth-first search from the exit edge column over
+## river water, each tile flows to the neighbour one step nearer the exit (so lakes drain along the shortest way to
+## the outlet), and among equally near neighbours to the one furthest downstream along the centreline. The exit
+## tiles flow off the map. Every tile therefore has a river downstream neighbour or leaves at the map edge.
+func _assign_flow() -> void:
+	var dist := {}
+	var queue: Array[Vector2i] = []
+	for p in _river_tiles:
+		if p.x == _flow_exit_x:
+			dist[p] = 0
+			queue.append(p)
+	var head := 0
+	while head < queue.size():
+		var p := queue[head]
+		head += 1
+		for o in MapState.FLOW_VECTORS.slice(1):
+			var q: Vector2i = p + o
+			if MapState.in_bounds(q.x, q.y) and _key[q.y * W + q.x] != -1 and not dist.has(q):
+				dist[q] = dist[p] + 1
+				queue.append(q)
+	for p in _river_tiles:
+		var d: int = dist.get(p, -1)
+		var dir := MapState.FLOW_W if _flip else MapState.FLOW_E
+		if d > 0:
+			var best_key := -2
+			for f in range(1, 5):
+				var q: Vector2i = p + MapState.FLOW_VECTORS[f]
+				if dist.get(q, -1) == d - 1 and _key[q.y * W + q.x] > best_key:
+					best_key = _key[q.y * W + q.x]
+					dir = f
+		_s.set_flow(p.x, p.y, dir)
+
+
+## Appends jittered waypoints between the last point and `to`, roughly every river_meander_spacing tiles of progress.
 func _add_meander(pts: Array[Vector2i], to: Vector2i) -> void:
 	var from := pts[pts.size() - 1]
-	var n := maxi(1, (to.x - from.x) / 12)
+	var j := _cfg.river_meander_jitter
+	var n := maxi(1, (to.x - from.x) / _cfg.river_meander_spacing)
 	for i in range(1, n):
 		var u := from.x + (to.x - from.x) * i / n
-		var y := from.y + (to.y - from.y) * i / n + _rng.randi_range(-4, 4)
+		var y := from.y + (to.y - from.y) * i / n + _rng.randi_range(-j, j)
 		pts.append(Vector2i(u, clampi(y, 8, H - 9)))
+
+
+# ---------- lakes and ponds ----------
+
+## Lakes sit on the river (so they carry its flow), ponds stand alone on land with no flow.
+func _carve_lakes() -> void:
+	var lakes: Array[Vector3] = []  # x, y, radius
+	var count := _rng.randi_range(_cfg.lake_count_min, _cfg.lake_count_max)
+	var path := _s.river_path
+	for l in count:
+		for attempt in 60:
+			var i := _rng.randi_range(0, path.size() - 1)
+			var r := _rng.randf_range(_cfg.lake_radius_min, _cfg.lake_radius_max)
+			var c := Vector2(path[i]) + Vector2(_rng.randf_range(-1.5, 1.5), _rng.randf_range(-1.5, 1.5))
+			if not _water_site_ok(c, r, lakes, 2.0):
+				continue
+			lakes.append(Vector3(c.x, c.y, r))
+			_stamp_disc(c, r, i, _cfg.shore_wobble, _rng.randf() * TAU)
+			break
+	var ponds: Array[Vector3] = []
+	count = _rng.randi_range(_cfg.pond_count_min, _cfg.pond_count_max)
+	for l in count:
+		for attempt in 120:
+			var r := _rng.randf_range(_cfg.pond_radius_min, _cfg.pond_radius_max)
+			var c := Vector2(_rng.randi_range(BAND, W - 1 - BAND), _rng.randi_range(BAND, H - 1 - BAND))
+			var reach := r * (1.0 + _cfg.shore_wobble) + _cfg.pond_river_gap
+			if _river_distance(Vector2i(c)) < reach + 1.0 or not _water_site_ok(c, r, ponds, _cfg.pond_river_gap):
+				continue
+			ponds.append(Vector3(c.x, c.y, r))
+			_stamp_disc(c, r, -1, _cfg.shore_wobble, _rng.randf() * TAU, false)
+			break
+
+
+func _water_site_ok(c: Vector2, r: float, others: Array[Vector3], gap: float) -> bool:
+	var m := r * (1.0 + _cfg.shore_wobble) + 2.0
+	if c.x < BAND + m or c.y < BAND + m or c.x > W - 1 - BAND - m or c.y > H - 1 - BAND - m:
+		return false
+	if c.distance_to(Vector2(_s.hearth_spot)) < _cfg.water_hearth_clear + r:
+		return false
+	for o in others:
+		if c.distance_to(Vector2(o.x, o.y)) < r + o.z + gap + 2.0:
+			return false
+	return true
 
 
 # ---------- start region ----------
@@ -208,7 +393,7 @@ func _start_guarantees() -> void:
 			for u in used:
 				if u.distance_to(c) < 5.0:
 					clash = true
-			if clash or not _blob_ok(c, 2):
+			if clash or not _blob_ok(c, 2) or _reach[c.y * W + c.x] == 0:
 				continue
 			_blob(c, 2.2, kind)
 			used.append(c)
@@ -218,7 +403,7 @@ func _start_guarantees() -> void:
 			# Fallback: always place a small blob due west/east/north/south of the Hearth.
 			for off in [Vector2i(6, 0), Vector2i(-6, 0), Vector2i(0, 6), Vector2i(0, -6)]:
 				var c: Vector2i = h + off
-				if rect.grow(-2).has_point(c) and _blob_ok(c, 1):
+				if rect.grow(-2).has_point(c) and _blob_ok(c, 1) and _reach[c.y * W + c.x] == 1:
 					_blob(c, 1.6, kind)
 					used.append(c)
 					break
@@ -232,7 +417,7 @@ func _start_guarantees() -> void:
 		var d := p.distance_to(h)
 		if d < 5.0 or d > 10.0:
 			continue
-		if _s.get_terrain(p.x, p.y) == _t_water or MapState.is_edge_band(p.x, p.y):
+		if _s.get_terrain(p.x, p.y) == _t_water or MapState.is_edge_band(p.x, p.y) or _reach[p.y * W + p.x] == 0:
 			continue
 		_s.set_terrain(p.x, p.y, _t_vein)
 		veins.append(p)
@@ -337,11 +522,30 @@ func _reward_pos(r: int) -> Vector2i:
 	return best
 
 
+## Distance to the nearest river or lake tile (ponds have no flow and are not counted).
 func _river_distance(p: Vector2i) -> float:
-	var d := 1e9
-	for q in _s.river_path:
-		d = minf(d, p.distance_to(q))
-	return d
+	var d := 1e18
+	for q in _river_tiles:
+		d = minf(d, float((p - q).length_squared()))
+	return sqrt(d)
+
+
+## Flood fill over non-water tiles from the Hearth: the land a walker can reach.
+func _land_reach() -> void:
+	_reach.resize(W * H)
+	_reach.fill(0)
+	var h := _s.hearth_spot
+	var queue: Array[Vector2i] = [h]
+	_reach[h.y * W + h.x] = 1
+	var head := 0
+	while head < queue.size():
+		var p := queue[head]
+		head += 1
+		for o in MapState.FLOW_VECTORS.slice(1):
+			var q: Vector2i = p + o
+			if MapState.in_bounds(q.x, q.y) and _reach[q.y * W + q.x] == 0 and _s.get_terrain(q.x, q.y) != _t_water:
+				_reach[q.y * W + q.x] = 1
+				queue.append(q)
 
 
 func _shuffle(a: Array) -> void:
