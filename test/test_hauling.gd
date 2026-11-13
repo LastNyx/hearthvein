@@ -32,7 +32,7 @@ func before_each() -> void:
 func _put(id: String, dx: int, side: int = -1) -> Building:
 	var def := reg.get_building(id)
 	var origin := Vector2i(h.x + dx, h.y - def.size.y if side < 0 else h.y + 1)
-	var bid := s.place_building(id, origin)
+	var bid := s.place_building_instant(id, origin)
 	assert_true(bid >= 0, "%s placed at %s" % [id, origin])
 	return s.buildings.get(bid)
 

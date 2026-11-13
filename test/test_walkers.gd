@@ -89,8 +89,8 @@ func test_step_hours_moves_walkers() -> void:
 
 
 func test_worker_not_at_work_while_walking() -> void:
-	var tent := s.place_building("tent", _tent_spot())
-	var wc := s.place_building("woodcutter", _free_spot("woodcutter"))
+	var tent := s.place_building_instant("tent", _tent_spot())
+	var wc := s.place_building_instant("woodcutter", _free_spot("woodcutter"))
 	assert_true(tent >= 0 and wc >= 0, "setup")
 	# Connect the woodcutter so it takes workers.
 	_connect(s.buildings[wc])
@@ -185,7 +185,7 @@ func test_path_avoids_new_building_and_walks_around() -> void:
 	var blocker := o + Vector2i(5, 0)
 	var spot_ok: bool = s.can_place("tent", blocker)["ok"]
 	assert_true(spot_ok)
-	assert_gt(s.place_building("tent", blocker), -1)
+	assert_gt(s.place_building_instant("tent", blocker), -1)
 	var p1 := ws.find_path(o, end)
 	assert_false(p1.has(blocker))
 	assert_eq(p1.size(), 13)
@@ -193,7 +193,7 @@ func test_path_avoids_new_building_and_walks_around() -> void:
 
 func test_door_is_only_way_into_building() -> void:
 	var spot := _free_spot("tent")
-	var id := s.place_building("tent", spot)
+	var id := s.place_building_instant("tent", spot)
 	var b: Building = s.buildings[id]
 	var door := ws.door_tile(b)
 	assert_eq(door, spot)
@@ -216,11 +216,11 @@ func test_citizens_commute_home_work() -> void:
 		for x in range(h.x + 3, h.x + 12):
 			s.set_terrain(Vector2i(x, y), "grass")
 	s.set_terrain(Vector2i(h.x + 9, h.y + 1), "forest")
-	var wc := s.place_building("woodcutter", Vector2i(h.x + 7, h.y + 1))
+	var wc := s.place_building_instant("woodcutter", Vector2i(h.x + 7, h.y + 1))
 	assert_gt(wc, 0, "woodcutter placed")
 	_connect(s.buildings[wc])
 	for i in 3:
-		s.place_building("tent", _free_spot("tent"))
+		s.place_building_instant("tent", _free_spot("tent"))
 	s.refresh_population()
 	var worker: Citizen = null
 	for id in s.citizens:

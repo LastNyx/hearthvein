@@ -156,7 +156,10 @@ func _validate() -> void:
 		if not goods.is_empty():  # an unreadable data root is already one error
 			errors.append("missing logistics definition")
 	elif logistics.door_buffer_cap <= 0.0 or logistics.haul_load <= 0.0 or logistics.input_buffer_days <= 0.0 \
-			or logistics.min_pickup <= 0.0 or logistics.units_per_felled_tile <= 0.0:
+			or logistics.min_pickup <= 0.0 or logistics.units_per_felled_tile <= 0.0 \
+			or logistics.build_days_per_tile <= 0.0 or logistics.build_days_per_era < 0.0 or logistics.build_days_min <= 0.0 \
+			or logistics.build_days_max < logistics.build_days_min or logistics.builder_crew <= 0 \
+			or logistics.demolish_refund < 0.0 or logistics.demolish_refund > 1.0:
 		errors.append("logistics: every number must be positive")
 	_validate_mapgen()
 	_validate_eras()

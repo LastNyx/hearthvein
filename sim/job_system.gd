@@ -8,9 +8,14 @@ extends SimSystem
 ## "logistics" is the design's "hauling"; "refining" is "refined goods". There is no gold-producing category yet,
 ## when one is added put it in at its place between refining and civic. Categories not listed (housing, sky,
 ## landmark) rank last.
+## "build" (design.md section 6 gives no rank, ticket 11 decided): builder slots rank right after hauling and before
+## materials, because a site only starts once haulers have delivered, and building is what makes everything below
+## it possible. Builder slots only open while sites are ready to build (see _cap_builders).
 const CATEGORY_ORDER: Array[String] = [
-	"food", "water", "lumen", "logistics", "materials", "refining", "gold", "civic",
+	"food", "water", "lumen", "logistics", "build", "materials", "refining", "gold", "civic",
 ]
+## Builder slots (def.builder_slots) always rank as the building tier, whatever the building's own category.
+const BUILD_CATEGORY := "build"
 ## Hauler slots (def.hauler_slots) always rank as the hauling tier, whatever the building's own category.
 const HAUL_CATEGORY := "logistics"
 ## Within a category: high first, then normal, then low. Paused buildings get no workers at all.
@@ -49,7 +54,7 @@ static func _assign_homes(s: Settlement) -> void:
 	var free := {}  # building id -> free beds
 	for bid in _sorted_building_ids(s):
 		var b: Building = s.buildings[bid]
-		if b.def.housing_beds > 0:
+		if b.def.housing_beds > 0 and not b.site:
 			free[bid] = b.def.housing_beds
 	var homeless: Array = []
 	for cid in _sorted_citizen_ids(s):
@@ -74,7 +79,7 @@ static func _job_entries(s: Settlement) -> Array:
 	var entries: Array = []
 	for bid in _sorted_building_ids(s):
 		var b: Building = s.buildings[bid]
-		if b.paused or not b.connected:
+		if b.paused or not b.connected or b.site:
 			continue
 		var pr := PRIORITY_ORDER.find(b.priority)
 		if pr < 0:
@@ -85,12 +90,30 @@ static func _job_entries(s: Settlement) -> Array:
 		if b.def.hauler_slots > 0:
 			entries.append({"building": b, "kind": Citizen.JOB_HAUL, "slots": b.def.hauler_slots,
 				"key": [category_rank(HAUL_CATEGORY), pr, bid]})
+		if b.def.builder_slots > 0:
+			entries.append({"building": b, "kind": Citizen.JOB_BUILD, "slots": b.def.builder_slots,
+				"key": [category_rank(BUILD_CATEGORY), pr, bid]})
 	entries.sort_custom(func(a, b):
 		for i in 3:
 			if a["key"][i] != b["key"][i]:
 				return a["key"][i] < b["key"][i]
 		return a["kind"] < b["kind"])
-	return entries
+	return _cap_builders(s, entries)
+
+
+## Builders are only wanted while sites are ready to build (full cost delivered, not paused): crew size per such
+## site. Surplus builder slots stay closed, so those citizens work somewhere useful instead of standing around.
+static func _cap_builders(s: Settlement, entries: Array) -> Array:
+	var demand := ConstructionSystem.builders_wanted(s)
+	var out: Array = []
+	for e in entries:
+		if e["kind"] == Citizen.JOB_BUILD:
+			e["slots"] = mini(e["slots"], demand)
+			demand -= e["slots"]
+			if e["slots"] <= 0:
+				continue
+		out.append(e)
+	return out
 
 
 ## Slots are allotted in priority order until citizens run out. Citizens already in an allotted slot keep it

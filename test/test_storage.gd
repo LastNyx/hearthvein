@@ -27,7 +27,7 @@ func _free_spot(s: Settlement, w: int, h: int, skip: int = 0) -> Vector2i:
 
 
 func _storehouse(s: Settlement, skip: int = 0) -> Building:
-	var id := s.place_building("storehouse", _free_spot(s, 2, 1, skip))
+	var id := s.place_building_instant("storehouse", _free_spot(s, 2, 1, skip))
 	assert_gt(id, -1)
 	return s.buildings[id]
 

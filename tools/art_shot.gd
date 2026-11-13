@@ -31,20 +31,20 @@ func _init() -> void:
 		s.place_road(Vector2i(x, h.y))
 	for y in range(h.y + 1, h.y + 6):
 		s.place_road(Vector2i(h.x + 4, y))
-	s.place_building("storehouse", Vector2i(h.x + 5, h.y + 1))
-	s.place_building("tent", Vector2i(h.x + 3, h.y - 1))
-	s.place_building("tent", Vector2i(h.x + 6, h.y - 1))
-	s.place_building("tent", Vector2i(h.x - 3, h.y + 1))
-	s.place_building("tent", Vector2i(h.x - 2, h.y - 1))
+	s.place_building_instant("storehouse", Vector2i(h.x + 5, h.y + 1))
+	s.place_building_instant("tent", Vector2i(h.x + 3, h.y - 1))
+	s.place_building_instant("tent", Vector2i(h.x + 6, h.y - 1))
+	s.place_building_instant("tent", Vector2i(h.x - 3, h.y + 1))
+	s.place_building_instant("tent", Vector2i(h.x - 2, h.y - 1))
 	var tap := _find_spot(s, "lumen_tap")
 	if tap.x >= 0:
-		s.place_building("lumen_tap", tap)
+		s.place_building_instant("lumen_tap", tap)
 	var wc := _find_spot(s, "woodcutter")
 	if wc.x >= 0:
-		s.place_building("woodcutter", wc)
+		s.place_building_instant("woodcutter", wc)
 	var f := _find_spot(s, "forager", 3)
 	if f.x >= 0:
-		s.place_building("forager", f)
+		s.place_building_instant("forager", f)
 	var cam: CameraController = main.get_node("Camera")
 	for pair in [[2, "/tmp/hv_art_z1.png"], [3, "/tmp/hv_art_z2.png"]]:
 		cam.set_zoom_step(pair[0])

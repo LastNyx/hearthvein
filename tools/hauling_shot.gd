@@ -14,9 +14,9 @@ func _init() -> void:
 			if s.map.terrain_id_at(x, y) == "forest":
 				s.set_terrain(Vector2i(x, y), "grass")
 		s.place_road(Vector2i(x, h.y))
-	s.place_building("forager", Vector2i(h.x + 4, h.y - 1))
-	s.place_building("storehouse", Vector2i(h.x + 6, h.y - 1))
-	s.place_building("woodcutter", Vector2i(h.x + 9, h.y + 1))
+	s.place_building_instant("forager", Vector2i(h.x + 4, h.y - 1))
+	s.place_building_instant("storehouse", Vector2i(h.x + 6, h.y - 1))
+	s.place_building_instant("woodcutter", Vector2i(h.x + 9, h.y + 1))
 	# Forest for the woodcutter to chew on (the seed's own trees are further out).
 	for dy in range(2, 5):
 		for dx in range(7, 13):

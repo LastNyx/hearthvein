@@ -15,6 +15,9 @@ extends SimSystem
 ## haulers never chase the same units. A trip is aborted (reservations freed, carried goods put back if possible,
 ## else lost) when the hauler loses its haul job, a building vanishes or the way is blocked.
 ##
+## Construction sites (D48) are consumers too: a site's need is its full cost (non-gold goods), delivered into its
+## input buffer. When the last good arrives the Jobs are refreshed so builders can be allotted.
+##
 ## Consumers: a building whose recipe has inputs. Need = input amount x worker slots x input_buffer_days per good
 ## (input_need). Building upkeep (Lumen) is not hauled yet; add it to input_need when upkeep gets consumed.
 
@@ -40,6 +43,17 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 		return out
 	for g in def.recipe.inputs:
 		out[g] = float(def.recipe.inputs[g]) * def.worker_slots * reg.logistics.input_buffer_days
+	return out
+
+
+## What a consumer should hold: a site's full cost (gold is paid on placement), else input_need of its def.
+static func need_of(reg: DataRegistry, b: Building) -> Dictionary:
+	if not b.site:
+		return input_need(reg, b.def)
+	var out := {}
+	for g in b.def.cost:
+		if g != BuildingDef.GOLD:
+			out[g] = float(b.def.cost[g])
 	return out
 
 
@@ -148,7 +162,7 @@ func _plan(s: Settlement, ws: WalkerSystem, _cid: int) -> Trip:
 		var b: Building = s.buildings[id]
 		if b.input_buffer == null:
 			continue
-		var need := input_need(s.registry, b.def)
+		var need := need_of(s.registry, b)
 		for g in need:
 			var deficit: float = need[g] - b.input_buffer.amount_of(g) - _res("i", b.id, g)
 			if deficit < lg.min_pickup - Inventory.EPS:
@@ -232,6 +246,8 @@ func _advance(s: Settlement, ws: WalkerSystem, t: Trip, in_shift: bool) -> bool:
 	var put := inv.add(t.good, t.carried) if inv != null else 0.0
 	s.events.emit("haul_delivered", {"hauler": cid, "good": t.good, "amount": put, "from": t.src, "to": t.dst})
 	t.carried -= put
+	if dst.site and dst.site_delivered():
+		s.refresh_population()  # builders can be allotted now
 	_refund(s, t)
 	trips.erase(cid)
 	_next_or_release(s, ws, cid, in_shift)

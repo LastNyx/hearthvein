@@ -24,8 +24,8 @@ func _init() -> void:
 		s.place_road(Vector2i(x, h.y))
 	for y in range(h.y + 1, h.y + 6):
 		s.place_road(Vector2i(h.x + 4, y))
-	s.place_building("tent", Vector2i(h.x + 3, h.y - 1))
-	s.place_building("tent", Vector2i(h.x - 3, h.y + 1))
+	s.place_building_instant("tent", Vector2i(h.x + 3, h.y - 1))
+	s.place_building_instant("tent", Vector2i(h.x - 3, h.y + 1))
 	var cam: CameraController = main.get_node("Camera")
 	for pair in [[2, "/tmp/hv_terrain_z1.png"], [3, "/tmp/hv_terrain_z2.png"]]:
 		cam.set_zoom_step(pair[0])

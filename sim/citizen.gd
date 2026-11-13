@@ -6,6 +6,9 @@ const JOB_NONE := ""
 ## Job kinds: a normal worker slot or a hauler slot of the job building.
 const JOB_WORK := "work"
 const JOB_HAUL := "haul"
+## A builder slot (BuildingDef.builder_slots) of the job building. The citizen works at construction sites,
+## chosen by ConstructionSystem, not at the job building itself.
+const JOB_BUILD := "build"
 
 var id: int = -1
 ## Building id of the house the citizen sleeps in, -1 = homeless.

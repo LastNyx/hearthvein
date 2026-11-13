@@ -13,8 +13,6 @@ const ROAD_NONE := 0
 const ROAD_DIRT := 1
 const ROAD_PAVED := 2  # stored only for now; the paving tool comes in Town
 
-## Placement is instant and free until ticket 11 (costs and construction) replaces _commit_placement.
-var instant_build: bool = true
 ## Building instances by id, plus an occupancy grid (building id per tile, -1 free) and a road grid.
 var buildings: Dictionary = {}  # int -> Building
 var occupancy := PackedInt32Array()
@@ -45,7 +43,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	s.roads.resize(MapState.WIDTH * MapState.HEIGHT)
 	var hdef := reg.get_building("hearth")
 	if hdef != null and s.map.hearth_spot.x >= 0:
-		s.hearth = s._insert_building(hdef, s.map.hearth_spot)
+		s.hearth = s._insert_building(hdef, s.map.hearth_spot, false)
 		for g in START_STOCK:
 			s.hearth.inventory.add(g, START_STOCK[g])
 		s.place_road(s.map.hearth_spot + Vector2i(hdef.size.x, 0))
@@ -62,6 +60,7 @@ func add_default_systems() -> void:
 	add_system(WalkerSystem.new())
 	add_system(ProductionSystem.new())
 	add_system(HaulingSystem.new())
+	add_system(ConstructionSystem.new())
 
 
 func add_system(system: SimSystem) -> void:
@@ -167,29 +166,56 @@ func can_place(def_id: String, origin: Vector2i) -> Dictionary:
 	return {"ok": true, "reason": ""}
 
 
-## Returns the new building id, or -1 when invalid.
+## Normal play (D48): places a construction site and returns its building id, or -1 when invalid (see can_place) or
+## when the gold part of the cost is not in the treasury. Gold is paid now; every other good is hauled to the site
+## (HaulingSystem), then builders build it (ConstructionSystem). Priority via set_building_priority.
 func place_building(def_id: String, origin: Vector2i) -> int:
 	if not can_place(def_id, origin)["ok"]:
 		return -1
-	var b := _commit_placement(registry.get_building(def_id), origin)
-	return b.id if b != null else -1
+	var def := registry.get_building(def_id)
+	var g := float(def.cost.get(BuildingDef.GOLD, 0))
+	if g > gold + Inventory.EPS:
+		return -1
+	gold -= g
+	var b := _insert_building(def, origin, true)
+	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin, "site": true})
+	refresh_population()
+	return b.id
 
 
-## The single hook for ticket 11: charge the cost / create a construction site instead of an instant building.
-func _commit_placement(def: BuildingDef, origin: Vector2i) -> Building:
-	if not instant_build:
-		return null
-	var b := _insert_building(def, origin)
-	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin})
-	return b
+## Debug and test path: a finished building at once, free, no site. Never used by normal play (the build UI calls
+## place_building). Same validity rules as place_building. Returns the building id, or -1.
+func place_building_instant(def_id: String, origin: Vector2i) -> int:
+	if not can_place(def_id, origin)["ok"]:
+		return -1
+	var def := registry.get_building(def_id)
+	var b := _insert_building(def, origin, false)
+	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin, "site": false})
+	return b.id
 
 
-func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
-	var b := Building.new()
-	b.id = _next_building_id
-	_next_building_id += 1
-	b.def = def
-	b.origin = origin
+## Build time in days with a full crew (design.md section 6: 1-6 days by size and era), numbers in LogisticsDef.
+func build_days(def: BuildingDef) -> float:
+	var lg := registry.logistics
+	var era := registry.get_era(def.era)
+	var order := era.order if era != null else 1
+	var d := float(def.size.x * def.size.y) * lg.build_days_per_tile + float(order - 1) * lg.build_days_per_era
+	return clampf(d, lg.build_days_min, lg.build_days_max)
+
+
+## Called by ConstructionSystem when the work is done: the site becomes a normal building (buffers, jobs, housing).
+func complete_site(b: Building) -> void:
+	if not b.site:
+		return
+	b.site = false
+	b.input_buffer = null
+	_init_buffers(b)
+	events.emit("building_completed", {"id": b.id, "def": b.def.id, "origin": b.origin})
+	refresh_population()
+
+
+func _init_buffers(b: Building) -> void:
+	var def := b.def
 	if def.storage_mode != "none":
 		b.inventory = Inventory.new(def.storage_mode, float(def.storage_cap))
 	if def.recipe != null and registry.logistics != null:
@@ -200,6 +226,24 @@ func _insert_building(def: BuildingDef, origin: Vector2i) -> Building:
 			for g in need:
 				cap = maxf(cap, need[g])
 			b.input_buffer = Inventory.new("per_good", cap)
+
+
+func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false) -> Building:
+	var b := Building.new()
+	b.id = _next_building_id
+	_next_building_id += 1
+	b.def = def
+	b.origin = origin
+	if as_site:
+		b.site = true
+		var cap := 0.0
+		for g in def.cost:
+			if g != BuildingDef.GOLD:
+				cap = maxf(cap, float(def.cost[g]))
+		b.input_buffer = Inventory.new("per_good", cap)
+		b.build_work_needed = build_days(def) * float(registry.logistics.builder_crew)
+	else:
+		_init_buffers(b)
 	buildings[b.id] = b
 	grid_version += 1
 	for t in b.tiles():
@@ -215,13 +259,48 @@ func demolish(id: int) -> bool:
 		return false
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = -1
-	# Contents of a demolished storehouse are lost for now; ticket 11 may refund.
+	# Contents of a demolished storehouse are lost.
 	buildings.erase(id)
 	grid_version += 1
-	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin})
+	var refund := _refund_for(b)
+	_return_goods(refund, b.origin)
+	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin, "site": b.site, "refund": refund})
 	_recompute_connections()
 	refresh_population()
 	return true
+
+
+## What a demolish gives back (LogisticsDef.demolish_refund, 50%): of the full cost for a finished building, of the
+## goods already delivered for a site (design.md is silent on sites, ticket 11 decided; the gold paid counts too).
+## Goods in transit are not part of it: a hauler whose destination vanishes puts its load back at the source.
+func _refund_for(b: Building) -> Dictionary:
+	var share := registry.logistics.demolish_refund
+	var out := {}
+	for g in b.def.cost:
+		var have := float(b.def.cost[g])
+		if b.site and g != BuildingDef.GOLD:
+			have = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
+		if have * share > Inventory.EPS:
+			out[g] = have * share
+	return out
+
+
+## Gold goes to the counter; each good to the nearest storage with room (measured from `from`), spilling over to
+## the next nearest when one fills up. What fits nowhere is lost.
+func _return_goods(goods: Dictionary, from: Vector2i) -> void:
+	for g in goods:
+		var left: float = goods[g]
+		if g == BuildingDef.GOLD:
+			gold += left
+			continue
+		while left > Inventory.EPS:
+			var st := find_storage_with_room(g, from)
+			if st == null:
+				break
+			var put := st.inventory.add(g, left)
+			if put <= 0.0:
+				break
+			left -= put
 
 
 ## Command: change one tile's terrain (woodcutting, regrowth, blight later). Bumps grid_version because walk speeds
@@ -270,7 +349,9 @@ func remove_citizen(id: int) -> bool:
 func beds_total() -> int:
 	var n := 0
 	for id in buildings:
-		n += (buildings[id] as Building).def.housing_beds
+		var b: Building = buildings[id]
+		if not b.site:
+			n += b.def.housing_beds
 	return n
 
 

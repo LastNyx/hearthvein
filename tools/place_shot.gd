@@ -25,18 +25,18 @@ func _init() -> void:
 	# A road east of the hearth with buildings along it, one building left disconnected.
 	for x in range(h.x + 2, h.x + 9):
 		s.place_road(Vector2i(x, h.y))
-	s.place_building("storehouse", Vector2i(h.x + 3, h.y + 1))
-	s.place_building("tent", Vector2i(h.x + 6, h.y + 1))
-	s.place_building("tent", Vector2i(h.x + 3, h.y - 1))
+	s.place_building_instant("storehouse", Vector2i(h.x + 3, h.y + 1))
+	s.place_building_instant("tent", Vector2i(h.x + 6, h.y + 1))
+	s.place_building_instant("tent", Vector2i(h.x + 3, h.y - 1))
 	for x in range(h.x - 3, h.x):
 		s.place_road(Vector2i(x, h.y))
-	s.place_building("tent", Vector2i(h.x - 2, h.y + 1))
+	s.place_building_instant("tent", Vector2i(h.x - 2, h.y + 1))
 	var tap := _find_spot(s, "lumen_tap")
 	if tap.x >= 0:
-		s.place_building("lumen_tap", tap)
+		s.place_building_instant("lumen_tap", tap)
 	var f := _find_spot(s, "forager", 3)
-	s.place_building("forager", f)
-	s.place_building("tent", Vector2i(h.x - 3, h.y + 3))  # disconnected
+	s.place_building_instant("forager", f)
+	s.place_building_instant("tent", Vector2i(h.x - 3, h.y + 3))  # disconnected
 	var cam: CameraController = main.get_node("Camera")
 	cam.set_zoom_step(3)
 	await process_frame

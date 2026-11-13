@@ -69,8 +69,8 @@ func test_lumen_tap_only_on_vein() -> void:
 	var r := s.can_place("lumen_tap", grass)
 	assert_false(r["ok"])
 	assert_eq(r["reason"], "needs_vein")
-	assert_eq(s.place_building("lumen_tap", grass), -1)
-	assert_true(s.place_building("lumen_tap", vein) >= 0)
+	assert_eq(s.place_building_instant("lumen_tap", grass), -1)
+	assert_true(s.place_building_instant("lumen_tap", vein) >= 0)
 
 
 func test_quarry_rule_uses_rock() -> void:
@@ -105,7 +105,7 @@ func test_other_rules() -> void:
 func test_overlap_rejected() -> void:
 	var s := _new()
 	var t := _free_grass(s)
-	assert_true(s.place_building("storehouse", t) >= 0)
+	assert_true(s.place_building_instant("storehouse", t) >= 0)
 	assert_eq(s.can_place("tent", t)["reason"], "overlap")
 	assert_eq(s.can_place("tent", t + Vector2i(1, 0))["reason"], "overlap", "second tile of the 2x1")
 	assert_eq(s.can_place("tent", s.map.hearth_spot)["reason"], "overlap", "hearth blocks")
@@ -137,7 +137,7 @@ func test_connection_only_when_road_reaches_hearth() -> void:
 	var s := _new()
 	var h := s.map.hearth_spot
 	# The 7x7 patch around the hearth is plain grass. Tent at (+3,+3); hearth road starts at (+2,0).
-	var id := s.place_building("tent", h + Vector2i(3, 3))
+	var id := s.place_building_instant("tent", h + Vector2i(3, 3))
 	assert_true(id >= 0)
 	var b: Building = s.buildings[id]
 	assert_false(b.connected, "road only at the hearth")
@@ -151,7 +151,7 @@ func test_connection_only_when_road_reaches_hearth() -> void:
 	# A separate road touching a faraway building but not the hearth does not count.
 	var far := _free_grass(s, 5)
 	assert_ne(far, Vector2i(-1, -1))
-	var fid := s.place_building("tent", far)
+	var fid := s.place_building_instant("tent", far)
 	assert_true(fid >= 0)
 	s.place_road(far + Vector2i(1, 0))
 	assert_false((s.buildings[fid] as Building).connected)
@@ -160,7 +160,7 @@ func test_connection_only_when_road_reaches_hearth() -> void:
 func test_connection_event_emitted_on_change() -> void:
 	var s := _new()
 	var h := s.map.hearth_spot
-	var id := s.place_building("tent", h + Vector2i(3, 1))
+	var id := s.place_building_instant("tent", h + Vector2i(3, 1))
 	assert_true(id >= 0)
 	var before := s.events.log_of("building_connection_changed").size()
 	s.place_road(h + Vector2i(2, 1))
@@ -175,7 +175,7 @@ func test_connection_event_emitted_on_change() -> void:
 func test_demolish_frees_tiles() -> void:
 	var s := _new()
 	var t := _free_grass(s)
-	var id := s.place_building("storehouse", t)
+	var id := s.place_building_instant("storehouse", t)
 	assert_true(id >= 0)
 	assert_eq(s.can_place("tent", t)["reason"], "overlap")
 	assert_true(s.demolish(id))
