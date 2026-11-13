@@ -10,6 +10,7 @@ const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", 
 const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
 const REWARD_LABELS := {"rich_vein": "Rich vein", "ruins": "Ruins", "fertile_valley": "Fertile valley",
 		"old_forest": "Old forest", "spring": "Spring"}
+const COST_ORDER: Array[String] = ["materials", "planks", "cut_stone", "tools", "lumen_cells"]
 const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 
 var s: Settlement
@@ -256,8 +257,67 @@ func selection() -> Dictionary:
 	for l in lines:
 		if l != "":
 			clean.append(l)
-	return {"id": b.id, "title": b.display_name(s.registry), "lines": clean, "halt": halt_text, "warn": warn,
+	var out := {"id": b.id, "title": b.display_name(s.registry), "lines": clean, "halt": halt_text, "warn": warn,
 			"priority": b.priority, "paused": b.paused, "site": b.site, "progress": b.build_progress()}
+	out.merge(upgrade_info(b))
+	return out
+
+
+const UPGRADE_REASONS := {"unknown_building": "No building", "site": "Still under construction",
+		"category": "Cannot be upgraded", "not_upgradable": "Cannot be upgraded", "in_progress": "Upgrade in progress",
+		"max_tier": "Fully upgraded", "needs_wet": "Needs wet ground"}
+
+
+## Short player-facing text for a Settlement.can_upgrade reason ("" for no reason).
+func upgrade_reason_text(reason: String, next_tier: int = 0) -> String:
+	if reason == "era_locked":
+		var rule := s.registry.tiers
+		var e := s.registry.get_era(rule.era_for(next_tier)) if rule != null else null
+		return "Needs %s era" % e.display_name if e != null else "Needs a later era"
+	return UPGRADE_REASONS.get(reason, reason.capitalize().replace("_", " "))
+
+
+## "3 Planks, 2 Cut Stone": real good names, materials first then by id.
+func goods_cost_text(cost: Dictionary) -> String:
+	var ids: Array = cost.keys()
+	ids.sort_custom(func(a: String, c: String) -> bool:
+		var ra := COST_ORDER.find(a) if COST_ORDER.has(a) else COST_ORDER.size()
+		var rc := COST_ORDER.find(c) if COST_ORDER.has(c) else COST_ORDER.size()
+		return ra < rc if ra != rc else a < c)
+	var parts: Array[String] = []
+	for g in ids:
+		var gd := s.registry.get_good(g)
+		parts.append("%d %s" % [int(cost[g]), gd.display_name if gd != null else str(g)])
+	return ", ".join(parts)
+
+
+## Upgrade part of the panel: tier, next_tier (0 = none), next_name, next_cost (text, materials first), can_upgrade,
+## upgrade_reason (text), upgrading, upgrade_progress, show_upgrade (whether the panel offers the button).
+func upgrade_info(b: Building) -> Dictionary:
+	var info := {"tier": b.tier, "next_tier": 0, "next_name": "", "next_cost": "", "can_upgrade": false,
+			"upgrade_reason": "", "upgrading": b.upgrading(), "upgrade_progress": b.upgrade_progress(),
+			"show_upgrade": false}
+	if b.site or not b.def.upgradable or b.def.tiers.is_empty():
+		return info
+	var can := s.can_upgrade(b.id)
+	var nxt := b.upgrade_tier if b.upgrading() else b.tier + 1
+	if nxt > 1 + b.def.tiers.size():
+		info["upgrade_reason"] = upgrade_reason_text("max_tier")
+		return info
+	var td := b.tier_def(s.registry, nxt)
+	info["next_tier"] = nxt
+	info["next_name"] = td.display_name if td != null and td.display_name != "" else \
+			"%s %s" % [b.def.display_name, "I".repeat(nxt)]
+	info["next_cost"] = goods_cost_text(b.tier_cost(s.registry, nxt))
+	info["can_upgrade"] = can["ok"]
+	info["upgrade_reason"] = upgrade_reason_text(can["reason"], nxt)
+	info["show_upgrade"] = not b.upgrading()
+	return info
+
+
+## Command: upgrade the selected building (U key / Upgrade button). False when it is refused.
+func upgrade() -> bool:
+	return selected() != null and s.upgrade(selected_id)
 
 
 func set_priority(p: String) -> bool:

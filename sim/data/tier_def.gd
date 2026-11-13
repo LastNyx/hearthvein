@@ -16,5 +16,7 @@ extends Resource
 ## Farm output multiplier when needs_wet is set and at least half the footprint is wet (Irrigated Farm: 1.5, which
 ## replaces the plain wet x1.25 of design.md section 9 -- the two do not stack). 1.0 = no extra bonus.
 @export var wet_bonus: float = 1.0
+## art_manifest building id drawn for this tier (e.g. "cottage_shingle"). "" or an id without art = the base sprite.
+@export var art_id: String = ""
 ## good id -> int. Empty = use the default costs (TierRuleDef): fractions of the base materials cost.
 @export var cost: Dictionary = {}

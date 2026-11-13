@@ -20,7 +20,7 @@ func setup(s: Settlement, v: MapView) -> void:
 	view = v
 	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or _dug(t) or settlement.building_at(t) != null
 	z_index = 20  # the no-road icon sits above sprites and glows
-	for kind in ["building_placed", "building_demolished", "road_changed", "building_connection_changed", "building_completed"]:
+	for kind in ["building_placed", "building_demolished", "road_changed", "building_connection_changed", "building_completed", "building_upgraded"]:
 		s.events.subscribe(kind, func(entry: Dictionary) -> void: _on_event(entry["kind"], entry["data"]))
 	for y in MapState.HEIGHT:
 		for x in MapState.WIDTH:
@@ -48,6 +48,10 @@ func _on_event(kind: String, e: Dictionary) -> void:
 			if _nodes.has(e["id"]):
 				for n in _nodes[e["id"]]:
 					(n as CanvasItem).visible = true
+		"building_upgraded":
+			if settlement.buildings.has(e["id"]):  # new tier: swap in its sprite
+				_remove_building(e["id"], e["origin"], e["def"])
+				_add_building(settlement.buildings[e["id"]])
 		"building_demolished":
 			_remove_building(e["id"], e["origin"], e["def"])
 	queue_redraw()
@@ -106,13 +110,19 @@ func _refresh_channels() -> void:
 	_drawn_channels = now
 
 
+## Manifest id of the building's sprite: its tier art where the manifest has it, else the base sprite.
+func _art_id(b: Building) -> String:
+	var id := b.tier_art_id(settlement.registry)
+	return id if id != "" and ArtLibrary.manifest()["buildings"].has(id) else b.def.id
+
+
 func _add_building(b: Building) -> void:
-	var e := ArtLibrary.building_entry(b.def.id)
+	var e := ArtLibrary.building_entry(_art_id(b))
 	var base := ArtLibrary.base_point(b.origin, b.def.size)
 	var list: Array = []
 	var holder := Node2D.new()
 	holder.position = base
-	holder.add_child(ArtLibrary.building_sprite(b.def.id))
+	holder.add_child(ArtLibrary.building_sprite(_art_id(b)))
 	holder.visible = not b.site  # a site draws itself in _draw
 	view.objects.add_child(holder)
 	list.append(holder)
@@ -150,7 +160,8 @@ func _process(_d: float) -> void:
 	if _channels_dirty:
 		_refresh_channels()
 	for id in settlement.buildings:
-		if (settlement.buildings[id] as Building).site:
+		var b: Building = settlement.buildings[id]
+		if b.site or b.upgrading():
 			queue_redraw()
 			return
 
@@ -162,6 +173,8 @@ func _draw() -> void:
 		var b: Building = settlement.buildings[id]
 		if b.site:
 			_draw_site(b)
+		elif b.upgrading():
+			_draw_upgrade_bar(b)
 		if not b.connected:
 			_draw_no_road(b)
 
@@ -196,6 +209,25 @@ func _draw_site(b: Building) -> void:
 	var share := p if building else _delivered_share(b)
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)),
 			Color("5fc34a") if building else Color("e8a33a"))
+
+
+## Progress bar under a building that is being upgraded, same look as a site's: orange while goods are delivered,
+## green while builders work.
+func _draw_upgrade_bar(b: Building) -> void:
+	var fr := Rect2(Vector2(b.origin) * TILE, Vector2(b.def.size) * TILE)
+	var bar := Rect2(fr.position.x, fr.end.y + 2.0, fr.size.x, 5.0)
+	draw_rect(bar.grow(1.0), Color(0.05, 0.05, 0.05, 0.85))
+	var working := b.upgrade_delivered()
+	var share := b.upgrade_progress()
+	if not working:
+		var need := 0.0
+		var have := 0.0
+		for g in b.upgrade_cost:
+			need += float(b.upgrade_cost[g])
+			have += minf(float(b.upgrade_cost[g]), b.upgrade_buffer.amount_of(g))
+		share = have / need if need > 0.0 else 1.0
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)),
+			Color("5fc34a") if working else Color("e8a33a"))
 
 
 func _draw_no_road(b: Building) -> void:

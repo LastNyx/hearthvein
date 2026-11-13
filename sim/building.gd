@@ -72,6 +72,12 @@ func display_name(reg: DataRegistry) -> String:
 	return td.display_name if td != null and td.display_name != "" else def.display_name
 
 
+## art_manifest id of the sprite for the current tier ("" = use the base sprite of the def).
+func tier_art_id(reg: DataRegistry) -> String:
+	var td := tier_def(reg)
+	return td.art_id if td != null else ""
+
+
 ## Output (or beds) multiplier of the current tier over base, from data (1.0 at tier I).
 func output_factor(reg: DataRegistry) -> float:
 	if tier <= 1:

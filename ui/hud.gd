@@ -47,6 +47,9 @@ var _sel_title: Label
 var _sel_body: Label
 var _sel_halt: Label
 var _sel_warn: Label
+var _sel_up_cost: Label
+var _sel_up_reason: Label
+var _sel_up_btn: Button
 var _prio_buttons: Dictionary = {}
 var _cat_box: GridContainer
 var _region_map: RegionMap
@@ -345,6 +348,10 @@ func _build_selection_panel(parent: Node) -> void:
 	_sel_body = _label(v, 14, INK)
 	_sel_halt = _label(v, 14, PURPLE)
 	_sel_warn = _label(v, 14, RED)
+	_sel_up_cost = _label(v, 14, GOLD)
+	_sel_up_btn = _button(v, "Upgrade (U)", 13)
+	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
+	_sel_up_reason = _label(v, 14, DIM)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	v.add_child(row)
@@ -370,6 +377,15 @@ func _refresh_selection() -> void:
 	_sel_halt.visible = sel["halt"] != ""
 	_sel_warn.text = sel["warn"]
 	_sel_warn.visible = sel["warn"] != ""
+	var show_up: bool = sel["show_upgrade"]
+	_sel_up_cost.visible = show_up
+	_sel_up_btn.visible = show_up
+	_sel_up_reason.visible = show_up and not sel["can_upgrade"]
+	if show_up:
+		_sel_up_cost.text = "Upgrade to %s: %s" % [sel["next_name"], sel["next_cost"]]
+		_sel_up_btn.text = "Upgrade to %s (U)" % sel["next_name"]
+		_sel_up_btn.disabled = not sel["can_upgrade"]
+		_sel_up_reason.text = sel["upgrade_reason"]
 	for p in _prio_buttons:
 		var on: bool = sel["paused"] if p == "paused" else (sel["priority"] == p and not sel["paused"])
 		_style_button(_prio_buttons[p], on)
@@ -523,6 +539,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_T: _on_overlay("water")
 			KEY_H: _on_overlay("coverage")
 			KEY_M: _region_map.toggle()
+			KEY_U:
+				if model.upgrade():
+					refresh()
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
 			KEY_ESCAPE:
 				_region_map.close()

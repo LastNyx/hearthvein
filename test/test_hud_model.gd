@@ -373,3 +373,52 @@ func test_region_rows_rewards_shown_on_locked_regions() -> void:
 			assert_true(r["reward_pos"].x >= 0)
 			assert_true(MapState.region_rect(r["region"]).has_point(r["reward_pos"]))
 	assert_true(seen >= 4)
+
+
+# ---------------------------------------------------------------- upgrade panel (31d)
+
+func _tent_selected() -> int:
+	var id := s.place_building_instant("tent", _site_free_spot())
+	assert_true(id >= 0)
+	m.select(id)
+	return id
+
+
+func test_selection_shows_tier_next_cost_and_era_reason() -> void:
+	var id := _tent_selected()
+	var sel := m.selection()
+	assert_eq(sel["tier"], 1)
+	assert_eq(sel["next_tier"], 2)
+	assert_eq(sel["next_name"], "Hut")
+	assert_eq(sel["next_cost"], "3 Planks, 2 Cut stone")
+	assert_true(sel["show_upgrade"])
+	assert_false(sel["can_upgrade"])
+	assert_eq(sel["upgrade_reason"], "Needs Town era")
+	s.era_override = "town"
+	sel = m.selection()
+	assert_true(sel["can_upgrade"])
+	assert_eq(sel["upgrade_reason"], "")
+	assert_true(id >= 0)
+
+
+func test_upgrade_command_and_progress_in_selection() -> void:
+	s.era_override = "town"
+	_tent_selected()
+	assert_true(m.upgrade())
+	var sel := m.selection()
+	assert_true(sel["upgrading"])
+	assert_false(sel["show_upgrade"])
+	assert_false(sel["can_upgrade"])
+	assert_eq(sel["upgrade_reason"], "Upgrade in progress")
+	assert_eq(sel["upgrade_progress"], 0.0)
+	assert_false(m.upgrade())
+
+
+func test_wet_reason_and_non_upgradable_building() -> void:
+	assert_eq(m.upgrade_reason_text("needs_wet"), "Needs wet ground")
+	var id := s.place_building_instant("storehouse", _site_free_spot())
+	m.select(id)
+	var sel := m.selection()
+	assert_false(sel["show_upgrade"])
+	assert_eq(sel["next_tier"], 0)
+	assert_false(m.upgrade())
