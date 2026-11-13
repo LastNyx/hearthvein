@@ -1,0 +1,2808 @@
+{
+ "buildings": {
+  "aether_collector": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "lumen",
+   "file": "buildings/aether_collector.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/aether_collector_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/aether_collector_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "airship_dock": {
+   "base": [
+    46,
+    72
+   ],
+   "category": "sky",
+   "file": "buildings/airship_dock.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/airship_dock_fx.png",
+    "offset": [
+     -4,
+     -87
+    ]
+   },
+   "generic": true,
+   "h": 73,
+   "shadow": {
+    "file": "buildings/airship_dock_shadow.png",
+    "offset": [
+     -35,
+     -9
+    ]
+   },
+   "w": 92
+  },
+  "apartment_block": {
+   "base": [
+    33,
+    119
+   ],
+   "file": "buildings/apartment_block.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/apartment_block_fx.png",
+    "offset": [
+     -30,
+     -143
+    ]
+   },
+   "generic": false,
+   "h": 120,
+   "shadow": {
+    "file": "buildings/apartment_block_shadow.png",
+    "offset": [
+     -26,
+     -9
+    ]
+   },
+   "w": 66
+  },
+  "bell_tower": {
+   "base": [
+    20,
+    117
+   ],
+   "file": "buildings/bell_tower.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/bell_tower_fx.png",
+    "offset": [
+     -11,
+     -127
+    ]
+   },
+   "generic": false,
+   "h": 118,
+   "shadow": {
+    "file": "buildings/bell_tower_shadow.png",
+    "offset": [
+     -22,
+     -6
+    ]
+   },
+   "w": 40
+  },
+  "bloom_orchard": {
+   "base": [
+    46,
+    72
+   ],
+   "category": "food",
+   "file": "buildings/bloom_orchard.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/bloom_orchard_fx.png",
+    "offset": [
+     -4,
+     -87
+    ]
+   },
+   "generic": true,
+   "h": 73,
+   "shadow": {
+    "file": "buildings/bloom_orchard_shadow.png",
+    "offset": [
+     -35,
+     -9
+    ]
+   },
+   "w": 92
+  },
+  "builders_yard": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "logistics",
+   "file": "buildings/builders_yard.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/builders_yard_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/builders_yard_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "cleanser": {
+   "base": [
+    28,
+    68
+   ],
+   "file": "buildings/cleanser.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/cleanser_fx.png",
+    "offset": [
+     -15,
+     -90
+    ]
+   },
+   "generic": false,
+   "h": 69,
+   "shadow": {
+    "file": "buildings/cleanser_shadow.png",
+    "offset": [
+     -22,
+     -6
+    ]
+   },
+   "w": 57
+  },
+  "clearwater_works": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "water",
+   "file": "buildings/clearwater_works.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/clearwater_works_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/clearwater_works_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "cloud_cistern": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "water",
+   "file": "buildings/cloud_cistern.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/cloud_cistern_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/cloud_cistern_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "conduit_terraces": {
+   "base": [
+    46,
+    65
+   ],
+   "category": "housing",
+   "file": "buildings/conduit_terraces.png",
+   "footprint": [
+    3,
+    2
+   ],
+   "fx": {
+    "file": "buildings/conduit_terraces_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/conduit_terraces_shadow.png",
+    "offset": [
+     -35,
+     -8
+    ]
+   },
+   "w": 92
+  },
+  "cottage": {
+   "base": [
+    16,
+    51
+   ],
+   "file": "buildings/cottage.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/cottage_fx.png",
+    "offset": [
+     -4,
+     -66
+    ]
+   },
+   "generic": false,
+   "h": 52,
+   "shadow": {
+    "file": "buildings/cottage_shadow.png",
+    "offset": [
+     -11,
+     -6
+    ]
+   },
+   "w": 33
+  },
+  "cottage_shingle": {
+   "base": [
+    16,
+    51
+   ],
+   "file": "buildings/cottage_shingle.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/cottage_shingle_fx.png",
+    "offset": [
+     -4,
+     -66
+    ]
+   },
+   "generic": false,
+   "h": 52,
+   "shadow": {
+    "file": "buildings/cottage_shingle_shadow.png",
+    "offset": [
+     -11,
+     -6
+    ]
+   },
+   "w": 33
+  },
+  "dawn_beacon": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "landmark",
+   "file": "buildings/dawn_beacon.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/dawn_beacon_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/dawn_beacon_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "farm": {
+   "base": [
+    33,
+    73
+   ],
+   "file": "buildings/farm.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/farm_fx.png",
+    "offset": [
+     -34,
+     -71
+    ]
+   },
+   "generic": false,
+   "h": 74,
+   "w": 66
+  },
+  "fishing_dock": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "food",
+   "file": "buildings/fishing_dock.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/fishing_dock_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/fishing_dock_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "forager": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "food",
+   "file": "buildings/forager.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/forager_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/forager_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "forester": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "materials",
+   "file": "buildings/forester.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/forester_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/forester_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "grand_bazaar": {
+   "base": [
+    46,
+    65
+   ],
+   "category": "civic",
+   "file": "buildings/grand_bazaar.png",
+   "footprint": [
+    3,
+    2
+   ],
+   "fx": {
+    "file": "buildings/grand_bazaar_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/grand_bazaar_shadow.png",
+    "offset": [
+     -35,
+     -8
+    ]
+   },
+   "w": 92
+  },
+  "greenhouse": {
+   "base": [
+    33,
+    57
+   ],
+   "file": "buildings/greenhouse.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/greenhouse_fx.png",
+    "offset": [
+     -31,
+     -59
+    ]
+   },
+   "generic": false,
+   "h": 58,
+   "shadow": {
+    "file": "buildings/greenhouse_shadow.png",
+    "offset": [
+     -26,
+     -6
+    ]
+   },
+   "w": 66
+  },
+  "grid_battery": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "lumen",
+   "file": "buildings/grid_battery.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/grid_battery_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/grid_battery_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "hall_of_seasons": {
+   "base": [
+    46,
+    65
+   ],
+   "category": "civic",
+   "file": "buildings/hall_of_seasons.png",
+   "footprint": [
+    3,
+    2
+   ],
+   "fx": {
+    "file": "buildings/hall_of_seasons_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/hall_of_seasons_shadow.png",
+    "offset": [
+     -35,
+     -8
+    ]
+   },
+   "w": 92
+  },
+  "handcart_shed": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "logistics",
+   "file": "buildings/handcart_shed.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/handcart_shed_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/handcart_shed_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "hearth": {
+   "base": [
+    41,
+    97
+   ],
+   "file": "buildings/hearth.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/hearth_fx.png",
+    "offset": [
+     -3,
+     -92
+    ]
+   },
+   "generic": false,
+   "h": 98,
+   "shadow": {
+    "file": "buildings/hearth_shadow.png",
+    "offset": [
+     -32,
+     -8
+    ]
+   },
+   "w": 82
+  },
+  "heartroot_tap": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "lumen",
+   "file": "buildings/heartroot_tap.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/heartroot_tap_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/heartroot_tap_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "hydroponic_hall": {
+   "base": [
+    46,
+    65
+   ],
+   "category": "food",
+   "file": "buildings/hydroponic_hall.png",
+   "footprint": [
+    3,
+    2
+   ],
+   "fx": {
+    "file": "buildings/hydroponic_hall_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/hydroponic_hall_shadow.png",
+    "offset": [
+     -35,
+     -8
+    ]
+   },
+   "w": 92
+  },
+  "kitchen": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "food",
+   "file": "buildings/kitchen.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/kitchen_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/kitchen_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "lift_anchor": {
+   "base": [
+    46,
+    72
+   ],
+   "category": "sky",
+   "file": "buildings/lift_anchor.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/lift_anchor_fx.png",
+    "offset": [
+     -4,
+     -87
+    ]
+   },
+   "generic": true,
+   "h": 73,
+   "shadow": {
+    "file": "buildings/lift_anchor_shadow.png",
+    "offset": [
+     -35,
+     -9
+    ]
+   },
+   "w": 92
+  },
+  "lumen_arcology": {
+   "base": [
+    46,
+    72
+   ],
+   "category": "housing",
+   "file": "buildings/lumen_arcology.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/lumen_arcology_fx.png",
+    "offset": [
+     -4,
+     -87
+    ]
+   },
+   "generic": true,
+   "h": 73,
+   "shadow": {
+    "file": "buildings/lumen_arcology_shadow.png",
+    "offset": [
+     -35,
+     -9
+    ]
+   },
+   "w": 92
+  },
+  "lumen_nexus": {
+   "base": [
+    46,
+    72
+   ],
+   "category": "lumen",
+   "file": "buildings/lumen_nexus.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/lumen_nexus_fx.png",
+    "offset": [
+     -4,
+     -87
+    ]
+   },
+   "generic": true,
+   "h": 73,
+   "shadow": {
+    "file": "buildings/lumen_nexus_shadow.png",
+    "offset": [
+     -35,
+     -9
+    ]
+   },
+   "w": 92
+  },
+  "lumen_pump": {
+   "base": [
+    26,
+    89
+   ],
+   "file": "buildings/lumen_pump.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lumen_pump_fx.png",
+    "offset": [
+     -14,
+     -113
+    ]
+   },
+   "generic": false,
+   "h": 90,
+   "shadow": {
+    "file": "buildings/lumen_pump_shadow.png",
+    "offset": [
+     -20,
+     -5
+    ]
+   },
+   "w": 52
+  },
+  "lumen_pylon": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "lumen",
+   "file": "buildings/lumen_pylon.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lumen_pylon_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/lumen_pylon_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "lumen_reactor": {
+   "base": [
+    36,
+    97
+   ],
+   "file": "buildings/lumen_reactor.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/lumen_reactor_fx.png",
+    "offset": [
+     -37,
+     -109
+    ]
+   },
+   "generic": false,
+   "h": 98,
+   "shadow": {
+    "file": "buildings/lumen_reactor_shadow.png",
+    "offset": [
+     -28,
+     -8
+    ]
+   },
+   "w": 72
+  },
+  "lumen_spire": {
+   "base": [
+    29,
+    157
+   ],
+   "file": "buildings/lumen_spire.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/lumen_spire_fx.png",
+    "offset": [
+     -34,
+     -164
+    ]
+   },
+   "generic": false,
+   "h": 158,
+   "shadow": {
+    "file": "buildings/lumen_spire_shadow.png",
+    "offset": [
+     -20,
+     -8
+    ]
+   },
+   "w": 58
+  },
+  "lumen_tap": {
+   "base": [
+    29,
+    93
+   ],
+   "file": "buildings/lumen_tap.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lumen_tap_fx.png",
+    "offset": [
+     -22,
+     -88
+    ]
+   },
+   "generic": false,
+   "h": 94,
+   "shadow": {
+    "file": "buildings/lumen_tap_shadow.png",
+    "offset": [
+     -27,
+     -6
+    ]
+   },
+   "w": 58
+  },
+  "market": {
+   "base": [
+    36,
+    51
+   ],
+   "file": "buildings/market.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/market_fx.png",
+    "offset": [
+     -14,
+     -32
+    ]
+   },
+   "generic": false,
+   "h": 52,
+   "shadow": {
+    "file": "buildings/market_shadow.png",
+    "offset": [
+     -28,
+     -5
+    ]
+   },
+   "w": 72
+  },
+  "mason": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "refining",
+   "file": "buildings/mason.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/mason_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/mason_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "meeting_hall": {
+   "base": [
+    31,
+    71
+   ],
+   "file": "buildings/meeting_hall.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/meeting_hall_fx.png",
+    "offset": [
+     -36,
+     -86
+    ]
+   },
+   "generic": false,
+   "h": 72,
+   "shadow": {
+    "file": "buildings/meeting_hall_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 63
+  },
+  "observatory": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "civic",
+   "file": "buildings/observatory.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/observatory_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/observatory_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "park": {
+   "base": [
+    33,
+    83
+   ],
+   "file": "buildings/park.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/park_fx.png",
+    "offset": [
+     -37,
+     -78
+    ]
+   },
+   "generic": false,
+   "h": 84,
+   "w": 66
+  },
+  "purifier_tower": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "water",
+   "file": "buildings/purifier_tower.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/purifier_tower_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/purifier_tower_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "quarry": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "materials",
+   "file": "buildings/quarry.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/quarry_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/quarry_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "rail_depot": {
+   "base": [
+    46,
+    58
+   ],
+   "category": "logistics",
+   "file": "buildings/rail_depot.png",
+   "footprint": [
+    3,
+    1
+   ],
+   "fx": {
+    "file": "buildings/rail_depot_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/rail_depot_shadow.png",
+    "offset": [
+     -35,
+     -6
+    ]
+   },
+   "w": 92
+  },
+  "refinery": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "refining",
+   "file": "buildings/refinery.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/refinery_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/refinery_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "rewilding_grove": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "food",
+   "file": "buildings/rewilding_grove.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/rewilding_grove_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/rewilding_grove_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "rowhouse": {
+   "base": [
+    33,
+    61
+   ],
+   "file": "buildings/rowhouse.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/rowhouse_fx.png",
+    "offset": [
+     -24,
+     -76
+    ]
+   },
+   "generic": false,
+   "h": 62,
+   "shadow": {
+    "file": "buildings/rowhouse_shadow.png",
+    "offset": [
+     -25,
+     -6
+    ]
+   },
+   "w": 67
+  },
+  "sawmill": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "materials",
+   "file": "buildings/sawmill.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/sawmill_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/sawmill_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "shrine": {
+   "base": [
+    25,
+    51
+   ],
+   "file": "buildings/shrine.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/shrine_fx.png",
+    "offset": [
+     -24,
+     -60
+    ]
+   },
+   "generic": false,
+   "h": 52,
+   "shadow": {
+    "file": "buildings/shrine_shadow.png",
+    "offset": [
+     -21,
+     -4
+    ]
+   },
+   "w": 50
+  },
+  "sky_foundry": {
+   "base": [
+    46,
+    72
+   ],
+   "category": "landmark",
+   "file": "buildings/sky_foundry.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/sky_foundry_fx.png",
+    "offset": [
+     -4,
+     -87
+    ]
+   },
+   "generic": true,
+   "h": 73,
+   "shadow": {
+    "file": "buildings/sky_foundry_shadow.png",
+    "offset": [
+     -35,
+     -9
+    ]
+   },
+   "w": 92
+  },
+  "sky_garden": {
+   "base": [
+    46,
+    65
+   ],
+   "category": "food",
+   "file": "buildings/sky_garden.png",
+   "footprint": [
+    3,
+    2
+   ],
+   "fx": {
+    "file": "buildings/sky_garden_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/sky_garden_shadow.png",
+    "offset": [
+     -35,
+     -8
+    ]
+   },
+   "w": 92
+  },
+  "sky_lift": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "sky",
+   "file": "buildings/sky_lift.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/sky_lift_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/sky_lift_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "skyforge": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "refining",
+   "file": "buildings/skyforge.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/skyforge_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/skyforge_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "skyheart": {
+   "base": [
+    57,
+    237
+   ],
+   "file": "buildings/skyheart.png",
+   "footprint": [
+    3,
+    3
+   ],
+   "fx": {
+    "file": "buildings/skyheart_fx.png",
+    "offset": [
+     -54,
+     -242
+    ]
+   },
+   "generic": false,
+   "h": 238,
+   "shadow": {
+    "file": "buildings/skyheart_shadow.png",
+    "offset": [
+     -39,
+     -10
+    ]
+   },
+   "w": 114
+  },
+  "skyspire": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "housing",
+   "file": "buildings/skyspire.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/skyspire_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/skyspire_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "storehouse": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "logistics",
+   "file": "buildings/storehouse.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/storehouse_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/storehouse_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "tax_office": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "civic",
+   "file": "buildings/tax_office.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/tax_office_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/tax_office_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "tent": {
+   "base": [
+    19,
+    43
+   ],
+   "file": "buildings/tent.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "generic": false,
+   "h": 44,
+   "shadow": {
+    "file": "buildings/tent_shadow.png",
+    "offset": [
+     -13,
+     -5
+    ]
+   },
+   "w": 38
+  },
+  "toolsmith": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "refining",
+   "file": "buildings/toolsmith.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/toolsmith_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/toolsmith_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  },
+  "vein_bore": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "lumen",
+   "file": "buildings/vein_bore.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/vein_bore_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/vein_bore_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "vein_mender": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "lumen",
+   "file": "buildings/vein_mender.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/vein_mender_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/vein_mender_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "verdant_spring": {
+   "base": [
+    31,
+    65
+   ],
+   "category": "water",
+   "file": "buildings/verdant_spring.png",
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/verdant_spring_fx.png",
+    "offset": [
+     -4,
+     -80
+    ]
+   },
+   "generic": true,
+   "h": 66,
+   "shadow": {
+    "file": "buildings/verdant_spring_shadow.png",
+    "offset": [
+     -24,
+     -8
+    ]
+   },
+   "w": 62
+  },
+  "water_tower": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "water",
+   "file": "buildings/water_tower.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/water_tower_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/water_tower_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "well": {
+   "base": [
+    16,
+    47
+   ],
+   "category": "water",
+   "file": "buildings/well.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/well_fx.png",
+    "offset": [
+     -5,
+     -62
+    ]
+   },
+   "generic": true,
+   "h": 48,
+   "shadow": {
+    "file": "buildings/well_shadow.png",
+    "offset": [
+     -13,
+     -6
+    ]
+   },
+   "w": 32
+  },
+  "woodcutter": {
+   "base": [
+    22,
+    45
+   ],
+   "file": "buildings/woodcutter.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "generic": false,
+   "h": 46,
+   "shadow": {
+    "file": "buildings/woodcutter_shadow.png",
+    "offset": [
+     -17,
+     -5
+    ]
+   },
+   "w": 45
+  },
+  "workshop": {
+   "base": [
+    31,
+    58
+   ],
+   "category": "refining",
+   "file": "buildings/workshop.png",
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/workshop_fx.png",
+    "offset": [
+     -4,
+     -73
+    ]
+   },
+   "generic": true,
+   "h": 59,
+   "shadow": {
+    "file": "buildings/workshop_shadow.png",
+    "offset": [
+     -24,
+     -6
+    ]
+   },
+   "w": 62
+  }
+ },
+ "ground_order": [
+  "water",
+  "grass",
+  "forest",
+  "soil",
+  "rock",
+  "vein",
+  "sky"
+ ],
+ "overlay_cols": 8,
+ "overlay_index": [
+  -1,
+  0,
+  1,
+  0,
+  2,
+  3,
+  2,
+  3,
+  4,
+  5,
+  6,
+  5,
+  2,
+  3,
+  2,
+  3,
+  7,
+  8,
+  9,
+  8,
+  10,
+  11,
+  10,
+  11,
+  7,
+  8,
+  9,
+  8,
+  10,
+  11,
+  10,
+  11,
+  12,
+  13,
+  14,
+  13,
+  15,
+  16,
+  15,
+  16,
+  17,
+  18,
+  19,
+  18,
+  15,
+  16,
+  15,
+  16,
+  7,
+  8,
+  9,
+  8,
+  10,
+  11,
+  10,
+  11,
+  7,
+  8,
+  9,
+  8,
+  10,
+  11,
+  10,
+  11,
+  20,
+  21,
+  22,
+  21,
+  23,
+  24,
+  23,
+  24,
+  25,
+  26,
+  27,
+  26,
+  23,
+  24,
+  23,
+  24,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  20,
+  21,
+  22,
+  21,
+  23,
+  24,
+  23,
+  24,
+  25,
+  26,
+  27,
+  26,
+  23,
+  24,
+  23,
+  24,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  33,
+  0,
+  34,
+  0,
+  35,
+  3,
+  35,
+  3,
+  36,
+  5,
+  37,
+  5,
+  35,
+  3,
+  35,
+  3,
+  38,
+  8,
+  39,
+  8,
+  40,
+  11,
+  40,
+  11,
+  38,
+  8,
+  39,
+  8,
+  40,
+  11,
+  40,
+  11,
+  41,
+  13,
+  42,
+  13,
+  43,
+  16,
+  43,
+  16,
+  44,
+  18,
+  45,
+  18,
+  43,
+  16,
+  43,
+  16,
+  38,
+  8,
+  39,
+  8,
+  40,
+  11,
+  40,
+  11,
+  38,
+  8,
+  39,
+  8,
+  40,
+  11,
+  40,
+  11,
+  20,
+  21,
+  22,
+  21,
+  23,
+  24,
+  23,
+  24,
+  25,
+  26,
+  27,
+  26,
+  23,
+  24,
+  23,
+  24,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  20,
+  21,
+  22,
+  21,
+  23,
+  24,
+  23,
+  24,
+  25,
+  26,
+  27,
+  26,
+  23,
+  24,
+  23,
+  24,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32,
+  28,
+  29,
+  30,
+  29,
+  31,
+  32,
+  31,
+  32
+ ],
+ "overlay_shore_row": 6,
+ "overlays": {
+  "forest": "terrain/overlay_forest.png",
+  "grass": "terrain/overlay_grass.png",
+  "rock": "terrain/overlay_rock.png",
+  "soil": "terrain/overlay_soil.png",
+  "vein": "terrain/overlay_vein.png"
+ },
+ "props": {
+  "boulder_0": {
+   "base": [
+    9,
+    13
+   ],
+   "file": "props/boulder_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 14,
+   "shadow": {
+    "file": "props/boulder_0_shadow.png",
+    "offset": [
+     -7,
+     -3
+    ]
+   },
+   "w": 18
+  },
+  "boulder_1": {
+   "base": [
+    11,
+    16
+   ],
+   "file": "props/boulder_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 17,
+   "shadow": {
+    "file": "props/boulder_1_shadow.png",
+    "offset": [
+     -8,
+     -3
+    ]
+   },
+   "w": 22
+  },
+  "boulder_2": {
+   "base": [
+    12,
+    18
+   ],
+   "file": "props/boulder_2.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 19,
+   "shadow": {
+    "file": "props/boulder_2_shadow.png",
+    "offset": [
+     -9,
+     -3
+    ]
+   },
+   "w": 25
+  },
+  "boulder_3": {
+   "base": [
+    14,
+    20
+   ],
+   "file": "props/boulder_3.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 21,
+   "shadow": {
+    "file": "props/boulder_3_shadow.png",
+    "offset": [
+     -10,
+     -3
+    ]
+   },
+   "w": 28
+  },
+  "crystal_0": {
+   "base": [
+    16,
+    35
+   ],
+   "file": "props/crystal_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/crystal_0_fx.png",
+    "offset": [
+     -22,
+     -38
+    ]
+   },
+   "h": 36,
+   "shadow": {
+    "file": "props/crystal_0_shadow.png",
+    "offset": [
+     -9,
+     -3
+    ]
+   },
+   "w": 32
+  },
+  "crystal_1": {
+   "base": [
+    16,
+    35
+   ],
+   "file": "props/crystal_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/crystal_1_fx.png",
+    "offset": [
+     -22,
+     -38
+    ]
+   },
+   "h": 36,
+   "shadow": {
+    "file": "props/crystal_1_shadow.png",
+    "offset": [
+     -9,
+     -3
+    ]
+   },
+   "w": 32
+  },
+  "crystal_2": {
+   "base": [
+    16,
+    35
+   ],
+   "file": "props/crystal_2.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/crystal_2_fx.png",
+    "offset": [
+     -22,
+     -38
+    ]
+   },
+   "h": 36,
+   "shadow": {
+    "file": "props/crystal_2_shadow.png",
+    "offset": [
+     -9,
+     -3
+    ]
+   },
+   "w": 32
+  },
+  "mushrooms_0": {
+   "base": [
+    8,
+    11
+   ],
+   "file": "props/mushrooms_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 12,
+   "w": 16
+  },
+  "mushrooms_1": {
+   "base": [
+    8,
+    11
+   ],
+   "file": "props/mushrooms_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/mushrooms_1_fx.png",
+    "offset": [
+     -10,
+     -12
+    ]
+   },
+   "h": 12,
+   "w": 16
+  },
+  "oak_autumn_0": {
+   "base": [
+    22,
+    58
+   ],
+   "file": "props/oak_autumn_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 59,
+   "shadow": {
+    "file": "props/oak_autumn_0_shadow.png",
+    "offset": [
+     -15,
+     -6
+    ]
+   },
+   "w": 45
+  },
+  "oak_autumn_1": {
+   "base": [
+    26,
+    67
+   ],
+   "file": "props/oak_autumn_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 68,
+   "shadow": {
+    "file": "props/oak_autumn_1_shadow.png",
+    "offset": [
+     -17,
+     -6
+    ]
+   },
+   "w": 52
+  },
+  "oak_deep_0": {
+   "base": [
+    24,
+    61
+   ],
+   "file": "props/oak_deep_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 62,
+   "shadow": {
+    "file": "props/oak_deep_0_shadow.png",
+    "offset": [
+     -16,
+     -6
+    ]
+   },
+   "w": 48
+  },
+  "oak_green_0": {
+   "base": [
+    21,
+    55
+   ],
+   "file": "props/oak_green_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 56,
+   "shadow": {
+    "file": "props/oak_green_0_shadow.png",
+    "offset": [
+     -14,
+     -6
+    ]
+   },
+   "w": 43
+  },
+  "oak_green_1": {
+   "base": [
+    24,
+    61
+   ],
+   "file": "props/oak_green_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 62,
+   "shadow": {
+    "file": "props/oak_green_1_shadow.png",
+    "offset": [
+     -16,
+     -6
+    ]
+   },
+   "w": 48
+  },
+  "oak_green_2": {
+   "base": [
+    26,
+    67
+   ],
+   "file": "props/oak_green_2.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 68,
+   "shadow": {
+    "file": "props/oak_green_2_shadow.png",
+    "offset": [
+     -17,
+     -6
+    ]
+   },
+   "w": 52
+  },
+  "oak_green_3": {
+   "base": [
+    24,
+    61
+   ],
+   "file": "props/oak_green_3.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 62,
+   "shadow": {
+    "file": "props/oak_green_3_shadow.png",
+    "offset": [
+     -16,
+     -6
+    ]
+   },
+   "w": 48
+  },
+  "oak_lumen_0": {
+   "base": [
+    32,
+    82
+   ],
+   "file": "props/oak_lumen_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/oak_lumen_0_fx.png",
+    "offset": [
+     -34,
+     -86
+    ]
+   },
+   "h": 83,
+   "shadow": {
+    "file": "props/oak_lumen_0_shadow.png",
+    "offset": [
+     -21,
+     -6
+    ]
+   },
+   "w": 64
+  },
+  "pine_0": {
+   "base": [
+    14,
+    51
+   ],
+   "file": "props/pine_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 52,
+   "shadow": {
+    "file": "props/pine_0_shadow.png",
+    "offset": [
+     -8,
+     -5
+    ]
+   },
+   "w": 29
+  },
+  "pine_1": {
+   "base": [
+    16,
+    57
+   ],
+   "file": "props/pine_1.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 58,
+   "shadow": {
+    "file": "props/pine_1_shadow.png",
+    "offset": [
+     -9,
+     -5
+    ]
+   },
+   "w": 32
+  },
+  "pine_2": {
+   "base": [
+    17,
+    62
+   ],
+   "file": "props/pine_2.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 63,
+   "shadow": {
+    "file": "props/pine_2_shadow.png",
+    "offset": [
+     -9,
+     -5
+    ]
+   },
+   "w": 35
+  },
+  "stump_0": {
+   "base": [
+    10,
+    15
+   ],
+   "file": "props/stump_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 16,
+   "shadow": {
+    "file": "props/stump_0_shadow.png",
+    "offset": [
+     -7,
+     -3
+    ]
+   },
+   "w": 20
+  }
+ },
+ "roads": {
+  "1": {
+   "cols": 16,
+   "file": "roads/dirt.png",
+   "rows": 2
+  },
+  "2": {
+   "cols": 16,
+   "file": "roads/paved.png",
+   "rows": 2
+  }
+ },
+ "scatter": {
+  "forest": {
+   "choices": [
+    [
+     "pine_0",
+     0.1
+    ],
+    [
+     "pine_1",
+     0.1
+    ],
+    [
+     "pine_2",
+     0.1
+    ],
+    [
+     "oak_autumn_0",
+     0.075
+    ],
+    [
+     "oak_autumn_1",
+     0.075
+    ],
+    [
+     "oak_deep_0",
+     0.04
+    ],
+    [
+     "oak_lumen_0",
+     0.006
+    ],
+    [
+     "oak_green_0",
+     0.13
+    ],
+    [
+     "oak_green_1",
+     0.13
+    ],
+    [
+     "oak_green_2",
+     0.13
+    ],
+    [
+     "oak_green_3",
+     0.13
+    ]
+   ],
+   "p_first": 1.0,
+   "p_second": 0.6,
+   "x": [
+    4,
+    28
+   ],
+   "y": [
+    18,
+    32
+   ]
+  },
+  "grass": {
+   "choices": [
+    [
+     "mushrooms_0",
+     1
+    ],
+    [
+     "mushrooms_1",
+     1
+    ]
+   ],
+   "p_first": 0.012,
+   "p_second": 0.0,
+   "x": [
+    6,
+    26
+   ],
+   "y": [
+    10,
+    30
+   ]
+  },
+  "lumen_vein": {
+   "choices": [
+    [
+     "crystal_0",
+     1
+    ],
+    [
+     "crystal_1",
+     1
+    ],
+    [
+     "crystal_2",
+     1
+    ]
+   ],
+   "p_first": 0.7,
+   "p_second": 0.0,
+   "x": [
+    12,
+    20
+   ],
+   "y": [
+    28,
+    31
+   ]
+  },
+  "rock": {
+   "choices": [
+    [
+     "boulder_0",
+     1
+    ],
+    [
+     "boulder_1",
+     1
+    ],
+    [
+     "boulder_2",
+     1
+    ],
+    [
+     "boulder_3",
+     1
+    ]
+   ],
+   "p_first": 1.0,
+   "p_second": 0.5,
+   "x": [
+    8,
+    24
+   ],
+   "y": [
+    18,
+    30
+   ]
+  },
+  "stump": {
+   "choices": [
+    [
+     "stump_0",
+     1
+    ]
+   ],
+   "p_first": 1.0,
+   "p_second": 0.0,
+   "x": [
+    14,
+    18
+   ],
+   "y": [
+    24,
+    28
+   ]
+  }
+ },
+ "terrain": {
+  "fertile_soil": {
+   "cols": 4,
+   "file": "terrain/fertile_soil.png",
+   "ground": "soil",
+   "pick": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "rows": 1
+  },
+  "forest": {
+   "cols": 4,
+   "file": "terrain/forest.png",
+   "ground": "forest",
+   "pick": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "rows": 1
+  },
+  "grass": {
+   "cols": 5,
+   "file": "terrain/grass.png",
+   "ground": "grass",
+   "pick": [
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    2,
+    3,
+    4
+   ],
+   "rows": 3
+  },
+  "lumen_vein": {
+   "cols": 4,
+   "file": "terrain/lumen_vein.png",
+   "ground": "vein",
+   "pick": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "rows": 1
+  },
+  "rock": {
+   "cols": 4,
+   "file": "terrain/rock.png",
+   "ground": "rock",
+   "pick": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "rows": 1
+  },
+  "skystone": {
+   "cols": 3,
+   "file": "terrain/skystone.png",
+   "ground": "sky",
+   "pick": [
+    0,
+    1,
+    2
+   ],
+   "rows": 1
+  },
+  "stump": {
+   "cols": 4,
+   "file": "terrain/stump.png",
+   "ground": "grass",
+   "pick": [
+    0,
+    0,
+    1,
+    2,
+    3
+   ],
+   "rows": 1
+  },
+  "water": {
+   "cols": 5,
+   "file": "terrain/water.png",
+   "ground": "water",
+   "pick": [
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    4
+   ],
+   "rows": 1
+  }
+ },
+ "tile": 32
+}

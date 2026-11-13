@@ -18,7 +18,7 @@ func _ready() -> void:
 	var placed := PlacementView.new()
 	placed.name = "PlacementView"
 	view.add_child(placed)
-	placed.setup(settlement)
+	placed.setup(settlement, view)
 	var ghost := GhostView.new()
 	ghost.name = "Ghost"
 	ghost.visible = false

@@ -14,7 +14,6 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 T = 32
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "docs" / "mockups"
 FONT_B = "/usr/share/fonts/noto/NotoSans-Bold.ttf"
 
 
@@ -1943,7 +1942,9 @@ def sheet_citizens():
     return img
 
 
-def main():
+def main(out=None):
+    OUT = Path(out) if out else (Path(sys.argv[1]) if len(sys.argv) > 1 else
+                                 Path(__file__).resolve().parent.parent / "docs" / "mockups")
     OUT.mkdir(parents=True, exist_ok=True)
     s = 2
     for dim, name in ((False, "scene_village.png"), (True, "scene_dimming.png")):

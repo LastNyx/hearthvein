@@ -2,7 +2,7 @@ class_name GhostView
 extends Node2D
 ## Placement preview: footprint tiles tinted green when valid, red when not, with the building sprite faded in.
 
-const TILE := TileAtlas.TILE
+const TILE := ArtLibrary.TILE
 const VALID := Color(0.2, 0.9, 0.3, 0.45)
 const INVALID := Color(0.95, 0.2, 0.2, 0.5)
 
@@ -31,6 +31,6 @@ func _draw() -> void:
 	var size := def.size if def != null else Vector2i.ONE
 	var col := color_for(valid)
 	if def != null:
-		draw_texture(BuildingArt.texture_for(def), Vector2(tile) * TILE, Color(1, 1, 1, 0.6))
+		draw_texture(ArtLibrary.texture(ArtLibrary.building_entry(def.id)["file"]), ArtLibrary.sprite_rect(def.id, tile, def.size).position, Color(1, 1, 1, 0.6))
 	draw_rect(Rect2(Vector2(tile) * TILE, Vector2(size) * TILE), col)
 	draw_rect(Rect2(Vector2(tile) * TILE, Vector2(size) * TILE), Color(col.r, col.g, col.b, 1.0), false, 2.0)
