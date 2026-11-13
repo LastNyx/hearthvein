@@ -360,7 +360,9 @@ func test_hour_and_day_hooks_cost() -> void:
 		d += day[k]
 	print("PERF on_hour total %.2f ms, on_day total %.2f ms" % [h, d])
 	assert_lt(h, 8.0, "all on_hour hooks together under 8 ms")
-	assert_lt(d, 8.0, "all on_day hooks together under 8 ms")
+	# Day hooks run one per frame since 57c (Settlement queues them), so each one is a frame's work, not the total.
+	for k in day:
+		assert_lt(day[k], 8.0, "on_day of %s under 8 ms (runs in its own frame)" % k)
 
 
 ## Worst frame-sized step_seconds call that crosses an hour boundary, and the worst one that crosses midnight.
