@@ -1,7 +1,7 @@
 class_name BuildController
 extends Node
-## Build mode input: B menu, R road tool (click-drag), X demolish, right click / Esc cancel, left click places.
-## Temporary minimal menu; the real HUD is ticket 17. Writes to the sim only through Settlement commands.
+## Build mode input: R road tool (click-drag), X demolish, right click / Esc cancel, left click places.
+## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
 enum Mode { NONE, BUILD, ROAD, DEMOLISH }
 
@@ -11,54 +11,19 @@ var mode: Mode = Mode.NONE
 var def_id: String = ""
 var _painting := false
 var _last_tile := Vector2i(-1, -1)
-var _panel: PanelContainer
 var _hint: Label
-var _box: VBoxContainer
-var _building_buttons: Array[Button] = []
 
 
 func setup(s: Settlement, g: GhostView, ui_layer: CanvasLayer) -> void:
 	settlement = s
 	ghost = g
-	_panel = PanelContainer.new()
-	_panel.position = Vector2(12, 40)
-	var box := VBoxContainer.new()
-	_panel.add_child(box)
-	var title := Label.new()
-	title.text = "Build (B)"
-	box.add_child(title)
-	_box = box
-	_rebuild_buttons()
-	for pair in [["Road (R)", Mode.ROAD], ["Demolish (X)", Mode.DEMOLISH]]:
-		var b := Button.new()
-		b.text = pair[0]
-		b.pressed.connect(set_mode.bind(pair[1]))
-		box.add_child(b)
-	s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_buttons())
-	_panel.visible = false
-	ui_layer.add_child(_panel)
 	_hint = Label.new()
-	_hint.position = Vector2(12, 28)
+	_hint.position = Vector2(12, 56)
+	_hint.add_theme_color_override("font_color", Color("f2d27a"))
+	_hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	_hint.add_theme_constant_override("outline_size", 6)
 	ui_layer.add_child(_hint)
 	_hint.visible = false
-
-
-## Only unlocked buildings are offered; rebuilt on the era_changed event.
-func _rebuild_buttons() -> void:
-	for b in _building_buttons:
-		b.queue_free()
-	_building_buttons.clear()
-	var at := 1  # after the title
-	for def in settlement.unlocked_buildings():
-		if def.id == "hearth":
-			continue
-		var btn := Button.new()
-		btn.text = "%s  %dx%d" % [def.display_name, def.size.x, def.size.y]
-		btn.pressed.connect(set_build.bind(def.id))
-		_box.add_child(btn)
-		_box.move_child(btn, at)
-		at += 1
-		_building_buttons.append(btn)
 
 
 func set_build(id: String) -> void:
@@ -113,7 +78,6 @@ func _process(_d: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match (event as InputEventKey).keycode:
-			KEY_B: _panel.visible = not _panel.visible
 			KEY_R: set_mode(Mode.ROAD)
 			KEY_X: set_mode(Mode.DEMOLISH)
 			KEY_ESCAPE: cancel()

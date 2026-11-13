@@ -1818,6 +1818,16 @@
   "vein",
   "sky"
  ],
+ "icons": {
+  "food": "ui/icon_food.png",
+  "gold": "ui/icon_gold.png",
+  "lumen": "ui/icon_lumen.png",
+  "materials": "ui/icon_materials.png",
+  "moon": "ui/icon_moon.png",
+  "planet": "ui/icon_planet.png",
+  "pop": "ui/icon_pop.png",
+  "spirit": "ui/icon_spirit.png"
+ },
  "overlay_cols": 8,
  "overlay_index": [
   -1,

@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mockups as M  # noqa: E402
+import mockups_v1 as MV  # noqa: E402  (HUD icons)
 
 T = M.T
 ROOT = Path(__file__).resolve().parent.parent
@@ -741,8 +742,24 @@ def export_walkers(manifest):
     }
 
 
+def export_icons(manifest):
+    """12x12 HUD icons (outlined, drawn at 3x by the UI with nearest filtering) into assets/ui/."""
+    names = ["food", "materials", "lumen", "gold", "pop", "spirit", "moon"]
+    for k in names:
+        save(MV.icon(k), OUT / "ui" / f"icon_{k}.png")
+    im = Image.new("RGBA", (12, 12))
+    d = ImageDraw.Draw(im)
+    d.ellipse([1, 1, 10, 10], fill=MV.hexc("3f86c8"))
+    d.polygon([(3, 3), (6, 2), (7, 5), (4, 7), (2, 6)], fill=MV.hexc("5fae4a"))
+    d.polygon([(7, 7), (10, 6), (9, 9), (7, 10)], fill=MV.hexc("5fae4a"))
+    save(MV.outline(im), OUT / "ui" / "icon_planet.png")
+    names.append("planet")
+    manifest["icons"] = {k: f"ui/icon_{k}.png" for k in names}
+
+
 def main():
     manifest = {"tile": T}
+    export_icons(manifest)
     export_terrain(manifest)
     export_overlays(manifest)
     export_states(manifest)

@@ -3,6 +3,7 @@ extends Node
 
 var game_seed: int = -1
 var settlement: Settlement
+var hud_model: HudModel
 
 
 func _ready() -> void:
@@ -41,16 +42,19 @@ func _ready() -> void:
 	cam.setup(Rect2(Vector2.ZERO, view.world_size()), view.hearth_world_pos())
 	cam.make_current()
 	var layer := CanvasLayer.new()
-	var label := Label.new()
-	label.position = Vector2(12, 8)
-	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.add_theme_constant_override("outline_size", 6)
-	layer.add_child(label)
-	driver.label = label
 	add_child(driver)
 	var build := BuildController.new()
 	build.name = "BuildController"
 	add_child(build)
 	build.setup(settlement, ghost, layer)
 	add_child(layer)
+	var model := HudModel.new(settlement)
+	var overlay := OverlayView.new()
+	overlay.name = "OverlayView"
+	view.add_child(overlay)
+	overlay.setup(settlement, model)
+	var hud := Hud.new()
+	hud.name = "Hud"
+	add_child(hud)
+	hud.setup(model, build, cam, driver)
+	hud_model = model
