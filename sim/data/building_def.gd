@@ -52,6 +52,10 @@ const GOLD := "gold"
 ## 0 = no cleaning.
 @export var clean_radius: int = 0
 @export var clean_interval_days: int = 0
+## Shields (design.md section 12: the Purifier Tower blocks new blight in r4): a tile within this many tiles of the
+## footprint (Euclidean, the same measure blight_radius uses) is never chosen by BlightSystem while the building
+## works. 0 = blocks nothing.
+@export var blight_block_radius: int = 0
 ## True for extractors that sit on a vein: their output scales with the vein yield factor (section 13).
 @export var vein_extractor: bool = false
 ## Output factor during a Dimming (section 14): 0.5 for Forager and plain farms, 1.0 for everything unaffected.

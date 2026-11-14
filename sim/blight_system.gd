@@ -20,6 +20,13 @@ const HOME_REACH := 2
 
 var blockers: Array[Callable] = []
 var _days: Dictionary = {}  # building id -> days since its last blight
+## Staffed job buildings for the next_tile scan in progress, empty outside it (a runtime cache): a shield reads it
+## instead of rescanning every citizen for every candidate tile.
+var _staffed: Dictionary = {}
+
+
+func _init() -> void:
+	blockers.append(_shield_block)
 
 
 func save_state() -> Dictionary:
@@ -51,8 +58,16 @@ func on_day(s: Settlement) -> void:
 			_days.erase(bid)
 
 
-## The tile the building would blight next, (-1, -1) when its radius is full.
+## The tile the building would blight next, (-1, -1) when its radius is full. Blocked tiles are skipped, so the
+## spread picks the next eligible tile instead (the nearest one after them), and blights nothing when none is left.
 func next_tile(s: Settlement, b: Building) -> Vector2i:
+	_staffed = _collect_staffed(s)
+	var t := _next_tile(s, b)
+	_staffed.clear()
+	return t
+
+
+func _next_tile(s: Settlement, b: Building) -> Vector2i:
 	var r := b.def.blight_radius
 	var best := Vector2i(-1, -1)
 	var best_d := 1 << 30
@@ -78,6 +93,40 @@ func _blocked(s: Settlement, t: Vector2i) -> bool:
 		if bool(f.call(s, t)):
 			return true
 	return false
+
+
+## Building ids with at least one working citizen, one pass instead of one per shield and tile.
+func _collect_staffed(s: Settlement) -> Dictionary:
+	var out := {}
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_kind == Citizen.JOB_WORK:
+			out[c.job_id] = true
+	return out
+
+
+## The default shield (design.md section 12): every working building with blight_block_radius > 0 keeps new blight
+## out of that radius. "Working" is the Cleanser rule (staffed and its Lumen upkeep paid, ticket 30), so an unstaffed,
+## paused or unpaid Purifier Tower shields nothing.
+func _shield_block(s: Settlement, t: Vector2i) -> bool:
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		var r := b.def.blight_block_radius
+		if r <= 0 or not CleaningSystem.is_working(s, b, _staffed):
+			continue
+		if _footprint_dist2(b, t) <= r * r:
+			return true
+	return false
+
+
+## Squared distance from the tile to the closest tile of the building's footprint.
+static func _footprint_dist2(b: Building, t: Vector2i) -> int:
+	var best := 1 << 30
+	for ft in b.tiles():
+		var d := (t.x - ft.x) * (t.x - ft.x) + (t.y - ft.y) * (t.y - ft.y)
+		if d < best:
+			best = d
+	return best
 
 
 ## Number of blighted tiles on the map.

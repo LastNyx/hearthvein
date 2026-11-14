@@ -409,6 +409,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: clean_radius and clean_interval_days go together" % who)
 	if b.paved_haul_speed_factor < 1.0:
 		errors.append("%s: paved_haul_speed_factor must be at least 1" % who)
+	if b.blight_block_radius < 0:
+		errors.append("%s: blight_block_radius must not be negative" % who)
 	if not b.upgradable and not b.tiers.is_empty():
 		errors.append("%s: has tiers but is not upgradable" % who)
 	for t in b.tiers:
