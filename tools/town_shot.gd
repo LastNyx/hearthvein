@@ -30,7 +30,7 @@ func _init() -> void:
 	await process_frame
 	var s: Settlement = main.settlement
 	var h := s.map.hearth_spot
-	s.era_override = "town"
+	s.era_current = "town"
 	(main.get_node("Hud") as Hud)._rebuild_categories()
 	# A dirt road east-west with a paved stretch through the middle of town, plus a couple of dirt side roads.
 	for x in range(h.x - 14, h.x + 18):

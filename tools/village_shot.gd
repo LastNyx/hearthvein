@@ -28,7 +28,7 @@ func _init() -> void:
 	await process_frame
 	var s: Settlement = main.settlement
 	var h := s.map.hearth_spot
-	s.era_override = "village"
+	s.era_current = "village"
 	(main.get_node("Hud") as Hud)._rebuild_categories()
 	for x in range(h.x - 14, h.x + 18):
 		s.place_road(Vector2i(x, h.y + 3))
