@@ -26,11 +26,7 @@ var _in_reach: Dictionary = {}  # home building id -> true when a finished Marke
 
 func on_day(s: Settlement) -> void:
 	_ensure_reach(s)
-	var assigned := {}  # building id -> assigned workers
-	for cid in s.citizens:
-		var c: Citizen = s.citizens[cid]
-		if c.job_kind == Citizen.JOB_WORK and c.job_id >= 0:
-			assigned[c.job_id] = int(assigned.get(c.job_id, 0)) + 1
+	var assigned := assigned_workers(s)
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
 		if b.site or b.paused:
@@ -47,6 +43,32 @@ func on_day(s: Settlement) -> void:
 		s.gold += made * UpkeepSystem.output_modifier(s, b)
 
 
+## Building id -> number of citizens the JobSystem assigned to it as workers (assigned JOB_WORK, whether or not they
+## are standing at the door; the day hook runs at midnight). Shared by the gold rates and the food-type flags.
+static func assigned_workers(s: Settlement) -> Dictionary:
+	var out := {}  # building id -> assigned workers
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_kind == Citizen.JOB_WORK and c.job_id >= 0:
+			out[c.job_id] = int(out.get(c.job_id, 0)) + 1
+	return out
+
+
+## Food types contributed by buildings that stock no food themselves but count as one while staffed (design.md
+## section 16 City: the Grand Bazaar "counts as a food type"). A site, a paused building or one with no assigned
+## worker contributes nothing. Market reach does not gate it: the flag is the whole rule, in data.
+static func extra_food_types(s: Settlement) -> int:
+	var assigned := assigned_workers(s)
+	var n := 0
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.paused or not b.def.counts_as_food_type:
+			continue
+		if int(assigned.get(bid, 0)) > 0:
+			n += 1
+	return n
+
+
 ## Distinct food types currently held anywhere in the settlement's storage (amount above the inventory epsilon).
 ## Uses GrowthSystem's food-good list and type rule, so a new food good joins variety by its data alone.
 static func stored_food_types(s: Settlement) -> Dictionary:
@@ -61,17 +83,20 @@ static func stored_food_types(s: Settlement) -> Dictionary:
 
 ## How many distinct food types the settlement's citizens can get today. A citizen whose home is in a Market's reach
 ## counts every type in storage; anyone else (including the homeless) counts at most one. The count is the union over
-## citizens, the one number the old eaten-types bonus used.
+## citizens, the one number the old eaten-types bonus used. Staffed buildings flagged counts_as_food_type (the Grand
+## Bazaar) add one type each on top, because design counts them as a food type without them stocking any food.
 func available_food_types(s: Settlement) -> int:
 	var types := stored_food_types(s)
 	if types.is_empty() or s.citizens.is_empty():
 		return 0
 	_ensure_reach(s)
+	var n := 1
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
 		if c.home_id >= 0 and _in_reach.get(c.home_id, false):
-			return types.size()
-	return 1
+			n = types.size()
+			break
+	return n + extra_food_types(s)
 
 
 ## True when any finished Market's reach covers this home building (false for a site or a home with no Market).
