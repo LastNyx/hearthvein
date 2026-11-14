@@ -60,6 +60,11 @@ const SKIP := {
 	"JobSystem._citizens": "hourly refresh shortcut, a cache of the citizen count",
 	"JobSystem._buildings": "hourly refresh shortcut, a cache of the building count",
 	"JobSystem._grid": "hourly refresh shortcut, a cache of the structure version",
+	"JobSystem._lc_key": "layout cache key (building count, versions, Building.layout_rev), rebuilt lazily",
+	"JobSystem._lc_free": "layout cache: beds per finished housing building, rebuilt lazily",
+	"JobSystem._lc_order": "layout cache: ids of _lc_free, rebuilt lazily",
+	"JobSystem._lc_entries": "layout cache: job slot entries, rebuilt lazily",
+	"JobSystem._lc_works": "layout cache: sites and upgrading buildings, rebuilt lazily",
 	# HaulingSystem
 	"HaulingSystem._walk_cache": "door walking time cache, rebuilt on a grid change",
 	"HaulingSystem._walk_version": "walk cache version",

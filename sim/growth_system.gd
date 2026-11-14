@@ -230,7 +230,7 @@ static func leaver(s: Settlement) -> int:
 	var best := -1
 	var best_homeless := false
 	for id in s.citizens:
-		var h := (s.citizens[id] as Citizen).is_homeless()
+		var h: bool = (s.citizens[id] as Citizen).home_id < 0  # is_homeless()
 		if best < 0 or (h and not best_homeless) or (h == best_homeless and id > best):
 			best = id
 			best_homeless = h

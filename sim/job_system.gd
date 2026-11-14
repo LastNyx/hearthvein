@@ -40,6 +40,13 @@ func on_hour(settlement: Settlement) -> void:
 	refresh(settlement)
 
 
+## Same ranks as CATEGORY_ORDER / PRIORITY_ORDER as dictionary lookups (the refresh runs per building).
+const _CATEGORY_RANK := {"food": 0, "water": 1, "lumen": 2, "logistics": 3, "build": 4, "materials": 5, "refining": 6,
+	"gold": 7, "civic": 8}
+const _KIND_CODE := {Citizen.JOB_WORK: 1, Citizen.JOB_HAUL: 2, Citizen.JOB_BUILD: 3}
+const _PRIORITY_RANK := {"high": 0, "normal": 1, "low": 2}
+
+
 static func category_rank(category: String) -> int:
 	var r := CATEGORY_ORDER.find(category)
 	return r if r >= 0 else CATEGORY_ORDER.size()
@@ -47,8 +54,43 @@ static func category_rank(category: String) -> int:
 
 ## Houses first, then jobs.
 static func refresh(s: Settlement) -> void:
-	_assign_homes(s)
-	_assign_jobs(s)
+	var c := s.get_system(JobSystem) as JobSystem
+	if c == null:
+		c = JobSystem.new()  # no system registered: a one-off cache
+	c._sync(s)
+	_assign_homes(s, c)
+	_assign_jobs(s, c)
+
+
+## Layout cache: what housing and job assignment read from the buildings (bed counts, slot entries, works), rebuilt
+## when the building set, structure/completion versions or any layout field (Building.layout_rev) moved. Runtime only.
+var _lc_key: Array = []
+var _lc_free: Dictionary = {}  # building id -> beds, finished housing only
+var _lc_order: Array = []  # ids of _lc_free, ascending
+var _lc_entries: Array = []  # slot entries before the builder cap, in fill order
+var _lc_works: Array = []  # buildings that are sites or in-place upgrades
+
+
+func _sync(s: Settlement) -> void:
+	var key := [s.buildings.size(), s.structure_version, s.completion_version, Building.layout_rev]
+	if key == _lc_key:
+		return
+	_lc_key = key
+	_lc_free = {}
+	for bid in _sorted_building_ids(s):
+		var b: Building = s.buildings[bid]
+		if b.site or b.def.housing_beds <= 0:
+			continue
+		var beds := b.effective_beds(s.registry)
+		if beds > 0:
+			_lc_free[bid] = beds
+	_lc_order = _lc_free.keys()
+	_lc_entries = _job_entries(s)
+	_lc_works = []
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.upgrade_tier > 0:
+			_lc_works.append(b)
 
 
 static func _sorted_citizen_ids(s: Settlement) -> Array:
@@ -64,28 +106,22 @@ static func _sorted_building_ids(s: Settlement) -> Array:
 
 
 ## Keep valid homes, then fill free beds (lowest building id first) with homeless citizens (lowest id first).
-static func _assign_homes(s: Settlement) -> void:
-	var free := {}  # building id -> free beds
-	for bid in _sorted_building_ids(s):
-		var b: Building = s.buildings[bid]
-		var beds := b.effective_beds(s.registry)
-		if beds > 0 and not b.site:
-			free[bid] = beds
+static func _assign_homes(s: Settlement, c: JobSystem) -> void:
+	var free: Dictionary = c._lc_free.duplicate()
 	var homeless: Array = []
 	for cid in _sorted_citizen_ids(s):
-		var c: Citizen = s.citizens[cid]
-		if free.get(c.home_id, 0) > 0:
-			free[c.home_id] -= 1
+		var z: Citizen = s.citizens[cid]
+		if free.get(z.home_id, 0) > 0:
+			free[z.home_id] -= 1
 		else:
-			c.home_id = -1
-			homeless.append(c)
-	var order: Array = free.keys()
-	order.sort()
-	for c: Citizen in homeless:
+			z.home_id = -1
+			homeless.append(z)
+	var order: Array = c._lc_order
+	for h: Citizen in homeless:
 		for bid in order:
 			if free[bid] > 0:
 				free[bid] -= 1
-				c.home_id = bid
+				h.home_id = bid
 				break
 
 
@@ -93,29 +129,32 @@ static func _assign_homes(s: Settlement) -> void:
 ## Each entry gets one int sort key (rank, priority, id, kind) so a plain int sort does the ordering.
 static func _job_entries(s: Settlement) -> Array:
 	var by_key := {}
+	var haul_rank := category_rank(HAUL_CATEGORY)
+	var build_rank := category_rank(BUILD_CATEGORY)
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
+		var d := b.def
+		if d.worker_slots <= 0 and d.hauler_slots <= 0 and d.builder_slots <= 0 and b.tier <= 1:
+			continue  # no slot of any kind (a tier can add worker slots, tier I cannot)
 		if b.paused or not b.connected or b.site:
 			continue
-		var pr := PRIORITY_ORDER.find(b.priority)
-		if pr < 0:
-			pr = PRIORITY_ORDER.find("normal")
+		var pr: int = _PRIORITY_RANK.get(b.priority, 1)
 		var slots := b.effective_worker_slots(s.registry)
 		if slots > 0:
-			by_key[_order_key(category_rank(b.def.category), pr, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
+			by_key[_order_key(_CATEGORY_RANK.get(b.def.category, CATEGORY_ORDER.size()), pr, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
 				"slots": slots}
-		if b.def.hauler_slots > 0:
-			by_key[_order_key(category_rank(HAUL_CATEGORY), pr, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
-				"slots": b.def.hauler_slots}
-		if b.def.builder_slots > 0:
-			by_key[_order_key(category_rank(BUILD_CATEGORY), pr, bid, 0)] = {"building": b, "kind": Citizen.JOB_BUILD,
-				"slots": b.def.builder_slots}
+		if d.hauler_slots > 0:
+			by_key[_order_key(haul_rank, pr, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
+				"slots": d.hauler_slots}
+		if d.builder_slots > 0:
+			by_key[_order_key(build_rank, pr, bid, 0)] = {"building": b, "kind": Citizen.JOB_BUILD,
+				"slots": d.builder_slots}
 	var keys: Array = by_key.keys()
 	keys.sort()
 	var entries: Array = []
 	for k in keys:
 		entries.append(by_key[k])
-	return _cap_builders(s, entries)
+	return entries
 
 
 ## Sort key: rank, then priority, then building id, then kind code (build 0 < haul 1 < work 2, alphabetical).
@@ -125,8 +164,12 @@ static func _order_key(rank: int, pr: int, bid: int, kind_code: int) -> int:
 
 ## Builders are only wanted while sites are ready to build (full cost delivered, not paused): crew size per such
 ## site. Surplus builder slots stay closed, so those citizens work somewhere useful instead of standing around.
-static func _cap_builders(s: Settlement, entries: Array) -> Array:
-	var demand := ConstructionSystem.builders_wanted(s)
+static func _cap_builders(s: Settlement, c: JobSystem, entries: Array) -> Array:
+	var demand := 0
+	if s.registry.logistics != null:
+		for b: Building in c._lc_works:
+			if ConstructionSystem.is_ready(b):
+				demand += s.registry.logistics.builder_crew
 	var out: Array = []
 	for e in entries:
 		if e["kind"] == Citizen.JOB_BUILD:
@@ -140,13 +183,16 @@ static func _cap_builders(s: Settlement, entries: Array) -> Array:
 
 ## Int key of a (building, job kind) slot; cheaper than a formatted string.
 static func _slot_key(building_id: int, kind: String) -> int:
-	return building_id * 4 + (1 if kind == Citizen.JOB_WORK else (2 if kind == Citizen.JOB_HAUL else (3 if kind == Citizen.JOB_BUILD else 0)))
+	return building_id * 4 + _KIND_CODE.get(kind, 0)
 
 
 ## Slots are allotted in priority order until citizens run out. Citizens already in an allotted slot keep it
 ## (no churn), everyone else goes idle, then idle citizens (lowest id first) fill what is left.
-static func _assign_jobs(s: Settlement) -> void:
-	var entries := _job_entries(s)
+static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
+	var entries: Array = []
+	for e in sys._lc_entries:
+		entries.append(e.duplicate())
+	entries = _cap_builders(s, sys, entries)
 	var left := s.citizens.size()
 	for e in entries:
 		var n := mini(e["slots"], left)
@@ -158,7 +204,7 @@ static func _assign_jobs(s: Settlement) -> void:
 	var idle: Array = []
 	for cid in _sorted_citizen_ids(s):
 		var c: Citizen = s.citizens[cid]
-		var e = by_slot.get(_slot_key(c.job_id, c.job_kind)) if c.job_id >= 0 else null
+		var e = by_slot.get(c.job_id * 4 + _KIND_CODE.get(c.job_kind, 0)) if c.job_id >= 0 else null
 		if e != null and e["want"] > 0:
 			e["want"] -= 1
 		else:

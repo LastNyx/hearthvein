@@ -3,14 +3,35 @@ extends RefCounted
 ## A placed building instance. Plain data; later tickets add fields (tier, workers, buffers, construction).
 
 var id: int = -1
-var def: BuildingDef
+var def: BuildingDef:
+	set(v):
+		def = v
+		layout_rev += 1
+## Bumped whenever a field that housing or job assignment reads changes (JobSystem caches on it). Runtime only.
+static var layout_rev: int = 0
 ## Top-left tile of the footprint.
 var origin: Vector2i = Vector2i.ZERO
 ## True when a road path links it to the Hearth (design.md section 6, D22). The Hearth itself is always connected.
-var connected: bool = false
-var tier: int = 1
-var paused: bool = false
-var priority: String = "normal"
+var connected: bool = false:
+	set(v):
+		if v != connected:
+			connected = v
+			layout_rev += 1
+var tier: int = 1:
+	set(v):
+		if v != tier:
+			tier = v
+			layout_rev += 1
+var paused: bool = false:
+	set(v):
+		if v != paused:
+			paused = v
+			layout_rev += 1
+var priority: String = "normal":
+	set(v):
+		if v != priority:
+			priority = v
+			layout_rev += 1
 ## Null unless def.storage_mode != "none".
 var inventory: Inventory = null
 ## Producers (recipe != null): output waits here until a hauler carries it off (ProductionSystem makes it).
@@ -19,14 +40,22 @@ var door_buffer: Inventory = null
 var input_buffer: Inventory = null
 ## Construction site (D48): true until the full cost is delivered and the work is done. A site has no jobs, no
 ## housing, no storage and makes nothing; input_buffer holds the goods delivered so far (and only those).
-var site: bool = false
+var site: bool = false:
+	set(v):
+		if v != site:
+			site = v
+			layout_rev += 1
 ## Builder-days of work done so far and needed (build days x crew), see ConstructionSystem.
 var build_work: float = 0.0
 var build_work_needed: float = 0.0
 ## In-place upgrade (design.md section 10). Target tier while the works run (0 = none), the whole cost and the buffer
 ## haulers deliver it into, and builder-days done and needed. The building stays out of `site` mode and keeps working
 ## at its current `tier` until the work is done.
-var upgrade_tier: int = 0
+var upgrade_tier: int = 0:
+	set(v):
+		if v != upgrade_tier:
+			upgrade_tier = v
+			layout_rev += 1
 var upgrade_cost: Dictionary = {}
 var upgrade_buffer: Inventory = null
 var upgrade_work: float = 0.0

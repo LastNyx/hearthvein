@@ -67,7 +67,14 @@ static func ready_works(s: Settlement) -> Array[Building]:
 static func builders_wanted(s: Settlement) -> int:
 	if s.registry.logistics == null:
 		return 0
-	return ready_works(s).size() * s.registry.logistics.builder_crew
+	var n := 0
+	for id in s.buildings:  # same test as is_ready, inlined: this runs on every population refresh
+		var b: Building = s.buildings[id]
+		if not b.site and b.upgrade_tier <= 0:
+			continue
+		if is_ready(b):
+			n += 1
+	return n * s.registry.logistics.builder_crew
 
 
 func on_seconds(s: Settlement, seconds: float) -> void:
