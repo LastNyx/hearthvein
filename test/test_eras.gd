@@ -298,3 +298,103 @@ func test_every_village_building_can_be_built() -> void:
 			s.step_hours(1)
 		assert_false(site.site, "builders finished the %s" % d.id)
 
+
+# ---------------------------------------------------------------- ticket 32: the Lumen Spire and the City gate
+
+# AC1a: the row and the gate numbers are the design's (section 15 City row, section 16 Town table).
+func test_lumen_spire_and_city_gate_match_the_design() -> void:
+	var spire := reg.get_building("lumen_spire")
+	assert_not_null(spire)
+	assert_eq([spire.era, spire.category, spire.size], ["town", "landmark", Vector2i(2, 2)])
+	assert_eq(spire.cost, {"materials": 250, "gold": 80, "lumen": 120, "planks": 40, "cut_stone": 40})
+	assert_eq(spire.worker_slots, 0)
+	var city := reg.get_era("city")
+	assert_eq([city.gate_pop, city.gate_gold, city.gate_landmark], [100, 500, "lumen_spire"])
+	# the Town gate (the previous landmark) is unchanged
+	var town := reg.get_era("town")
+	assert_eq([town.gate_pop, town.gate_gold, town.gate_landmark], [40, 150, "bell_tower"])
+
+
+# AC1b: a finished Lumen Spire + pop 100 + gold 500 advances Town -> City, and the gate only checks the gold.
+func test_lumen_spire_pop_and_gold_advance_to_city() -> void:
+	s.era_current = "town"
+	var id := s.place_building_instant("lumen_spire", _free_spot("lumen_spire"))
+	assert_gt(id, -1, "the Lumen Spire is placeable in the Town era")
+	_grow_to(100)
+	s.gold = 500.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "city")
+	var ev := s.events.log_of("era_changed")
+	assert_eq(ev.size(), 1)
+	assert_eq(ev[0]["data"], {"from": "town", "to": "city"})
+	assert_eq(s.gold, 500.0, "a gate checks the gold, it does not spend it")
+
+
+# AC1c: each part of the City gate is required on its own: pop, gold, and a finished (not a site) Lumen Spire.
+func test_each_city_gate_part_is_required() -> void:
+	s.era_current = "town"
+	var id := s.place_building_instant("lumen_spire", _free_spot("lumen_spire"))
+	assert_gt(id, -1)
+	_grow_to(99)
+	s.gold = 500.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "town", "pop 99")
+	_grow_to(100)
+	s.gold = 499.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "town", "gold 499")
+	s.gold = 500.0
+	s.buildings[id].site = true  # an unfinished Lumen Spire does not count
+	s.step_hours(1)
+	assert_eq(s.era_id(), "town", "site only")
+	s.buildings[id].site = false
+	s.step_hours(1)
+	assert_eq(s.era_id(), "city")
+
+
+# AC2: nothing in the Town set is unbuildable. A Town settlement with enough storage and gold places every Town
+# building through the real command API, delivers its cost and lets the builders finish it on seed 42. Same shape as
+# the Village test above: one site at a time, no roads (so finished buildings take no jobs).
+func test_every_town_building_can_be_built() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	s.era_current = "town"
+	s.gold = 3000.0
+	# Storage for the whole Town set: the Hearth holds 150 per good, each storehouse 400 units shared. Food keeps the
+	# builders from leaving over the months of work (GrowthSystem: 1 food per citizen per day, then they leave).
+	for i in 4:
+		var st_spot := _village_spot(s, "storehouse")
+		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
+		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
+	_stock(s, "materials", 750.0)
+	_stock(s, "planks", 125.0)
+	_stock(s, "lumen", 400.0)  # the whole cost plus the Town upkeep that runs while the sites go up
+	_stock(s, "cut_stone", 45.0)
+	_stock(s, "food", 600.0)
+
+	var real := DataRegistry.new()
+	real.load_all()
+	var town: Array[BuildingDef] = []
+	for d: BuildingDef in real.buildings.values():
+		if d.era == "town":
+			town.append(d)
+	town.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
+	assert_eq(town.size(), 12, "the Town set of design section 16")
+
+	for d in town:
+		var spot := _village_spot(s, d.id)
+		assert_ne(spot, Vector2i(-1, -1), "%s has a legal spot on seed 42" % d.id)
+		var id := s.place_building(d.id, spot)
+		assert_gt(id, -1, "%s placed through place_building at %s" % [d.id, spot])
+		var site: Building = s.buildings.get(id)
+		for g in d.cost:
+			if g == BuildingDef.GOLD:
+				continue
+			assert_eq(_deliver(s, site, g, float(d.cost[g])), 0.0, "%s: the %s cost was in storage" % [d.id, g])
+		assert_true(site.site_delivered(), "%s site has its whole cost" % d.id)
+		s.refresh_population()
+		for i in 30 * 24:
+			if not site.site:
+				break
+			s.step_hours(1)
+		assert_false(site.site, "builders finished the %s" % d.id)
+
