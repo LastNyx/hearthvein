@@ -7,8 +7,9 @@ extends SimSystem
 ## Settlement.planet_health() at that moment. Events: dimming_forecast {start_day, length} (start_day is the 0-based
 ## total day number, GameClock.total_days()), dimming_started, dimming_ended, darkness_started, darkness_ended.
 ##
-## During the Dimming: ProductionSystem modifier output_modifier (vein extractors x PlanetDef.dimming_vein_factor,
-## others x BuildingDef.dimming_factor), and each day every citizen needs light_per_citizen Lumen from storage in
+## During the Dimming: ProductionSystem modifier output_modifier (vein extractors x BuildingDef.dimming_vein_factor,
+## or PlanetDef.dimming_vein_factor when the def leaves it 0; others x BuildingDef.dimming_factor), and each day every
+## citizen needs light_per_citizen Lumen from storage in
 ## the region of their home (the Hearth's when homeless): raw Lumen first, then Lumen cells (lumen_per_cell Lumen
 ## each). Any citizen short = darkness for that day: Spirit hook "darkness" (PlanetDef.darkness_spirit) and
 ## GrowthSystem blocks growth and immigration (DimmingSystem.is_dark). Darkness clears when the Dimming ends.
@@ -58,7 +59,8 @@ static func output_modifier(s: Settlement, b: Building) -> float:
 	if not is_active(s):
 		return 1.0
 	if b.def.vein_extractor:
-		return s.registry.planet.dimming_vein_factor
+		return b.def.dimming_vein_factor if b.def.dimming_vein_factor > 0.0 \
+				else s.registry.planet.dimming_vein_factor
 	return b.def.dimming_factor
 
 

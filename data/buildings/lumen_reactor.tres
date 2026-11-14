@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="3"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"lumen": 10.0}
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("3")
+display_name = "Lumen Reactor II"
+multiplier = 1.5
+extra_worker_slots = 1
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("3")
+display_name = "Lumen Reactor III"
+multiplier = 2.0
+extra_worker_slots = 2
+
+[resource]
+script = ExtResource("1")
+id = "lumen_reactor"
+display_name = "Lumen Reactor"
+era = "city"
+category = "lumen"
+size = Vector2i(2, 2)
+cost = {"materials": 150, "gold": 60, "cut_stone": 30}
+worker_slots = 4
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "on_vein"
+placement_radius = 0
+blight_radius = 6
+blight_period_days = 2
+vein_extractor = true
+dimming_vein_factor = 0.6
+health_per_day = -0.025
+recipe = SubResource("Recipe")
+upgradable = true
+tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

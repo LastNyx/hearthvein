@@ -122,6 +122,27 @@ func test_apartment_block_needs_a_well_like_the_rowhouse() -> void:
 	assert_eq(_factor("water"), 0.0, "the Well serves the Apartment Block")
 
 
+# Ticket 33b AC1: the Lumen Reactor row is the City table's: 2x2 on a vein, 150M 60G 30S, 4 workers, no upkeep,
+# +10 Lumen per worker-day, its own x0.6 Dimming factor and blight r6/2d, all data. Behaviour: test_reactor.gd.
+func test_lumen_reactor_data_matches_the_city_table() -> void:
+	var def := reg.get_building("lumen_reactor")
+	assert_not_null(def)
+	assert_eq([def.era, def.category, def.size], ["city", "lumen", Vector2i(2, 2)])
+	assert_eq(def.cost, {"materials": 150, "gold": 60, "cut_stone": 30})
+	assert_eq([def.worker_slots, def.upkeep_lumen], [4, 0.0])
+	assert_eq([def.placement_rule, def.blight_radius, def.blight_period_days], ["on_vein", 6, 2])
+	assert_true(def.vein_extractor)
+	assert_eq([def.dimming_vein_factor, def.dimming_factor], [0.6, 1.0],
+			"its own Dimming factor, not the planet's x0.25")
+	assert_almost_eq(def.health_per_day, -0.025, 0.000001)
+	assert_eq(def.recipe.outputs, {"lumen": 10.0}, "10 Lumen per worker-day")
+	assert_true(def.upgradable, "section 10: Lumen extractors upgrade, output only")
+	assert_almost_eq(def.tiers[0].multiplier, 1.5, 0.000001)
+	assert_almost_eq(def.tiers[1].multiplier, 2.0, 0.000001)
+	s.era_override = "town"
+	assert_false(s.unlocked_buildings().any(func(b: BuildingDef) -> bool: return b.id == "lumen_reactor"))
+
+
 # AC2a: the Grand Bazaar row is the City table's: 3x2, 120M 30G 30P, 4 workers, 1 Lumen upkeep, +1.5 G/worker/day.
 func test_grand_bazaar_data_matches_the_city_table() -> void:
 	var def := reg.get_building("grand_bazaar")

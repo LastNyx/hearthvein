@@ -55,8 +55,11 @@ const GOLD := "gold"
 ## True for extractors that sit on a vein: their output scales with the vein yield factor (section 13).
 @export var vein_extractor: bool = false
 ## Output factor during a Dimming (section 14): 0.5 for Forager and plain farms, 1.0 for everything unaffected.
-## Vein extractors use PlanetDef.dimming_vein_factor instead.
+## Vein extractors use dimming_vein_factor instead.
 @export var dimming_factor: float = 1.0
+## Dimming output factor for a vein extractor (section 14, D37/D43): 0 = PlanetDef.dimming_vein_factor (0.25,
+## Lumen Tap and Lumen Pump). The Lumen Reactor uses 0.6 and the Vein Bore 0.4; the def overrides the planet value.
+@export var dimming_vein_factor: float = 0.0
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
 ## True for a Farm (design.md section 9): output is multiplied by the mean fertility of the footprint / 100.
