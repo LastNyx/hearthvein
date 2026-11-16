@@ -82,7 +82,7 @@ func _sync(s: Settlement) -> void:
 		if b.site or b.def.housing_beds <= 0:
 			continue
 		var beds := b.effective_beds(s.registry)
-		if beds > 0:
+		if beds > 0 and (b.layer == Building.LAYER_GROUND or b.connected):  # a sky home needs a lift route to work
 			_lc_free[bid] = beds
 	_lc_order = _lc_free.keys()
 	_lc_entries = _job_entries(s)

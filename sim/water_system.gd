@@ -202,6 +202,12 @@ static func needs_wet(s: Settlement, b: Building) -> bool:
 ## ProductionSystem halt reason for a building that cannot work on dry ground: "dry" for an Irrigated Farm (a
 ## needs_wet tier) whose footprint is not half wet, otherwise "".
 static func dry_halt(s: Settlement, b: Building) -> String:
+	if b.def.work_needs_wet:
+		var m := s.map_for_layer(b.layer)
+		for t in b.tiles():
+			if m.is_wet(t.x, t.y):
+				return ""
+		return "dry"
 	if b.def.work_needs_water:
 		return "" if has_water(s, b) else "dry"
 	if s.registry.water == null or not b.def.fertility_output or not needs_wet(s, b):

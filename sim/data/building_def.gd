@@ -103,6 +103,9 @@ const GOLD := "gold"
 ## footprint, or a finished drinking-water source (water_radius) within reach. Otherwise it halts with "dry". The farm's
 ## needs_wet tier is separate and stays on WaterSystem.footprint_wet.
 @export var work_needs_water: bool = false
+## True for a producer that halts with "dry" unless some tile of its footprint is wet (Sky Garden, ticket 41b): unlike
+## work_needs_water a drinking-water source in reach does not count, only a wet tile (on an island a Cloud Cistern's wet_radius).
+@export var work_needs_wet: bool = false
 ## Tiles around a finished building's footprint that it makes wet (Chebyshev, WaterSystem stamps them with the water and
 ## channel squares): Water Tower 3 (design.md section 17, ticket 39). 0 = wets nothing.
 @export var wet_radius: int = 0

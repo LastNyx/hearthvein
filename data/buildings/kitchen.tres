@@ -7,7 +7,7 @@
 script = ExtResource("2")
 inputs = {}
 outputs = {"meals": 4.0}
-any_input_goods = Array[String](["food", "crops", "fish", "greenhouse"])
+any_input_goods = Array[String](["food", "crops", "fish", "greenhouse", "sky_produce"])
 any_input_count = 2
 any_input_amount = 1.3333334
 

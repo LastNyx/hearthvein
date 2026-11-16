@@ -3,7 +3,7 @@ extends GutTest
 ## Two different food types make meals through the haulers, and meals count as one food type for Spirit variety.
 
 const SEED := 42
-const FOODS: Array[String] = ["food", "crops", "fish", "greenhouse"]
+const FOODS: Array[String] = ["food", "crops", "fish", "greenhouse", "sky_produce"]
 
 var reg: DataRegistry
 var s: Settlement

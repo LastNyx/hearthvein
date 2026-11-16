@@ -131,13 +131,14 @@ func test_ground_wet_does_not_leak_to_sky() -> void:
 
 
 func test_sky_skyspire_lacks_water_and_ground_well_does_not_serve_it() -> void:
-	var sp := _sky("skyspire", 6, 6)
+	var sp := _connected_sky_skyspire()
 	assert_false(_cov().home_has_water(s, sp.id), "no cistern")
 	s.place_building_instant("water_tower", Vector2i(h.x + 8, h.y + 3))
 	assert_false(_cov().home_has_water(s, sp.id), "a ground tower does not serve the sky")
 	_house_one(sp)
 	assert_lt(CoverageSystem.water_factor(s), 0.0, "missing water costs Spirit")
-	_sky("cloud_cistern", 2, 6)
+	var cid := s.place_building_instant("cloud_cistern", sp.origin + Vector2i(0, 3), Building.LAYER_SKY)
+	assert_true(cid >= 0, "cistern placed")
 	assert_true(_cov().home_has_water(s, sp.id))
 	assert_eq(CoverageSystem.water_factor(s), 0.0)
 
@@ -176,6 +177,20 @@ func test_citizens_move_into_connected_skyspire() -> void:
 		if c.home_id == sp.id:
 			living += 1
 	assert_gt(living, 0, "citizens live in the sky Skyspire")
+
+
+## A Skyspire joined to a Sky Lift by a sky road (a sky home only takes residents when connected, ticket 41b).
+func _connected_sky_skyspire() -> Building:
+	for x in range(h.x + 2, h.x + 5):
+		var t := Vector2i(x, h.y + 1)
+		if isl.rect.has_point(t) and isl.rect.has_point(t + Vector2i(3, 4)) and s.can_place("sky_lift", t, true)["ok"]:
+			assert_true(s.place_building_instant("sky_lift", t) >= 0)
+			s.place_road(t + Vector2i(1, 0), Settlement.ROAD_DIRT, Building.LAYER_SKY)
+			var sid := s.place_building_instant("skyspire", t + Vector2i(2, 0), Building.LAYER_SKY)
+			assert_true(sid >= 0)
+			return s.buildings[sid]
+	fail_test("no lift spot")
+	return null
 
 
 ## Adds citizens until the Hearth's beds overflow, runs the job system, and expects some to live in `sp`.
