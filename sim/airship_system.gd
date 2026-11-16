@@ -9,9 +9,10 @@ extends ManifestBase
 ## their way to a region, by rail or by air, count as stocked there, so a rail-linked pair is served by rail first and
 ## the air only moves the need that is left. Ships never take goods to a region without a staffed dock.
 ##
-## Skyborne hook (ticket 38, not built): islands (design.md section 4) are served by the dock too. A later ticket adds an
-## island as one more node: a hub building in `_staffed_docks` with its own region id for the table, so the same matching
-## and the same shipments() entries serve it.
+## Islands (ticket 70): a sky-layer dock is its own freight node. ManifestBase._region keys every sky-layer building by
+## region + MapState.REGION_COUNT, so an island dock has its own stock and demand table (the island's buildings), apart
+## from the ground dock under it, and trades with any dock; its flight distance is that of its position. Rail never
+## reaches it (rail depots are ground only). A still island's dock is left out of the manifests.
 ##
 ## Survey: survey_region(r) from a staffed, idle dock starts a flight over a locked region whose reward is not yet
 ## revealed; RegionsDef.survey_days later the reward is revealed for good. Design section 4 says reward markers are shown
@@ -242,7 +243,8 @@ func _staffed_docks(s: Settlement) -> Array[int]:
 	var docks := {}
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
-		if b.def.airship_dock and not b.site and s.map.is_region_owned(_region(s, b)):
+		if b.def.airship_dock and not b.site and s.map.is_region_owned(_real_region(s, b)) \
+				and not IslandSystem.is_still_building(s, b):  # a still island's dock neither sends nor receives
 			docks[id] = false
 	if docks.is_empty():
 		return []

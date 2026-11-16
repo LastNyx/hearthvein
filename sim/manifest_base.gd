@@ -188,7 +188,14 @@ func _region_table(s: Settlement) -> Dictionary:
 		demand[r] = dm
 	return {"stock": stock, "demand": demand, "goods": goods}
 
+## The freight node of a building: its region for ground buildings, region + MapState.REGION_COUNT for sky-layer ones
+## (an island is its own node, ticket 70). Ground keys are plain region ids, so old saves and the rail are unchanged.
 func _region(s: Settlement, b: Building) -> int:
+	var r := s.map.get_region(b.origin.x, b.origin.y)
+	return r + MapState.REGION_COUNT if b.layer == Building.LAYER_SKY else r
+
+## The real map region of a building, whatever its layer.
+func _real_region(s: Settlement, b: Building) -> int:
 	return s.map.get_region(b.origin.x, b.origin.y)
 
 ## Finished storages of a region, the depot first, then by id.
