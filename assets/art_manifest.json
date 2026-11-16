@@ -601,8 +601,8 @@
    "fx": {
     "file": "buildings/grid_battery_fx.png",
     "offset": [
-     -26,
-     -29
+     -29,
+     -33
     ]
    },
    "generic": false,
@@ -978,8 +978,8 @@
    "fx": {
     "file": "buildings/lumen_pylon_fx.png",
     "offset": [
-     -14,
-     -66
+     -20,
+     -72
     ]
    },
    "generic": false,
@@ -987,8 +987,8 @@
    "shadow": {
     "file": "buildings/lumen_pylon_shadow.png",
     "offset": [
-     -11,
-     -4
+     -12,
+     -5
     ]
    },
    "w": 34

@@ -1626,51 +1626,68 @@ def b_nexus():
 
 
 def b_pylon():
-    """Lumen Pylon (1x1): a slim brass mast on a stone footing, a crystal on top and a glowing coil band."""
+    """Lumen Pylon (1x1): a squat stone plinth, a stout brass mast with glowing coil bands and a big crystal on top."""
     W, H = 32, 64
     im = Image.new("RGBA", (W, H))
     d = ImageDraw.Draw(im)
     cx, yb = W // 2, H - 1
     glows = []
-    im.paste(tex_stone(22, 7, 94), (cx - 11, yb - 6))
-    R(d, cx - 11, yb - 7, cx + 10, yb - 7, STONE[4])
-    R(d, cx - 11, yb - 2, cx + 10, yb - 1, STONE[1])
-    top = 22
-    d.polygon([(cx - 5, yb - 7), (cx - 2, top), (cx + 2, top), (cx + 5, yb - 7)], fill=BRASS[1])
-    d.polygon([(cx - 5, yb - 7), (cx - 2, top), (cx, top), (cx - 1, yb - 7)], fill=BRASS[2])
-    for y in (top + 12, top + 24):
-        R(d, cx - 5, y, cx + 5, y + 1, BRASS[3])
-        R(d, cx - 3, y + 2, cx + 3, y + 2, CRYSTAL[1])
-        glows.append((cx, y + 1, 6, GLOW))
-    R(d, cx - 4, top - 2, cx + 4, top, BRASS[2])
-    crystal(d, cx - 4, top - 2, 16, 8)
-    glows += [(cx, top - 10, 14, GLOW), (cx, top - 10, 5, CRYSTAL[4])]
-    return Sprite(im, 1, 1, glows, [], (0.8, 6))
+    # stone plinth with a brass rim
+    im.paste(tex_stone(28, 11, 94), (cx - 14, yb - 10))
+    R(d, cx - 14, yb - 11, cx + 13, yb - 11, STONE[4])
+    R(d, cx - 14, yb - 3, cx + 13, yb - 2, STONE[1])
+    R(d, cx - 14, yb - 6, cx + 13, yb - 6, BRASS[1])
+    # stout mast
+    top = 26
+    base = yb - 11
+    d.polygon([(cx - 7, base), (cx - 4, top), (cx + 4, top), (cx + 7, base)], fill=BRASS[1])
+    d.polygon([(cx - 7, base), (cx - 4, top), (cx - 1, top), (cx - 2, base)], fill=BRASS[2])
+    d.polygon([(cx + 3, base), (cx + 4, top), (cx + 7, base)], fill=BRASS[0])
+    d.line([(cx - 7, base), (cx - 4, top)], fill=BRASS[3])
+    # glowing coil bands
+    for y in (top + 8, top + 17, top + 26):
+        R(d, cx - 7, y, cx + 7, y + 2, BRASS[3])
+        R(d, cx - 5, y + 1, cx + 5, y + 1, CRYSTAL[3])
+        glows.append((cx, y + 1, 8, GLOW))
+    # cradle and crystal, a sibling of the Nexus node
+    R(d, cx - 7, top - 3, cx + 7, top, BRASS[2])
+    R(d, cx - 7, top - 3, cx + 7, top - 3, BRASS[3])
+    crystal(d, cx - 6, top - 3, 22, 12)
+    d.arc([cx - 11, top - 20, cx + 11, top - 10], 200, 340, fill=BRASS[3], width=1)
+    glows += [(cx, top - 14, 20, GLOW), (cx, top - 14, 7, CRYSTAL[4])]
+    return Sprite(im, 1, 1, glows, [], (0.9, 8))
 
 
 def b_battery():
-    """Grid Battery (2x1): a low iron-banded housing holding three upright glowing cells."""
+    """Grid Battery (2x1): a squat iron housing with a glass tank window showing three glowing Lumen cells."""
     W, H = 64, 46
     im = Image.new("RGBA", (W, H))
     d = ImageDraw.Draw(im)
     yb = H - 1
     glows = []
-    im.paste(tex_stone(W - 6, 8, 95), (3, yb - 7))
-    R(d, 3, yb - 8, W - 4, yb - 8, STONE[4])
-    R(d, 5, yb - 30, W - 6, yb - 9, IRON[1])
-    R(d, 5, yb - 30, W - 6, yb - 29, IRON[3])
-    R(d, W - 12, yb - 28, W - 6, yb - 9, IRON[0])
+    im.paste(tex_stone(W - 4, 8, 95), (2, yb - 7))
+    R(d, 2, yb - 8, W - 3, yb - 8, STONE[4])
+    # housing
+    R(d, 3, yb - 32, W - 4, yb - 9, IRON[1])
+    R(d, 3, yb - 32, W - 4, yb - 31, IRON[4])
+    R(d, W - 10, yb - 30, W - 4, yb - 9, IRON[0])
+    R(d, 3, yb - 9, W - 4, yb - 9, IRON[0])
+    # glass tank window, brass-framed
+    R(d, 6, yb - 28, W - 7, yb - 12, BRASS[1])
+    R(d, 6, yb - 28, W - 7, yb - 28, BRASS[3])
+    R(d, 8, yb - 26, W - 9, yb - 14, CRYSTAL[0])
     for k in range(3):
         x0 = 9 + k * 16
-        R(d, x0, yb - 26, x0 + 11, yb - 12, IRON[0])
-        R(d, x0 + 1, yb - 25, x0 + 10, yb - 13, CRYSTAL[1])
-        R(d, x0 + 2, yb - 25, x0 + 4, yb - 13, CRYSTAL[3])
-        R(d, x0 + 9, yb - 25, x0 + 10, yb - 13, CRYSTAL[0])
-        R(d, x0 + 3, yb - 24, x0 + 3, yb - 20, CRYSTAL[4])
-        R(d, x0 + 3, yb - 31, x0 + 8, yb - 29, BRASS[2])
-        glows.append((x0 + 6, yb - 19, 9, GLOW))
-    R(d, 5, yb - 18, W - 6, yb - 17, BRASS[1])
-    R(d, 5, yb - 18, W - 6, yb - 18, BRASS[3])
+        R(d, x0, yb - 25, x0 + 11, yb - 15, CRYSTAL[2])
+        R(d, x0, yb - 21, x0 + 11, yb - 15, CRYSTAL[3])
+        R(d, x0 + 1, yb - 25, x0 + 3, yb - 15, CRYSTAL[4])
+        R(d, x0, yb - 25, x0 + 11, yb - 25, CRYSTAL[1])
+        # terminal cap on the roof
+        R(d, x0 + 3, yb - 36, x0 + 8, yb - 32, BRASS[2])
+        R(d, x0 + 4, yb - 38, x0 + 7, yb - 37, CRYSTAL[3])
+        glows.append((x0 + 6, yb - 20, 12, GLOW))
+        if k:
+            R(d, x0 - 4, yb - 28, x0 - 3, yb - 14, BRASS[2])
     return Sprite(im, 2, 1, glows, [], (0.95, 8))
 
 

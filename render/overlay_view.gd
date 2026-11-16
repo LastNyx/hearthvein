@@ -161,33 +161,67 @@ func _draw_water_extras() -> void:
 		draw_rect(Rect2(t.x * TILE + 1, t.y * TILE + 1, TILE - 2, TILE - 2), Color(0.8, 0.95, 0.3, 0.8), false, 1.0)
 
 
-## Grid overlay (ticket 36c): every tile a grid feeds in a soft Lumen cyan (one fill per tile, so overlapping nodes do not
-## stack), a thin bright line for each Pylon / Nexus link, a check / cross on every Lumen-upkeep or Lumen-input building
-## (check = on a grid with supply or battery charge), and a charge bar over each Grid Battery.
+## Grid overlay (tickets 36c, 66): every tile a grid feeds in a clear Lumen cyan (one fill per tile, so overlapping nodes
+## do not stack) with a dark-backed bright outline along each grid's coverage border, a ring on every Pylon / Nexus so it
+## can be found at low zoom, a line for each link, a check / cross on every Lumen-upkeep or Lumen-input building
+## (check = on a grid with supply or battery charge) and a charge bar over each Grid Battery.
 func _draw_grid() -> void:
-	var cyan := Color(0.4, 0.85, 0.95)
+	var cyan := Color(0.1, 0.8, 1.0)
+	var rim := Color(0.55, 0.97, 1.0)
 	for g: Dictionary in model.grid_ranges():
-		for t: Vector2i in g["tiles"]:
-			draw_rect(Rect2(t.x * TILE, t.y * TILE, TILE, TILE), Color(cyan, 0.13))
+		var tiles: Array = g["tiles"]
+		var have := {}
+		for t: Vector2i in tiles:
+			have[t] = true
+		for t: Vector2i in tiles:
+			draw_rect(Rect2(t.x * TILE, t.y * TILE, TILE, TILE), Color(cyan, 0.24))
+		var edges: Array[PackedVector2Array] = []
+		for t: Vector2i in tiles:
+			var x0 := float(t.x * TILE)
+			var y0 := float(t.y * TILE)
+			if not have.has(t + Vector2i(0, -1)):
+				edges.append(PackedVector2Array([Vector2(x0, y0), Vector2(x0 + TILE, y0)]))
+			if not have.has(t + Vector2i(0, 1)):
+				edges.append(PackedVector2Array([Vector2(x0, y0 + TILE), Vector2(x0 + TILE, y0 + TILE)]))
+			if not have.has(t + Vector2i(-1, 0)):
+				edges.append(PackedVector2Array([Vector2(x0, y0), Vector2(x0, y0 + TILE)]))
+			if not have.has(t + Vector2i(1, 0)):
+				edges.append(PackedVector2Array([Vector2(x0 + TILE, y0), Vector2(x0 + TILE, y0 + TILE)]))
+		for e in edges:
+			draw_line(e[0], e[1], Color(0.0, 0.1, 0.2, 0.8), 5.0)
+		for e in edges:
+			draw_line(e[0], e[1], Color(rim, 0.95), 2.5)
 	for l: Array in model.grid_links():
 		var a: Vector2 = l[0] * TILE
 		var b: Vector2 = l[1] * TILE
 		draw_line(a, b, Color(0.02, 0.12, 0.2, 0.7), 4.0)
 		draw_line(a, b, Color(0.7, 0.97, 1.0, 0.95), 2.0)
+	for g: Dictionary in model.grid_ranges():
+		for nid: int in g["nodes"]:
+			var nb: Building = settlement.buildings[nid]
+			var nc := (Vector2(nb.origin) + Vector2(nb.def.size) * 0.5) * TILE
+			var rad := float(maxi(nb.def.size.x, nb.def.size.y)) * TILE * 0.5 + 6.0
+			draw_arc(nc, rad, 0.0, TAU, 32, Color(0.0, 0.1, 0.2, 0.85), 5.0)
+			draw_arc(nc, rad, 0.0, TAU, 32, rim, 2.5)
 	for h: Dictionary in model.grid_consumers():
 		var b: Building = settlement.buildings[h["id"]]
-		var c := (Vector2(b.origin) + Vector2(b.def.size)) * TILE - Vector2(9, 9)
+		var c := (Vector2(b.origin) + Vector2(b.def.size)) * TILE - Vector2(11, 11)
 		if h["fed"]:
-			draw_circle(c, 8.0, Color(0.03, 0.2, 0.3, 0.9))
-			draw_polyline(PackedVector2Array([c + Vector2(-4, 0), c + Vector2(-1, 3), c + Vector2(4, -3)]),
-					Color(0.5, 0.95, 1.0), 2.5)
+			draw_circle(c, 11.0, Color(0.0, 0.1, 0.2, 0.95))
+			draw_arc(c, 11.0, 0.0, TAU, 20, rim, 2.0)
+			draw_polyline(PackedVector2Array([c + Vector2(-5, 0), c + Vector2(-1.5, 4), c + Vector2(5.5, -4)]),
+					Color(0.6, 1.0, 1.0), 3.0)
 		else:
-			draw_circle(c, 8.0, Color(0.25, 0.05, 0.05, 0.7))
-			draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
-			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
+			draw_circle(c, 11.0, Color(0.35, 0.03, 0.03, 0.95))
+			draw_arc(c, 11.0, 0.0, TAU, 20, Color(1.0, 0.45, 0.4), 2.0)
+			draw_line(c + Vector2(-4.5, -4.5), c + Vector2(4.5, 4.5), Color(1.0, 0.6, 0.55), 3.0)
+			draw_line(c + Vector2(-4.5, 4.5), c + Vector2(4.5, -4.5), Color(1.0, 0.6, 0.55), 3.0)
 	for bat: Dictionary in model.grid_batteries():
 		var b: Building = settlement.buildings[bat["id"]]
-		var w := float(b.def.size.x) * TILE - 8.0
-		var bar := Rect2(Vector2(b.origin) * TILE + Vector2(4, -9), Vector2(w, 6))
-		draw_rect(bar.grow(1.0), Color(0.02, 0.08, 0.12, 0.9))
-		draw_rect(Rect2(bar.position, Vector2(w * float(bat["fraction"]), bar.size.y)), Color(0.45, 0.95, 1.0))
+		var w := float(b.def.size.x) * TILE - 4.0
+		var bar := Rect2(Vector2(b.origin) * TILE + Vector2(2, -17), Vector2(w, 11))
+		draw_rect(bar.grow(3.0), Color(0.0, 0.05, 0.1, 0.95))
+		draw_rect(bar.grow(1.0), Color(rim, 0.95))
+		draw_rect(bar, Color(0.03, 0.12, 0.18))
+		draw_rect(Rect2(bar.position, Vector2(w * float(bat["fraction"]), bar.size.y)), Color(0.35, 0.95, 1.0))
+		draw_rect(Rect2(bar.position, Vector2(w * float(bat["fraction"]), 3.0)), Color(0.85, 1.0, 1.0))

@@ -1,9 +1,9 @@
 extends SceneTree
-## Windowed screenshot of the Lumen grid overlay (ticket 36c): godot --path . -s tools/grid_shot.gd [-- seed]
+## Windowed screenshot of the Lumen grid overlay (tickets 36c, 66): godot --path . -s tools/grid_shot.gd [-- seed]
 ## A Conflux settlement with a Lumen Nexus, a chain of three linked pylons, one pylon out of link range (its own grid, no
 ## supply), a Lumen Reactor and a part-charged Grid Battery on the main grid, Lumen-upkeep buildings inside the feed range
 ## (fed) and two outside every range (unfed). The grid overlay (key L) is switched on.
-## Writes .scratch/v1/hv_36c_grid_z1.png (zoom step 1) and hv_36c_grid_z2.png (zoom step 2).
+## Writes .scratch/v1/hv_66_grid_z1.png (zoom step 1) and hv_66_grid_z2.png (zoom step 2).
 
 const L := preload("res://tools/shot_layout.gd")
 const OUT := "/home/ngeng/Proyek/hearthvein/.scratch/v1/"
@@ -64,7 +64,7 @@ func _init() -> void:
 	var cam: CameraController = main.get_node("Camera")
 	cam.position = (Vector2(r) + Vector2(16, 12)) * ArtLibrary.TILE
 	cam.set_zoom_step(1)
-	await _shoot(OUT + "hv_36c_grid_z1.png")
+	await _shoot(OUT + "hv_66_grid_z1.png")
 	cam.set_zoom_step(2)
-	await _shoot(OUT + "hv_36c_grid_z2.png")
+	await _shoot(OUT + "hv_66_grid_z2.png")
 	quit()
