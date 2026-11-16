@@ -53,6 +53,9 @@ const SKIP := {
 	"RailSystem._depot_comps": "depot road component cache, rebuilt",
 	"RailSystem._key": "rail cache key, rebuilt",
 	"RailSystem._count": "rail cache key, rebuilt",
+	# RailManifestSystem
+	"RailManifestSystem._paths": "depot pair track path cache, rebuilt on demand",
+	"RailManifestSystem._paths_version": "path cache key, rebuilt",
 	# WalkerSystem
 	"WalkerSystem._s": "back-reference to the settlement, set on the first hook after load",
 	"WalkerSystem._grid": "AStarGrid2D, rebuilt from the loaded map and buildings",

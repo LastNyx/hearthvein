@@ -88,6 +88,7 @@ func add_default_systems() -> void:
 	add_system(StorageSystem.new())
 	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
+	add_system(RailManifestSystem.new())  # daily train manifests between linked depots (ticket 37b), hourly arrivals
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
