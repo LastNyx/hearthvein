@@ -97,6 +97,10 @@ const GOLD := "gold"
 ## served: Well 8, Water Tower 16, Cloud Cistern 10 (design.md sections 9, 16-17). 0 = provides no drinking water.
 ## CoverageSystem owns the water query; it is kept apart from coverage_radius so wells never count as Shrine coverage.
 @export var water_radius: int = 0
+## True for a producer that only works with water at hand (Hydroponic Hall, ticket 39c): a wet tile under any tile of the
+## footprint, or a finished drinking-water source (water_radius) within reach. Otherwise it halts with "dry". The farm's
+## needs_wet tier is separate and stays on WaterSystem.footprint_wet.
+@export var work_needs_water: bool = false
 ## Tiles around a finished building's footprint that it makes wet (Chebyshev, WaterSystem stamps them with the water and
 ## channel squares): Water Tower 3 (design.md section 17, ticket 39). 0 = wets nothing.
 @export var wet_radius: int = 0

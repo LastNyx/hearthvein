@@ -172,6 +172,26 @@ static func needs_wet(s: Settlement, b: Building) -> bool:
 ## ProductionSystem halt reason for a building that cannot work on dry ground: "dry" for an Irrigated Farm (a
 ## needs_wet tier) whose footprint is not half wet, otherwise "".
 static func dry_halt(s: Settlement, b: Building) -> String:
+	if b.def.work_needs_water:
+		return "" if has_water(s, b) else "dry"
 	if s.registry.water == null or not b.def.fertility_output or not needs_wet(s, b):
 		return ""
 	return "" if footprint_wet(s, b) else "dry"
+
+
+## True when a producer with work_needs_water has water: any footprint tile is wet (river, channel, Water Tower
+## splash), or a finished Well, Water Tower or Cloud Cistern is within its water_radius (the home rule of
+## CoverageSystem, footprint to footprint; a Well on fouled-only ground serves nothing).
+static func has_water(s: Settlement, b: Building) -> bool:
+	for t in b.tiles():
+		if s.map.is_wet(t.x, t.y):
+			return true
+	for sid in s.buildings:
+		var src: Building = s.buildings[sid]
+		if src.site or src.def.water_radius <= 0:
+			continue
+		if src.def.placement_rule == "on_wet" and FoulingSystem.wet_only_from_fouled(s, src.origin):
+			continue
+		if CoverageSystem.building_serves_water(src, b):
+			return true
+	return false

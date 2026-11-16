@@ -779,11 +779,11 @@
   },
   "hydroponic_hall": {
    "base": [
-    46,
-    65
+    49,
+    69
    ],
-   "category": "food",
    "file": "buildings/hydroponic_hall.png",
+   "flat": false,
    "footprint": [
     3,
     2
@@ -791,20 +791,20 @@
    "fx": {
     "file": "buildings/hydroponic_hall_fx.png",
     "offset": [
-     -4,
-     -80
+     -31,
+     -62
     ]
    },
-   "generic": true,
-   "h": 66,
+   "generic": false,
+   "h": 70,
    "shadow": {
     "file": "buildings/hydroponic_hall_shadow.png",
     "offset": [
-     -35,
-     -8
+     -38,
+     -6
     ]
    },
-   "w": 92
+   "w": 98
   },
   "kitchen": {
    "base": [
@@ -1751,11 +1751,11 @@
   },
   "vein_bore": {
    "base": [
-    31,
-    65
+    35,
+    97
    ],
-   "category": "lumen",
    "file": "buildings/vein_bore.png",
+   "flat": false,
    "footprint": [
     2,
     2
@@ -1763,20 +1763,20 @@
    "fx": {
     "file": "buildings/vein_bore_fx.png",
     "offset": [
-     -4,
-     -80
+     -22,
+     -38
     ]
    },
-   "generic": true,
-   "h": 66,
+   "generic": false,
+   "h": 98,
    "shadow": {
     "file": "buildings/vein_bore_shadow.png",
     "offset": [
-     -24,
-     -8
+     -27,
+     -6
     ]
    },
-   "w": 62
+   "w": 70
   },
   "vein_mender": {
    "base": [

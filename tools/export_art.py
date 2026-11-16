@@ -1087,6 +1087,7 @@ SHEET = {
     "rail_depot": lambda: M.b_rail_depot(),  # ticket 37c
     "airship_dock": lambda: M.b_airship_dock(),  # ticket 38
     "conduit_terraces": lambda: M.b_conduit_terraces(), "water_tower": lambda: M.b_water_tower(),  # ticket 39
+    "vein_bore": lambda: M.b_vein_bore(), "hydroponic_hall": lambda: M.b_hydroponic_hall(),  # ticket 39b, 39c
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge
     "hut": lambda: M.b_hut(9), "lodge": lambda: M.b_lodge(10),
 }

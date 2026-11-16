@@ -1814,6 +1814,113 @@ def b_water_tower():
     return Sprite(im, 1, 1, [], [], (0.8, 7))
 
 
+def b_vein_bore():
+    """Vein Bore (2x2, ticket 39b): a heavy iron drill rig on a stone collar over a glowing vein shaft. A tall braced
+    derrick carries the drill string and a brass winch drum; Lumen crystal light climbs out of the shaft."""
+    W, H = 68, 96
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    im.paste(tex_stone(W - 4, 12, 391), (2, yb - 11))
+    R(d, 2, yb - 12, W - 3, yb - 12, STONE[4])
+    # shaft mouth, glowing
+    d.ellipse([cx - 14, yb - 22, cx + 14, yb - 8], fill=IRON[0])
+    d.ellipse([cx - 11, yb - 20, cx + 11, yb - 10], fill=CRYSTAL[1])
+    d.ellipse([cx - 7, yb - 18, cx + 7, yb - 12], fill=CRYSTAL[3])
+    d.ellipse([cx - 3, yb - 16, cx + 3, yb - 14], fill=CRYSTAL[4])
+    glows += [(cx, yb - 15, 22, GLOW), (cx, yb - 15, 9, CRYSTAL[4])]
+    # derrick: four braced legs
+    top = 12
+    for lx0, lx1 in ((cx - 24, cx - 6), (cx + 24, cx + 6)):
+        d.line([(lx0, yb - 12), (lx1, top + 4)], fill=IRON[2], width=3)
+        d.line([(lx0 - 1, yb - 12), (lx1 - 1, top + 4)], fill=IRON[3])
+    for y in range(top + 12, yb - 14, 14):
+        k = (y - top) / (yb - 12 - top)
+        xl, xr = cx - 6 - int(18 * k), cx + 6 + int(18 * k)
+        d.line([(xl, y), (xr, y)], fill=IRON[1], width=2)
+        d.line([(xl, y), (xr - 5, y + 14)], fill=IRON[3])
+        d.line([(xr, y), (xl + 5, y + 14)], fill=IRON[3])
+    # crown block and drill string
+    R(d, cx - 9, top, cx + 9, top + 5, BRASS[1])
+    R(d, cx - 9, top, cx + 9, top, BRASS[3])
+    d.ellipse([cx - 3, top - 5, cx + 3, top + 1], fill=BRASS[2])
+    R(d, cx - 2, top + 5, cx + 2, yb - 16, IRON[2])
+    R(d, cx - 2, top + 5, cx - 2, yb - 16, IRON[4])
+    for y in range(top + 12, yb - 18, 9):
+        R(d, cx - 3, y, cx + 3, y + 2, BRASS[2])
+    d.polygon([(cx - 4, yb - 22), (cx + 4, yb - 22), (cx, yb - 14)], fill=IRON[4])
+    # winch drum with a Lumen lamp, and a motor housing
+    R(d, 3, yb - 34, 19, yb - 13, IRON[1])
+    cylinder(d, 5, 17, yb - 32, yb - 15, BRASS)
+    R(d, 3, yb - 34, 19, yb - 34, IRON[4])
+    d.line([(11, yb - 32), (cx - 2, top + 8)], fill=IRON[3])
+    R(d, W - 20, yb - 28, W - 4, yb - 13, IRON[2])
+    R(d, W - 20, yb - 28, W - 4, yb - 28, IRON[4])
+    for x in range(W - 18, W - 5, 4):
+        R(d, x, yb - 24, x, yb - 16, IRON[0])
+    R(d, W - 17, yb - 32, W - 14, yb - 28, IRON[3])
+    glows.append((W - 12, yb - 20, 6, CRYSTAL[3]))
+    d.point((W - 12, yb - 20), fill=CRYSTAL[4])
+    return Sprite(im, 2, 2, glows, [], (1.0, 10))
+
+
+def b_hydroponic_hall():
+    """Hydroponic Hall (3x2, ticket 39c): a long glass hall on a stone footing, tiers of green racks inside under teal
+    grow-lamps, and brass water pipes with a tank running along the front."""
+    W, H = 96, 68
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    x0, x1, yb = 3, W - 4, H - 1
+    ry, wy = 12, yb - 20
+    glows = []
+    rng = random.Random(392)
+    inner = Image.new("RGBA", (W, H), hexc("163a34"))
+    idr = ImageDraw.Draw(inner)
+    for k, y in enumerate((ry + 6, ry + 18, ry + 30)):
+        R(idr, x0, y + 5, x1, y + 6, IRON[2])
+        for x in range(x0 + 1, x1, 3):
+            h_ = rng.randint(3, 5)
+            R(idr, x, y + 4 - h_, x + 1, y + 4, rng.choice(LEAF["green"][1:5]))
+        R(idr, x0, y - 5, x1, y - 5, TEAL[3])
+        glows.append((rng.randint(x0 + 12, x1 - 12), y - 4, 8, GLOW))
+    glint = Image.new("RGBA", (W, H))
+    gd = ImageDraw.Draw(glint)
+    for k in range(-H, W, 16):
+        gd.line([(k, H), (k + H, 0)], fill=(255, 255, 255, 60), width=2)
+    roof, wall = inner.copy(), inner.copy()
+    roof.alpha_composite(Image.new("RGBA", (W, H), CRYSTAL[3][:3] + (110,)))
+    roof.alpha_composite(glint)
+    wall.alpha_composite(Image.new("RGBA", (W, H), CRYSTAL[2][:3] + (55,)))
+    wall.alpha_composite(glint)
+    paste_box(im, shade(roof, 0.62), x0 + 2, ry - 4, x1 - 2, ry - 1)
+    paste_box(im, roof, x0 - 1, ry, x1 + 1, wy)
+    paste_box(im, wall, x0, wy + 1, x1, yb - 6)
+    im.paste(tex_stone(x1 - x0 + 1, 6, 392), (x0, yb - 5))
+    R(d, x0, yb - 6, x1, yb - 6, STONE[4])
+    for x in range(x0, x1 + 1, 8):
+        d.line([(x, ry), (x, wy)], fill=IRON[2])
+        d.line([(x, wy + 1), (x, yb - 6)], fill=IRON[1])
+    d.line([(x0 - 1, ry), (x1 + 1, ry)], fill=IRON[3])
+    d.line([(x0 - 1, wy), (x1 + 1, wy)], fill=IRON[3])
+    d.line([(x0 + 2, ry - 4), (x1 - 2, ry - 4)], fill=IRON[3])
+    # water pipes along the front with a tank on the left and a valve
+    R(d, x0, yb - 11, x1, yb - 9, BRASS[1])
+    R(d, x0, yb - 11, x1, yb - 11, BRASS[3])
+    for x in range(x0 + 10, x1, 18):
+        R(d, x, yb - 12, x + 2, yb - 8, BRASS[3])
+        R(d, x, yb - 8, x + 1, yb - 5, TEAL[3])
+    cylinder(d, x1 - 12, x1 - 2, yb - 30, yb - 6, TEAL)
+    R(d, x1 - 13, yb - 31, x1 - 1, yb - 29, BRASS[2])
+    R(d, x1 - 13, yb - 10, x1 - 1, yb - 8, BRASS[2])
+    # glass door
+    cx = (x0 + x1) // 2
+    R(d, cx - 5, yb - 19, cx + 5, yb - 6, BRASS[1])
+    R(d, cx - 4, yb - 18, cx + 4, yb - 6, mul(CRYSTAL[2], 0.8))
+    d.line([(cx, yb - 18), (cx, yb - 6)], fill=BRASS[1])
+    return Sprite(im, 3, 2, glows, [], (1.0, 9))
+
+
 def b_airship_dock():
     """Airship Dock (3x3, ticket 38): a timber-and-stone landing platform with a tall brass-capped mooring mast and a small
     airship (canvas envelope, wooden gondola) tied to it, a lamp on the mast and a crate stack on the deck."""

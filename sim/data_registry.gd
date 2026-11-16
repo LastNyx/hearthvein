@@ -401,6 +401,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: wet_radius must not be negative" % who)
 	if b.water_radius < 0:
 		errors.append("%s: water_radius must not be negative" % who)
+	if b.work_needs_water and b.recipe == null:
+		errors.append("%s: work_needs_water without a recipe" % who)
 	if b.needs_water and b.housing_beds <= 0:
 		errors.append("%s: needs_water without housing beds" % who)
 	if b.region_haul_load < 0.0:
