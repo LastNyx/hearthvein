@@ -3,11 +3,13 @@ extends SceneTree
 ## A Skyborne settlement: the city set, a finished Sky Foundry, a Lift Anchor with its raised island over the Hearth's
 ## region, a Lumen grid feeding it (so the island is not still), two Sky Lifts, sky roads, an island Airship Dock beside
 ## the ground one, and citizens walking (some commute over the lifts). Camera centred on the island.
-## Writes .scratch/v1/hv_40d_ground_z1.png, hv_40d_sky_z1.png, hv_40d_ground_z2.png, hv_40d_sky_z2.png (the sky ones
+## Writes .scratch/v1/hv_71_ground_z1.png, hv_71_sky_z1.png, hv_71_ground_z2.png, hv_71_sky_z2.png (the sky ones
 ## after the Tab toggle, HudModel.toggle_layer). With "nodraw" no image is written: it prints the layout report only.
 
 const L := preload("res://tools/shot_layout.gd")
 const OUT := "/home/ngeng/Proyek/hearthvein/.scratch/v1/"
+## File name prefix of the shots (ticket 71 polish; the 40d shots keep their hv_40d_ names).
+const PREFIX := "hv_71_"
 
 
 func _shoot(path: String) -> void:
@@ -215,7 +217,7 @@ func _init() -> void:
 	for zoom in [[1, "z1"], [2, "z2"]]:
 		cam.set_zoom_step(zoom[0])
 		model.set_layer(Building.LAYER_GROUND)
-		await _shoot(OUT + "hv_40d_ground_%s.png" % zoom[1])
+		await _shoot(OUT + PREFIX + "ground_%s.png" % zoom[1])
 		model.toggle_layer()  # Tab
-		await _shoot(OUT + "hv_40d_sky_%s.png" % zoom[1])
+		await _shoot(OUT + PREFIX + "sky_%s.png" % zoom[1])
 	quit()

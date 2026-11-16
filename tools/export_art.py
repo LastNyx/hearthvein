@@ -16,7 +16,7 @@ import types
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mockups as M  # noqa: E402
@@ -237,19 +237,55 @@ def vein_tile(seed):
     return img
 
 
+# Skystone (ticket 71): pale warm floating stone, cream and sand-grey slabs with faint Lumen veins and a little moss.
+SKYSTONE = M.pal("8c8068", "b4a68a", "cfc2a4", "e4d9bc", "f4edd6")
+MOSS = [(92, 112, 62), (120, 144, 76)]
+
+
 def sky_tile(seed):
-    img = to_img(A(SKY)[pquant(pfbm(seed, 15), 3) + 1])
-    d = ImageDraw.Draw(img)
+    """One big flagstone per tile: a seam along the bottom and right edge with a lit top and left edge (so every
+    variant joins its neighbours), a soft tone per slab, a hairline crack, a faint cyan vein and a touch of moss at
+    the seam. Large and calm: nothing like water, rock or cobbles."""
     rng = random.Random(seed * 13 + 7)
-    for _ in range(3):
-        x, y = rng.randrange(2, T - 9), rng.randrange(3, T - 3)
-        d.line([(x, y), (x + 6, y + 2)], fill=SKY[0])
-    for _ in range(8):
-        d.point((rng.randrange(1, T - 1), rng.randrange(1, T - 1)), fill=SKY[4])
-    for _ in range(3):
-        x, y = rng.randrange(4, T - 4), rng.randrange(4, T - 4)
-        d.point([(x, y), (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)], fill=M.CRYSTAL[2])
-        d.point((x, y), fill=M.CRYSTAL[4])
+    q = pquant(pfbm(seed, 15), 3)
+    lvl = np.where(q == 0, 2, 3) + rng.choice([-1, 0, 0, 0, 1]) * (q > 0)
+    img = to_img(A(SKYSTONE)[np.clip(lvl, 1, 4)])
+    d = ImageDraw.Draw(img)
+    d.line([(0, 0), (T - 1, 0)], fill=SKYSTONE[3])
+    d.line([(0, 0), (0, T - 1)], fill=SKYSTONE[3])
+    d.line([(0, T - 1), (T - 1, T - 1)], fill=SKYSTONE[1])
+    d.line([(T - 1, 0), (T - 1, T - 1)], fill=SKYSTONE[1])
+    if rng.random() < 0.45:  # a hairline crack with a lit lower lip
+        x, y = rng.randrange(5, 25), rng.randrange(5, 25)
+        pts = [(x, y)]
+        for _ in range(3):
+            x = max(3, min(T - 4, x + rng.randint(2, 6) * rng.choice([-1, 1])))
+            y = max(3, min(T - 4, y + rng.randint(1, 5)))
+            pts.append((x, y))
+        d.line(pts, fill=SKYSTONE[0])
+        d.line([(px + 1, py) for px, py in pts], fill=SKYSTONE[4])
+    for _ in range(4):
+        d.point((rng.randrange(2, T - 2), rng.randrange(2, T - 2)), fill=SKYSTONE[1])
+    if rng.random() < 0.75:  # faint cyan vein; translucent so it stays a hint
+        x, y = rng.randrange(6, 26), rng.randrange(5, 27)
+        pts = [(x, y)]
+        for _ in range(4):
+            x = max(2, min(T - 3, x + rng.randint(-8, 8)))
+            y = max(2, min(T - 3, y + rng.randint(-6, 6)))
+            pts.append((x, y))
+        ov = Image.new("RGBA", (T, T))
+        od = ImageDraw.Draw(ov)
+        od.line(pts, fill=(88, 200, 220, 150), width=1)
+        img = Image.alpha_composite(img, ov)
+        d = ImageDraw.Draw(img)
+    if rng.random() < 0.6:  # moss creeping off the seam
+        x = rng.randrange(2, T - 8)
+        for k in range(rng.randint(4, 8)):
+            d.point((x + k, T - 2), fill=MOSS[k % 2])
+            if k % 2:
+                d.point((x + k, T - 3), fill=MOSS[1])
+            if k % 3 == 0:
+                d.point((x + k, T - 4), fill=MOSS[0])
     return img
 
 
@@ -476,6 +512,221 @@ def export_autotiles(manifest):
         manifest["autotiles"][pair] = {"grounds": grounds, "files": files, "cols": 4, "rows": 4}
 
 
+# ---------------------------------------------------------------- island rim, underside, shadow (ticket 71)
+# The rim is an autotile of its own (not the water shore): a cliff edge drawn on the dual grid over a skystone island.
+# Mask bits flag the *void* corners as in the other autotiles; the island side gets a lit lip, the void side a cliff
+# face that is thick where the void lies to the south (that face continues into the underside tiles below) and a
+# one-pixel outline elsewhere. Rim pixels never cover more than 2 px of the island, so the rim is crisp while the
+# island body fades in the ground view. The four island corners are cut by a rounded bite instead (corner caps).
+CLIFF = [(34, 30, 28)] + [tuple(c[:3]) for c in M.STONE[:3]]
+CAP_R = 30.0      # radius of the bite taken from each island corner tile
+CAP_SIZE = 64     # a corner cap covers 2x2 dual cells: the corner tile plus the half tiles around it
+
+
+def cliff_band(sd, wob):
+    """RGBA band along the island edge from a signed distance (px, positive on the void side)."""
+    gy, gx = np.gradient(sd.astype(np.float32))
+    nrm = np.maximum(np.hypot(gx, gy), 1e-4)
+    nx, ny = gx / nrm, gy / nrm
+    t = (1.8 + 6.2 * np.maximum(0.0, ny) + 0.8 * np.abs(nx)) * (0.72 + 0.56 * wob)
+    h, w = sd.shape
+    rgb = np.zeros((h, w, 3), np.uint8)
+    a = np.zeros((h, w), np.uint8)
+    lip = (sd <= 0.0) & (sd > -2.0)
+    lit = ny < -0.25
+    rgb[lip] = np.where(lit[lip, None], np.array(SKYSTONE[4][:3]), np.array(SKYSTONE[3][:3]))
+    inner = lip & (sd > -1.0)  # the very edge of the lip a step darker on the shaded sides
+    rgb[inner & ~lit] = SKYSTONE[2][:3]
+    a[lip] = 255
+    face = (sd > 0.0) & (sd <= t)
+    f = sd / t
+    col = np.where((f < 0.35)[..., None], np.array(CLIFF[3]), np.where((f < 0.75)[..., None], np.array(CLIFF[2]),
+                                                                       np.array(CLIFF[1])))
+    col = np.where((sd > t - 1.1)[..., None], np.array(CLIFF[0]), col)
+    rgb[face] = col[face]
+    a[face] = 255
+    return np.dstack([rgb, a])
+
+
+def rim_tile(mask, seed=0):
+    if mask in (0, 15):
+        return Image.new("RGBA", (T, T))
+    wob = pnoise(4, 910 + seed)
+    return Image.fromarray(cliff_band(at_dist(mask), wob), "RGBA")
+
+
+def cap_sd(corner):
+    """Signed distance field (void positive) of an island corner cap, 64x64 px; the corner tile sits at (16, 16)."""
+    ys, xs = np.mgrid[0:CAP_SIZE, 0:CAP_SIZE].astype(np.float32) + 0.5
+    if corner in (1, 2):  # NE, SE: mirror x
+        xs = CAP_SIZE - xs
+    if corner in (2, 3):  # SE, SW: mirror y
+        ys = CAP_SIZE - ys
+    u, v = xs - 16.0, ys - 16.0
+    r = CAP_R
+    bite = np.hypot(r - u, r - v) - r
+    return np.where((u < r) & (v < r), np.where((u < 0) | (v < 0), np.maximum(bite, np.maximum(-u, -v)), bite),
+                    np.where(u < r, -u, np.where(v < r, -v, -np.minimum(u, v)))).astype(np.float32)
+
+
+def cap_images(corner):
+    """(fill, rim): the corner tile's skystone with the bite cut out (32x32) and the cliff band round it (64x64)."""
+    sd = cap_sd(corner)
+    wob = np.tile(pnoise(4, 930 + corner), (2, 2))
+    rim = Image.fromarray(cliff_band(sd, wob), "RGBA")
+    fill = np.array(sky_tile(700 + corner))
+    fill[..., 3] = np.where(sd[16:48, 16:48] <= 0.0, 255, 0)
+    return Image.fromarray(fill, "RGBA"), rim
+
+
+def under_color(depth, rng):
+    """Cliff colour by depth below the island edge, with a few speckles."""
+    lvl = 3 if depth < 7 else (2 if depth < 16 else 1)
+    if rng.random() < 0.07:
+        lvl = max(1, lvl - 1) if rng.random() < 0.6 else min(3, lvl + 1)
+    return CLIFF[lvl]
+
+
+def under_profile(kind, seed):
+    xs = np.arange(T) + 0.5
+    win = np.clip(np.minimum(xs, T - xs) / 8.0, 0.0, 1.0)
+    bump = pnoise(8, 940 + seed)[0]
+    if kind == "host":  # reaches the tile bottom in the middle: a spike hangs from it
+        s = np.clip((1.0 - np.abs(xs - 16.0) / 15.0) * 3.0, 0.0, 1.0)
+        return 27.0 + 5.0 * s
+    return 27.0 + 4.0 * bump * win
+
+
+def under_tile(kind, seed):
+    """Row-1 underside tile: stone hanging from the island's south edge. kinds: plain, roots, crystal, host,
+    left, right. Every kind is 27 px deep at both sides (hosts and ends differ in the middle or at the outer side)."""
+    rng = random.Random(seed)
+    if kind in ("left", "right"):
+        xs = np.arange(T) + 0.5
+        xx = xs if kind == "right" else T - xs  # mirror: build the right end, flip for the left
+        h = np.where(xx < 20.0, 27.0, 27.0 - (xx - 20.0) * 2.0)  # tapers away over the outer 10 px
+    else:
+        h = under_profile(kind, seed)
+    im = Image.new("RGBA", (T, T))
+    px = im.load()
+    for x in range(T):
+        for y in range(T):
+            if y < h[x]:
+                px[x, y] = under_color(y, rng) + (255,)
+    d = ImageDraw.Draw(im)
+    for x in range(T):  # dark underline along the ragged bottom
+        yb = int(h[x])
+        if yb < T:
+            px[x, yb] = CLIFF[0] + (255,)
+    for y in (9, 15):  # strata
+        for x in range(rng.randrange(0, 8), T, 1):
+            if rng.random() < 0.35 and y < h[x]:
+                px[x, y] = CLIFF[1] + (255,)
+    if kind == "roots":
+        for x0 in (rng.randrange(6, 12), rng.randrange(18, 26)):
+            x, y = x0, int(h[x0])
+            for k in range(rng.randint(5, 8)):
+                if y >= T:
+                    break
+                px[x, y] = ((98, 70, 44) if k % 3 else (126, 92, 56)) + (255,)
+                y += 1
+                x = max(0, min(T - 1, x + rng.choice([0, 0, 1, -1])))
+    if kind == "crystal":
+        for x0, ln in ((rng.randrange(7, 12), 7), (rng.randrange(17, 24), 5)):
+            top = int(h[x0]) - 1
+            for k in range(ln):
+                if top + k >= T:
+                    break
+                half = max(0, 1 - k // 3)
+                for dx in range(-half, half + 1):
+                    c = M.CRYSTAL[1] if dx > 0 else M.CRYSTAL[2]
+                    px[x0 + dx, top + k] = tuple(c[:3]) + (255,)
+                if k >= 1:
+                    px[x0, top + k] = tuple(M.CRYSTAL[3][:3]) + (255,)
+    return im
+
+
+def spike_tile(kind, seed):
+    """Row-2 underside tile below a host: a stalactite tapering to a point, with a root or a crystal at the tip."""
+    rng = random.Random(seed)
+    length = {"short": 14, "mid": 22, "long": 30}[kind.split("_")[0]]
+    im = Image.new("RGBA", (T, T))
+    px = im.load()
+    tip = 16 + rng.choice([-2, -1, 1, 2])
+    for y in range(T):
+        if y >= length:
+            break
+        half = 12.0 * (1.0 - y / length) ** 0.85 + 0.4
+        cx = 16.0 + (tip - 16.0) * (y / length)
+        for x in range(T):
+            if abs(x + 0.5 - cx) <= half:
+                px[x, y] = under_color(y + 30, rng) + (255,)
+    for y in range(min(length, T)):  # darker rim on the right
+        for x in range(T - 1):
+            if px[x, y][3] and not px[x + 1, y][3]:
+                px[x, y] = CLIFF[0] + (255,)
+    if kind.endswith("root"):
+        x, y = tip, length - 1
+        for k in range(7):
+            if y + k >= T:
+                break
+            px[x, y + k] = ((98, 70, 44) if k % 3 else (126, 92, 56)) + (255,)
+            x = max(0, min(T - 1, x + rng.choice([0, 0, 1, -1])))
+    if kind.endswith("crystal"):
+        for k in range(6):
+            if length - 2 + k >= T:
+                break
+            for dx in range(-max(0, 1 - k // 3), max(0, 1 - k // 3) + 1):
+                c = M.CRYSTAL[1] if dx > 0 else M.CRYSTAL[2]
+                px[tip + dx, length - 2 + k] = tuple(c[:3]) + (255,)
+            px[tip, length - 2 + k] = tuple(M.CRYSTAL[3][:3]) + (255,)
+    return im
+
+
+# column layout of sky_under.png (8 columns; row 0 hangs from the south edge, row 1 below a host)
+UNDER_COLS = ["plain_a", "plain_b", "roots", "crystal", "host_a", "host_b", "left", "right"]
+SPIKE_COLS = ["short_root", "mid_crystal", "long", "mid", "short", "long_root", "mid_root", "long_crystal"]
+
+
+def island_shadow_image():
+    """Soft ground shadow of an island: a blurred rounded blob (stretched to the island by the renderer)."""
+    im = Image.new("RGBA", (64, 48), (0, 0, 0, 0))
+    mask = Image.new("L", (64, 48), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([12, 10, 52, 38], radius=9, fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(5.5))
+    sh = Image.new("RGBA", (64, 48), (6, 10, 26, 255))
+    sh.putalpha(mask.point(lambda v: int(v * 0.5)))
+    im.alpha_composite(sh)
+    return im
+
+
+def export_sky_rim(manifest):
+    rim = [rim_tile(m) for m in range(16)]
+    im, rows = pack_atlas(rim, 4)
+    save(im, OUT / "terrain" / "sky_rim.png")
+    caps = [cap_images(c) for c in range(4)]
+    fill = Image.new("RGBA", (4 * T, T))
+    crim = Image.new("RGBA", (4 * CAP_SIZE, CAP_SIZE))
+    for c, (f, r) in enumerate(caps):
+        fill.paste(f, (c * T, 0))
+        crim.paste(r, (c * CAP_SIZE, 0))
+    save(fill, OUT / "terrain" / "sky_corner_fill.png")
+    save(crim, OUT / "terrain" / "sky_corner_rim.png")
+    under = Image.new("RGBA", (8 * T, 2 * T))
+    for i, k in enumerate(UNDER_COLS):
+        kind = k.split("_")[0]
+        under.paste(under_tile(kind, 960 + i), (i * T, 0))
+    for i, k in enumerate(SPIKE_COLS):
+        under.paste(spike_tile(k, 980 + i), (i * T, T))
+    save(under, OUT / "terrain" / "sky_under.png")
+    save(island_shadow_image(), OUT / "terrain" / "island_shadow.png")
+    manifest["sky_rim"] = {"rim": "terrain/sky_rim.png", "rim_cols": 4, "rim_rows": rows,
+                           "corner_fill": "terrain/sky_corner_fill.png", "corner_rim": "terrain/sky_corner_rim.png",
+                           "corner_size": CAP_SIZE, "under": "terrain/sky_under.png", "under_cols": 8,
+                           "under_rows": 2, "under_kinds": UNDER_COLS, "spike_kinds": SPIKE_COLS,
+                           "shadow": "terrain/island_shadow.png"}
+
+
 # ------------------------------------------------------------------ blight and fouling (soft tile states)
 BLIGHT = [(48, 36, 70), (80, 58, 112), (108, 80, 146), (150, 120, 190)]  # saturated violet, as the village mockup
 FOUL = [(70, 66, 30), (96, 86, 36), (118, 104, 46), (140, 122, 58)]  # murky olive-brown, tints the water tile
@@ -626,7 +877,7 @@ def export_terrain(manifest):
     tiles["fertile_soil"] = ([[soil_tile(400 + i) for i in range(4)]], [0, 1, 2, 3])
     tiles["rock"] = ([[rock_tile(500 + i) for i in range(4)]], [0, 1, 2, 3])
     tiles["lumen_vein"] = ([[vein_tile(600 + i) for i in range(4)]], [0, 1, 2, 3])
-    tiles["skystone"] = ([[sky_tile(700 + i) for i in range(3)]], [0, 1, 2])
+    tiles["skystone"] = ([[sky_tile(700 + i) for i in range(6)]], [0, 1, 2, 3, 4, 5])
     tiles["water"] = ([[water_tile(800 + i) for i in range(5)]], [0, 0, 1, 1, 2, 2, 3, 3, 4])
     manifest["ground_order"] = GROUND_ORDER
     manifest["shade"] = {"grounds": ["grass", "soil"], "cells": [14.0, 7.0, 3.5],
@@ -1087,6 +1338,7 @@ SHEET = {
     "rail_depot": lambda: M.b_rail_depot(),  # ticket 37c
     "airship_dock": lambda: M.b_airship_dock(),  # ticket 38
     "sky_foundry": lambda: M.b_sky_foundry(),  # ticket 39d
+    "sky_lift": lambda: M.b_sky_lift(),  # ticket 71
     "conduit_terraces": lambda: M.b_conduit_terraces(), "water_tower": lambda: M.b_water_tower(),  # ticket 39
     "vein_bore": lambda: M.b_vein_bore(), "hydroponic_hall": lambda: M.b_hydroponic_hall(),  # ticket 39b, 39c
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge
@@ -1236,6 +1488,7 @@ def main():
     export_terrain(manifest)
     export_overlays(manifest)
     export_autotiles(manifest)
+    export_sky_rim(manifest)
     export_states(manifest)
     export_roads(manifest)
     export_channels(manifest)

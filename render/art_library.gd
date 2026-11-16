@@ -160,6 +160,29 @@ static func autotile_coords(mask: int) -> Vector2i:
 	return Vector2i(mask % cols, mask / cols)
 
 
+## Island rim, corner caps, underside and ground shadow (ticket 71), all under manifest["sky_rim"].
+static func sky_rim_info() -> Dictionary:
+	return manifest()["sky_rim"]
+
+
+## The rim autotile (4x4, same corner-mask order as the other dual-grid atlases; bits flag the void corners).
+static func sky_rim_tileset() -> TileSet:
+	var info := sky_rim_info()
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	ts.add_source(_atlas(info["rim"], int(info["rim_cols"]), int(info["rim_rows"])), 0)
+	return ts
+
+
+## Underside tiles: row 0 hangs from the south edge (see under_kinds), row 1 hangs below a host tile (spike_kinds).
+static func sky_under_tileset() -> TileSet:
+	var info := sky_rim_info()
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	ts.add_source(_atlas(info["under"], int(info["under_cols"]), int(info["under_rows"])), 0)
+	return ts
+
+
 ## Tile-state overlays (blight, fouled): one atlas of translucent variants each, drawn over the ground.
 static func state_tileset(state: String) -> TileSet:
 	var ts := TileSet.new()

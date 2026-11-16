@@ -1526,11 +1526,11 @@
   },
   "sky_lift": {
    "base": [
-    16,
-    47
+    17,
+    113
    ],
-   "category": "sky",
    "file": "buildings/sky_lift.png",
+   "flat": false,
    "footprint": [
     1,
     1
@@ -1538,20 +1538,20 @@
    "fx": {
     "file": "buildings/sky_lift_fx.png",
     "offset": [
-     -5,
-     -62
+     -14,
+     -119
     ]
    },
-   "generic": true,
-   "h": 48,
+   "generic": false,
+   "h": 114,
    "shadow": {
     "file": "buildings/sky_lift_shadow.png",
     "offset": [
-     -13,
-     -6
+     -11,
+     -5
     ]
    },
-   "w": 32
+   "w": 34
   },
   "skyforge": {
    "base": [
@@ -3201,6 +3201,38 @@
    88
   ]
  },
+ "sky_rim": {
+  "corner_fill": "terrain/sky_corner_fill.png",
+  "corner_rim": "terrain/sky_corner_rim.png",
+  "corner_size": 64,
+  "rim": "terrain/sky_rim.png",
+  "rim_cols": 4,
+  "rim_rows": 4,
+  "shadow": "terrain/island_shadow.png",
+  "spike_kinds": [
+   "short_root",
+   "mid_crystal",
+   "long",
+   "mid",
+   "short",
+   "long_root",
+   "mid_root",
+   "long_crystal"
+  ],
+  "under": "terrain/sky_under.png",
+  "under_cols": 8,
+  "under_kinds": [
+   "plain_a",
+   "plain_b",
+   "roots",
+   "crystal",
+   "host_a",
+   "host_b",
+   "left",
+   "right"
+  ],
+  "under_rows": 2
+ },
  "states": {
   "blight": {
    "cols": 4,
@@ -3286,13 +3318,16 @@
    "rows": 1
   },
   "skystone": {
-   "cols": 3,
+   "cols": 6,
    "file": "terrain/skystone.png",
    "ground": "sky",
    "pick": [
     0,
     1,
-    2
+    2,
+    3,
+    4,
+    5
    ],
    "rows": 1
   },

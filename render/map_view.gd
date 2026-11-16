@@ -14,7 +14,7 @@ const TILE := ArtLibrary.TILE
 const DUAL_SHIFT := Vector2(-TILE / 2.0, -TILE / 2.0)
 ## The four map tiles around a corner, in the atlas bit order: TL=1, TR=2, BR=4, BL=8.
 ## Alpha of the sky layer seen from the ground view (islands and everything on them).
-const GROUND_VIEW_SKY_ALPHA := 0.45
+const GROUND_VIEW_SKY_ALPHA := 0.6
 const DUAL_CORNERS := [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(0, 0), Vector2i(-1, 0)]
 
 var map: MapState
@@ -32,7 +32,11 @@ var fx: Node2D
 var active_layer: int = 0  # Building.LAYER_GROUND; set through set_active_layer
 var sky_group: CanvasGroup
 var sky_base: TileMapLayer
-var sky_rim: TileMapLayer
+var sky_rim: TileMapLayer     # cliff rim autotile (crisp: outside the faded group)
+var sky_under: TileMapLayer   # stone hanging under the south edge
+var sky_corners: Node2D       # corner tiles with the rounded bite cut out (inside the group)
+var sky_cap_rims: Node2D      # cliff band round those bites
+var sky_edge: Node2D          # rim + cap rims, z 31
 var sky_roads: TileMapLayer
 var sky_shadows: Node2D
 var sky_objects: Node2D
@@ -166,12 +170,9 @@ func _build_sky() -> void:
 	sky_base.tile_set = ArtLibrary.terrain_tileset()
 	sky_base.rendering_quadrant_size = 16
 	sky_group.add_child(sky_base)
-	sky_rim = TileMapLayer.new()
-	sky_rim.name = "SkyRim"
-	sky_rim.tile_set = ArtLibrary.autotile_tileset("water")
-	sky_rim.rendering_quadrant_size = 16
-	sky_rim.position = DUAL_SHIFT
-	sky_group.add_child(sky_rim)
+	sky_corners = Node2D.new()
+	sky_corners.name = "SkyCorners"
+	sky_group.add_child(sky_corners)
 	sky_roads = TileMapLayer.new()
 	sky_roads.name = "SkyRoads"
 	sky_roads.tile_set = ArtLibrary.road_tileset()
@@ -194,6 +195,29 @@ func _build_sky() -> void:
 	lifts.y_sort_enabled = true
 	lifts.z_index = 30
 	add_child(lifts)
+	# The rim and the underside stay crisp in the ground view while the island body is translucent: they sit outside
+	# the faded group, the underside below it (z 29, it only hangs outside the data rect) and the rim above (z 31).
+	sky_under = TileMapLayer.new()
+	sky_under.name = "SkyUnder"
+	sky_under.tile_set = ArtLibrary.sky_under_tileset()
+	sky_under.rendering_quadrant_size = 16
+	sky_under.z_index = 29
+	sky_under.visible = false
+	add_child(sky_under)
+	sky_edge = Node2D.new()
+	sky_edge.name = "SkyEdge"
+	sky_edge.z_index = 31
+	sky_edge.visible = false
+	add_child(sky_edge)
+	sky_rim = TileMapLayer.new()
+	sky_rim.name = "SkyRim"
+	sky_rim.tile_set = ArtLibrary.sky_rim_tileset()
+	sky_rim.rendering_quadrant_size = 16
+	sky_rim.position = DUAL_SHIFT
+	sky_edge.add_child(sky_rim)
+	sky_cap_rims = Node2D.new()
+	sky_cap_rims.name = "SkyCapRims"
+	sky_edge.add_child(sky_cap_rims)
 
 
 ## Switch the drawn layer (HudModel.layer_changed): the ground view shows the islands translucent over a normal
@@ -205,36 +229,96 @@ func set_active_layer(layer: int) -> void:
 	_sky_dim.visible = sky and not _sky_rects.is_empty()
 
 
-## Repaint every island from the sky map: skystone tiles in `rects` (the island rects) and the rim around them.
+## Repaint every island from the sky map: skystone tiles in `rects` (the island rects), the cliff rim round them, the
+## four corner tiles as rounded caps (drawn instead of the skystone cell; the data tiles are unchanged) and the
+## underside hanging below the south edge. All of it is outside the data rect except the rim's 2 px lip.
 func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
 	_sky_rects = rects.duplicate()
 	sky_base.clear()
 	sky_rim.clear()
-	var rim_src := ArtLibrary.autotile_source("water", "sky")
+	sky_under.clear()
+	for n in sky_corners.get_children():
+		n.queue_free()
+		sky_corners.remove_child(n)
+	for n in sky_cap_rims.get_children():
+		n.queue_free()
+		sky_cap_rims.remove_child(n)
+	var info := ArtLibrary.sky_rim_info()
+	var fill_tex := ArtLibrary.texture(info["corner_fill"])
+	var cap_tex := ArtLibrary.texture(info["corner_rim"])
+	var cap_size: int = int(info["corner_size"])
 	for r in rects:
+		var corners: Array[Vector2i] = [r.position, Vector2i(r.end.x - 1, r.position.y),
+				Vector2i(r.end.x - 1, r.end.y - 1), Vector2i(r.position.x, r.end.y - 1)]
+		var skip := {}  # rim cells a cap covers (2x2 cells from each corner tile)
+		for ci in 4:
+			var c: Vector2i = corners[ci]
+			for dj in 2:
+				for di in 2:
+					skip[c + Vector2i(di, dj)] = true
+			var fill := Sprite2D.new()
+			fill.texture = fill_tex
+			fill.region_enabled = true
+			fill.region_rect = Rect2(ci * TILE, 0, TILE, TILE)
+			fill.centered = false
+			fill.position = Vector2(c) * TILE
+			sky_corners.add_child(fill)
+			var cap := Sprite2D.new()
+			cap.texture = cap_tex
+			cap.region_enabled = true
+			cap.region_rect = Rect2(ci * cap_size, 0, cap_size, cap_size)
+			cap.centered = false
+			cap.position = Vector2(c) * TILE - Vector2(TILE, TILE) / 2.0
+			sky_cap_rims.add_child(cap)
 		for y in range(r.position.y, r.end.y):
 			for x in range(r.position.x, r.end.x):
-				if sky.terrain_id_at(x, y) == MapState.SKY_STONE:
+				if sky.terrain_id_at(x, y) == MapState.SKY_STONE and not corners.has(Vector2i(x, y)):
 					var cell := ArtLibrary.terrain_cell(MapState.SKY_STONE, x, y, map.seed_used)
 					sky_base.set_cell(Vector2i(x, y), cell[0], cell[1])
-		if rim_src < 0:
-			continue
 		for j in range(r.position.y, r.end.y + 1):
 			for i in range(r.position.x, r.end.x + 1):
+				if skip.has(Vector2i(i, j)):
+					continue
 				var mask := 0
 				for k in 4:
 					var p: Vector2i = Vector2i(i, j) + DUAL_CORNERS[k]
 					if not MapState.in_bounds(p.x, p.y) or sky.terrain_id_at(p.x, p.y) != MapState.SKY_STONE:
 						mask |= 1 << k
 				if mask != 0 and mask != 15:
-					sky_rim.set_cell(Vector2i(i, j), rim_src, ArtLibrary.autotile_coords(mask))
+					sky_rim.set_cell(Vector2i(i, j), 0, ArtLibrary.autotile_coords(mask))
+		_paint_underside(r)
 	for c in sky_roads.get_used_cells():  # a removed island takes its roads with it (no road_changed event)
 		if not _sky_rects.any(func(r: Rect2i) -> bool: return r.has_point(c)):
 			sky_roads.erase_cell(c)
 	_island_shadow.rects = _sky_rects
 	_island_shadow.queue_redraw()
-	sky_group.visible = not _sky_rects.is_empty()
-	_sky_dim.visible = active_layer == 1 and not _sky_rects.is_empty()
+	var any := not _sky_rects.is_empty()
+	sky_group.visible = any
+	sky_edge.visible = any
+	sky_under.visible = any
+	_sky_dim.visible = active_layer == 1 and any
+
+
+## Underside of one island: a row of stone hanging from the south edge (end pieces taper at the corners), and below
+## the hosts in the middle stretch a stalactite, so the island tapers away to the south. Variants are hashed per tile.
+func _paint_underside(r: Rect2i) -> void:
+	var kinds: Array = ArtLibrary.sky_rim_info()["under_kinds"]
+	var y := r.end.y
+	for x in range(r.position.x, r.end.x):
+		var h := absi(hash(Vector3i(x, y, map.seed_used)))
+		var col: int
+		if x == r.position.x:
+			col = kinds.find("left")
+		elif x == r.end.x - 1:
+			col = kinds.find("right")
+		else:
+			var host := x >= r.position.x + 3 and x <= r.end.x - 4 and h % 100 < 55
+			if host:
+				col = kinds.find("host_a") + (h / 100) % 2
+				sky_under.set_cell(Vector2i(x, y + 1), 0, Vector2i((h / 200) % 8, 1))
+			else:
+				col = (h / 100) % 4  # plain_a, plain_b, roots, crystal come first
+		sky_under.set_cell(Vector2i(x, y), 0, Vector2i(col, 0))
 
 
 func _overlay_layer(ground: String) -> TileMapLayer:
@@ -488,16 +572,27 @@ func hearth_world_pos() -> Vector2:
 	return (Vector2(map.hearth_spot) + Vector2(0.5, 0.5)) * TILE
 
 
-## Soft drop shadow of each island on the ground (a few dark rects, offset down-right).
+## Soft drop shadow of each island on the ground: one pre-blurred blob texture (assets/terrain/island_shadow.png)
+## stretched over the island and offset south-east, drawn with linear filtering so it stays smooth when scaled.
 class IslandShadow extends Node2D:
+	## The blob inside the 64x48 texture spans x 12..52, y 10..38, so the quad is scaled up to put that over the island.
+	const BLOB := Rect2(12.0, 10.0, 40.0, 28.0)
+	const TEX := Vector2(64.0, 48.0)
+	const OFFSET := Vector2(16.0, 30.0)
 	var rects: Array[Rect2i] = []
+	var _tex: Texture2D
+
+	func _init() -> void:
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 
 	func _draw() -> void:
+		if _tex == null:
+			_tex = ArtLibrary.texture(ArtLibrary.sky_rim_info()["shadow"])
 		for r in rects:
-			var o := Vector2(r.position) * TILE + Vector2(10, 16)
 			var sz := Vector2(r.size) * TILE
-			draw_rect(Rect2(o, sz), Color(0.0, 0.02, 0.06, 0.12))
-			draw_rect(Rect2(o + Vector2(6, 6), sz - Vector2(12, 12)), Color(0.0, 0.02, 0.06, 0.12))
+			var k := sz / BLOB.size
+			var o := Vector2(r.position) * TILE + OFFSET - BLOB.position * k
+			draw_texture_rect(_tex, Rect2(o, TEX * k), false)
 
 
 ## Darkens the whole ground (about a 0.4 modulate) under the sky layer in the sky view.

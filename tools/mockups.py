@@ -1814,6 +1814,58 @@ def b_water_tower():
     return Sprite(im, 1, 1, [], [], (0.8, 7))
 
 
+def b_sky_lift():
+    """Sky Lift (1x1, ticket 71): a tall iron lattice mast on a stone plinth with a brass-railed cage platform part-way
+    up and a glowing Lumen cable climbing out of the top, so it reads as a lift to the island and not as a house."""
+    W, H = 32, 112
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    im.paste(tex_stone(26, 8, 711), (cx - 13, yb - 7))
+    R(d, cx - 13, yb - 8, cx + 12, yb - 8, STONE[4])
+    R(d, cx - 8, yb - 12, cx + 7, yb - 8, IRON[1])  # winch housing on the plinth
+    R(d, cx - 8, yb - 12, cx + 7, yb - 12, IRON[3])
+    R(d, cx - 5, yb - 11, cx + 4, yb - 9, CRYSTAL[1])
+    R(d, cx - 3, yb - 11, cx + 2, yb - 10, CRYSTAL[3])
+    top = 10
+    # lattice mast: two rails and cross braces
+    for x0, c in ((cx - 5, IRON[2]), (cx + 4, IRON[1])):
+        R(d, x0, top + 6, x0 + 1, yb - 12, c)
+    R(d, cx - 5, top + 6, cx - 5, yb - 12, IRON[3])
+    for y in range(top + 8, yb - 14, 10):
+        d.line([(cx - 4, y), (cx + 4, y + 10)], fill=IRON[1])
+        d.line([(cx + 4, y), (cx - 4, y + 10)], fill=IRON[2])
+        R(d, cx - 5, y, cx + 5, y, IRON[3])
+    # cage platform: brass deck, rails and a canopy, with a lamp
+    py = yb - 44
+    R(d, cx - 12, py, cx + 11, py + 3, BRASS[1])
+    R(d, cx - 12, py, cx + 11, py, BRASS[3])
+    R(d, cx - 12, py + 3, cx + 11, py + 3, BRASS[0])
+    for x in (cx - 11, cx - 4, cx + 3, cx + 10):
+        R(d, x, py - 14, x + 1, py - 1, BRASS[2])
+    R(d, cx - 12, py - 15, cx + 11, py - 14, BRASS[2])
+    R(d, cx - 12, py - 15, cx + 11, py - 15, BRASS[3])
+    R(d, cx - 11, py - 8, cx + 10, py - 8, BRASS[1])
+    for x in range(cx - 9, cx + 9, 3):
+        d.line([(x, py - 13), (x, py - 2)], fill=IRON[0])  # cage bars
+    R(d, cx - 3, py - 12, cx + 2, py - 6, CRYSTAL[0])  # lamp-lit crate inside
+    R(d, cx - 2, py - 11, cx + 1, py - 8, CRYSTAL[2])
+    glows.append((cx, py - 9, 11, GLOW))
+    # mast head and the cable glow rising out of it
+    R(d, cx - 4, top + 2, cx + 4, top + 6, BRASS[2])
+    R(d, cx - 4, top + 2, cx + 4, top + 2, BRASS[3])
+    d.polygon([(cx - 3, top + 1), (cx, top - 6), (cx + 3, top + 1)], fill=CRYSTAL[2])
+    d.polygon([(cx, top - 6), (cx + 3, top + 1), (cx, top + 1)], fill=CRYSTAL[1])
+    R(d, cx, top - 3, cx, top, CRYSTAL[4])
+    R(d, cx - 1, 0, cx, top - 6, CRYSTAL[3])  # the cable
+    R(d, cx, 0, cx, top - 6, CRYSTAL[4])
+    d.line([(cx - 1, top + 6), (cx - 1, py - 15)], fill=CRYSTAL[2])  # cable down to the cage
+    glows.append((cx, top - 3, 14, GLOW))
+    glows.append((cx, 4, 9, GLOW))
+    return Sprite(im, 1, 1, glows, [], (0.8, 7))
+
+
 def b_vein_bore():
     """Vein Bore (2x2, ticket 39b): a heavy iron drill rig on a stone collar over a glowing vein shaft. A tall braced
     derrick carries the drill string and a brass winch drum; Lumen crystal light climbs out of the shaft."""

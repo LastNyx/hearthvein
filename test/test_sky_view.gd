@@ -188,8 +188,15 @@ func test_map_view_draws_islands_on_the_sky_group() -> void:
 	assert_false(v.sky_group.visible, "no islands: nothing drawn")
 	v.refresh_sky(s.sky_map, [isl.rect])
 	assert_true(v.sky_group.visible)
-	assert_eq(v.sky_base.get_used_cells().size(), isl.rect.size.x * isl.rect.size.y, "one batched cell per island tile")
+	assert_eq(v.sky_base.get_used_cells().size(), isl.rect.size.x * isl.rect.size.y - 4,
+			"one batched cell per island tile, but the four corner tiles (drawn as rounded caps)")
+	assert_eq(v.sky_corners.get_child_count(), 4, "four corner caps")
+	assert_eq(v.sky_cap_rims.get_child_count(), 4, "and their cliff bands")
 	assert_gt(v.sky_rim.get_used_cells().size(), 0, "the rim runs round the edge")
+	assert_gt(v.sky_under.get_used_cells().size(), isl.rect.size.x, "the underside hangs below the south edge")
+	for c in v.sky_under.get_used_cells():
+		assert_gte(c.y, isl.rect.end.y, "the underside is outside the data rect")
+	assert_true(v.sky_edge.visible and v.sky_under.visible)
 	assert_almost_eq(v.sky_group.modulate.a, MapView.GROUND_VIEW_SKY_ALPHA, 0.001, "translucent from the ground")
 	v.set_active_layer(Building.LAYER_SKY)
 	assert_eq(v.sky_group.modulate.a, 1.0, "solid from the sky")
