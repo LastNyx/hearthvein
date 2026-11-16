@@ -598,11 +598,15 @@ func grid_stamp() -> int:
 
 ## One row per region (index = row * 4 + col) for the region map (key M): {region, col, row, rect (tiles), owned, start,
 ## state (owned|buyable|locked), price (gold, buyable regions only, else 0), can_buy, reason (Settlement.can_buy_region),
-## note (player text: "Owned", "Home", "Locked", "Need 50 gold" or ""), reward (id or ""), reward_label, reward_pos}.
+## note (player text: "Owned", "Home", "Locked", "Need 50 gold" or ""), reward (id or ""; the marker, always shown),
+## reward_label, reward_pos, revealed (owned or surveyed by an Airship Dock, ticket 38), reward_detail (exact type
+## detail like "Yield x1.5" or "100 gold"; "" until revealed), surveying (a flight is out), survey_days_left (hours
+## left / 24, 0 when none), can_survey (a staffed idle dock could fly it now), survey_reason (AirshipSystem.survey_refusal)}.
 func region_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var m := s.map
 	var price := s.next_region_price()
+	var air := s.get_system(AirshipSystem) as AirshipSystem
 	for r in MapState.REGION_COUNT:
 		var owned := m.is_region_owned(r)
 		var can := s.can_buy_region(r)
@@ -615,11 +619,47 @@ func region_rows() -> Array[Dictionary]:
 			"locked": note = "Locked"
 			_: note = "" if can["ok"] else "Need %d gold" % price
 		var reward := m.get_region_reward(r)
+		var revealed := air != null and air.is_revealed(s, r)
+		var flight: Dictionary = air.survey_of(r) if air != null else {}
+		var sreason: String = air.survey_refusal(s, r) if air != null else "no_dock"
 		out.append({"region": r, "col": r % MapState.REGION_COLS, "row": r / MapState.REGION_COLS,
 				"rect": MapState.region_rect(r), "owned": owned, "start": r == m.start_region, "state": state,
 				"price": price if buyable else 0, "can_buy": can["ok"], "reason": reason, "note": note,
-				"reward": reward, "reward_label": REWARD_LABELS.get(reward, ""), "reward_pos": m.region_reward_pos[r]})
+				"reward": reward, "reward_label": REWARD_LABELS.get(reward, ""), "reward_pos": m.region_reward_pos[r],
+				"revealed": revealed, "reward_detail": reward_detail(reward) if revealed else "",
+				"surveying": not flight.is_empty(),
+				"survey_days_left": maxf(float(flight["done"]) - float(s.clock.total_hours), 0.0) / GameClock.HOURS_PER_DAY if not flight.is_empty() else 0.0,
+				"can_survey": sreason == "", "survey_reason": sreason})
 	return out
+
+
+## What a revealed reward is exactly, from the data ("" for no reward).
+func reward_detail(reward: String) -> String:
+	var rd := s.registry.regions
+	match reward:
+		MapState.REWARD_RICH_VEIN:
+			return "Vein yield x%s" % str(snappedf(rd.rich_vein_factor, 0.01)) if rd != null else ""
+		MapState.REWARD_RUINS:
+			var parts: Array[String] = []
+			if rd != null and rd.ruins_gold > 0:
+				parts.append("%d gold" % rd.ruins_gold)
+			if rd != null:
+				for g in rd.ruins_goods:
+					parts.append("%d %s" % [int(rd.ruins_goods[g]), str(g).replace("_", " ")])
+			return ", ".join(parts)
+		MapState.REWARD_FERTILE_VALLEY:
+			return "Large fertile soil patch"
+		MapState.REWARD_OLD_FOREST:
+			var fd := s.registry.forest
+			return "Forest regrows x%s faster" % str(snappedf(1.0 / fd.old_forest_regrow_factor, 0.1)) if fd != null and fd.old_forest_regrow_factor > 0.0 else ""
+		MapState.REWARD_SPRING:
+			return "Water source, 2x2"
+	return ""
+
+
+## Command: send a staffed dock on a survey flight over locked region r (ticket 38). False when none can.
+func survey_region(r: int) -> bool:
+	return s.survey_region(r)
 
 
 ## Command: buy region r through the Settlement.

@@ -1733,6 +1733,67 @@ def b_rail_depot():
     return Sprite(im, 3, 1, glows, [], (1.0, 9))
 
 
+def b_airship_dock():
+    """Airship Dock (3x3, ticket 38): a timber-and-stone landing platform with a tall brass-capped mooring mast and a small
+    airship (canvas envelope, wooden gondola) tied to it, a lamp on the mast and a crate stack on the deck."""
+    W, H = 96, 130
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows = []
+    # stone platform with a timber deck on top
+    im.paste(tex_stone(W - 6, 14, 141), (3, yb - 13))
+    R(d, 3, yb - 14, W - 4, yb - 14, STONE[4])
+    R(d, 3, yb - 4, W - 4, yb - 3, BRASS[1])
+    im.paste(tex_planks(W - 12, 8, 142, WOOD, vertical=False), (6, yb - 22))
+    R(d, 6, yb - 23, W - 7, yb - 23, WOOD[4])
+    for x in (10, 30, 50, 70, 84):
+        R(d, x, yb - 21, x + 1, yb - 16, WOOD[1])  # deck posts
+    # mooring mast
+    mx = 70
+    R(d, mx - 3, yb - 90, mx + 3, yb - 23, WOOD[2])
+    R(d, mx - 3, yb - 90, mx - 2, yb - 23, WOOD[3])
+    R(d, mx + 2, yb - 90, mx + 3, yb - 23, WOOD[1])
+    for y in range(yb - 80, yb - 30, 12):
+        R(d, mx - 4, y, mx + 4, y + 1, BRASS[1])
+        R(d, mx - 4, y, mx + 4, y, BRASS[3])
+    R(d, mx - 5, yb - 94, mx + 5, yb - 90, BRASS[2])
+    R(d, mx - 5, yb - 94, mx + 5, yb - 94, BRASS[3])
+    R(d, mx - 1, yb - 102, mx + 1, yb - 94, BRASS[1])
+    R(d, mx - 2, yb - 106, mx + 2, yb - 102, WARM)  # beacon lamp
+    glows.append((mx, yb - 104, 13, WARM))
+    # airship moored to the mast: envelope, fins, gondola
+    ex, ey = 34, yb - 62
+    env = tex_planks(52, 26, 143, CANVAS, vertical=False)
+    m = Image.new("L", (W, H))
+    ImageDraw.Draw(m).ellipse([ex - 26, ey - 13, ex + 26, ey + 13], fill=255)
+    layer = Image.new("RGBA", (W, H))
+    layer.paste(env, (ex - 26, ey - 13))
+    im.paste(layer, (0, 0), m)
+    d.arc([ex - 26, ey - 13, ex + 26, ey + 13], 20, 160, fill=CANVAS[0])
+    for k in (-14, -4, 6, 16):
+        d.line([(ex + k, ey - 12), (ex + k - 2, ey + 12)], fill=CANVAS[1])
+    R(d, ex - 24, ey - 1, ex + 24, ey, TEAL[1])  # painted stripe
+    d.polygon([(ex - 24, ey - 3), (ex - 34, ey - 12), (ex - 33, ey + 8), (ex - 24, ey + 4)], fill=TEAL[2])  # tail fin
+    d.polygon([(ex + 22, ey + 8), (ex + 30, ey + 16), (ex + 20, ey + 14)], fill=TEAL[1])
+    R(d, ex - 9, ey + 17, ex + 9, ey + 25, WOOD[2])  # gondola
+    R(d, ex - 9, ey + 17, ex + 9, ey + 17, WOOD[4])
+    R(d, ex - 7, ey + 19, ex - 4, ey + 21, WARM)
+    R(d, ex + 4, ey + 19, ex + 7, ey + 21, WARM)
+    glows.append((ex, ey + 20, 9, WARM))
+    for k in (-8, 8):
+        d.line([(ex + k, ey + 12), (ex + k // 2, ey + 17)], fill=WOOD[1])
+    # mooring line to the mast and a gangway down to the deck
+    d.line([(ex + 26, ey), (mx - 3, yb - 86)], fill=WOOD[1], width=1)
+    d.line([(ex + 9, ey + 25), (ex + 20, yb - 23)], fill=WOOD[3], width=2)
+    # crate stack and a bollard
+    R(d, 12, yb - 32, 22, yb - 23, WOOD[2])
+    R(d, 12, yb - 32, 22, yb - 31, WOOD[4])
+    R(d, 15, yb - 39, 21, yb - 33, WOOD[3])
+    R(d, 46, yb - 29, 49, yb - 23, BRASS[2])
+    return Sprite(im, 3, 3, glows, [], (1.0, 10))
+
+
 # ------------------------------------------------------------------ citizens
 def citizen(kind, facing, frame, cloth=None, hair=None, skin=None):
     """11x17 walker, about door height (D26: scaled down from 16x24). kinds: villager, weaver, farmer, mage."""

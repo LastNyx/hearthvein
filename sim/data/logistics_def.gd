@@ -35,3 +35,7 @@ extends Resource
 @export var manifest_cover_days: float = 0.0
 @export var train_capacity: float = 0.0
 @export var train_speed: float = 1.0
+## Airship freight (design.md sections 8 and 17, ticket 38): a staffed dock's airship moves at most airship_capacity units
+## out per day, at airship_speed tiles per hour in a straight line between docks.
+@export var airship_capacity: float = 0.0
+@export var airship_speed: float = 1.0

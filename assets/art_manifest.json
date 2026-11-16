@@ -74,11 +74,11 @@
   },
   "airship_dock": {
    "base": [
-    46,
-    72
+    49,
+    131
    ],
-   "category": "sky",
    "file": "buildings/airship_dock.png",
+   "flat": false,
    "footprint": [
     3,
     3
@@ -86,20 +86,20 @@
    "fx": {
     "file": "buildings/airship_dock_fx.png",
     "offset": [
-     -4,
-     -87
+     -23,
+     -118
     ]
    },
-   "generic": true,
-   "h": 73,
+   "generic": false,
+   "h": 132,
    "shadow": {
     "file": "buildings/airship_dock_shadow.png",
     "offset": [
-     -35,
-     -9
+     -38,
+     -6
     ]
    },
-   "w": 92
+   "w": 98
   },
   "apartment_block": {
    "base": [

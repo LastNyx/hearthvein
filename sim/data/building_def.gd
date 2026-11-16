@@ -120,6 +120,9 @@ const GOLD := "gold"
 ## Rail Depot (ticket 37): a cargo rail station. At most one per region (by the region of the footprint origin);
 ## depots joined by track tiles form a rail network (RailSystem).
 @export var rail_depot: bool = false
+## Airship Dock (ticket 38): a staffed dock joins the air freight network (AirshipSystem) and can fly surveys. At most
+## one per region.
+@export var airship_dock: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

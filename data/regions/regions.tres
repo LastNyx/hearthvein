@@ -9,3 +9,4 @@ price_after = 600
 rich_vein_factor = 1.5
 ruins_gold = 100
 ruins_goods = {}
+survey_days = 2

@@ -14,3 +14,5 @@ extends Resource
 @export var ruins_gold: int = 0
 ## Ruins reward (ticket 25b): refined goods paid once into the nearest storage, good id -> amount.
 @export var ruins_goods: Dictionary = {}
+## Survey flight (Airship Dock, ticket 38): days a dock takes to reveal a locked region's reward.
+@export var survey_days: int = 2

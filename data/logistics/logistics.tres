@@ -22,3 +22,5 @@ track_cost_cut_stone = 1.0
 manifest_cover_days = 3.0
 train_capacity = 60.0
 train_speed = 10.0
+airship_capacity = 40.0
+airship_speed = 8.0

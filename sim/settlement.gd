@@ -89,6 +89,7 @@ func add_default_systems() -> void:
 	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
 	add_system(RailManifestSystem.new())  # daily train manifests between linked depots (ticket 37b), hourly arrivals
+	add_system(AirshipSystem.new())  # after the rail manifests (rail first): air freight between docks, survey flights (ticket 38)
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
@@ -361,6 +362,11 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Di
 		for other: Building in buildings.values():
 			if other.def.rail_depot and map.get_region(other.origin.x, other.origin.y) == region:
 				return {"ok": false, "reason": "region_depot"}  # one Rail Depot per region, sites count
+	if def.airship_dock and MapState.in_bounds(origin.x, origin.y):
+		var dock_region := map.get_region(origin.x, origin.y)
+		for other: Building in buildings.values():
+			if other.def.airship_dock and map.get_region(other.origin.x, other.origin.y) == dock_region:
+				return {"ok": false, "reason": "region_dock"}  # one Airship Dock per region, sites count
 	for y in range(origin.y, origin.y + def.size.y):
 		for x in range(origin.x, origin.x + def.size.x):
 			if not MapState.in_bounds(x, y):
@@ -1237,6 +1243,14 @@ func buy_region(r: int) -> bool:
 	structure_version += 1
 	events.emit("region_bought", {"region": r, "price": price, "gold": gold, "reward": map.get_region_reward(r)})
 	return true
+
+
+## Command: a staffed, idle Airship Dock starts a survey flight over locked region `r` (ticket 38); after
+## RegionsDef.survey_days days the region's reward is revealed (event region_surveyed). False when no dock can fly it.
+## See AirshipSystem.survey_refusal for the reasons.
+func survey_region(r: int) -> bool:
+	var air := get_system(AirshipSystem) as AirshipSystem
+	return air != null and air.start_survey(self, r)
 
 
 # ---------------------------------------------------------------- road connection
