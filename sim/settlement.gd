@@ -440,6 +440,8 @@ func complete_site(b: Building) -> void:
 	b.input_buffer = null
 	_init_buffers(b)
 	completion_version += 1
+	if b.def.wet_radius > 0:
+		WaterSystem.recompute(self)
 	if b.def.rail_depot:
 		_roads_dirty = true  # a finished depot can join road networks; refresh_population runs below
 		_recompute_connections()
@@ -486,6 +488,8 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false)
 		occupancy[MapState.idx(t.x, t.y)] = b.id
 	if def.rail_depot and not as_site:
 		_roads_dirty = true
+	if def.wet_radius > 0 and not as_site and hearth != null:
+		WaterSystem.recompute(self)  # a finished wetting building wets its tiles at once
 	_recompute_connections(b)
 	if hearth == null:
 		refresh_population()  # the Hearth itself: no connection pass yet
@@ -502,6 +506,8 @@ func demolish(id: int) -> bool:
 	buildings.erase(id)
 	grid_version += 1
 	structure_version += 1
+	if b.def.wet_radius > 0 and not b.site:
+		WaterSystem.recompute(self)
 	var refund := _refund_for(b)
 	_return_goods(refund, b.origin)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin, "site": b.site, "refund": refund})

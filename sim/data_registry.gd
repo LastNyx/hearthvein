@@ -397,6 +397,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: market_reach must not be negative" % who)
 	if b.coverage_radius < 0:
 		errors.append("%s: coverage_radius must not be negative" % who)
+	if b.wet_radius < 0:
+		errors.append("%s: wet_radius must not be negative" % who)
 	if b.water_radius < 0:
 		errors.append("%s: water_radius must not be negative" % who)
 	if b.needs_water and b.housing_beds <= 0:

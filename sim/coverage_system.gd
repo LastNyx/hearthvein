@@ -143,7 +143,8 @@ func _ensure(s: Settlement) -> void:
 				break
 		for src in water_sources:
 			# Unsafe water: a source standing on a tile wet only from fouled water serves nothing.
-			if FoulingSystem.wet_only_from_fouled(s, src.origin):
+			# A pumped source (no on_wet rule, the Water Tower) does not draw from the tile it stands on.
+			if src.def.placement_rule == "on_wet" and FoulingSystem.wet_only_from_fouled(s, src.origin):
 				continue
 			if building_serves_water(src, h):
 				_water[h.id] = true

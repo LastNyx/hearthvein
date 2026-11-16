@@ -322,11 +322,11 @@
   },
   "conduit_terraces": {
    "base": [
-    46,
-    65
+    49,
+    67
    ],
-   "category": "housing",
    "file": "buildings/conduit_terraces.png",
+   "flat": false,
    "footprint": [
     3,
     2
@@ -334,20 +334,20 @@
    "fx": {
     "file": "buildings/conduit_terraces_fx.png",
     "offset": [
-     -4,
-     -80
+     -10,
+     -41
     ]
    },
-   "generic": true,
-   "h": 66,
+   "generic": false,
+   "h": 68,
    "shadow": {
     "file": "buildings/conduit_terraces_shadow.png",
     "offset": [
-     -35,
-     -8
+     -38,
+     -5
     ]
    },
-   "w": 92
+   "w": 98
   },
   "cottage": {
    "base": [
@@ -1838,32 +1838,25 @@
   },
   "water_tower": {
    "base": [
-    16,
-    47
+    17,
+    73
    ],
-   "category": "water",
    "file": "buildings/water_tower.png",
+   "flat": false,
    "footprint": [
     1,
     1
    ],
-   "fx": {
-    "file": "buildings/water_tower_fx.png",
-    "offset": [
-     -5,
-     -62
-    ]
-   },
-   "generic": true,
-   "h": 48,
+   "generic": false,
+   "h": 74,
    "shadow": {
     "file": "buildings/water_tower_shadow.png",
     "offset": [
-     -13,
-     -6
+     -11,
+     -5
     ]
    },
-   "w": 32
+   "w": 34
   },
   "well": {
    "base": [

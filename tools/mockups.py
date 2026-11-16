@@ -1733,6 +1733,87 @@ def b_rail_depot():
     return Sprite(im, 3, 1, glows, [], (1.0, 9))
 
 
+def b_conduit_terraces():
+    """Conduit Terraces (3x2, ticket 39): three stepped stone terraces climbing to the back, a brass-edged water channel
+    running along each step and spilling down the front, and a little plaster home with a shingle roof on every step."""
+    W, H = 96, 66
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows = []
+    rng = random.Random(391)
+    for k in range(3):
+        x0, x1 = 2 + k * 8, W - 3 - k * 8
+        ytop = yb - 14 - k * 17
+        im.paste(tex_stone(x1 - x0 + 1, 15, 150 + k), (x0, ytop))
+        R(d, x0, ytop, x1, ytop, STONE[4])
+        R(d, x0, ytop + 1, x1, ytop + 2, BRASS[1])  # water channel lip
+        R(d, x0, ytop + 1, x1, ytop + 1, TEAL[2])
+        R(d, x0 + 1, ytop + 2, x1 - 1, ytop + 2, TEAL[1])
+        # homes on the step
+        for hx in range(x0 + 4, x1 - 14, 22):
+            R(d, hx, ytop - 11, hx + 13, ytop - 1, PLASTER[2])
+            R(d, hx + 10, ytop - 11, hx + 13, ytop - 1, PLASTER[0])
+            d.polygon([(hx - 2, ytop - 10), (hx + 6, ytop - 17), (hx + 15, ytop - 10)], fill=SHINGLE[2])
+            d.line([(hx - 2, ytop - 10), (hx + 6, ytop - 17), (hx + 15, ytop - 10)], fill=SHINGLE[0])
+            window(d, hx + 2, ytop - 8, WARM if rng.random() < 0.7 else hexc("34445a"), box=False, w=4, h=5)
+            R(d, hx + 7, ytop - 6, hx + 9, ytop - 1, WOOD[1])
+        # green planter edge
+        for px_ in range(x0 + 2, x1 - 1, 5):
+            d.point((px_, ytop - 1), fill=LEAF["green"][3])
+    # waterfall down the front of the lowest step
+    for fx in (30, 62):
+        R(d, fx, yb - 12, fx + 2, yb, TEAL[3])
+        R(d, fx, yb - 12, fx, yb, TEAL[2])
+    R(d, 2, yb - 1, W - 3, yb, STONE[1])
+    glows.append((48, yb - 30, 10, WARM))
+    return Sprite(im, 3, 2, glows, [], (1.0, 8))
+
+
+def b_water_tower():
+    """Water Tower (1x1, ticket 39): a tall timber tank on four braced legs, brass hoops and a conical shingle cap, with a
+    brass pipe running to the ground and a drip basin."""
+    W, H = 32, 72
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    # stone footing and basin
+    im.paste(tex_stone(26, 6, 160), (cx - 13, yb - 5))
+    R(d, cx - 13, yb - 6, cx + 12, yb - 6, STONE[4])
+    R(d, cx - 8, yb - 8, cx + 8, yb - 6, TEAL[1])
+    # braced legs
+    for lx0, lx1 in ((cx - 11, cx - 8), (cx + 11, cx + 8)):
+        d.line([(lx0, yb - 6), (lx1, yb - 34)], fill=WOOD[1], width=3)
+        d.line([(lx0 - 1, yb - 6), (lx1 - 1, yb - 34)], fill=WOOD[3], width=1)
+    for lx in (cx - 3, cx + 3):
+        d.line([(lx, yb - 6), (lx, yb - 34)], fill=WOOD[2], width=2)
+    d.line([(cx - 10, yb - 10), (cx + 9, yb - 28)], fill=WOOD[1])
+    d.line([(cx + 10, yb - 10), (cx - 9, yb - 28)], fill=WOOD[1])
+    R(d, cx - 10, yb - 20, cx + 10, yb - 19, WOOD[0])
+    # tank
+    tk = tex_planks(22, 24, 161, WOOD, vertical=True)
+    im.paste(tk, (cx - 11, yb - 58))
+    R(d, cx - 12, yb - 59, cx + 11, yb - 58, WOOD[4])
+    for y in (yb - 54, yb - 44, yb - 36):
+        R(d, cx - 12, y, cx + 11, y + 1, BRASS[2])
+        R(d, cx - 12, y, cx + 11, y, BRASS[3])
+    R(d, cx + 6, yb - 58, cx + 10, yb - 35, WOOD[1])  # shaded side
+    for y in (yb - 54, yb - 44, yb - 36):
+        R(d, cx + 6, y, cx + 11, y + 1, BRASS[1])
+    # conical cap
+    d.polygon([(cx - 14, yb - 59), (cx, yb - 71), (cx + 14, yb - 59)], fill=SHINGLE[2])
+    d.polygon([(cx, yb - 71), (cx + 14, yb - 59), (cx + 4, yb - 59)], fill=SHINGLE[1])
+    d.line([(cx - 14, yb - 59), (cx, yb - 71), (cx + 14, yb - 59)], fill=SHINGLE[0])
+    R(d, cx - 14, yb - 59, cx + 14, yb - 59, BRASS[3])
+    # brass pipe down to the basin and a ladder
+    R(d, cx - 1, yb - 36, cx + 1, yb - 9, BRASS[2])
+    R(d, cx - 1, yb - 36, cx - 1, yb - 9, BRASS[3])
+    R(d, cx - 3, yb - 10, cx + 3, yb - 9, BRASS[1])
+    for y in range(yb - 56, yb - 8, 4):
+        R(d, cx - 8, y, cx - 6, y, WOOD[0])
+    return Sprite(im, 1, 1, [], [], (0.8, 7))
+
+
 def b_airship_dock():
     """Airship Dock (3x3, ticket 38): a timber-and-stone landing platform with a tall brass-capped mooring mast and a small
     airship (canvas envelope, wooden gondola) tied to it, a lamp on the mast and a crate stack on the deck."""

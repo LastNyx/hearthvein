@@ -97,6 +97,9 @@ const GOLD := "gold"
 ## served: Well 8, Water Tower 16, Cloud Cistern 10 (design.md sections 9, 16-17). 0 = provides no drinking water.
 ## CoverageSystem owns the water query; it is kept apart from coverage_radius so wells never count as Shrine coverage.
 @export var water_radius: int = 0
+## Tiles around a finished building's footprint that it makes wet (Chebyshev, WaterSystem stamps them with the water and
+## channel squares): Water Tower 3 (design.md section 17, ticket 39). 0 = wets nothing.
+@export var wet_radius: int = 0
 ## True when the building may not stand on a blighted tile (design.md section 12: Park, Shrine, Orchard).
 @export var blocked_by_blight: bool = false
 ## Tiles around the footprint where blight cuts this building's output (the Greenhouse, 1 = its own tiles and the

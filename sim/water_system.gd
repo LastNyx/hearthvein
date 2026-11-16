@@ -47,6 +47,10 @@ func recompute_wet(s: Settlement) -> void:
 	var rc := def.wet_radius_channel
 	for i in flowing_tiles(s):
 		_stamp(wet, i % MapState.WIDTH, i / MapState.WIDTH, rc)
+	for b: Building in s.buildings.values():
+		if b.def.wet_radius > 0 and not b.site:
+			for t in b.tiles():
+				_stamp(wet, t.x, t.y, b.def.wet_radius)
 	s.map.wet = wet
 
 
