@@ -9,15 +9,11 @@ func _shoot(path: String) -> void:
 	root.get_texture().get_image().save_png(path)
 
 
-func _try(s: Settlement, id: String, near: Vector2i) -> void:
-	for r in 6:
-		for dy in range(-r, r + 1):
-			for dx in range(-r, r + 1):
-				var t := near + Vector2i(dx, dy)
-				if s.can_place(id, t)["ok"]:
-					s.place_building_instant(id, t)
-					return
-	print("could not place ", id, " near ", near)
+const L := preload("res://tools/shot_layout.gd")
+
+
+func _try(s: Settlement, id: String, near: Vector2i, radius: int = 10) -> void:
+	L.build(s, id, near, radius)
 
 
 func _init() -> void:
@@ -30,10 +26,6 @@ func _init() -> void:
 	var h := s.map.hearth_spot
 	s.era_current = "village"
 	(main.get_node("Hud") as Hud)._rebuild_categories()
-	for x in range(h.x - 14, h.x + 18):
-		s.place_road(Vector2i(x, h.y + 3))
-	for x in range(h.x - 14, h.x + 18, 4):
-		s.place_road(Vector2i(x, h.y + 2))
 	_try(s, "cottage", h + Vector2i(-4, 0))
 	_try(s, "cottage", h + Vector2i(-6, 0))
 	_try(s, "farm", h + Vector2i(-10, 4))
@@ -47,8 +39,10 @@ func _init() -> void:
 	_try(s, "bell_tower", h + Vector2i(-12, -3))
 	s.hearth.inventory.add("food", 200.0)
 	s.hearth.inventory.add("materials", 100.0)
+	L.populate(s)
 	for i in 2 * 24:
 		s.step_hours(1)
+	L.report(s, "village")
 	var cam: CameraController = main.get_node("Camera")
 	cam.position = (Vector2(h) + Vector2(0, 1)) * ArtLibrary.TILE
 	cam.set_zoom_step(1)

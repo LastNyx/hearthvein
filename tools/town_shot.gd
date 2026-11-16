@@ -11,15 +11,11 @@ func _shoot(path: String) -> void:
 	root.get_texture().get_image().save_png(path)
 
 
-func _try(s: Settlement, id: String, near: Vector2i, radius: int = 8) -> void:
-	for r in radius:
-		for dy in range(-r, r + 1):
-			for dx in range(-r, r + 1):
-				var t := near + Vector2i(dx, dy)
-				if s.can_place(id, t)["ok"]:
-					s.place_building_instant(id, t)
-					return
-	print("could not place ", id, " near ", near)
+const L := preload("res://tools/shot_layout.gd")
+
+
+func _try(s: Settlement, id: String, near: Vector2i, radius: int = 10) -> void:
+	L.build(s, id, near, radius)
 
 
 func _init() -> void:
@@ -32,22 +28,12 @@ func _init() -> void:
 	var h := s.map.hearth_spot
 	s.era_current = "town"
 	(main.get_node("Hud") as Hud)._rebuild_categories()
-	# A dirt road east-west with a paved stretch through the middle of town, plus a couple of dirt side roads.
-	for x in range(h.x - 14, h.x + 18):
-		s.place_road(Vector2i(x, h.y + 3))
-	for x in range(h.x - 14, h.x + 18, 4):
-		s.place_road(Vector2i(x, h.y + 2))
-	for y in range(h.y - 6, h.y + 3):
-		s.place_road(Vector2i(h.x + 9, y))
 	s.hearth.inventory.add("materials", 300.0)
 	s.hearth.inventory.add("cut_stone", 40.0)
 	s.hearth.inventory.add("food", 200.0)
-	for x in range(h.x - 6, h.x + 10):
-		s.pave_road(Vector2i(x, h.y + 3))
-	s.place_road(Vector2i(h.x + 9, h.y + 3))
-	for y in range(h.y - 6, h.y + 3):
-		s.pave_road(Vector2i(h.x + 9, y))
 	# Town buildings around the Hearth; wells need a wet tile and pumps need a vein, so their searches are wider.
+	# Vein buildings first: veins are scarce and the other buildings would cover them.
+	_try(s, "lumen_pump", h + Vector2i(14, -4), 14)
 	_try(s, "rowhouse", h + Vector2i(-4, 0))
 	_try(s, "rowhouse", h + Vector2i(-6, 0))
 	_try(s, "greenhouse", h + Vector2i(-9, 0))
@@ -59,10 +45,12 @@ func _init() -> void:
 	_try(s, "cleanser", h + Vector2i(-2, -3))
 	_try(s, "handcart_shed", h + Vector2i(12, 0))
 	_try(s, "well", h + Vector2i(2, 7), 12)
-	_try(s, "lumen_pump", h + Vector2i(14, -4), 14)
 	_try(s, "lumen_spire", h + Vector2i(-8, -5), 10)
+	L.pave_near_hearth(s, 9)
+	L.populate(s)
 	for i in 2 * 24:
 		s.step_hours(1)
+	L.report(s, "town")
 	var cam: CameraController = main.get_node("Camera")
 	cam.position = (Vector2(h) + Vector2(0, 1)) * ArtLibrary.TILE
 	cam.set_zoom_step(1)
