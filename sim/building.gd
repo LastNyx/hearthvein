@@ -2,7 +2,17 @@ class_name Building
 extends RefCounted
 ## A placed building instance. Plain data; later tickets add fields (tier, workers, buffers, construction).
 
+## Layers a building can stand on (ticket 40). The sky layer shares the ground's tile coordinates: sky tile (x, y)
+## floats directly above ground tile (x, y). Settlement.map_for_layer / occupancy_for_layer route by this.
+const LAYER_GROUND := 0
+const LAYER_SKY := 1
+
 var id: int = -1
+## LAYER_GROUND or LAYER_SKY. Fixed at placement.
+var layer: int = LAYER_GROUND
+## True for a building placed free (the first Lift Anchor after the Sky Foundry): its site needs no goods and
+## demolishing it refunds nothing. See effective_cost.
+var cost_free: bool = false
 var def: BuildingDef:
 	set(v):
 		def = v
@@ -149,12 +159,18 @@ func build_progress() -> float:
 	return clampf(build_work / build_work_needed, 0.0, 1.0) if build_work_needed > 0.0 else 0.0
 
 
+## What this building cost to place: the def's cost, or nothing for a free one (cost_free).
+func effective_cost() -> Dictionary:
+	return {} if cost_free else def.cost
+
+
 ## True when every non-gold good of the cost is in the site's buffer (gold is paid on placement).
 func site_delivered() -> bool:
 	if not site:
 		return true
-	for g in def.cost:
-		if g != BuildingDef.GOLD and (input_buffer == null or input_buffer.amount_of(g) < float(def.cost[g]) - Inventory.EPS):
+	var cost := effective_cost()
+	for g in cost:
+		if g != BuildingDef.GOLD and (input_buffer == null or input_buffer.amount_of(g) < float(cost[g]) - Inventory.EPS):
 			return false
 	return true
 
@@ -187,6 +203,8 @@ func to_dict() -> Dictionary:
 		"id": id,
 		"def": def.id,
 		"origin": origin,
+		"layer": layer,
+		"cost_free": cost_free,
 		"connected": connected,
 		"tier": tier,
 		"paused": paused,
@@ -215,6 +233,8 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Building:
 		push_error("Building.from_dict: unknown building def '%s'" % str(d["def"]))
 		return null
 	b.origin = d["origin"]
+	b.layer = int(d.get("layer", LAYER_GROUND))
+	b.cost_free = bool(d.get("cost_free", false))
 	b.connected = bool(d["connected"])
 	b.tier = int(d["tier"])
 	b.paused = bool(d["paused"])

@@ -16,6 +16,8 @@ const UPGRADABLE_CATEGORIES: Array[String] = ["housing", "food", "materials", "l
 const PLACEMENT_RULES: Array[String] = [
 	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest",
 ]
+## Which layer a def may be placed on (ticket 40): "ground" (default), "island" (sky layer only) or "either".
+const LAYER_RULES: Array[String] = ["ground", "island", "either"]
 ## Storage modes: none, per_good (cap applies to each good), total (cap shared by any mix).
 const STORAGE_MODES: Array[String] = ["none", "per_good", "total"]
 ## Goods used by cost dictionaries as the global gold counter.
@@ -130,6 +132,14 @@ const GOLD := "gold"
 ## Airship Dock (ticket 38): a staffed dock joins the air freight network (AirshipSystem) and can fly surveys. At most
 ## one per region.
 @export var airship_dock: bool = false
+## Layer rule, one of LAYER_RULES. Lift Anchor is ground-only; later island buildings use "island" or "either".
+@export var layers: String = "ground"
+## Lift Anchor (ticket 40): a finished one raises a sky island over the region its origin is in (IslandSystem).
+## At most one per region and LogisticsDef.island_max in all, sites count.
+@export var raises_island: bool = false
+## Id of a building that, once finished, makes the first placement of this def free (Lift Anchor: "sky_foundry").
+## "" = never free. Settlement.cost_for answers with the effective cost.
+@export var free_first_with: String = ""
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

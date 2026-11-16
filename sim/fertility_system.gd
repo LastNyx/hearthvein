@@ -49,8 +49,8 @@ func fertility_at(s: Settlement, tile: Vector2i) -> float:
 ## dilutes the whole farm). A blighted tile counts at SoilDef.blight_factor.
 func mean_fertility(s: Settlement, b: Building) -> float:
 	var tiles := b.tiles()
-	if tiles.is_empty():
-		return 0.0
+	if tiles.is_empty() or b.layer != Building.LAYER_GROUND:
+		return 0.0  # skystone has no soil (ticket 40)
 	var blight := blight_factor(s.registry)
 	var sum := 0.0
 	for t in tiles:
@@ -67,8 +67,9 @@ static func plain_mean_fertility(s: Settlement, b: Building) -> float:
 	if tiles.is_empty():
 		return 0.0
 	var sum := 0.0
+	var m := s.map_for_layer(b.layer)
 	for t in tiles:
-		sum += float(s.map.get_fertility(t.x, t.y))
+		sum += float(m.get_fertility(t.x, t.y))
 	return sum / (100.0 * float(tiles.size()))
 
 

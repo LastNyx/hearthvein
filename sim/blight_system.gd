@@ -43,8 +43,8 @@ func on_day(s: Settlement) -> void:
 	ids.sort()
 	for bid in ids:
 		var b: Building = s.buildings[bid]
-		if b.site or b.def.blight_radius <= 0 or b.def.blight_period_days <= 0:
-			continue
+		if b.site or b.layer != Building.LAYER_GROUND or b.def.blight_radius <= 0 or b.def.blight_period_days <= 0:
+			continue  # sky buildings never blight: blight is a ground-map state (ticket 40)
 		live[bid] = true
 		var d: int = _days.get(bid, 0) + 1
 		if d >= b.def.blight_period_days:
@@ -112,6 +112,8 @@ func _collect_staffed(s: Settlement) -> Dictionary:
 func _shield_block(s: Settlement, t: Vector2i) -> bool:
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
+		if b.layer != Building.LAYER_GROUND:
+			continue  # a sky building shields no ground tile
 		if not b.site and b.def.blight_proof and b.footprint().has_point(t):
 			return true
 		var r := b.def.blight_block_radius
@@ -139,6 +141,8 @@ static func count(s: Settlement) -> int:
 
 ## True when the tile or any tile within HOME_REACH of the building's footprint is blighted.
 static func near_blight(s: Settlement, b: Building) -> bool:
+	if b.layer != Building.LAYER_GROUND:
+		return false  # sky tiles are never blighted
 	var r := b.footprint().grow(HOME_REACH)
 	for y in range(maxi(r.position.y, 0), mini(r.end.y, MapState.HEIGHT)):
 		for x in range(maxi(r.position.x, 0), mini(r.end.x, MapState.WIDTH)):
@@ -158,7 +162,7 @@ static func output_modifier(s: Settlement, b: Building) -> float:
 ## True when blight within def.blight_reach of the footprint cuts this building (its tier does not ignore blight).
 static func blight_hits(s: Settlement, b: Building) -> bool:
 	var reach := b.def.blight_reach
-	if reach <= 0:
+	if reach <= 0 or b.layer != Building.LAYER_GROUND:
 		return false
 	var td := b.tier_def(s.registry)
 	if td != null and td.ignores_blight:

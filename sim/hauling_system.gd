@@ -92,9 +92,10 @@ static func need_of(reg: DataRegistry, b: Building) -> Dictionary:
 	if not b.site:
 		return input_need(reg, b.def)
 	var out := {}
-	for g in b.def.cost:
+	var cost := b.effective_cost()
+	for g in cost:
 		if g != BuildingDef.GOLD:
-			out[g] = float(b.def.cost[g])
+			out[g] = float(cost[g])
 	return out
 
 

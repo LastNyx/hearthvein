@@ -213,6 +213,9 @@ func _validate() -> void:
 			or logistics.demolish_refund < 0.0 or logistics.demolish_refund > 1.0 \
 			or logistics.unpaid_upkeep_factor <= 0.0 or logistics.unpaid_upkeep_factor > 1.0:
 		errors.append("logistics: every number must be positive")
+	elif logistics.island_width <= 0 or logistics.island_height <= 0 or logistics.island_max <= 0 \
+			or logistics.island_width > MapState.REGION_W or logistics.island_height > MapState.REGION_H:
+		errors.append("logistics: island size must fit a region and island_max must be positive")
 	if growth == null:
 		if not goods.is_empty():
 			errors.append("missing growth definition")
@@ -360,6 +363,12 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: unknown category '%s'" % [who, b.category])
 	if not BuildingDef.PLACEMENT_RULES.has(b.placement_rule):
 		errors.append("%s: unknown placement rule '%s'" % [who, b.placement_rule])
+	if not BuildingDef.LAYER_RULES.has(b.layers):
+		errors.append("%s: unknown layer rule '%s'" % [who, b.layers])
+	if b.raises_island and b.layers != "ground":
+		errors.append("%s: an island raiser stands on the ground" % who)
+	if b.free_first_with != "" and not buildings.has(b.free_first_with):
+		errors.append("%s: unknown free_first_with building '%s'" % [who, b.free_first_with])
 	if not BuildingDef.STORAGE_MODES.has(b.storage_mode):
 		errors.append("%s: unknown storage mode '%s'" % [who, b.storage_mode])
 	elif b.storage_mode != "none" and b.storage_cap <= 0:

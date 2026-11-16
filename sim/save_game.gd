@@ -198,6 +198,15 @@ static func _validate(state: Dictionary, registry: DataRegistry) -> bool:
 	if not _packed_size(state["channels"], TYPE_PACKED_BYTE_ARRAY, cells):
 		push_error("SaveGame.load: channels is not a PackedByteArray of %d cells" % cells)
 		return false
+	if state.has("sky_map"):  # absent in a save from before the sky layer (ticket 40): no islands
+		for key in ["sky_occupancy", "sky_roads", "sky_map"]:
+			if not state.has(key):
+				push_error("SaveGame.load: state is missing '%s'" % key)
+				return false
+		if not _packed_size(state["sky_occupancy"], TYPE_PACKED_INT32_ARRAY, cells) \
+				or not _packed_size(state["sky_roads"], TYPE_PACKED_BYTE_ARRAY, cells):
+			push_error("SaveGame.load: sky grids are not tile-sized packed arrays")
+			return false
 	for key in ["clock", "events", "systems"]:
 		if typeof(state[key]) != TYPE_DICTIONARY:
 			push_error("SaveGame.load: state.%s is not a dictionary" % key)

@@ -82,6 +82,20 @@ func _init(ids: PackedStringArray = PackedStringArray()) -> void:
 		region_reward_pos.append(Vector2i(-1, -1))
 
 
+## Terrain ids of the sky layer's own map: byte 0 is empty air, byte 1 is skystone (ticket 40).
+const SKY_VOID := "void"
+const SKY_STONE := "skystone"
+
+
+## A sky-layer map (ticket 40): the same size and tile coordinates as the ground, all void until an island is raised.
+## Only its terrain bytes matter (blight, fertility and wet stay 0); region ownership lives on the ground map.
+static func new_sky() -> MapState:
+	var m := MapState.new(PackedStringArray([SKY_VOID, SKY_STONE]))
+	for r in REGION_COUNT:
+		m.region_owned[r] = 1  # not consulted; islands rise only over owned regions
+	return m
+
+
 static func region_at(x: int, y: int) -> int:
 	return (y / REGION_H) * REGION_COLS + x / REGION_W
 

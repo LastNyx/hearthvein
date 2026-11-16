@@ -36,8 +36,8 @@ func on_day(s: Settlement) -> void:
 	ids.sort()
 	for bid in ids:
 		var b: Building = s.buildings[bid]
-		if b.def.clean_radius <= 0 or b.def.clean_interval_days <= 0:
-			continue
+		if b.def.clean_radius <= 0 or b.def.clean_interval_days <= 0 or b.layer != Building.LAYER_GROUND:
+			continue  # blight is ground-only (ticket 40)
 		live[bid] = true
 		if not is_working(s, b, staffed):
 			continue

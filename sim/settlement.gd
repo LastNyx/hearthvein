@@ -27,6 +27,15 @@ var channels := PackedByteArray()
 ## Rail track grid (ticket 37), parallel to roads: 1 where a track tile lies. A separate layer: no road and no walking
 ## speed, so citizens ignore it. Which depots a track joins is derived (RailSystem), never stored.
 var track := PackedByteArray()
+## Sky layer (ticket 40): same tile coordinates as the ground, so sky tile (x, y) floats above ground tile (x, y).
+## sky_map is "void" everywhere except raised islands ("skystone"); its blight, fertility and wet stay 0. The sky has
+## its own occupancy and road grids (roads only on skystone). Route by layer with map_for_layer, occupancy_for_layer
+## and roads_for_layer (Building.LAYER_GROUND / LAYER_SKY).
+var sky_map: MapState = MapState.new_sky()
+var sky_occupancy := PackedInt32Array()
+var sky_roads := PackedByteArray()
+## True once the free first Lift Anchor (BuildingDef.free_first_with) has been placed. Saved.
+var free_anchor_used: bool = false
 var hearth: Building = null
 ## Global gold counter. Gold is never stored in inventories.
 var gold: float = 0.0
@@ -66,6 +75,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	s.map = MapGen.generate(seed, reg)
 	s.occupancy.resize(MapState.WIDTH * MapState.HEIGHT)
 	s.occupancy.fill(-1)
+	s._init_sky_grids()
 	s.roads.resize(MapState.WIDTH * MapState.HEIGHT)
 	s.channels.resize(MapState.WIDTH * MapState.HEIGHT)
 	s.track.resize(MapState.WIDTH * MapState.HEIGHT)
@@ -82,11 +92,31 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	return s
 
 
+func _init_sky_grids() -> void:
+	sky_occupancy.resize(MapState.WIDTH * MapState.HEIGHT)
+	sky_occupancy.fill(-1)
+	sky_roads.resize(MapState.WIDTH * MapState.HEIGHT)
+
+
+## The tile map of a layer: the ground map or the sky map.
+func map_for_layer(layer: int) -> MapState:
+	return sky_map if layer == Building.LAYER_SKY else map
+
+
+func occupancy_for_layer(layer: int) -> PackedInt32Array:
+	return sky_occupancy if layer == Building.LAYER_SKY else occupancy
+
+
+func roads_for_layer(layer: int) -> PackedByteArray:
+	return sky_roads if layer == Building.LAYER_SKY else roads
+
+
 ## Every game system a real game runs, in hook order. Each feature ticket appends its system here.
 func add_default_systems() -> void:
 	add_system(EraSystem.new())
 	add_system(StorageSystem.new())
 	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
+	add_system(IslandSystem.new())  # sky island list (ticket 40); no hooks yet, 40b adds the island Lumen supply
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
 	add_system(RailManifestSystem.new())  # daily train manifests between linked depots (ticket 37b), hourly arrivals
 	add_system(AirshipSystem.new())  # after the rail manifests (rail first): air freight between docks, survey flights (ticket 38)
@@ -256,6 +286,10 @@ func to_dict() -> Dictionary:
 		"map": map.to_dict(),
 		"occupancy": occupancy,
 		"roads": roads,
+		"sky_map": sky_map.to_dict(),
+		"sky_occupancy": sky_occupancy,
+		"sky_roads": sky_roads,
+		"free_anchor_used": free_anchor_used,
 		"channels": channels,
 		"track": track,
 		"buildings": bl,
@@ -290,6 +324,13 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 	s.occupancy = d["occupancy"]
 	s.roads = d["roads"]
 	s.channels = d["channels"]
+	if d.has("sky_map"):
+		s.sky_map = MapState.from_dict(d["sky_map"])
+		s.sky_occupancy = d["sky_occupancy"]
+		s.sky_roads = d["sky_roads"]
+	else:  # a save from before the sky layer: no islands
+		s._init_sky_grids()
+	s.free_anchor_used = bool(d.get("free_anchor_used", false))
 	if d.has("track"):
 		s.track = d["track"]
 	else:  # a save from before rail track
@@ -333,10 +374,10 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 
 # ---------------------------------------------------------------- placement
 
-func building_at(tile: Vector2i) -> Building:
+func building_at(tile: Vector2i, layer: int = Building.LAYER_GROUND) -> Building:
 	if not MapState.in_bounds(tile.x, tile.y):
 		return null
-	var id := occupancy[MapState.idx(tile.x, tile.y)]
+	var id := occupancy_for_layer(layer)[MapState.idx(tile.x, tile.y)]
 	return buildings.get(id) if id >= 0 else null
 
 
@@ -349,7 +390,12 @@ func road_at(tile: Vector2i) -> int:
 ## Returns {ok: bool, reason: String}. Reason is "" when ok.
 ## Reason "era_locked" when the building's era is later than era_id() (ticket 16); ignore_era skips only that check
 ## (used by place_building_instant, the debug/test path).
-func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Dictionary:
+## `layer` is Building.LAYER_GROUND (default, every old caller) or LAYER_SKY. The def's `layers` rule must allow it
+## (reason "wrong_layer"). On the sky every footprint tile must be skystone of a raised island (reason "no_island"),
+## free of sky buildings ("overlap") and sky roads ("road"); the ground-only checks (region ownership, water, channels,
+## track, region depot and dock) do not apply. A Lift Anchor (raises_island) is rejected with "region_island" when its
+## region already has an anchor and "island_cap" at LogisticsDef.island_max anchors, sites counting.
+func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false, layer: int = Building.LAYER_GROUND) -> Dictionary:
 	var def := registry.get_building(def_id)
 	if def == null:
 		return {"ok": false, "reason": "unknown_building"}
@@ -357,6 +403,22 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Di
 		return {"ok": false, "reason": "era_locked"}
 	if def_id == "hearth" and hearth != null:
 		return {"ok": false, "reason": "unique"}
+	if layer != Building.LAYER_GROUND and layer != Building.LAYER_SKY:
+		return {"ok": false, "reason": "wrong_layer"}
+	if (layer == Building.LAYER_SKY and def.layers == "ground") or (layer == Building.LAYER_GROUND and def.layers == "island"):
+		return {"ok": false, "reason": "wrong_layer"}
+	if layer == Building.LAYER_SKY:
+		return _can_place_sky(def, origin)
+	if def.raises_island and MapState.in_bounds(origin.x, origin.y):
+		var anchor_region := map.get_region(origin.x, origin.y)
+		var anchors := 0
+		for other: Building in buildings.values():
+			if other.def.raises_island:
+				anchors += 1
+				if map.get_region(other.origin.x, other.origin.y) == anchor_region:
+					return {"ok": false, "reason": "region_island"}  # one island per region, sites count
+		if anchors >= registry.logistics.island_max:
+			return {"ok": false, "reason": "island_cap"}
 	if def.rail_depot and MapState.in_bounds(origin.x, origin.y):
 		var region := map.get_region(origin.x, origin.y)
 		for other: Building in buildings.values():
@@ -394,18 +456,60 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Di
 	return {"ok": true, "reason": ""}
 
 
+## Sky-layer half of can_place: the footprint must lie on skystone (a raised island) and be free.
+func _can_place_sky(def: BuildingDef, origin: Vector2i) -> Dictionary:
+	for y in range(origin.y, origin.y + def.size.y):
+		for x in range(origin.x, origin.x + def.size.x):
+			if not MapState.in_bounds(x, y):
+				return {"ok": false, "reason": "out_of_bounds"}
+			if sky_map.terrain_id_at(x, y) != MapState.SKY_STONE:
+				return {"ok": false, "reason": "no_island"}
+			var i := MapState.idx(x, y)
+			if sky_occupancy[i] >= 0:
+				return {"ok": false, "reason": "overlap"}
+			if sky_roads[i] != ROAD_NONE:
+				return {"ok": false, "reason": "road"}
+	var why := Placement.check_rule(sky_map, registry, def, origin)
+	if why != "":
+		return {"ok": false, "reason": why}
+	return {"ok": true, "reason": ""}
+
+
+## The cost placing `def_id` would charge now: the def's cost, or nothing for the free first Lift Anchor (the def names
+## a free_first_with building, a finished one stands, and free_anchor_used is still false). The build UI shows this.
+func cost_for(def_id: String) -> Dictionary:
+	var def := registry.get_building(def_id)
+	if def == null:
+		return {}
+	if _free_anchor_available(def):
+		return {}
+	return def.cost
+
+
+func _free_anchor_available(def: BuildingDef) -> bool:
+	if def.free_first_with == "" or free_anchor_used:
+		return false
+	for b: Building in buildings.values():
+		if not b.site and b.def.id == def.free_first_with:
+			return true
+	return false
+
+
 ## Normal play (D48): places a construction site and returns its building id, or -1 when invalid (see can_place) or
 ## when the gold part of the cost is not in the treasury. Gold is paid now; every other good is hauled to the site
 ## (HaulingSystem), then builders build it (ConstructionSystem). Priority via set_building_priority.
-func place_building(def_id: String, origin: Vector2i) -> int:
-	if not can_place(def_id, origin)["ok"]:
+func place_building(def_id: String, origin: Vector2i, layer: int = Building.LAYER_GROUND) -> int:
+	if not can_place(def_id, origin, false, layer)["ok"]:
 		return -1
 	var def := registry.get_building(def_id)
-	var g := float(def.cost.get(BuildingDef.GOLD, 0))
+	var free := _free_anchor_available(def)
+	var g := float(cost_for(def_id).get(BuildingDef.GOLD, 0))
 	if g > gold + Inventory.EPS:
 		return -1
 	gold -= g
-	var b := _insert_building(def, origin, true)
+	if free:
+		free_anchor_used = true
+	var b := _insert_building(def, origin, true, layer, free)
 	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin, "site": true})
 	refresh_population()
 	return b.id
@@ -414,11 +518,11 @@ func place_building(def_id: String, origin: Vector2i) -> int:
 ## Debug and test path: a finished building at once, free, no site. Never used by normal play (the build UI calls
 ## place_building). Same validity rules as place_building. Returns the building id, or -1.
 ## Bypasses the era lock (tests and tools may place later-era buildings).
-func place_building_instant(def_id: String, origin: Vector2i) -> int:
-	if not can_place(def_id, origin, true)["ok"]:
+func place_building_instant(def_id: String, origin: Vector2i, layer: int = Building.LAYER_GROUND) -> int:
+	if not can_place(def_id, origin, true, layer)["ok"]:
 		return -1
 	var def := registry.get_building(def_id)
-	var b := _insert_building(def, origin, false)
+	var b := _insert_building(def, origin, false, layer)
 	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin, "site": false})
 	return b.id
 
@@ -440,6 +544,7 @@ func complete_site(b: Building) -> void:
 	b.input_buffer = null
 	_init_buffers(b)
 	completion_version += 1
+	_raise_island_for(b)
 	if b.def.wet_radius > 0:
 		WaterSystem.recompute(self)
 	if b.def.rail_depot:
@@ -465,18 +570,31 @@ func _init_buffers(b: Building) -> void:
 		b.input_buffer = Inventory.new("per_good", cap)
 
 
-func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false) -> Building:
+## A finished Lift Anchor raises its island (complete_site, or at once for an instant placement).
+func _raise_island_for(b: Building) -> void:
+	if not b.def.raises_island or b.layer != Building.LAYER_GROUND:
+		return
+	var isl := get_system(IslandSystem) as IslandSystem
+	if isl != null:
+		isl.raise(self, b)
+
+
+func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false, layer: int = Building.LAYER_GROUND,
+		free: bool = false) -> Building:
 	var b := Building.new()
 	b.id = _next_building_id
 	_next_building_id += 1
 	b.def = def
 	b.origin = origin
+	b.layer = layer
+	b.cost_free = free
 	if as_site:
 		b.site = true
 		var cap := 0.0
-		for g in def.cost:
+		var site_cost := b.effective_cost()
+		for g in site_cost:
 			if g != BuildingDef.GOLD:
-				cap = maxf(cap, float(def.cost[g]))
+				cap = maxf(cap, float(site_cost[g]))
 		b.input_buffer = Inventory.new("per_good", cap)
 		b.build_work_needed = build_days(def) * float(registry.logistics.builder_crew)
 	else:
@@ -484,8 +602,11 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false)
 	buildings[b.id] = b
 	grid_version += 1
 	structure_version += 1
+	var occ := occupancy_for_layer(layer)
 	for t in b.tiles():
-		occupancy[MapState.idx(t.x, t.y)] = b.id
+		occ[MapState.idx(t.x, t.y)] = b.id
+	if not as_site:
+		_raise_island_for(b)
 	if def.rail_depot and not as_site:
 		_roads_dirty = true
 	if def.wet_radius > 0 and not as_site and hearth != null:
@@ -500,8 +621,15 @@ func demolish(id: int) -> bool:
 	var b: Building = buildings.get(id)
 	if b == null or b == hearth:
 		return false
+	var isys := get_system(IslandSystem) as IslandSystem
+	var island: Island = isys.island_of_anchor(id) if isys != null and b.def.raises_island else null
+	if island != null:
+		if not isys.buildings_on(self, island).is_empty():
+			return false  # an island with buildings on it cannot be dropped
+		isys.remove(self, island)
+	var occ := occupancy_for_layer(b.layer)
 	for t in b.tiles():
-		occupancy[MapState.idx(t.x, t.y)] = -1
+		occ[MapState.idx(t.x, t.y)] = -1
 	# Contents of a demolished storehouse are lost.
 	buildings.erase(id)
 	grid_version += 1
@@ -524,8 +652,9 @@ func demolish(id: int) -> bool:
 func _refund_for(b: Building) -> Dictionary:
 	var share := registry.logistics.demolish_refund
 	var out := {}
-	for g in b.def.cost:
-		var have := float(b.def.cost[g])
+	var cost := b.effective_cost()
+	for g in cost:
+		var have := float(cost[g])
 		if b.site and g != BuildingDef.GOLD:
 			have = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
 		if have * share > Inventory.EPS:
@@ -903,7 +1032,11 @@ func find_storage_with_room(good: String, from: Vector2i, amount: float = 0.0000
 	return best
 
 
-func can_place_road(tile: Vector2i) -> bool:
+## `layer` LAYER_SKY: a road tile on an island (skystone, no sky building on it).
+func can_place_road(tile: Vector2i, layer: int = Building.LAYER_GROUND) -> bool:
+	if layer == Building.LAYER_SKY:
+		return MapState.in_bounds(tile.x, tile.y) and sky_map.terrain_id_at(tile.x, tile.y) == MapState.SKY_STONE \
+				and sky_occupancy[MapState.idx(tile.x, tile.y)] < 0
 	if not MapState.in_bounds(tile.x, tile.y) or not map.is_region_owned(map.get_region(tile.x, tile.y)):
 		return false
 	var tid := map.terrain_id_at(tile.x, tile.y)
@@ -915,7 +1048,15 @@ func can_place_road(tile: Vector2i) -> bool:
 
 
 ## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
-func place_road(tile: Vector2i, level: int = ROAD_DIRT) -> bool:
+func place_road(tile: Vector2i, level: int = ROAD_DIRT, layer: int = Building.LAYER_GROUND) -> bool:
+	if layer == Building.LAYER_SKY:
+		if not can_place_road(tile, layer) or sky_roads[MapState.idx(tile.x, tile.y)] >= level:
+			return false
+		sky_roads[MapState.idx(tile.x, tile.y)] = level
+		grid_version += 1
+		structure_version += 1
+		events.emit("road_changed", {"tile": tile, "level": level, "layer": layer})
+		return true
 	if not can_place_road(tile) or roads[MapState.idx(tile.x, tile.y)] >= level:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = level
@@ -927,7 +1068,15 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT) -> bool:
 	return true
 
 
-func remove_road(tile: Vector2i) -> bool:
+func remove_road(tile: Vector2i, layer: int = Building.LAYER_GROUND) -> bool:
+	if layer == Building.LAYER_SKY:
+		if not MapState.in_bounds(tile.x, tile.y) or sky_roads[MapState.idx(tile.x, tile.y)] == ROAD_NONE:
+			return false
+		sky_roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
+		grid_version += 1
+		structure_version += 1
+		events.emit("road_changed", {"tile": tile, "level": ROAD_NONE, "layer": layer})
+		return true
 	if not MapState.in_bounds(tile.x, tile.y) or roads[MapState.idx(tile.x, tile.y)] == ROAD_NONE:
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
@@ -1306,7 +1455,7 @@ func _recompute_connections(only: Building = null) -> void:
 	var check: Array = buildings.values() if all else [only]
 	for b: Building in check:
 		var now := b == hearth
-		if not now:
+		if not now and b.layer == Building.LAYER_GROUND:  # sky buildings reach the ground by Sky Lift only (ticket 40c)
 			for t in _ring(b):
 				if reached.has(t):
 					now = true

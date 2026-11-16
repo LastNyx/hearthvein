@@ -157,8 +157,9 @@ static func footprint_wet(s: Settlement, b: Building) -> bool:
 	if tiles.is_empty():
 		return false
 	var n := 0
+	var m := s.map_for_layer(b.layer)
 	for t in tiles:
-		if s.map.is_wet(t.x, t.y):
+		if m.is_wet(t.x, t.y):
 			n += 1
 	return float(n) >= def.farm_wet_fraction * float(tiles.size())
 
@@ -183,8 +184,9 @@ static func dry_halt(s: Settlement, b: Building) -> String:
 ## splash), or a finished Well, Water Tower or Cloud Cistern is within its water_radius (the home rule of
 ## CoverageSystem, footprint to footprint; a Well on fouled-only ground serves nothing).
 static func has_water(s: Settlement, b: Building) -> bool:
+	var m := s.map_for_layer(b.layer)
 	for t in b.tiles():
-		if s.map.is_wet(t.x, t.y):
+		if m.is_wet(t.x, t.y):
 			return true
 	for sid in s.buildings:
 		var src: Building = s.buildings[sid]

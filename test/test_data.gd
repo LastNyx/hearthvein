@@ -25,7 +25,7 @@ func test_real_data_loads_clean() -> void:
 	assert_eq(reg.goods.size(), 12)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
-	assert_eq(reg.buildings.size(), 45)
+	assert_eq(reg.buildings.size(), 47)
 
 
 func test_broken_fixture_reports_errors() -> void:
@@ -48,8 +48,9 @@ func test_missing_root_is_an_error() -> void:
 # Gate landmark rule: pending only while the landmark's own era has no buildings.
 func test_pending_gate_landmarks_allowed() -> void:
 	_load_real()
-	assert_null(reg.get_building("dawn_beacon"), "Skyborne landmark not authored yet")
-	assert_true(reg.buildings_of_era("skyborne").is_empty(), "Skyborne has no buildings yet")
+	# Skyborne has buildings since ticket 40 (Lift Anchor), so its landmark row exists (its effect is ticket 42).
+	assert_not_null(reg.get_building("dawn_beacon"), "Skyborne landmark authored")
+	assert_false(reg.buildings_of_era("skyborne").is_empty())
 	assert_eq(reg.get_era("ascendant").gate_landmark, "dawn_beacon")
 	assert_eq(reg.errors.size(), 0)
 

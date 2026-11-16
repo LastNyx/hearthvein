@@ -39,3 +39,8 @@ extends Resource
 ## out per day, at airship_speed tiles per hour in a straight line between docks.
 @export var airship_capacity: float = 0.0
 @export var airship_speed: float = 1.0
+## Sky islands (design.md section 17, ticket 40): a Lift Anchor raises an island_width x island_height island centred
+## over its region, at most island_max islands.
+@export var island_width: int = 16
+@export var island_height: int = 12
+@export var island_max: int = 4
