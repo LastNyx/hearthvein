@@ -27,3 +27,6 @@ extends Resource
 @export var unpaid_upkeep_factor: float = 0.5
 ## Share of its Lumen upkeep a building on the Lumen grid pays (design.md section 7: grid upkeep -25%, so 0.75).
 @export var grid_upkeep_factor: float = 1.0
+## Rail track (design.md section 8, ticket 37): cost of one track tile, paid at once from storage. Whole units.
+@export var track_cost_materials: float = 0.0
+@export var track_cost_cut_stone: float = 0.0

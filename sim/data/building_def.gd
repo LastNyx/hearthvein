@@ -117,6 +117,9 @@ const GOLD := "gold"
 @export var grid_link_range: int = 0
 ## Grid Battery (ticket 36b): Lumen this building holds for its grid, lossless. 0 = not a battery.
 @export var battery_capacity: float = 0.0
+## Rail Depot (ticket 37): a cargo rail station. At most one per region (by the region of the footprint origin);
+## depots joined by track tiles form a rail network (RailSystem).
+@export var rail_depot: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

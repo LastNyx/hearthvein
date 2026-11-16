@@ -24,6 +24,9 @@ var occupancy := PackedInt32Array()
 var roads := PackedByteArray()
 ## Channel grid, parallel to roads. Whether a channel flows is derived (WaterSystem.flowing_channels), not stored.
 var channels := PackedByteArray()
+## Rail track grid (ticket 37), parallel to roads: 1 where a track tile lies. A separate layer: no road and no walking
+## speed, so citizens ignore it. Which depots a track joins is derived (RailSystem), never stored.
+var track := PackedByteArray()
 var hearth: Building = null
 ## Global gold counter. Gold is never stored in inventories.
 var gold: float = 0.0
@@ -65,6 +68,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 	s.occupancy.fill(-1)
 	s.roads.resize(MapState.WIDTH * MapState.HEIGHT)
 	s.channels.resize(MapState.WIDTH * MapState.HEIGHT)
+	s.track.resize(MapState.WIDTH * MapState.HEIGHT)
 	var hdef := reg.get_building("hearth")
 	if hdef != null and s.map.hearth_spot.x >= 0:
 		s.hearth = s._insert_building(hdef, s.map.hearth_spot, false)
@@ -83,6 +87,7 @@ func add_default_systems() -> void:
 	add_system(EraSystem.new())
 	add_system(StorageSystem.new())
 	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
+	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
@@ -250,6 +255,7 @@ func to_dict() -> Dictionary:
 		"occupancy": occupancy,
 		"roads": roads,
 		"channels": channels,
+		"track": track,
 		"buildings": bl,
 		"citizens": cl,
 		"hearth": hearth.id if hearth != null else -1,
@@ -282,6 +288,10 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 	s.occupancy = d["occupancy"]
 	s.roads = d["roads"]
 	s.channels = d["channels"]
+	if d.has("track"):
+		s.track = d["track"]
+	else:  # a save from before rail track
+		s.track.resize(MapState.WIDTH * MapState.HEIGHT)
 	for pair in d["buildings"]:
 		var b := Building.from_dict(pair[1], registry)
 		if b == null:
@@ -345,6 +355,11 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Di
 		return {"ok": false, "reason": "era_locked"}
 	if def_id == "hearth" and hearth != null:
 		return {"ok": false, "reason": "unique"}
+	if def.rail_depot and MapState.in_bounds(origin.x, origin.y):
+		var region := map.get_region(origin.x, origin.y)
+		for other: Building in buildings.values():
+			if other.def.rail_depot and map.get_region(other.origin.x, other.origin.y) == region:
+				return {"ok": false, "reason": "region_depot"}  # one Rail Depot per region, sites count
 	for y in range(origin.y, origin.y + def.size.y):
 		for x in range(origin.x, origin.x + def.size.x):
 			if not MapState.in_bounds(x, y):
@@ -364,6 +379,8 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false) -> Di
 				return {"ok": false, "reason": "road"}
 			if channels[i] != CHANNEL_NONE:
 				return {"ok": false, "reason": "channel"}
+			if track[i] != 0:
+				return {"ok": false, "reason": "track"}
 	var why := Placement.check_rule(map, registry, def, origin)
 	if why != "":
 		return {"ok": false, "reason": why}
@@ -416,6 +433,9 @@ func complete_site(b: Building) -> void:
 	b.input_buffer = null
 	_init_buffers(b)
 	completion_version += 1
+	if b.def.rail_depot:
+		_roads_dirty = true  # a finished depot can join road networks; refresh_population runs below
+		_recompute_connections()
 	events.emit("building_completed", {"id": b.id, "def": b.def.id, "origin": b.origin})
 	refresh_population()
 
@@ -457,6 +477,8 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false)
 	structure_version += 1
 	for t in b.tiles():
 		occupancy[MapState.idx(t.x, t.y)] = b.id
+	if def.rail_depot and not as_site:
+		_roads_dirty = true
 	_recompute_connections(b)
 	if hearth == null:
 		refresh_population()  # the Hearth itself: no connection pass yet
@@ -476,7 +498,10 @@ func demolish(id: int) -> bool:
 	var refund := _refund_for(b)
 	_return_goods(refund, b.origin)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin, "site": b.site, "refund": refund})
-	refresh_population()  # removing a building changes no road, so no connection can change
+	if b.def.rail_depot:
+		_roads_dirty = true  # losing a depot can cut a rail link, and with it connections
+		_recompute_connections()
+	refresh_population()  # otherwise removing a building changes no road, so no connection can change
 	return true
 
 
@@ -873,7 +898,7 @@ func can_place_road(tile: Vector2i) -> bool:
 	if tid == "water" or (tdef != null and not tdef.buildable):
 		return false
 	var i := MapState.idx(tile.x, tile.y)
-	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE
+	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE and track[i] == 0
 
 
 ## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
@@ -946,6 +971,8 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "overlap"}
 	if channels[i] != CHANNEL_NONE:
 		return {"ok": false, "reason": "channel"}
+	if track[i] != 0:
+		return {"ok": false, "reason": "track"}
 	if roads[i] >= ROAD_PAVED:
 		return {"ok": false, "reason": "already_paved"}
 	if not _road_unlocked(ROAD_PAVED):
@@ -976,6 +1003,91 @@ func pave_road(tile: Vector2i) -> bool:
 		return false
 	_pave_stone_debt = _pave_stone_debt + float(cost.get("cut_stone", 0.0)) - float(stone_units)
 	place_road(tile, ROAD_PAVED)
+	return true
+
+
+# ---------------------------------------------------------------- rail track (ticket 37)
+
+func track_at(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return false
+	return track[MapState.idx(tile.x, tile.y)] != 0
+
+
+## Why a rail track tile cannot be laid here: {"ok": bool, "reason": String}, shaped like can_place_channel. Track is
+## its own layer, placed like road: on owned, buildable land, never under a building. A track tile and a road tile are
+## different overlays and cannot share a tile (reason "road"; the same goes for a channel). The cost is
+## LogisticsDef.track_cost_materials + track_cost_cut_stone per tile (design.md section 8: 2 materials + 1 cut stone).
+## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, road, channel, track, materials, cut_stone.
+func can_place_track(tile: Vector2i) -> Dictionary:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return {"ok": false, "reason": "out_of_bounds"}
+	if not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return {"ok": false, "reason": "locked_region"}
+	var tid := map.terrain_id_at(tile.x, tile.y)
+	var tdef := registry.get_terrain(tid)
+	if tid == "water":
+		return {"ok": false, "reason": "water"}
+	if tdef != null and not tdef.buildable:
+		return {"ok": false, "reason": "blocked_terrain"}
+	var i := MapState.idx(tile.x, tile.y)
+	if occupancy[i] >= 0:
+		return {"ok": false, "reason": "overlap"}
+	if roads[i] != ROAD_NONE:
+		return {"ok": false, "reason": "road"}
+	if channels[i] != CHANNEL_NONE:
+		return {"ok": false, "reason": "channel"}
+	if track[i] != 0:
+		return {"ok": false, "reason": "track"}
+	var lg := registry.logistics
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < lg.track_cost_materials:
+		return {"ok": false, "reason": "materials"}
+	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < lg.track_cost_cut_stone:
+		return {"ok": false, "reason": "cut_stone"}
+	return {"ok": true, "reason": ""}
+
+
+## Lays one track tile, paying the LogisticsDef track cost from storage at once. False (nothing spent) when
+## can_place_track says no. Bumps structure_version, so RailSystem rebuilds its links on the next query.
+func place_track(tile: Vector2i) -> bool:
+	if not can_place_track(tile)["ok"]:
+		return false
+	var lg := registry.logistics
+	if not spend_good("materials", lg.track_cost_materials):
+		return false
+	if lg.track_cost_cut_stone > 0.0 and not spend_good("cut_stone", lg.track_cost_cut_stone):
+		_return_goods({"materials": lg.track_cost_materials}, tile)  # defensive: can_place_track checked both
+		return false
+	track[MapState.idx(tile.x, tile.y)] = 1
+	grid_version += 1
+	structure_version += 1
+	_roads_dirty = true  # a track can join depots, which changes what counts as connected
+	events.emit("track_changed", {"tile": tile, "laid": true})
+	_recompute_connections()
+	return true
+
+
+## Lifts a track tile, giving back LogisticsDef.demolish_refund of its cost to the nearest storage, like channels.
+func remove_track(tile: Vector2i) -> bool:
+	if not MapState.in_bounds(tile.x, tile.y) or track[MapState.idx(tile.x, tile.y)] == 0:
+		return false
+	track[MapState.idx(tile.x, tile.y)] = 0
+	grid_version += 1
+	structure_version += 1
+	_roads_dirty = true
+	events.emit("track_changed", {"tile": tile, "laid": false})
+	var lg := registry.logistics
+	if lg != null:
+		var refund := {}
+		var m := lg.track_cost_materials * lg.demolish_refund
+		var c := lg.track_cost_cut_stone * lg.demolish_refund
+		if m > Inventory.EPS:
+			refund["materials"] = m
+		if c > Inventory.EPS:
+			refund["cut_stone"] = c
+		if not refund.is_empty():
+			_return_goods(refund, tile)
+	_recompute_connections()
 	return true
 
 
@@ -1017,6 +1129,8 @@ func can_place_channel(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "road"}
 	if channels[i] != CHANNEL_NONE:
 		return {"ok": false, "reason": "channel"}
+	if track[i] != 0:
+		return {"ok": false, "reason": "track"}
 	var def := registry.water
 	var cost := def.channel_cost_materials if def != null else 0.0
 	if float(totals().get("materials", 0.0)) + Inventory.EPS < cost:
@@ -1140,6 +1254,7 @@ func _recompute_connections(only: Building = null) -> void:
 	if hearth == null:
 		return
 	var all := only == null
+	var _roads_dirty_pass := _roads_dirty
 	if _roads_dirty:
 		all = true
 		_roads_dirty = false
@@ -1158,6 +1273,9 @@ func _recompute_connections(only: Building = null) -> void:
 				if not _reached.has(n) and road_at(n) != ROAD_NONE:
 					_reached[n] = true
 					queue.append(n)
+	var rail := get_system(RailSystem) as RailSystem
+	if _roads_dirty_pass and rail != null:
+		rail.extend_reach(self, _reached)  # roads beside a depot reach every road beside a linked depot (ticket 37)
 	var reached := _reached
 	var check: Array = buildings.values() if all else [only]
 	for b: Building in check:

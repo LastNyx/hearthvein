@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rail_depot"
+display_name = "Rail Depot"
+era = "conflux"
+category = "logistics"
+size = Vector2i(3, 1)
+cost = {"materials": 120, "gold": 60, "cut_stone": 30, "tools": 15}
+worker_slots = 0
+hauler_slots = 2
+builder_slots = 0
+upkeep_lumen = 1.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+upgradable = false
+rail_depot = true

@@ -45,6 +45,14 @@ const SKIP := {
 	"GridSystem._links": "grid link cache, rebuilt",
 	"GridSystem._key": "grid cache key, rebuilt",
 	"GridSystem._count": "grid cache key, rebuilt",
+	# RailSystem
+	"RailSystem._network_of": "rail network cache, rebuilt from track and depots on the first query",
+	"RailSystem._networks": "rail network cache, rebuilt",
+	"RailSystem._road_comp": "road component cache, rebuilt",
+	"RailSystem._comp_tiles": "road component cache, rebuilt",
+	"RailSystem._depot_comps": "depot road component cache, rebuilt",
+	"RailSystem._key": "rail cache key, rebuilt",
+	"RailSystem._count": "rail cache key, rebuilt",
 	# WalkerSystem
 	"WalkerSystem._s": "back-reference to the settlement, set on the first hook after load",
 	"WalkerSystem._grid": "AStarGrid2D, rebuilt from the loaded map and buildings",
