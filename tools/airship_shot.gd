@@ -4,8 +4,8 @@ extends SceneTree
 ## A Conflux settlement with two owned regions side by side, each with a staffed Airship Dock. The left region holds a
 ## storehouse full of food, the right region a tent of homes that need it, so the docks ship food by air. The sim is
 ## stepped until an airship leaves, then to about half way, and frozen; the camera frames the airship.
-## Then two locked reward regions are made: one is surveyed (flight stepped to its end), one is not, and the region map
-## (M) is opened. With "nodraw" no image is written (headless layout check): the shipment is printed instead.
+## Then only the two dock regions stay owned: a buyable unrevealed region (Buy + Survey), a surveyed locked one and an
+## unsurveyed locked one show on the region map (M), which is opened. With "nodraw" no image is written (headless layout check): the shipment is printed instead.
 ## Writes .scratch/v1/hv_68_air_z1.png, hv_68_air_z2.png and hv_68_region_map.png.
 
 const OUT := "/home/ngeng/Proyek/hearthvein/.scratch/v1/"
@@ -96,17 +96,32 @@ func _init() -> void:
 	print("airship_shot: shipment ", ship["goods"], " from ", ship["from_pos"], " to ", ship["to_pos"], " progress ",
 			snappedf(ship["progress"], 0.01), " after ", guard, " hours")
 	main.driver.set_speed(0)
-	# Two locked reward regions: the first gets surveyed, the second does not.
-	var skip := {s.map.start_region: true, _region_of(store_a): true, _region_of(store_b): true, _region_of(tent): true,
-			_region_of(s.buildings[dock_a]): true, _region_of(s.buildings[dock_b]): true}
-	var locked: Array[int] = []
+	# Own only the two dock regions, so neighbours are buyable and the far regions locked. Wanted on the map: a buyable
+	# unrevealed region (Buy + Survey), a locked one that gets surveyed (detail shown), a locked unrevealed one (Survey).
+	var keep := {_region_of(s.buildings[dock_a]): true, _region_of(s.buildings[dock_b]): true}
+	var buyable := -1
+	var far: Array[int] = []
+	var near_ring := {}
 	for r in MapState.REGION_COUNT:
-		if s.map.get_region_reward(r) != "" and not skip.has(r) and locked.size() < 2:
-			locked.append(r)
+		if not keep.has(r):
+			for k in keep:
+				var dc: int = absi(r % MapState.REGION_COLS - int(k) % MapState.REGION_COLS)
+				var dr: int = absi(r / MapState.REGION_COLS - int(k) / MapState.REGION_COLS)
+				if dc + dr == 1:
+					near_ring[r] = true
+	for r in MapState.REGION_COUNT:
+		if keep.has(r) or s.map.get_region_reward(r) == "":
+			continue
+		if near_ring.has(r):
+			if buyable < 0:
+				buyable = r
+		elif far.size() < 2:
+			far.append(r)
+	var locked: Array[int] = far.duplicate()
 	if not draw:
 		for i in 10:  # lets AirshipView draw once
 			await process_frame
-		print("airship_shot: locked reward regions ", locked)
+		print("airship_shot: buyable ", buyable, " locked reward regions ", locked)
 		quit()
 		return
 	var cam: CameraController = main.get_node("Camera")
@@ -117,13 +132,15 @@ func _init() -> void:
 	cam.set_zoom_step(2)
 	cam.position = at
 	await _shoot(OUT + "hv_68_air_z2.png")
-	# Region map: survey the first locked region to its end, leave the second unsurveyed.
-	for r in locked:
-		s.map.set_region_owned(r, false)
+	# Region map: own only the dock regions, survey the first far region to its end, leave the others unsurveyed.
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, keep.has(r))
+	s.gold = maxf(s.gold, 5000.0)
 	if locked.size() > 0:
 		s.survey_region(locked[0])
 		s.step_hours(s.registry.regions.survey_days * 24 + 1)
-		print("airship_shot: surveyed ", locked[0], " revealed ", air.is_revealed(s, locked[0]))
+		print("airship_shot: surveyed ", locked[0], " revealed ", air.is_revealed(s, locked[0]), "; buyable ", buyable,
+				" unsurveyed locked ", locked[1] if locked.size() > 1 else -1)
 	main.driver.set_speed(0)
 	hud.toggle_region_map()
 	await _shoot(OUT + "hv_68_region_map.png")

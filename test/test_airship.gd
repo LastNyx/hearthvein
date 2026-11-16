@@ -275,6 +275,18 @@ func test_survey_reveals_a_locked_regions_reward() -> void:
 	assert_eq(row["survey_reason"], "revealed")
 
 
+func test_survey_allows_a_buyable_region() -> void:
+	_setup()
+	locked = _lock_a_reward_region()  # the other regions stay owned, so this one is next to owned land
+	var m := HudModel.new(s)
+	var row: Dictionary = m.region_rows()[locked]
+	assert_eq(row["state"], "buyable", "next to owned land")
+	assert_eq(air.survey_refusal(s, locked), "", "surveying before buying is allowed")
+	assert_true(row["can_survey"])
+	assert_true(m.survey_region(locked))
+	assert_true(m.region_rows()[locked]["surveying"])
+
+
 func test_survey_one_at_a_time_per_dock() -> void:
 	_setup(true, false)  # only dock A is staffed
 	locked = _lock_a_reward_region()

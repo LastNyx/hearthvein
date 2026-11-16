@@ -624,3 +624,24 @@ func test_region_map_survey_button_states() -> void:
 	for r in MapState.REGION_COUNT:
 		if st.map.is_region_owned(r):
 			assert_false((rm._surveys[r] as Button).visible, "owned regions have no Survey button")
+
+
+func test_region_map_survey_on_buyable_with_buy_beside_it() -> void:
+	var main: Node = load("res://ui/main.tscn").instantiate()
+	main.game_seed = SEED
+	add_child_autofree(main)
+	await get_tree().process_frame
+	var hud: Hud = main.get_node("Hud")
+	var st: Settlement = main.settlement
+	var rm: RegionMap = hud._region_map
+	rm.open()
+	var found := -1
+	for row: Dictionary in main.hud_model.region_rows():
+		if row["state"] == "buyable" and row["reward"] != "":
+			found = row["region"]
+	assert_gte(found, 0, "a buyable region with a reward")
+	var buy: Button = rm._buttons[found]
+	var sv: Button = rm._surveys[found]
+	assert_true(buy.visible and sv.visible, "Buy and Survey both shown")
+	assert_false(Rect2(buy.position, buy.size).intersects(Rect2(sv.position, sv.size)), "side by side")
+	assert_true(st.map.is_region_owned(st.map.start_region))

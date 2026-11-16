@@ -7,6 +7,8 @@ extends PanelContainer
 
 const SCALE := 5  # screen pixels per map tile: 128 x 96 tiles -> 640 x 480
 const CELL := Vector2(MapState.REGION_W * SCALE, MapState.REGION_H * SCALE)
+const BTN := Vector2(72, 26)
+const BTN_Y := 50.0  # button row: BTN_Y above the cell bottom; the note line sits under it, markers stay above it
 const GROUND_COLORS := {"water": Color("3d6a9a"), "grass": Color("6a9a48"), "forest": Color("2f5e32"),
 		"soil": Color("8a6a42"), "rock": Color("8a8a8e"), "vein": Color("6fd8e8"), "sky": Color("c8d8f0")}
 
@@ -54,20 +56,20 @@ func setup(h: Hud, m: HudModel) -> void:
 	for r in MapState.REGION_COUNT:
 		var origin := Vector2((r % MapState.REGION_COLS) * CELL.x, (r / MapState.REGION_COLS) * CELL.y)
 		var b := hud._button(holder, "Buy", 16)
-		b.position = origin + Vector2(CELL.x / 2.0 - 50.0, CELL.y - 62.0)
-		b.custom_minimum_size = Vector2(100, 28)
-		b.size = Vector2(100, 28)
+		b.position = _slot(origin, 0, 2)
+		b.custom_minimum_size = BTN
+		b.size = BTN
 		b.pressed.connect(_buy.bind(r))
 		_buttons[r] = b
 		var sb := hud._button(holder, "Survey", 16)
-		sb.position = b.position
-		sb.custom_minimum_size = Vector2(100, 28)
-		sb.size = Vector2(100, 28)
+		sb.position = _slot(origin, 1, 2)
+		sb.custom_minimum_size = BTN
+		sb.size = BTN
 		sb.pressed.connect(_survey.bind(r))
 		_surveys[r] = sb
 		var n := hud._label(holder, 14, Hud.INK)
-		n.position = origin + Vector2(0, CELL.y - 28.0)
-		n.size = Vector2(CELL.x, 20)
+		n.position = origin + Vector2(0, CELL.y - 22.0)
+		n.size = Vector2(CELL.x, 18)
 		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_notes[r] = n
 	var hint := hud._label(v, 14, Hud.DIM)
@@ -97,6 +99,12 @@ func _buy(r: int) -> void:
 	refresh()
 
 
+## Top-left of button `i` of `n` visible buttons in a cell: side by side, or centred when alone.
+static func _slot(origin: Vector2, i: int, n: int) -> Vector2:
+	var total := BTN.x * n + 4.0 * (n - 1)
+	return origin + Vector2((CELL.x - total) / 2.0 + i * (BTN.x + 4.0), CELL.y - BTN_Y)
+
+
 func _survey(r: int) -> void:
 	model.survey_region(r)
 	refresh()
@@ -117,10 +125,14 @@ func refresh() -> void:
 		var status := HudModel.survey_status_text(row)
 		n.text = status if status != "" else row["note"]
 		var sb: Button = _surveys[r]
-		sb.visible = row["state"] == "locked" and row["reward"] != "" and not row["revealed"] and not row["surveying"]
+		sb.visible = not row["owned"] and row["reward"] != "" and not row["revealed"] and not row["surveying"]
+		var origin := Vector2((r % MapState.REGION_COLS) * CELL.x, (r / MapState.REGION_COLS) * CELL.y)
+		var both := b.visible and sb.visible
+		b.position = _slot(origin, 0, 2 if both else 1)
+		sb.position = _slot(origin, 1 if b.visible else 0, 2 if both else 1)
 		sb.disabled = not row["can_survey"]
 		sb.tooltip_text = HudModel.survey_reason_text(row["survey_reason"])
-		if sb.visible and sb.disabled:
+		if sb.visible and sb.disabled and row["state"] == "locked":
 			n.text = sb.tooltip_text
 		n.add_theme_color_override("font_color", Hud.GOLD if row["state"] == "buyable" else Hud.INK)
 	_marks.queue_redraw()
@@ -161,6 +173,7 @@ class Marks extends Control:
 				continue
 			var c: Color = MapState.REWARD_COLORS.get(reward, Color.WHITE)
 			var o := (Vector2(pos) + Vector2(0.5, 0.5)) * SCALE
+			o.y = minf(o.y, origin.y + CELL.y - BTN_Y - 34.0)  # keep marker and label clear of the button row
 			var k := 7.0
 			var pts := PackedVector2Array([o + Vector2(0, -k), o + Vector2(k, 0), o + Vector2(0, k), o + Vector2(-k, 0)])
 			draw_colored_polygon(pts, c)
@@ -169,6 +182,6 @@ class Marks extends Control:
 			var label: String = row["reward_label"]
 			var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x
 			var tp := Vector2(clampf(o.x - w / 2.0, origin.x + 4.0, origin.x + CELL.x - w - 4.0), o.y + k + 16.0)
-			tp.y = minf(tp.y, origin.y + CELL.y - 70.0)
+			tp.y = minf(tp.y, origin.y + CELL.y - BTN_Y - 8.0)
 			draw_string(font, tp + Vector2(1, 1), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, Color(0, 0, 0, 0.9))
 			draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, Color(c.lightened(0.3), 1.0))
