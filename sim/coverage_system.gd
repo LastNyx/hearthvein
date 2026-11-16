@@ -84,6 +84,19 @@ static func water_reaches(s: Settlement, source: Building, home: Building) -> bo
 	return true
 
 
+## building_covers plus the layer rule, the same as water_reaches (ticket 41d): a source only covers homes on its own
+## layer, and a sky source only homes on its own island. Ground Shrines never cover the sky.
+static func coverage_reaches(s: Settlement, source: Building, home: Building) -> bool:
+	if source.layer != home.layer:
+		return false
+	if not building_covers(source, home):
+		return false
+	if source.layer == Building.LAYER_SKY:
+		var a := IslandSystem.island_at_tile(s, source.origin)
+		return a != null and a == IslandSystem.island_at_tile(s, home.origin)
+	return true
+
+
 ## Spirit hook "coverage": +coverage_bonus when more than coverage_min_share of the housed citizens live in a covered
 ## home. Homeless citizens neither help nor hurt the share; a settlement with no housed citizen gets nothing.
 static func spirit_factor(s: Settlement) -> float:
@@ -154,7 +167,7 @@ func _ensure(s: Settlement) -> void:
 			homes.append(b)
 	for h in homes:
 		for src in sources:
-			if building_covers(src, h):
+			if coverage_reaches(s, src, h):
 				_covered[h.id] = true
 				break
 		for src in water_sources:

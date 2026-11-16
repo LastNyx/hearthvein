@@ -91,6 +91,10 @@ const GOLD := "gold"
 ## this building: Shrine 6, Park 5, Observatory 8, Hall of Seasons 12 (design.md sections 11, 16-17). 0 = no coverage.
 ## CoverageSystem owns the query; the Spirit "coverage" factor reads it.
 @export var coverage_radius: int = 0
+## Dimming forecast lead in seasons while at least one finished, staffed, unpaused building of this def stands on a
+## settled island or the ground (Observatory: 2, ticket 41d). The longest lead wins; 0 = no effect, the planet's
+## dimming_forecast_seasons (1) applies. DimmingSystem.forecast_lead owns the query.
+@export var forecast_lead_seasons: int = 0
 ## True for housing that needs drinking water (design.md section 9: Rowhouse and every later home). From Town these
 ## homes must be within water_radius of a finished Well or Water Tower; the Spirit "water" factor penalises the share
 ## of housed citizens whose home lacks it. Tents and Cottages never need water.

@@ -2,7 +2,8 @@ class_name DimmingSystem
 extends SimSystem
 ## The Dimming (design.md section 14, D37, D43). One a year, starting day 1 of winter (PlanetDef.dimming_start_season).
 ##
-## Forecast: on the first day of the season `dimming_forecast_seasons` before (autumn), the length is fixed:
+## Forecast: on the first day of the season forecast_lead() seasons before (autumn by default, summer with an
+## Observatory), the length is fixed:
 ## round(era base x (2 - health / 100)), era base = EraDef.dimming_base_days of Settlement.era_id(), health =
 ## Settlement.planet_health() at that moment. Events: dimming_forecast {start_day, length} (start_day is the 0-based
 ## total day number, GameClock.total_days()), dimming_started, dimming_ended, darkness_started, darkness_ended.
@@ -69,6 +70,24 @@ static func darkness_factor(s: Settlement) -> float:
 	return s.registry.planet.darkness_spirit if is_dark(s) else 0.0
 
 
+## Seasons of warning: PlanetDef.dimming_forecast_seasons, or the longest BuildingDef.forecast_lead_seasons among
+## finished, unpaused, staffed buildings that are not on a still island (Observatory, ticket 41d).
+static func forecast_lead(s: Settlement) -> int:
+	var lead := s.registry.planet.dimming_forecast_seasons
+	var cands := {}
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if b.def.forecast_lead_seasons > lead and not b.site and not b.paused and not IslandSystem.is_still_building(s, b):
+			cands[id] = b.def.forecast_lead_seasons
+	if cands.is_empty():
+		return lead
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_kind == Citizen.JOB_WORK and cands.has(c.job_id):
+			lead = maxi(lead, int(cands[c.job_id]))
+	return lead
+
+
 static func length_for(s: Settlement, era_id: String, health: float) -> int:
 	var era := s.registry.get_era(era_id)
 	var base := era.dimming_base_days if era != null else 2
@@ -106,7 +125,8 @@ func on_season(s: Settlement) -> void:
 	var pd := s.registry.planet
 	var spy := GameClock.SEASONS_PER_YEAR
 	var ahead := posmod(pd.dimming_start_season - s.clock.season(), spy)
-	if ahead != pd.dimming_forecast_seasons % spy or _active or _start_day >= 0:
+	# The forecast fires on the first season change inside the lead, so an Observatory finished late still forecasts.
+	if ahead < 1 or ahead > forecast_lead(s) % spy or _active or _start_day >= 0:
 		return
 	_start_day = s.clock.total_days() + ahead * GameClock.DAYS_PER_SEASON
 	_length = length_for(s, s.era_id(), s.planet_health())
