@@ -236,7 +236,7 @@ func _rebuild(s: Settlement) -> void:
 	var nodes: Array[Building] = []
 	for id in ids:
 		var b: Building = s.buildings[id]
-		if not b.site and b.def.grid_feed_radius > 0:
+		if not b.site and b.def.grid_feed_radius > 0 and not IslandSystem.is_still_building(s, b):
 			nodes.append(b)
 	if nodes.is_empty():
 		return
@@ -265,7 +265,7 @@ func _rebuild(s: Settlement) -> void:
 		if _of.has(id):
 			continue
 		var b: Building = s.buildings[id]
-		if b.site:
+		if b.site or IslandSystem.is_still_building(s, b):
 			continue
 		var best_gap := 1 << 30
 		var best := -1

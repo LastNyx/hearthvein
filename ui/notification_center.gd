@@ -9,6 +9,11 @@ const REASON_TEXT := {
 	"no_forest": "%s: no forest left in range",
 	"no_workers": "%s: no workers",
 }
+const ISLAND_TEXT := {
+	"no_grid": "no grid power",
+	"anchor_unstaffed": "its Lift Anchor is unstaffed",
+	"short_lumen": "not enough Lumen",
+}
 const LOW_HEALTH := 40.0
 const LOW_HEALTH_CLEAR := 45.0
 
@@ -21,7 +26,7 @@ var _active: Dictionary = {}  # cause key -> true while the cause stands
 func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
-			"era_changed"]:
+			"era_changed", "island_still", "island_resumed"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -45,6 +50,12 @@ func clear(key: String) -> void:
 func _clear_building(id: int) -> void:
 	for key: String in _active.keys():
 		if key.begins_with("%d:" % id):
+			_active.erase(key)
+
+
+func _clear_island(id: int) -> void:
+	for key: String in _active.keys():
+		if key.begins_with("island:%d:" % id):
 			_active.erase(key)
 
 
@@ -73,6 +84,12 @@ func _on_event(e: Dictionary) -> void:
 		"production_resumed":
 			for r in ["door_full", "no_forest"]:
 				clear("%d:%s" % [d["id"], r])
+		"island_still":
+			_clear_island(int(d["island"]))
+			raise("island:%d:%s" % [d["island"], d["why"]], "halt",
+					"Island over region %d is still: %s" % [int(d["region"]), ISLAND_TEXT.get(d["why"], str(d["why"]))])
+		"island_resumed":
+			_clear_island(int(d["island"]))
 		"building_demolished":
 			_clear_building(d["id"])
 		"era_changed":

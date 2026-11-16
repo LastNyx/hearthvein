@@ -17,6 +17,7 @@ builder_crew = 4
 demolish_refund = 0.5
 unpaid_upkeep_factor = 0.5
 grid_upkeep_factor = 0.75
+island_upkeep_lumen = 20.0
 track_cost_materials = 2.0
 track_cost_cut_stone = 1.0
 manifest_cover_days = 3.0

@@ -10,10 +10,16 @@ var region: int = -1
 var rect := Rect2i()
 ## Building id of the Lift Anchor that raised it.
 var anchor_id: int = -1
+## Why the island is still (ticket 40b): "" fed, "no_grid", "anchor_unstaffed" or "short_lumen". Saved.
+var still_why: String = ""
+
+
+func is_still() -> bool:
+	return still_why != ""
 
 
 func to_dict() -> Dictionary:
-	return {"id": id, "region": region, "rect": rect, "anchor_id": anchor_id}
+	return {"id": id, "region": region, "rect": rect, "anchor_id": anchor_id, "still_why": still_why}
 
 
 static func from_dict(d: Dictionary) -> Island:
@@ -22,4 +28,5 @@ static func from_dict(d: Dictionary) -> Island:
 	i.region = int(d["region"])
 	i.rect = d["rect"]
 	i.anchor_id = int(d["anchor_id"])
+	i.still_why = str(d.get("still_why", ""))
 	return i

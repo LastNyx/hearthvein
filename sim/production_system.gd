@@ -148,6 +148,9 @@ func multiplier(s: Settlement, b: Building) -> float:
 
 
 func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> void:
+	if IslandSystem.is_still_building(s, b):
+		_set_halt(s, b, "island_still")
+		return
 	var dry := WaterSystem.dry_halt(s, b)
 	if dry != "":
 		_set_halt(s, b, dry)

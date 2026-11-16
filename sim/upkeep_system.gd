@@ -50,7 +50,7 @@ func on_day(s: Settlement) -> void:
 		return
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
-		if b.site or b.paused or b.def.upkeep_lumen <= 0.0:
+		if b.site or b.paused or b.def.upkeep_lumen <= 0.0 or IslandSystem.is_still_building(s, b):
 			continue
 		_paid[bid] = _pay(s, b)
 

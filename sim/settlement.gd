@@ -116,7 +116,7 @@ func add_default_systems() -> void:
 	add_system(EraSystem.new())
 	add_system(StorageSystem.new())
 	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
-	add_system(IslandSystem.new())  # sky island list (ticket 40); no hooks yet, 40b adds the island Lumen supply
+	add_system(IslandSystem.new())  # sky island list (ticket 40) and the hourly island Lumen draw and still state (40b); after GridSystem
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
 	add_system(RailManifestSystem.new())  # daily train manifests between linked depots (ticket 37b), hourly arrivals
 	add_system(AirshipSystem.new())  # after the rail manifests (rail first): air freight between docks, survey flights (ticket 38)

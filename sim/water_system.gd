@@ -190,7 +190,7 @@ static func has_water(s: Settlement, b: Building) -> bool:
 			return true
 	for sid in s.buildings:
 		var src: Building = s.buildings[sid]
-		if src.site or src.def.water_radius <= 0:
+		if src.site or src.def.water_radius <= 0 or IslandSystem.is_still_building(s, src):
 			continue
 		if src.def.placement_rule == "on_wet" and FoulingSystem.wet_only_from_fouled(s, src.origin):
 			continue

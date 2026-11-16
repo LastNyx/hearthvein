@@ -44,3 +44,5 @@ extends Resource
 @export var island_width: int = 16
 @export var island_height: int = 12
 @export var island_max: int = 4
+## Lumen per day each raised island draws through the grid of its Lift Anchor (ticket 40b); drawn hourly pro rata.
+@export var island_upkeep_lumen: float = 20.0

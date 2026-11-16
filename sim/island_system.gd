@@ -3,13 +3,72 @@ extends SimSystem
 ## Sky islands (design.md section 17, ticket 40). A finished Lift Anchor (BuildingDef.raises_island) raises one
 ## island: the LogisticsDef.island_width x island_height rect centred in the anchor's region is written as skystone into
 ## Settlement.sky_map. The island list lives here (id, region, rect, anchor building id); ticket 40b adds the Lumen
-## supply and still state per island. An island is removed (tiles back to void) when its anchor is demolished, which
-## Settlement.demolish only allows while nothing stands on it. No hooks yet.
+## supply and still state per island (see on_hour). An island is removed (tiles back to void) when its anchor is demolished, which
+## Settlement.demolish only allows while nothing stands on it.
+##
+## Lumen (ticket 40b): every hour each island draws island_upkeep_lumen / 24 from the grid of its Lift Anchor
+## (registered after GridSystem, so the grid's hourly Lumen shuffle has run). Still causes, checked in this order:
+## "no_grid" (anchor unfinished or off every grid), "anchor_unstaffed" (fewer citizens working at the anchor than its
+## worker slots, or paused), "short_lumen" (the grid cannot cover the hour's share: nothing is drawn). A still island
+## stops every building on it (is_still_building: production halts "island_still", it serves no water, coverage or
+## grid), keeps its homes' residents and loses nothing. Events: island_still {island, why} when the cause changes to
+## a non-empty one, island_resumed {island} when fed again.
 
 const SAVE_KEY := "islands"
 
 var islands: Array[Island] = []
 var _next_id: int = 0
+
+
+## Hourly Lumen draw and still state of every island.
+func on_hour(s: Settlement) -> void:
+	if islands.is_empty():
+		return
+	var gs := s.get_system(GridSystem) as GridSystem
+	var staffed := {}
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_id >= 0 and c.job_kind == Citizen.JOB_WORK:
+			staffed[c.job_id] = int(staffed.get(c.job_id, 0)) + 1
+	var share := s.registry.logistics.island_upkeep_lumen / float(GameClock.HOURS_PER_DAY)
+	for isl in islands:
+		var why := ""
+		var anchor: Building = s.buildings.get(isl.anchor_id)
+		var gid := -1
+		if anchor != null and not anchor.site and gs != null:
+			gid = gs.grid_of(s, anchor.id)
+		if gid < 0:
+			why = "no_grid"
+		elif anchor.paused or int(staffed.get(anchor.id, 0)) < anchor.effective_worker_slots(s.registry):
+			why = "anchor_unstaffed"
+		elif gs.supply(s, gid) + gs.battery_charge(s, gid) < share - Inventory.EPS:
+			why = "short_lumen"
+		else:
+			gs.draw(s, gid, share)
+		_set_still(s, isl, why)
+
+
+func _set_still(s: Settlement, isl: Island, why: String) -> void:
+	if isl.still_why == why:
+		return
+	isl.still_why = why
+	# Still buildings stop being water, coverage and grid sources: those caches key on structure_version.
+	s.structure_version += 1
+	if why != "":
+		s.events.emit("island_still", {"island": isl.id, "why": why, "region": isl.region})
+	else:
+		s.events.emit("island_resumed", {"island": isl.id, "region": isl.region})
+
+
+## True for a sky building on an island that is still. Ground buildings answer false at once.
+static func is_still_building(s: Settlement, b: Building) -> bool:
+	if b.layer != Building.LAYER_SKY:
+		return false
+	var sys := s.get_system(IslandSystem) as IslandSystem
+	if sys == null:
+		return false
+	var isl := sys.island_at(b.origin)
+	return isl != null and isl.still_why != ""
 
 
 func save_state() -> Dictionary:

@@ -130,6 +130,8 @@ func _ensure(s: Settlement) -> void:
 		var b: Building = s.buildings[bid]
 		if b.site:
 			continue
+		if b.def.housing_beds <= 0 and IslandSystem.is_still_building(s, b):
+			continue  # a still island's coverage and water sources are off (its homes still count)
 		if b.def.coverage_radius > 0:
 			sources.append(b)
 		if b.def.water_radius > 0:
