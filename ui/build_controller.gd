@@ -1,9 +1,9 @@
 class_name BuildController
 extends Node
-## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), X demolish, right click / Esc cancel, left click places.
+## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, right click / Esc cancel, left click places.
 ## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
-enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED }
+enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK }
 
 var settlement: Settlement
 var ghost: GhostView
@@ -52,6 +52,7 @@ func _refresh() -> void:
 		Mode.ROAD: _hint.text = "Road: click-drag (right click cancels)"
 		Mode.CHANNEL: _hint.text = "Channel (1 materials a tile): click-drag (right click cancels)"
 		Mode.PAVED: _hint.text = "Paved road (%s a tile): click-drag (right click cancels)" % _paved_cost()
+		Mode.TRACK: _hint.text = "Rail track (%s a tile): click-drag (right click cancels)" % _track_cost()
 		Mode.DEMOLISH: _hint.text = "Demolish: click (right click cancels)"
 	if mode == Mode.NONE:
 		ghost.set_state(null, Vector2i.ZERO, false, false)
@@ -88,10 +89,19 @@ func _process(_d: float) -> void:
 				_hint.text = "Paved road (%s a tile): click-drag (right click cancels)" % _paved_cost()
 			else:
 				_hint.text = "Paved road: %s" % HudModel.paved_refusal_text(str(c["reason"]))
+		Mode.TRACK:
+			var c := settlement.can_place_track(t)
+			ghost.set_state(null, t, c["ok"] or settlement.track_at(t), true)
+			if c["ok"]:
+				_hint.text = "Rail track (%s a tile): click-drag (right click cancels)" % _track_cost()
+			elif settlement.track_at(t):
+				_hint.text = "Rail track: already laid (X lifts it)"
+			else:
+				_hint.text = "Rail track: %s" % HudModel.track_refusal_text(str(c["reason"]))
 		Mode.DEMOLISH:
 			var b := settlement.building_at(t)
 			ghost.set_state(null, t, (b != null and b != settlement.hearth) or settlement.road_at(t) != 0
-					or settlement.channel_at(t), true)
+					or settlement.channel_at(t) or settlement.track_at(t), true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -104,6 +114,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_P:
 				if settlement.paved_roads_unlocked():
 					set_mode(Mode.PAVED)
+			KEY_J:
+				if settlement.track_unlocked():
+					set_mode(Mode.TRACK)
 			KEY_X: set_mode(Mode.DEMOLISH)
 			KEY_ESCAPE: cancel()
 	elif event is InputEventMouseButton and mode != Mode.NONE:
@@ -115,7 +128,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_click(_mouse_tile())
 			else:
 				_painting = false
-	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED):
+	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED or mode == Mode.TRACK):
 		_paint_to(_mouse_tile())
 
 
@@ -135,10 +148,16 @@ func _click(t: Vector2i) -> void:
 			_painting = true
 			_last_tile = t
 			settlement.pave_road(t)
+		Mode.TRACK:
+			_painting = true
+			_last_tile = t
+			settlement.place_track(t)
 		Mode.DEMOLISH:
 			var b := settlement.building_at(t)
 			if b != null:
 				settlement.demolish(b.id)
+			elif settlement.track_at(t):
+				settlement.remove_track(t)
 			elif settlement.channel_at(t):
 				settlement.remove_channel(t)
 			else:
@@ -148,6 +167,10 @@ func _click(t: Vector2i) -> void:
 func _channel_cost() -> String:
 	var c := settlement.registry.water.channel_cost_materials if settlement.registry.water != null else 0.0
 	return "%d materials" % roundi(c)
+
+
+func _track_cost() -> String:
+	return HudModel.new(settlement).track_cost_text()
 
 
 func _paved_cost() -> String:
@@ -167,6 +190,8 @@ func _paint_to(t: Vector2i) -> void:
 			settlement.place_channel(cur)
 		elif mode == Mode.PAVED:
 			settlement.pave_road(cur)
+		elif mode == Mode.TRACK:
+			settlement.place_track(cur)
 		else:
 			settlement.place_road(cur)
 	_last_tile = t

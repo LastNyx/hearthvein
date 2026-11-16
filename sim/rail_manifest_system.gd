@@ -60,6 +60,23 @@ func shipments(s: Settlement) -> Array:
 	return out
 
 
+## Allocation-free reads for the train renderer (one call per shipment per frame): same numbers as shipments().
+func ship_count() -> int:
+	return _ships.size()
+
+
+func ship_progress(s: Settlement, i: int) -> float:
+	var sh: Dictionary = _ships[i]
+	var now := float(s.clock.total_hours) + s._hour_acc / GameClock.REAL_SECONDS_PER_HOUR
+	var span := maxf(float(sh["arrive"]) - float(sh["depart"]), 0.000001)
+	return clampf((now - float(sh["depart"])) / span, 0.0, 1.0)
+
+
+func ship_path(s: Settlement, i: int) -> Array[Vector2i]:
+	var sh: Dictionary = _ships[i]
+	return _path(s, int(sh["from"]), int(sh["to"]))
+
+
 ## Units in transit of a good (all of them when good is "").
 func in_transit(good: String = "") -> float:
 	var sum := 0.0

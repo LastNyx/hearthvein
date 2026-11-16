@@ -318,6 +318,20 @@ static func channel_tileset() -> TileSet:
 	return ts
 
 
+# ---------------------------------------------------------------- rail track and trains (ticket 37c)
+## Atlas coords (mask, 0), mask N=1, E=2, S=4, W=8 of the 4-neighbour track tiles, like roads and channels.
+static func track_tileset() -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	var r: Dictionary = manifest()["rail"]["track"]
+	ts.add_source(_atlas(r["file"], int(r["cols"]), int(r["rows"])), 0)
+	return ts
+
+
+static func train_entry() -> Dictionary:
+	return manifest()["rail"]["train"]
+
+
 # ---------------------------------------------------------------- props
 ## Props to stand on a terrain cell: [{name, pos}] with pos the sprite base point in world pixels.
 ## `open` is the direction of the nearest open (non-same-ground) neighbour tiles summed, for edge tiles of a stand:

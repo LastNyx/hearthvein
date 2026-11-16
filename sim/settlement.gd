@@ -1068,6 +1068,14 @@ func place_track(tile: Vector2i) -> bool:
 	return true
 
 
+## True from the Conflux era on: the build bar and the T key offer track only then (place_track itself does not
+## check the era, like place_road).
+func track_unlocked() -> bool:
+	var cur := registry.get_era(era_id())
+	var c := registry.get_era("conflux")
+	return cur == null or c == null or cur.order >= c.order
+
+
 ## Lifts a track tile, giving back LogisticsDef.demolish_refund of its cost to the nearest storage, like channels.
 func remove_track(tile: Vector2i) -> bool:
 	if not MapState.in_bounds(tile.x, tile.y) or track[MapState.idx(tile.x, tile.y)] == 0:

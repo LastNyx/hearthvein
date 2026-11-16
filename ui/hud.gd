@@ -472,6 +472,7 @@ func _pick(kind: String, id: String) -> void:
 		"road": build.set_mode(BuildController.Mode.ROAD)
 		"channel": build.set_mode(BuildController.Mode.CHANNEL)
 		"paved": build.set_mode(BuildController.Mode.PAVED)
+		"track": build.set_mode(BuildController.Mode.TRACK)
 		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
 
 

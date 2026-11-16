@@ -276,6 +276,21 @@ func test_roads_category_offers_paved_in_town() -> void:
 	assert_eq(HudModel.paved_refusal_text("cut_stone"), "Not enough cut stone")
 
 
+func test_roads_category_offers_rail_track_from_conflux() -> void:
+	var track_entries := func(bar: Array[Dictionary]) -> Array:
+		return bar[0]["entries"].filter(func(e: Dictionary) -> bool: return e["kind"] == "track")
+	for era in ["camp", "village", "town"]:
+		s.era_override = era
+		assert_true(track_entries.call(m.build_bar()).is_empty(), "no track in %s" % era)
+	s.era_override = "conflux"
+	var found: Array = track_entries.call(m.build_bar())
+	assert_eq(found.size(), 1, "track in Conflux")
+	assert_eq(found[0]["cost"], "2 Materials, 1 Cut stone")
+	assert_eq(found[0]["label"], "Rail track (J)")
+	assert_eq(HudModel.track_refusal_text("cut_stone"), "Not enough cut stone")
+	assert_eq(HudModel.track_refusal_text("road"), "A road is here")
+
+
 func test_hud_overlay_keys_and_menu_buttons() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED

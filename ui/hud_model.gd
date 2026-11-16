@@ -362,6 +362,9 @@ func build_bar() -> Array[Dictionary]:
 			if s.paved_roads_unlocked():
 				road_entries.append({"kind": "paved", "id": "paved", "label": "Paved road (P)",
 						"cost": paved_cost_text(), "size": ""})
+			if s.track_unlocked():
+				road_entries.append({"kind": "track", "id": "track", "label": "Rail track (J)",
+						"cost": track_cost_text(), "size": ""})
 			road_entries.append({"kind": "demolish", "id": "demolish", "label": "Demolish (X)", "cost": "", "size": ""})
 			out.append({"id": "roads", "label": "Roads", "entries": road_entries})
 		elif by_cat.has(cat):
@@ -377,6 +380,27 @@ func build_bar() -> Array[Dictionary]:
 func channel_cost_text() -> String:
 	var c := s.registry.water.channel_cost_materials if s.registry.water != null else 0.0
 	return goods_cost_text({"materials": roundi(c)}) if c > 0.0 else ""
+
+
+## "2 Materials, 1 Cut stone" per track tile, from LogisticsDef.
+func track_cost_text() -> String:
+	var lg := s.registry.logistics
+	if lg == null:
+		return ""
+	var c := {}
+	if lg.track_cost_materials > 0.0:
+		c["materials"] = lg.track_cost_materials
+	if lg.track_cost_cut_stone > 0.0:
+		c["cut_stone"] = lg.track_cost_cut_stone
+	return goods_cost_text(c)
+
+
+## Player-facing reason a track tile cannot be laid.
+static func track_refusal_text(reason: String) -> String:
+	return {"materials": "Not enough materials", "cut_stone": "Not enough cut stone", "locked_region": "Region not owned",
+			"water": "Cannot lay track on water", "out_of_bounds": "Off the map", "blocked_terrain": "Blocked",
+			"road": "A road is here", "overlap": "A building is here", "channel": "A channel is here",
+			"track": "Already laid"}.get(reason, "Blocked")
 
 
 ## "1 Materials, 0.2 Cut Stone" for one paved tile, from the paved RoadDef (stone shown per whole tile as the data

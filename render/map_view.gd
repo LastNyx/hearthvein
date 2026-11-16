@@ -18,6 +18,7 @@ const DUAL_CORNERS := [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(0, 0), Vector
 var map: MapState
 var roads: TileMapLayer
 var channels: TileMapLayer
+var track: TileMapLayer
 var shadows: Node2D
 var flats: Node2D  # flat footprints (Park): on the ground, under every y-sorted object
 var objects: Node2D
@@ -92,6 +93,10 @@ func setup(m: MapState) -> void:
 	channels.name = "Channels"
 	channels.tile_set = ArtLibrary.channel_tileset()
 	add_child(channels)
+	track = TileMapLayer.new()  # rail track (ticket 37c); a road+track crossing tile (ticket 67) would sit here too
+	track.name = "Track"
+	track.tile_set = ArtLibrary.track_tileset()
+	add_child(track)
 	shadows = Node2D.new()
 	shadows.name = "Shadows"
 	add_child(shadows)

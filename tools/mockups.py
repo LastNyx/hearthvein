@@ -1691,6 +1691,48 @@ def b_battery():
     return Sprite(im, 2, 1, glows, [], (0.95, 8))
 
 
+def b_rail_depot():
+    """Rail Depot (3x1): a small shingled station house on the left, a long stone platform with a brass edge strip and,
+    on the right, a canopy on timber posts with a lamp and a bench."""
+    W, H = 96, 62
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows = []
+    # platform slab
+    im.paste(tex_stone(W - 4, 8, 131), (2, yb - 7))
+    R(d, 2, yb - 8, W - 3, yb - 8, STONE[4])
+    R(d, 2, yb - 9, W - 3, yb - 9, BRASS[2])
+    # station house
+    house, hg, hs = gable_house(34, 13, 11, 8, "shingle", "planks", 2, 71, chimney=True, lantern=False,
+                                shutters=hexc("a83a3a"), door=(9, 12), gable_window=True)
+    im.alpha_composite(house, (0, yb - 9 - house.height + 3))
+    glows += [(x, y + yb - 9 - house.height + 3, r, c) for x, y, r, c in hg]
+    # canopy: two posts, a sloped shingle roof with a lit board under it
+    cx0, cx1 = 46, 92
+    for px in (cx0 + 3, cx1 - 5):
+        R(d, px, yb - 33, px + 2, yb - 10, WOOD[1])
+        R(d, px, yb - 33, px, yb - 10, WOOD[3])
+    d.polygon([(cx0, yb - 31), (cx1, yb - 31), (cx1 - 3, yb - 42), (cx0 + 3, yb - 42)], fill=SHINGLE[2])
+    for k in range(4):
+        R(d, cx0 + 3 - k, yb - 42 + 3 * k + 1, cx1 - 3 + k, yb - 42 + 3 * k + 1, SHINGLE[3 if k % 2 == 0 else 1])
+    R(d, cx0, yb - 31, cx1, yb - 30, SHINGLE[0])
+    R(d, cx0 + 6, yb - 29, cx1 - 8, yb - 24, WOOD[0])
+    R(d, cx0 + 8, yb - 28, cx1 - 10, yb - 26, BRASS[2])  # station sign board
+    R(d, cx0 + 8, yb - 28, cx1 - 10, yb - 28, BRASS[3])
+    glows.append((cx0 + 22, yb - 20, 10, WARM))
+    R(d, cx0 + 21, yb - 24, cx0 + 23, yb - 22, WARM)  # hanging lamp
+    # bench
+    R(d, cx0 + 10, yb - 15, cx0 + 24, yb - 14, WOOD[3])
+    R(d, cx0 + 10, yb - 13, cx0 + 11, yb - 10, WOOD[1])
+    R(d, cx0 + 23, yb - 13, cx0 + 24, yb - 10, WOOD[1])
+    # luggage crates
+    R(d, cx1 - 17, yb - 16, cx1 - 11, yb - 10, WOOD[2])
+    R(d, cx1 - 17, yb - 16, cx1 - 11, yb - 15, WOOD[4])
+    R(d, cx1 - 14, yb - 21, cx1 - 10, yb - 17, WOOD[3])
+    return Sprite(im, 3, 1, glows, [], (1.0, 9))
+
+
 # ------------------------------------------------------------------ citizens
 def citizen(kind, facing, frame, cloth=None, hair=None, skin=None):
     """11x17 walker, about door height (D26: scaled down from 16x24). kinds: villager, weaver, farmer, mage."""

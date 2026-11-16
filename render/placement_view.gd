@@ -18,7 +18,7 @@ var _drawn_channels: Dictionary = {}  # tile -> true for every channel cell curr
 func setup(s: Settlement, v: MapView) -> void:
 	settlement = s
 	view = v
-	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or _dug(t) or settlement.building_at(t) != null
+	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or _dug(t) or settlement.track_at(t) or settlement.building_at(t) != null
 	z_index = 20  # the no-road icon sits above sprites and glows
 	for kind in ["building_placed", "building_demolished", "road_changed", "building_connection_changed", "building_completed", "building_upgraded"]:
 		s.events.subscribe(kind, func(entry: Dictionary) -> void: _on_event(entry["kind"], entry["data"]))
@@ -27,6 +27,13 @@ func setup(s: Settlement, v: MapView) -> void:
 			if s.roads[MapState.idx(x, y)] > 0:
 				_refresh_road(Vector2i(x, y))
 	s.events.subscribe("channel_changed", func(_e: Dictionary) -> void: _channels_dirty = true)
+	s.events.subscribe("track_changed", func(e: Dictionary) -> void:
+		var t: Vector2i = e["data"]["tile"]
+		for d in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+			_refresh_track(t + d))
+	for i in s.track.size():
+		if s.track[i] != 0:
+			_refresh_track(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
 	for id in s.buildings:
 		_add_building(s.buildings[id])
 	_refresh_channels()
@@ -78,6 +85,24 @@ func _refresh_road(t: Vector2i) -> void:
 		if _level(t + [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT][i]) > 0:
 			mask |= 1 << i
 	view.roads.set_cell(t, lv, ArtLibrary.road_coords(mask, t.x, t.y))
+
+
+## Redraw one track tile (only the tiles a track_changed touches): the 4-neighbour mask picks straight, corner, T or
+## cross from the track atlas. A lifted tile gives its props back unless a road, channel or building holds the tile.
+func _refresh_track(t: Vector2i) -> void:
+	if not MapState.in_bounds(t.x, t.y):
+		return
+	if not settlement.track_at(t):
+		view.track.erase_cell(t)
+		view.set_props_visible(t, settlement.building_at(t) == null and _level(t) <= 0 and not _dug(t))
+		return
+	view.set_props_visible(t, false)
+	var mask := 0
+	var dirs := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+	for i in 4:
+		if settlement.track_at(t + dirs[i]):
+			mask |= 1 << i
+	view.track.set_cell(t, 0, Vector2i(mask, 0))
 
 
 func _dug(t: Vector2i) -> bool:

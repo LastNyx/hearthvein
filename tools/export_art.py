@@ -758,6 +758,167 @@ def export_channels(manifest):
         manifest["channels"][key] = {"file": f"channels/{key}.png", "cols": 16, "rows": rows}
 
 
+# ------------------------------------------------------------------ rail track and trains (ticket 37c)
+ARMS = {1: (0, -1), 2: (1, 0), 4: (0, 1), 8: (-1, 0)}  # N, E, S, W as (dx, dy); same bits as roads
+
+
+def track_tile(mask):
+    """Rails on wooden sleepers over gravel ballast, for a connection mask (N=1, E=2, S=4, W=8). A tile with one or
+    no neighbour is drawn as a straight piece along its axis (the depot or the open end sits there). Corners are
+    mitered rails; a T is two corners; a cross lets both lines run through. Roads and channels never share a tile
+    with track, so the tile has no road variant yet (a level crossing, ticket 67, can add one here)."""
+    if mask in (0, 2, 8):
+        mask = 2 | 8
+    elif mask in (1, 4):
+        mask = 1 | 4
+    px = XS - T / 2.0
+    py = YS - T / 2.0
+    ix = np.floor(XS).astype(int)
+    iy = np.floor(YS).astype(int)
+    rd = np.full((T, T), 99.0, dtype=np.float32)
+    for bit, (a, b) in ROAD_SEGS.items():
+        if mask & bit:
+            rd = np.minimum(rd, M.seg_dist(XS, YS, a, b))
+    ballast = rd < 9.5 + (BAY - 0.5) * 1.6
+    v = pfbm(1300, 17)
+    gravel = np.array([M.ROCK[1][:3], M.STONE[1][:3], M.ROCK[2][:3], M.STONE[2][:3]], dtype=np.uint8)
+    rgb = gravel[pquant(v, 4, 0.0, 0.9)]
+    sleeper = np.zeros((T, T), dtype=bool)
+    rail = np.zeros((T, T), dtype=np.int8)  # 1 outer rail pixel, 2 inner (lit) rail pixel
+    for bit, (ax, ay) in ARMS.items():
+        if not mask & bit:
+            continue
+        lx, ly = -ay, ax
+        u = px * ax + py * ay
+        w = px * lx + py * ly
+        axis = iy if ax == 0 else ix
+        sleeper |= (u > 0) & (np.abs(w) < 7.5) & ((axis % 8 == 2) | (axis % 8 == 3))
+        for side in (-1, 1):
+            perp = ARMS_BIT(side * lx, side * ly)
+            lo = 3.0 if (mask != 15 and mask & perp) else -5.0
+            on = (u >= lo) & (np.abs(w - side * 3.9) < 1.1)
+            lit = on & (np.abs(w) < 4.0)
+            rail[on] = np.maximum(rail[on], 1)
+            rail[lit] = 2
+    rgb = rgb.copy()
+    rgb[sleeper] = M.WOOD[2][:3]
+    top = sleeper & (BAY > 0.5)
+    rgb[top] = M.WOOD[3][:3]
+    rgb[rail == 1] = M.IRON[2][:3]
+    rgb[rail == 2] = M.IRON[4][:3]
+    return to_img(rgb, np.where(ballast | sleeper | (rail > 0), 255, 0))
+
+
+def ARMS_BIT(dx, dy):
+    for bit, v in ARMS.items():
+        if v == (int(round(dx)), int(round(dy))):
+            return bit
+    return 0
+
+
+TRAIN_CELL = (32, 32)
+TRAIN_FOOT = (16, 20)  # the point of a cell that sits on the track-tile centre
+TRAIN_DIRS = ["e", "w", "s", "n"]
+TRAIN_CAR_GAP = 0.95  # tiles between car centres
+
+
+def _wheel(d, x, y):
+    M.R(d, x, y, x + 3, y + 3, M.IRON[0])
+    M.R(d, x + 1, y + 1, x + 2, y + 2, M.IRON[3])
+
+
+def train_car(kind, facing):
+    """32x32 cell. 'e'/'w' are profile views (w is the mirror of e), 's'/'n' the front/back of the loco and the top of
+    a wagon. kind: loco | wagon."""
+    im = Image.new("RGBA", TRAIN_CELL)
+    d = ImageDraw.Draw(im)
+    R = M.R
+    if facing in ("e", "w"):
+        if kind == "loco":
+            R(d, 3, 19, 28, 21, M.IRON[1])
+            R(d, 11, 11, 28, 19, M.TEAL[1])
+            R(d, 11, 11, 28, 12, M.TEAL[3])
+            R(d, 11, 18, 28, 19, M.TEAL[0])
+            R(d, 14, 14, 15, 16, M.BRASS[2])
+            R(d, 22, 14, 23, 16, M.BRASS[2])
+            R(d, 26, 11, 29, 19, M.IRON[1])
+            R(d, 29, 14, 30, 16, M.WARM)
+            R(d, 25, 5, 27, 11, M.IRON[1])
+            R(d, 24, 4, 28, 5, M.BRASS[3])
+            R(d, 17, 8, 20, 11, M.BRASS[2])
+            R(d, 18, 8, 19, 8, M.BRASS[3])
+            R(d, 3, 7, 11, 19, M.hexc("8a3a2e"))
+            R(d, 3, 7, 11, 8, M.hexc("b0503e"))
+            R(d, 2, 5, 12, 6, M.IRON[2])
+            R(d, 5, 10, 8, 14, M.WARM)
+            R(d, 5, 10, 8, 10, M.BRASS[1])
+            for x in (4, 12, 21):
+                _wheel(d, x, 21)
+        else:
+            R(d, 2, 19, 29, 21, M.IRON[1])
+            R(d, 2, 11, 29, 19, M.WOOD[2])
+            for x in range(6, 29, 6):
+                R(d, x, 12, x, 19, M.WOOD[1])
+            R(d, 2, 11, 29, 12, M.WOOD[4])
+            R(d, 2, 18, 29, 19, M.WOOD[1])
+            R(d, 4, 8, 12, 11, M.BRASS[1])  # load: sacks and crates
+            R(d, 4, 8, 12, 8, M.BRASS[3])
+            R(d, 15, 7, 24, 11, M.WOOD[3])
+            R(d, 15, 7, 24, 7, M.WOOD[4])
+            R(d, 19, 7, 19, 11, M.WOOD[1])
+            for x in (5, 22):
+                _wheel(d, x, 21)
+        if facing == "w":
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)
+    else:
+        down = facing == "s"
+        if kind == "loco":
+            R(d, 10, 9, 21, 22, M.TEAL[1] if down else M.hexc("8a3a2e"))
+            R(d, 10, 9, 21, 11, M.TEAL[3] if down else M.hexc("b0503e"))
+            R(d, 9, 7, 22, 8, M.IRON[2])
+            if down:
+                d.ellipse([12, 13, 19, 20], fill=M.IRON[1])
+                R(d, 15, 15, 16, 18, M.IRON[3])
+                R(d, 15, 11, 16, 12, M.WARM)
+                R(d, 14, 3, 17, 7, M.IRON[1])
+                R(d, 13, 2, 18, 3, M.BRASS[3])
+            else:
+                R(d, 13, 13, 18, 18, M.WARM)
+                R(d, 13, 13, 18, 13, M.BRASS[1])
+            for x in (7, 22):
+                R(d, x, 17, x + 2, 24, M.IRON[0])
+                R(d, x + 1, 18, x + 1, 23, M.IRON[3])
+        else:
+            R(d, 9, 3, 22, 28, M.WOOD[1])
+            R(d, 10, 4, 21, 27, M.WOOD[2])
+            for y in range(7, 27, 5):
+                R(d, 10, y, 21, y, M.WOOD[1])
+            R(d, 10, 4, 21, 4, M.WOOD[4])
+            R(d, 10, 27, 21, 27, M.WOOD[1])
+            R(d, 11, 8, 17, 13, M.BRASS[1])
+            R(d, 11, 8, 17, 8, M.BRASS[3])
+            R(d, 14, 17, 20, 22, M.WOOD[3])
+            R(d, 14, 17, 20, 17, M.WOOD[4])
+    return M.sel_outline(im)
+
+
+def export_rail(manifest):
+    tiles = [track_tile(m) for m in range(16)]
+    im, rows = pack_atlas(tiles, 16)
+    save(im, OUT / "rail" / "track.png")
+    cw, ch = TRAIN_CELL
+    atlas = Image.new("RGBA", (cw * len(TRAIN_DIRS), ch * 2))
+    for r, kind in enumerate(("loco", "wagon")):
+        for c, facing in enumerate(TRAIN_DIRS):
+            atlas.alpha_composite(train_car(kind, facing), (c * cw, r * ch))
+    save(atlas, OUT / "rail" / "train.png")
+    manifest["rail"] = {
+        "track": {"file": "rail/track.png", "cols": 16, "rows": rows},
+        "train": {"file": "rail/train.png", "cell": list(TRAIN_CELL), "foot": list(TRAIN_FOOT),
+                  "dirs": TRAIN_DIRS, "kinds": ["loco", "wagon"], "gap": TRAIN_CAR_GAP, "cars": ["loco", "wagon", "wagon"]},
+    }
+
+
 # ------------------------------------------------------------------ sprites (props and buildings)
 def shadow_image(sp, bx, by):
     W, H = sp.img.size
@@ -891,6 +1052,7 @@ SHEET = {
     "purifier_tower": lambda: M.b_purifier(), "toolsmith": lambda: M.b_toolsmith(7),
     "grand_bazaar": lambda: M.b_bazaar(8), "lumen_nexus": lambda: M.b_nexus(),
     "lumen_pylon": lambda: M.b_pylon(), "grid_battery": lambda: M.b_battery(),
+    "rail_depot": lambda: M.b_rail_depot(),  # ticket 37c
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge
     "hut": lambda: M.b_hut(9), "lodge": lambda: M.b_lodge(10),
 }
@@ -1041,6 +1203,7 @@ def main():
     export_states(manifest)
     export_roads(manifest)
     export_channels(manifest)
+    export_rail(manifest)
     export_sites(manifest)
     export_props(manifest)
     export_buildings(manifest)

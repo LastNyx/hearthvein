@@ -21,6 +21,7 @@ var driver: SimDriver
 var map_view: MapView
 var placement: PlacementView
 var walkers: WalkerView
+var trains: TrainView
 var overlay: OverlayView
 var hud: Hud
 var camera: CameraController
@@ -81,6 +82,10 @@ func _build_world(s: Settlement) -> void:
 	walkers.name = "WalkerView"
 	view.add_child(walkers)
 	walkers.setup(s)
+	trains = TrainView.new()
+	trains.name = "TrainView"
+	view.add_child(trains)
+	trains.setup(s)
 	var ghost := GhostView.new()
 	ghost.name = "Ghost"
 	ghost.visible = false
