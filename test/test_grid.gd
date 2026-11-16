@@ -102,7 +102,8 @@ func test_on_grid_producer_lumen_is_supply_and_stays_put() -> void:
 	assert_gt(gid, -1)
 	assert_almost_eq(gs.supply(s, gid), 10.0 + s.hearth.inventory.amount_of("lumen"), 0.001)
 	s.step_days(2)
-	assert_gte(maker.door_buffer.amount_of("lumen"), 10.0, "not hauled to the on-grid Hearth")
+	assert_lt(maker.door_buffer.amount_of("lumen"), 10.0, "moved on the grid without a hauler")
+	assert_gt(s.hearth.inventory.amount_of("lumen"), 10.0 - 0.001)
 	# Control: the same layout off-grid hauls the door buffer away.
 	var s2 := Settlement.new_game(SEED, reg)
 	s2.systems.erase(s2.get_system(GrowthSystem))
@@ -183,3 +184,18 @@ func test_grid_save_roundtrip_keeps_membership() -> void:
 	var g2 := s2.get_system(GridSystem) as GridSystem
 	assert_eq(g2.grid_of(s2, c.id), gs.grid_of(s, c.id))
 	assert_eq(g2.grid_of(s2, p.id), p.id)
+
+
+# Round 2: an on-grid producer never stalls on a full door while an on-grid storage has room (moved without a hauler).
+func test_on_grid_producer_door_drains_into_on_grid_storage() -> void:
+	_put("lumen_pylon", 3)
+	var maker := _put(MAKER_ID, 6)
+	var store := _put("storehouse", 9)
+	s.set_storage_filter(s.hearth.id, ["food"])  # the storehouse is the only on-grid Lumen store
+	maker.door_buffer.add("lumen", 20.0)
+	assert_true(GridSystem.on_grid(s, store))
+	var before := store.inventory.amount_of("lumen")
+	for d in 6:
+		s.step_days(1)
+		assert_ne(maker.halt, "door_full", "day %d" % d)
+	assert_gt(store.inventory.amount_of("lumen"), before, "storage Lumen rose")

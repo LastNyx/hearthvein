@@ -98,6 +98,32 @@ func supply(s: Settlement, grid_id: int) -> float:
 	return total
 
 
+## Hourly: on-grid producers' Lumen moves from their door buffers into on-grid storage with room, no hauler (the
+## hauling skip leaves Lumen inside the grid alone, so without this a producer would halt on a full door). Lumen
+## stays supply wherever it sits; with no storage room it simply waits in the door. A settlement with no node does
+## nothing. Off-grid producers and storages are untouched.
+func on_hour(s: Settlement) -> void:
+	for gid in grid_ids(s):
+		var members := members_of(s, gid)
+		for pid in members:
+			var p: Building = s.buildings[pid]
+			if p.door_buffer == null:
+				continue
+			var have := p.door_buffer.amount_of("lumen")
+			if have <= Inventory.EPS:
+				continue
+			for sid in members:
+				var st: Building = s.buildings[sid]
+				if st.inventory == null or not st.inventory.accepts("lumen"):
+					continue
+				var moved := st.inventory.add("lumen", have)
+				if moved > Inventory.EPS:
+					p.door_buffer.remove("lumen", moved)
+					have -= moved
+				if have <= Inventory.EPS:
+					break
+
+
 ## Takes up to `amount` Lumen from a grid's supply: door buffers first, then storages, in building-id order.
 ## Returns what was taken.
 func draw(s: Settlement, grid_id: int, amount: float) -> float:
