@@ -9,7 +9,8 @@ extends SimSystem
 ## A building with fells_forest (Woodcutter) turns the nearest forest tile in its radius into a stump per
 ## LogisticsDef.units_per_felled_tile produced; no forest left = halt "no_forest".
 ## A farm tier that only works on wet ground (the Irrigated Farm, WaterSystem.dry_halt) halts with "dry" when its
-## footprint is not half wet.
+## footprint is not half wet. A Greenhouse below tier III halts with "blight" when its tiles or the ring around them
+## are blighted (BlightSystem.halts_production); Greenhouse III ignores blight.
 ##
 ## Modifiers: `modifiers` is a list of Callables (settlement, building) -> float. Their product multiplies output
 ## (and input use). Later tickets append here (tiers, Spirit, health, Dimming); nothing else needs to change.
@@ -150,6 +151,9 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	var dry := WaterSystem.dry_halt(s, b)
 	if dry != "":
 		_set_halt(s, b, dry)
+		return
+	if b.def.blight_halt_reach > 0 and BlightSystem.halts_production(s, b):
+		_set_halt(s, b, "blight")
 		return
 	var recipe := b.def.recipe
 	if not _first_out.has(recipe):

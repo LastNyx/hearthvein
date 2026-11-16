@@ -250,6 +250,7 @@ func selection() -> Dictionary:
 		"door_full": halt_text = "Halted: output buffer full"
 		"no_input": halt_text = "Halted: waiting for input"
 		"no_forest": halt_text = "Halted: no forest in range"
+		"blight": halt_text = "Halted: blight beside the building"
 	var bl := _blight_near(b)
 	if bl > 0:
 		lines.append("Blight: %d tiles" % bl)

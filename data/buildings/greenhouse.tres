@@ -20,6 +20,7 @@ script = ExtResource("3")
 display_name = "Greenhouse III"
 multiplier = 2.0
 extra_worker_slots = 2
+ignores_blight = true
 
 [resource]
 script = ExtResource("1")
@@ -37,6 +38,7 @@ housing_beds = 0
 storage_mode = "none"
 storage_cap = 0
 dimming_factor = 1.0
+blight_halt_reach = 1
 placement_rule = "any"
 placement_radius = 0
 recipe = SubResource("Recipe")

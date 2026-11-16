@@ -60,7 +60,7 @@ var upgrade_cost: Dictionary = {}
 var upgrade_buffer: Inventory = null
 var upgrade_work: float = 0.0
 var upgrade_work_needed: float = 0.0
-## Why production stopped: "" running, "door_full", "no_input", "no_forest", "dry".
+## Why production stopped: "" running, "door_full", "no_input", "no_forest", "dry", "blight".
 var halt: String = ""
 
 

@@ -147,6 +147,23 @@ static func near_blight(s: Settlement, b: Building) -> bool:
 	return false
 
 
+## True when blight stops this building's production: its def has a blight_halt_reach, the current tier does not
+## ignore blight (Greenhouse III), and a tile within that reach of the footprint is blighted.
+static func halts_production(s: Settlement, b: Building) -> bool:
+	var reach := b.def.blight_halt_reach
+	if reach <= 0:
+		return false
+	var td := b.tier_def(s.registry)
+	if td != null and td.ignores_blight:
+		return false
+	var r := b.footprint().grow(reach)
+	for y in range(maxi(r.position.y, 0), mini(r.end.y, MapState.HEIGHT)):
+		for x in range(maxi(r.position.x, 0), mini(r.end.x, MapState.WIDTH)):
+			if s.map.is_blighted(x, y):
+				return true
+	return false
+
+
 ## Spirit hook "blight": -blight_max x (share of homes with blight within 2 tiles). Homes = finished buildings with beds.
 static func spirit_factor(s: Settlement) -> float:
 	if count(s) == 0:  # nothing is blighted, so no home is near blight

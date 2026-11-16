@@ -10,6 +10,8 @@ extends Resource
 @export var extra_worker_slots: int = -1
 ## True for the Terraced Farm (design.md section 9): this tier stops the seasonal fertility loss.
 @export var stops_fertility_loss: bool = false
+## True for Greenhouse III (design.md section 10): production ignores blight (BuildingDef.blight_halt_reach).
+@export var ignores_blight: bool = false
 ## True for the Irrigated Farm (design.md section 10): this tier only works on wet ground, and its wet multiplier is
 ## wet_bonus instead of the plain farm wet bonus. A dry footprint halts production with "dry".
 @export var needs_wet: bool = false

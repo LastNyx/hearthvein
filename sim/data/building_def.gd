@@ -99,6 +99,10 @@ const GOLD := "gold"
 @export var water_radius: int = 0
 ## True when the building may not stand on a blighted tile (design.md section 12: Park, Shrine, Orchard).
 @export var blocked_by_blight: bool = false
+## Tiles around the footprint where blight stops this building's production (halt "blight"): the Greenhouse, 1 =
+## its own tiles and the ring next to them. A tier with TierDef.ignores_blight (Greenhouse III) is not stopped.
+## 0 = blight does not stop it.
+@export var blight_halt_reach: int = 0
 ## Region-wide hauler carry from a completed building (Handcart Shed, design.md section 8): haulers whose job
 ## building is in the same region carry this many units instead of LogisticsDef.haul_load. 0 = no effect.
 @export var region_haul_load: float = 0.0
