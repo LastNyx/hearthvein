@@ -17,6 +17,7 @@ var _marks: Marks
 var _gold: Label
 var _buttons: Dictionary = {}  # region -> Button
 var _notes: Dictionary = {}  # region -> Label
+var _surveys: Dictionary = {}  # region -> Button (locked regions with an unrevealed reward)
 
 
 func setup(h: Hud, m: HudModel) -> void:
@@ -58,13 +59,19 @@ func setup(h: Hud, m: HudModel) -> void:
 		b.size = Vector2(100, 28)
 		b.pressed.connect(_buy.bind(r))
 		_buttons[r] = b
+		var sb := hud._button(holder, "Survey", 16)
+		sb.position = b.position
+		sb.custom_minimum_size = Vector2(100, 28)
+		sb.size = Vector2(100, 28)
+		sb.pressed.connect(_survey.bind(r))
+		_surveys[r] = sb
 		var n := hud._label(holder, 14, Hud.INK)
 		n.position = origin + Vector2(0, CELL.y - 28.0)
 		n.size = Vector2(CELL.x, 20)
 		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_notes[r] = n
 	var hint := hud._label(v, 14, Hud.DIM)
-	hint.text = "Buy a region next to your land. M or Esc closes."
+	hint.text = "Buy a region next to your land. Docks survey locked ones. M or Esc closes."
 	visible = false
 
 
@@ -90,6 +97,11 @@ func _buy(r: int) -> void:
 	refresh()
 
 
+func _survey(r: int) -> void:
+	model.survey_region(r)
+	refresh()
+
+
 func refresh() -> void:
 	if not visible:
 		return
@@ -102,7 +114,14 @@ func refresh() -> void:
 		b.text = "Buy %d" % row["price"]
 		b.disabled = not row["can_buy"]
 		var n: Label = _notes[r]
-		n.text = row["note"]
+		var status := HudModel.survey_status_text(row)
+		n.text = status if status != "" else row["note"]
+		var sb: Button = _surveys[r]
+		sb.visible = row["state"] == "locked" and row["reward"] != "" and not row["revealed"] and not row["surveying"]
+		sb.disabled = not row["can_survey"]
+		sb.tooltip_text = HudModel.survey_reason_text(row["survey_reason"])
+		if sb.visible and sb.disabled:
+			n.text = sb.tooltip_text
 		n.add_theme_color_override("font_color", Hud.GOLD if row["state"] == "buyable" else Hud.INK)
 	_marks.queue_redraw()
 

@@ -334,6 +334,11 @@ static func train_entry() -> Dictionary:
 	return manifest()["rail"]["train"]
 
 
+## Airship sprite and shadow files, cell sizes and foot point (ticket 68).
+static func airship_entry() -> Dictionary:
+	return manifest()["airship"]
+
+
 # ---------------------------------------------------------------- props
 ## Props to stand on a terrain cell: [{name, pos}] with pos the sprite base point in world pixels.
 ## `open` is the direction of the nearest open (non-same-ground) neighbour tiles summed, for edge tiles of a stand:

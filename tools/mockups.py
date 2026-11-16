@@ -1794,6 +1794,42 @@ def b_airship_dock():
     return Sprite(im, 3, 3, glows, [], (1.0, 10))
 
 
+AIRSHIP_CELL = (48, 32)
+
+
+def airship_sprite():
+    """Flying airship for the air freight view (ticket 68), 48x32, facing east: canvas envelope with a teal stripe and
+    tail fins, a wooden gondola slung below, a propeller blur at the stern. Mirrored in code for west."""
+    W, H = AIRSHIP_CELL
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    ex, ey = 26, 11
+    env = tex_planks(40, 20, 143, CANVAS, vertical=False)
+    m = Image.new("L", (W, H))
+    ImageDraw.Draw(m).ellipse([ex - 20, ey - 10, ex + 20, ey + 10], fill=255)
+    layer = Image.new("RGBA", (W, H))
+    layer.paste(env, (ex - 20, ey - 10))
+    im.paste(layer, (0, 0), m)
+    d.arc([ex - 20, ey - 10, ex + 20, ey + 10], 200, 340, fill=CANVAS[3])
+    d.arc([ex - 20, ey - 10, ex + 20, ey + 10], 20, 160, fill=CANVAS[0])
+    for k in (-10, -2, 6, 14):
+        d.line([(ex + k, ey - 9), (ex + k - 1, ey + 9)], fill=CANVAS[1])
+    R(d, ex - 18, ey, ex + 18, ey + 1, TEAL[1])
+    d.polygon([(ex - 17, ey - 3), (ex - 25, ey - 10), (ex - 24, ey + 6), (ex - 17, ey + 3)], fill=TEAL[2])
+    d.polygon([(ex - 17, ey + 3), (ex - 24, ey + 6), (ex - 22, ey + 12), (ex - 15, ey + 7)], fill=TEAL[0])
+    R(d, ex + 17, ey - 1, ex + 18, ey + 1, TEAL[3])  # nose cap
+    for k in (-6, 6):  # gondola struts
+        d.line([(ex + k, ey + 9), (ex + k // 2, ey + 13)], fill=WOOD[1])
+    R(d, ex - 7, ey + 13, ex + 7, ey + 19, WOOD[2])
+    R(d, ex - 7, ey + 13, ex + 7, ey + 13, WOOD[4])
+    R(d, ex - 7, ey + 19, ex + 7, ey + 19, WOOD[0])
+    R(d, ex - 5, ey + 15, ex - 3, ey + 16, WARM)
+    R(d, ex + 1, ey + 15, ex + 3, ey + 16, WARM)
+    R(d, ex - 10, ey + 15, ex - 8, ey + 17, IRON[1])  # engine pod and propeller
+    R(d, ex - 12, ey + 13, ex - 11, ey + 19, IRON[3])
+    return im
+
+
 # ------------------------------------------------------------------ citizens
 def citizen(kind, facing, frame, cloth=None, hair=None, skin=None):
     """11x17 walker, about door height (D26: scaled down from 16x24). kinds: villager, weaver, farmer, mage."""

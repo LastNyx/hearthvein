@@ -574,3 +574,53 @@ func test_battery_charge_counts_in_the_lumen_bar() -> void:
 	for r in m.resources():
 		if r["id"] == "lumen":
 			assert_eq(r["value"], floori(float(s.totals().get("lumen", 0.0)) + 150.0), "battery charge shows as Lumen stock")
+
+
+func test_survey_texts() -> void:
+	assert_eq(HudModel.survey_reason_text("no_dock"), "Needs a staffed dock")
+	assert_eq(HudModel.survey_reason_text("busy"), "All airships are out")
+	assert_eq(HudModel.survey_reason_text(""), "")
+	var row := {"surveying": true, "survey_days_left": 1.2, "revealed": false, "owned": false, "reward_detail": ""}
+	assert_eq(HudModel.survey_status_text(row), "Surveying, 2 days")
+	row["survey_days_left"] = 0.4
+	assert_eq(HudModel.survey_status_text(row), "Surveying, 1 day")
+	row = {"surveying": false, "survey_days_left": 0.0, "revealed": true, "owned": false, "reward_detail": "100 gold"}
+	assert_eq(HudModel.survey_status_text(row), "100 gold")
+	row["owned"] = true
+	assert_eq(HudModel.survey_status_text(row), "", "an owned region needs no survey text")
+
+
+func test_region_map_survey_button_states() -> void:
+	var main: Node = load("res://ui/main.tscn").instantiate()
+	main.game_seed = SEED
+	add_child_autofree(main)
+	await get_tree().process_frame
+	var hud: Hud = main.get_node("Hud")
+	var st: Settlement = main.settlement
+	var air := st.get_system(AirshipSystem) as AirshipSystem
+	var rm: RegionMap = hud._region_map
+	var locked: Array[int] = []
+	for r in MapState.REGION_COUNT:
+		if st.map.get_region_reward(r) != "" and not st.map.is_region_owned(r) \
+				and (main.hud_model.region_rows()[r] as Dictionary)["state"] == "locked":
+			locked.append(r)
+	assert_gte(locked.size(), 2, "two locked regions with rewards")
+	rm.open()
+	var b: Button = rm._surveys[locked[0]]
+	assert_true(b.visible, "locked, unsurveyed: a Survey button")
+	assert_true(b.disabled, "no staffed dock yet")
+	assert_eq(b.tooltip_text, "Needs a staffed dock")
+	assert_eq((rm._notes[locked[0]] as Label).text, "Needs a staffed dock")
+	# A flight out over the second region, a finished survey over the first.
+	air._surveys.append({"dock": 0, "region": locked[1], "start": 0.0, "done": st.clock.total_hours + 30.0})
+	air._revealed[locked[0]] = true
+	rm.refresh()
+	assert_false((rm._surveys[locked[0]] as Button).visible, "surveyed: no button")
+	var detail := HudModel.survey_status_text((main.hud_model.region_rows()[locked[0]] as Dictionary))
+	assert_ne(detail, "")
+	assert_eq((rm._notes[locked[0]] as Label).text, detail, "the revealed detail")
+	assert_false((rm._surveys[locked[1]] as Button).visible)
+	assert_eq((rm._notes[locked[1]] as Label).text, "Surveying, 2 days")
+	for r in MapState.REGION_COUNT:
+		if st.map.is_region_owned(r):
+			assert_false((rm._surveys[r] as Button).visible, "owned regions have no Survey button")

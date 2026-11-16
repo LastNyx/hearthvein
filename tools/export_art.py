@@ -938,6 +938,19 @@ def export_rail(manifest):
     }
 
 
+def export_airship(manifest):
+    """Airship sprite plus its soft ground shadow (ticket 68); east-facing, the view mirrors it for west."""
+    sp = M.airship_sprite()
+    save(sp, OUT / "airship" / "airship.png")
+    w, h = sp.size
+    sh = Image.new("RGBA", (w, 12))
+    ImageDraw.Draw(sh).ellipse([6, 2, w - 6, 9], fill=(8, 10, 24, 90))
+    ImageDraw.Draw(sh).ellipse([12, 4, w - 12, 8], fill=(8, 10, 24, 50))
+    save(sh, OUT / "airship" / "shadow.png")
+    manifest["airship"] = {"file": "airship/airship.png", "shadow": "airship/shadow.png", "cell": [w, h],
+                           "shadow_cell": [w, 12], "foot": [w // 2, 14]}
+
+
 # ------------------------------------------------------------------ sprites (props and buildings)
 def shadow_image(sp, bx, by):
     W, H = sp.img.size
@@ -1224,6 +1237,7 @@ def main():
     export_roads(manifest)
     export_channels(manifest)
     export_rail(manifest)
+    export_airship(manifest)
     export_sites(manifest)
     export_props(manifest)
     export_buildings(manifest)

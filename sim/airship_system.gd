@@ -80,6 +80,18 @@ func ship_progress(s: Settlement, i: int) -> float:
 	return clampf((now - float(sh["depart"])) / span, 0.0, 1.0)
 
 
+## Allocation-free ends of shipment i in tile units (what shipments() reports as from_pos / to_pos), for the renderer.
+func ship_from(s: Settlement, i: int) -> Vector2:
+	var sh: Dictionary = _ships[i]
+	var b := _dock_pos(s, int(sh["to"]))
+	return _dock_pos(s, int(sh["from"]), b)
+
+
+func ship_to(s: Settlement, i: int) -> Vector2:
+	var sh: Dictionary = _ships[i]
+	return _dock_pos(s, int(sh["to"]), _dock_pos(s, int(sh["from"])))
+
+
 ## Centre of a dock's footprint in tile units; `fallback` when the dock is gone.
 func _dock_pos(s: Settlement, id: int, fallback: Vector2 = Vector2.ZERO) -> Vector2:
 	var b: Building = s.buildings.get(id)

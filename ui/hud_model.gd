@@ -657,6 +657,30 @@ func reward_detail(reward: String) -> String:
 	return ""
 
 
+## Player text for AirshipSystem.survey_refusal ("" for none).
+static func survey_reason_text(reason: String) -> String:
+	match reason:
+		"no_dock": return "Needs a staffed dock"
+		"busy": return "All airships are out"
+		"surveying": return "Already being surveyed"
+		"revealed": return "Already surveyed"
+		"no_reward": return "Nothing to find here"
+		"owned": return "Your own land"
+		"unknown": return "No such region"
+	return ""
+
+
+## The one-line survey state of a region_rows() entry: "Surveying, N days" while a flight is out (N rounds up), the
+## revealed reward detail once surveyed, else "".
+static func survey_status_text(row: Dictionary) -> String:
+	if row["surveying"]:
+		var d := maxi(ceili(float(row["survey_days_left"])), 1)
+		return "Surveying, %d day%s" % [d, "" if d == 1 else "s"]
+	if row["revealed"] and not row["owned"]:
+		return row["reward_detail"]
+	return ""
+
+
 ## Command: send a staffed dock on a survey flight over locked region r (ticket 38). False when none can.
 func survey_region(r: int) -> bool:
 	return s.survey_region(r)

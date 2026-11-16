@@ -1,4 +1,20 @@
 {
+ "airship": {
+  "cell": [
+   48,
+   32
+  ],
+  "file": "airship/airship.png",
+  "foot": [
+   24,
+   14
+  ],
+  "shadow": "airship/shadow.png",
+  "shadow_cell": [
+   48,
+   12
+  ]
+ },
  "autotiles": {
   "rock": {
    "cols": 4,
