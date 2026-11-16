@@ -12,6 +12,14 @@ var h: Vector2i
 func before_all() -> void:
 	reg = DataRegistry.new()
 	reg.load_all()
+	var up := BuildingDef.new()
+	up.id = "test_hud_grid_consumer"
+	up.display_name = "Test HUD grid consumer"
+	up.era = "town"
+	up.category = "materials"
+	up.size = Vector2i(2, 1)
+	up.upkeep_lumen = 2.0
+	reg.buildings[up.id] = up
 
 
 func before_each() -> void:
@@ -440,3 +448,102 @@ func test_wet_reason_and_non_upgradable_building() -> void:
 	assert_false(sel["show_upgrade"])
 	assert_eq(sel["next_tier"], 0)
 	assert_false(m.upgrade())
+
+
+# ---------------------------------------------------------------- grid overlay (ticket 36c)
+
+func _grid_put(id: String, dx: int) -> Building:
+	var def := reg.get_building(id)
+	var bid := s.place_building_instant(id, Vector2i(h.x + dx, h.y - def.size.y))
+	assert_true(bid >= 0, "%s placed at dx %d" % [id, dx])
+	return s.buildings.get(bid)
+
+
+func _grid_ground() -> void:
+	s.era_override = "conflux"
+	for x in range(h.x - 30, h.x + 15):
+		for y in range(h.y - 5, h.y + 5):
+			if s.map.terrain_id_at(x, y) == "forest":
+				s.set_terrain(Vector2i(x, y), "grass")
+
+
+func test_grid_overlay_toggle() -> void:
+	assert_true(HudModel.OVERLAYS.has("grid"))
+	assert_false(m.overlay_on("grid"))
+	assert_true(m.toggle_overlay("grid"))
+	assert_true(m.overlay_on("grid"))
+	assert_false(m.overlay_on("coverage"))
+	assert_false(m.toggle_overlay("grid"))
+
+
+func test_grid_data_is_empty_without_nodes() -> void:
+	assert_eq(m.grid_ranges().size(), 0)
+	assert_eq(m.grid_links().size(), 0)
+	assert_eq(m.grid_consumers().size(), 0)
+	assert_eq(m.grid_batteries().size(), 0)
+	assert_eq(m.grid_stamp(), 0)
+
+
+func test_grid_ranges_and_links() -> void:
+	_grid_ground()
+	var a := _grid_put("lumen_pylon", 3)
+	var b := _grid_put("lumen_pylon", 12)
+	var far := _grid_put("lumen_pylon", -16)
+	var ranges := m.grid_ranges()
+	assert_eq(ranges.size(), 2, "the far pylon is its own grid")
+	var gs := s.get_system(GridSystem) as GridSystem
+	assert_eq(ranges[0]["id"], gs.grid_of(s, a.id))
+	assert_eq(ranges[0]["nodes"], [a.id, b.id])
+	assert_eq(ranges[0]["tiles"].size(), gs.covered_tiles(s, ranges[0]["id"]).size())
+	assert_true(ranges[0]["tiles"].has(a.origin))
+	assert_eq(ranges[1]["nodes"], [far.id])
+	var links := m.grid_links()
+	assert_eq(links.size(), 1)
+	assert_eq(links[0][0], Vector2(a.origin) + Vector2(0.5, 0.5))
+	assert_eq(links[0][1], Vector2(b.origin) + Vector2(0.5, 0.5))
+
+
+func test_grid_consumers_fed_and_unfed() -> void:
+	_grid_ground()
+	_grid_put("lumen_pylon", 3)
+	var near := _grid_put("test_hud_grid_consumer", 6)
+	var out := _grid_put("test_hud_grid_consumer", -10)
+	s.hearth.inventory.remove("lumen", s.hearth.inventory.amount_of("lumen"))
+	var by_id := {}
+	for c in m.grid_consumers():
+		by_id[c["id"]] = c
+	assert_eq(by_id.size(), 2, "only buildings that pay Lumen upkeep or take Lumen input")
+	assert_false(by_id[near.id]["fed"], "on a grid with no Lumen yet")
+	assert_false(by_id[out.id]["fed"])
+	assert_gt(by_id[near.id]["grid"], -1)
+	assert_eq(by_id[out.id]["grid"], -1)
+	s.hearth.inventory.add("lumen", 20.0)
+	by_id.clear()
+	for c in m.grid_consumers():
+		by_id[c["id"]] = c
+	assert_true(by_id[near.id]["fed"], "the Hearth store is on the grid and holds Lumen")
+	assert_false(by_id[out.id]["fed"], "outside every feed radius")
+
+
+func test_grid_battery_charge_counts_as_fed_and_is_reported() -> void:
+	_grid_ground()
+	_grid_put("lumen_pylon", 3)
+	var bat := _grid_put("grid_battery", 5)
+	var user := _grid_put("test_hud_grid_consumer", 8)
+	s.hearth.inventory.remove("lumen", s.hearth.inventory.amount_of("lumen"))
+	var gs := s.get_system(GridSystem) as GridSystem
+	var bats := m.grid_batteries()
+	assert_eq(bats.size(), 1)
+	assert_eq(bats[0]["id"], bat.id)
+	assert_eq(bats[0]["capacity"], 600.0)
+	assert_eq(bats[0]["charge"], 0.0)
+	var stamp := m.grid_stamp()
+	gs._charge[bat.id] = 150.0
+	bats = m.grid_batteries()
+	assert_eq(bats[0]["charge"], 150.0)
+	assert_almost_eq(float(bats[0]["fraction"]), 0.25, 0.0001)
+	assert_ne(m.grid_stamp(), stamp, "the overlay redraws when charge changes")
+	assert_eq(m.grid_ranges()[0]["charge"], 150.0)
+	for c in m.grid_consumers():
+		if c["id"] == user.id:
+			assert_true(c["fed"], "battery charge counts as supply")

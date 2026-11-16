@@ -589,11 +589,11 @@
   },
   "grid_battery": {
    "base": [
-    31,
-    58
+    33,
+    47
    ],
-   "category": "lumen",
    "file": "buildings/grid_battery.png",
+   "flat": false,
    "footprint": [
     2,
     1
@@ -601,20 +601,20 @@
    "fx": {
     "file": "buildings/grid_battery_fx.png",
     "offset": [
-     -4,
-     -73
+     -26,
+     -29
     ]
    },
-   "generic": true,
-   "h": 59,
+   "generic": false,
+   "h": 48,
    "shadow": {
     "file": "buildings/grid_battery_shadow.png",
     "offset": [
      -24,
-     -6
+     -5
     ]
    },
-   "w": 62
+   "w": 66
   },
   "hall_of_seasons": {
    "base": [
@@ -966,11 +966,11 @@
   },
   "lumen_pylon": {
    "base": [
-    16,
-    47
+    17,
+    65
    ],
-   "category": "lumen",
    "file": "buildings/lumen_pylon.png",
+   "flat": false,
    "footprint": [
     1,
     1
@@ -978,20 +978,20 @@
    "fx": {
     "file": "buildings/lumen_pylon_fx.png",
     "offset": [
-     -5,
-     -62
+     -14,
+     -66
     ]
    },
-   "generic": true,
-   "h": 48,
+   "generic": false,
+   "h": 66,
    "shadow": {
     "file": "buildings/lumen_pylon_shadow.png",
     "offset": [
-     -13,
-     -6
+     -11,
+     -4
     ]
    },
-   "w": 32
+   "w": 34
   },
   "lumen_reactor": {
    "base": [

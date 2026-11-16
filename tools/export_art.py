@@ -890,6 +890,7 @@ SHEET = {
     # ticket 64: City row additions (same drawing helpers and palette as the sheet)
     "purifier_tower": lambda: M.b_purifier(), "toolsmith": lambda: M.b_toolsmith(7),
     "grand_bazaar": lambda: M.b_bazaar(8), "lumen_nexus": lambda: M.b_nexus(),
+    "lumen_pylon": lambda: M.b_pylon(), "grid_battery": lambda: M.b_battery(),
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge
     "hut": lambda: M.b_hut(9), "lodge": lambda: M.b_lodge(10),
 }
@@ -943,6 +944,8 @@ def export_buildings(manifest):
         manifest["buildings"][bid] = export_sprite(fn(), f"buildings/{bid}.png",
                                                    {"generic": False, "flat": bid in FLAT})
     for i, (bid, (cat, fw, fh)) in enumerate(sorted(GENERIC.items())):
+        if bid in SHEET:  # drawn on the sheet (pylon, battery); kept in GENERIC so the other seeds stay put
+            continue
         manifest["buildings"][bid] = export_sprite(generic_house(cat, fw, fh, 200 + i), f"buildings/{bid}.png",
                                                    {"generic": True, "category": cat})
 

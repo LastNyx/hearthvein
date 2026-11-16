@@ -15,7 +15,7 @@ const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
 const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
-		["coverage", "Coverage", "H"]]  # id, label, key
+		["coverage", "Coverage", "H"], ["grid", "Grid", "L"]]  # id, label, key
 
 var model: HudModel
 var build: BuildController
@@ -538,6 +538,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_G: _on_overlay("roads")
 			KEY_T: _on_overlay("water")
 			KEY_H: _on_overlay("coverage")
+			KEY_L: _on_overlay("grid")
 			KEY_M: _region_map.toggle()
 			KEY_U:
 				if model.upgrade():

@@ -1625,6 +1625,55 @@ def b_nexus():
     return Sprite(im, 3, 3, glows, [], (0.9, 14))
 
 
+def b_pylon():
+    """Lumen Pylon (1x1): a slim brass mast on a stone footing, a crystal on top and a glowing coil band."""
+    W, H = 32, 64
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    im.paste(tex_stone(22, 7, 94), (cx - 11, yb - 6))
+    R(d, cx - 11, yb - 7, cx + 10, yb - 7, STONE[4])
+    R(d, cx - 11, yb - 2, cx + 10, yb - 1, STONE[1])
+    top = 22
+    d.polygon([(cx - 5, yb - 7), (cx - 2, top), (cx + 2, top), (cx + 5, yb - 7)], fill=BRASS[1])
+    d.polygon([(cx - 5, yb - 7), (cx - 2, top), (cx, top), (cx - 1, yb - 7)], fill=BRASS[2])
+    for y in (top + 12, top + 24):
+        R(d, cx - 5, y, cx + 5, y + 1, BRASS[3])
+        R(d, cx - 3, y + 2, cx + 3, y + 2, CRYSTAL[1])
+        glows.append((cx, y + 1, 6, GLOW))
+    R(d, cx - 4, top - 2, cx + 4, top, BRASS[2])
+    crystal(d, cx - 4, top - 2, 16, 8)
+    glows += [(cx, top - 10, 14, GLOW), (cx, top - 10, 5, CRYSTAL[4])]
+    return Sprite(im, 1, 1, glows, [], (0.8, 6))
+
+
+def b_battery():
+    """Grid Battery (2x1): a low iron-banded housing holding three upright glowing cells."""
+    W, H = 64, 46
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows = []
+    im.paste(tex_stone(W - 6, 8, 95), (3, yb - 7))
+    R(d, 3, yb - 8, W - 4, yb - 8, STONE[4])
+    R(d, 5, yb - 30, W - 6, yb - 9, IRON[1])
+    R(d, 5, yb - 30, W - 6, yb - 29, IRON[3])
+    R(d, W - 12, yb - 28, W - 6, yb - 9, IRON[0])
+    for k in range(3):
+        x0 = 9 + k * 16
+        R(d, x0, yb - 26, x0 + 11, yb - 12, IRON[0])
+        R(d, x0 + 1, yb - 25, x0 + 10, yb - 13, CRYSTAL[1])
+        R(d, x0 + 2, yb - 25, x0 + 4, yb - 13, CRYSTAL[3])
+        R(d, x0 + 9, yb - 25, x0 + 10, yb - 13, CRYSTAL[0])
+        R(d, x0 + 3, yb - 24, x0 + 3, yb - 20, CRYSTAL[4])
+        R(d, x0 + 3, yb - 31, x0 + 8, yb - 29, BRASS[2])
+        glows.append((x0 + 6, yb - 19, 9, GLOW))
+    R(d, 5, yb - 18, W - 6, yb - 17, BRASS[1])
+    R(d, 5, yb - 18, W - 6, yb - 18, BRASS[3])
+    return Sprite(im, 2, 1, glows, [], (0.95, 8))
+
+
 # ------------------------------------------------------------------ citizens
 def citizen(kind, facing, frame, cloth=None, hair=None, skin=None):
     """11x17 walker, about door height (D26: scaled down from 16x24). kinds: villager, weaver, farmer, mage."""

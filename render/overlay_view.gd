@@ -14,6 +14,8 @@ var _seen_blight := false
 var _seen_roads := false
 var _seen_water := false
 var _seen_coverage := false
+var _seen_grid := false
+var _seen_grid_stamp := 0
 
 
 func setup(s: Settlement, m: HudModel) -> void:
@@ -21,7 +23,7 @@ func setup(s: Settlement, m: HudModel) -> void:
 	model = m
 	z_index = 15
 	for kind in ["blight_changed", "building_connection_changed", "building_placed", "building_demolished",
-			"road_changed", "building_completed", "channel_changed", "fouled_changed"]:
+			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _dirty = true)
 
 
@@ -30,12 +32,18 @@ func _process(_d: float) -> void:
 		return
 	var sel := model.selected_id
 	if sel != _seen_selected or model.overlay_on("blight") != _seen_blight or model.overlay_on("roads") != _seen_roads \
-			or model.overlay_on("water") != _seen_water or model.overlay_on("coverage") != _seen_coverage:
+			or model.overlay_on("water") != _seen_water or model.overlay_on("coverage") != _seen_coverage \
+			or model.overlay_on("grid") != _seen_grid:
 		_seen_selected = sel
 		_seen_blight = model.overlay_on("blight")
 		_seen_roads = model.overlay_on("roads")
 		_seen_water = model.overlay_on("water")
 		_seen_coverage = model.overlay_on("coverage")
+		_seen_grid = model.overlay_on("grid")
+		_dirty = true
+	var gs := model.grid_stamp() if model.overlay_on("grid") else 0
+	if gs != _seen_grid_stamp:
+		_seen_grid_stamp = gs
 		_dirty = true
 	if _dirty:
 		_dirty = false
@@ -63,6 +71,8 @@ func _draw() -> void:
 		_draw_water_extras()
 	if model.overlay_on("coverage"):
 		_draw_coverage()
+	if model.overlay_on("grid"):
+		_draw_grid()
 	if model.overlay_on("roads"):
 		for y in MapState.HEIGHT:
 			for x in MapState.WIDTH:
@@ -149,3 +159,35 @@ func _draw_water_extras() -> void:
 	for t in model.fouled_tiles():
 		draw_rect(Rect2(t.x * TILE, t.y * TILE, TILE, TILE), Color(0.55, 0.75, 0.15, 0.5))
 		draw_rect(Rect2(t.x * TILE + 1, t.y * TILE + 1, TILE - 2, TILE - 2), Color(0.8, 0.95, 0.3, 0.8), false, 1.0)
+
+
+## Grid overlay (ticket 36c): every tile a grid feeds in a soft Lumen cyan (one fill per tile, so overlapping nodes do not
+## stack), a thin bright line for each Pylon / Nexus link, a check / cross on every Lumen-upkeep or Lumen-input building
+## (check = on a grid with supply or battery charge), and a charge bar over each Grid Battery.
+func _draw_grid() -> void:
+	var cyan := Color(0.4, 0.85, 0.95)
+	for g: Dictionary in model.grid_ranges():
+		for t: Vector2i in g["tiles"]:
+			draw_rect(Rect2(t.x * TILE, t.y * TILE, TILE, TILE), Color(cyan, 0.13))
+	for l: Array in model.grid_links():
+		var a: Vector2 = l[0] * TILE
+		var b: Vector2 = l[1] * TILE
+		draw_line(a, b, Color(0.02, 0.12, 0.2, 0.7), 4.0)
+		draw_line(a, b, Color(0.7, 0.97, 1.0, 0.95), 2.0)
+	for h: Dictionary in model.grid_consumers():
+		var b: Building = settlement.buildings[h["id"]]
+		var c := (Vector2(b.origin) + Vector2(b.def.size)) * TILE - Vector2(9, 9)
+		if h["fed"]:
+			draw_circle(c, 8.0, Color(0.03, 0.2, 0.3, 0.9))
+			draw_polyline(PackedVector2Array([c + Vector2(-4, 0), c + Vector2(-1, 3), c + Vector2(4, -3)]),
+					Color(0.5, 0.95, 1.0), 2.5)
+		else:
+			draw_circle(c, 8.0, Color(0.25, 0.05, 0.05, 0.7))
+			draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
+			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
+	for bat: Dictionary in model.grid_batteries():
+		var b: Building = settlement.buildings[bat["id"]]
+		var w := float(b.def.size.x) * TILE - 8.0
+		var bar := Rect2(Vector2(b.origin) * TILE + Vector2(4, -9), Vector2(w, 6))
+		draw_rect(bar.grow(1.0), Color(0.02, 0.08, 0.12, 0.9))
+		draw_rect(Rect2(bar.position, Vector2(w * float(bat["fraction"]), bar.size.y)), Color(0.45, 0.95, 1.0))

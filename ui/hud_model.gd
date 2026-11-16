@@ -4,7 +4,7 @@ extends RefCounted
 ## scenes (ui/hud.gd) only copy these values onto labels. Reads the Settlement; its only commands are the building
 ## priority and pause the selected-building panel offers.
 
-const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage"]
+const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage", "grid"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
 const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
@@ -16,7 +16,7 @@ const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 var s: Settlement
 var notifications: NotificationCenter
 var selected_id: int = -1
-var overlays := {"blight": false, "roads": false, "water": false, "coverage": false}
+var overlays := {"blight": false, "roads": false, "water": false, "coverage": false, "grid": false}
 var _deltas := {"food": 0, "materials": 0, "lumen": 0, "gold": 0}
 var _mark: Dictionary = {}
 
@@ -486,6 +486,85 @@ func coverage_homes() -> Array[Dictionary]:
 			continue
 		out.append({"id": bid, "covered": sys != null and sys.home_covered(s, bid)})
 	return out
+
+
+# ---------------------------------------------------------------- Lumen grid overlay (ticket 36c)
+
+## One entry per grid: {id, nodes (building ids), tiles (Array[Vector2i] the grid feeds), supply, charge, capacity}.
+## Empty before any Lumen Pylon or Nexus is finished.
+func grid_ranges() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var gs := s.get_system(GridSystem) as GridSystem
+	if gs == null:
+		return out
+	for gid in gs.grid_ids(s):
+		var tiles: Array[Vector2i] = []
+		tiles.assign(gs.covered_tiles(s, gid).keys())
+		out.append({"id": gid, "nodes": gs.nodes_of(s, gid), "tiles": tiles, "supply": gs.supply(s, gid),
+				"charge": gs.battery_charge(s, gid), "capacity": gs.battery_capacity(s, gid)})
+	return out
+
+
+## Pylon / Nexus links as [from, to] tile-centre pairs in tile units (a tile (x, y) has its centre at x + 0.5, y + 0.5;
+## a node's centre is the middle of its footprint).
+func grid_links() -> Array[Array]:
+	var out: Array[Array] = []
+	var gs := s.get_system(GridSystem) as GridSystem
+	if gs == null:
+		return out
+	for l: Array in gs.links(s):
+		var a: Building = s.buildings[l[0]]
+		var b: Building = s.buildings[l[1]]
+		out.append([Vector2(a.origin) + Vector2(a.def.size) * 0.5, Vector2(b.origin) + Vector2(b.def.size) * 0.5, l[0], l[1]])
+	return out
+
+
+## [{id, fed, grid}] for every finished building that pays Lumen upkeep or takes Lumen as a recipe input. fed = it is on a
+## grid that holds supply or battery charge. The overlay's check / cross marks.
+func grid_consumers() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var gs := s.get_system(GridSystem) as GridSystem
+	var cache := {}
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site:
+			continue
+		var takes := b.def.upkeep_lumen > 0.0 or (b.def.recipe != null and b.def.recipe.inputs.has("lumen"))
+		if not takes:
+			continue
+		var gid := gs.grid_of(s, bid) if gs != null else -1
+		var fed := false
+		if gid >= 0:
+			if not cache.has(gid):
+				cache[gid] = gs.supply(s, gid) > Inventory.EPS or gs.battery_charge(s, gid) > Inventory.EPS
+			fed = cache[gid]
+		out.append({"id": bid, "fed": fed, "grid": gid})
+	return out
+
+
+## [{id, charge, capacity, fraction}] for every finished Grid Battery (any building with battery_capacity).
+func grid_batteries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var gs := s.get_system(GridSystem) as GridSystem
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.def.battery_capacity <= 0.0:
+			continue
+		var c := gs.charge_of(bid) if gs != null else 0.0
+		out.append({"id": bid, "charge": c, "capacity": b.def.battery_capacity, "fraction": c / b.def.battery_capacity})
+	return out
+
+
+## A small number that changes when what the grid overlay shows changes between building events (charge, supply, fed
+## state), so the view redraws only then.
+func grid_stamp() -> int:
+	var gs := s.get_system(GridSystem) as GridSystem
+	if gs == null:
+		return 0
+	var n := 0
+	for gid in gs.grid_ids(s):
+		n = n * 31 + floori(gs.battery_charge(s, gid) / 5.0) + int(gs.supply(s, gid) > Inventory.EPS) * 7
+	return n
 
 
 # ---------------------------------------------------------------- region map
