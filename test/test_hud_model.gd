@@ -165,6 +165,23 @@ func test_notifications_fire_once_per_cause() -> void:
 	assert_eq(n.items.size(), 5)
 
 
+# A halt that clears and returns raises a second item (the cause had cleared) but the HUD list shows one toast per
+# cause, the newest (ticket 35: two identical Lumen Reactor toasts at once).
+func test_recent_shows_one_toast_per_cause() -> void:
+	var id := s.place_building_instant("woodcutter", _site_free_spot())
+	var n := m.notifications
+	s.events.emit("production_halted", {"id": id, "why": "door_full"})
+	s.events.emit("production_resumed", {"id": id, "why": ""})
+	s.step_hours(2)
+	s.events.emit("production_halted", {"id": id, "why": "door_full"})
+	assert_eq(n.items.size(), 2, "both raises are kept in the history")
+	var shown := n.recent(48)
+	assert_eq(shown.size(), 1, "one toast for one building and reason")
+	assert_eq(shown[0]["hour"], s.clock.total_hours, "the newest one")
+	s.events.emit("production_halted", {"id": 9999, "why": "door_full"})
+	assert_eq(n.recent(48).size(), 2, "another building still gets its own toast")
+
+
 func test_no_workers_notice_once_until_staffed() -> void:
 	var id := s.place_building_instant("woodcutter", _site_free_spot())
 	var n := m.notifications

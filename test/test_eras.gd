@@ -398,3 +398,106 @@ func test_every_town_building_can_be_built() -> void:
 			s.step_hours(1)
 		assert_false(site.site, "builders finished the %s" % d.id)
 
+
+
+# ---------------------------------------------------------------- ticket 35: the Lumen Nexus and the Conflux gate
+
+# AC1a: the row and the gate numbers are the design's (section 15 Conflux row, section 16 City table).
+func test_lumen_nexus_and_conflux_gate_match_the_design() -> void:
+	var nexus := reg.get_building("lumen_nexus")
+	assert_not_null(nexus)
+	assert_eq([nexus.era, nexus.category, nexus.size], ["city", "landmark", Vector2i(3, 3)])
+	assert_eq(nexus.cost, {"materials": 400, "gold": 200, "lumen": 300, "cut_stone": 80, "tools": 40, "lumen_cells": 30})
+	assert_eq(nexus.worker_slots, 0)
+	var conflux := reg.get_era("conflux")
+	assert_eq([conflux.gate_pop, conflux.gate_gold, conflux.gate_landmark], [200, 1200, "lumen_nexus"])
+	# the City gate (the previous landmark) is unchanged
+	var city := reg.get_era("city")
+	assert_eq([city.gate_pop, city.gate_gold, city.gate_landmark], [100, 500, "lumen_spire"])
+
+
+# AC1b: a finished Lumen Nexus + pop 200 + gold 1200 advances City -> Conflux, and the gate only checks the gold.
+func test_lumen_nexus_pop_and_gold_advance_to_conflux() -> void:
+	s.era_current = "city"
+	var id := s.place_building_instant("lumen_nexus", _free_spot("lumen_nexus"))
+	assert_gt(id, -1, "the Lumen Nexus is placeable in the City era")
+	_grow_to(200)
+	s.gold = 1200.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "conflux")
+	var ev := s.events.log_of("era_changed")
+	assert_eq(ev.size(), 1)
+	assert_eq(ev[0]["data"], {"from": "city", "to": "conflux"})
+	assert_eq(s.gold, 1200.0, "a gate checks the gold, it does not spend it")
+
+
+# AC1c: each part of the Conflux gate is required on its own: pop, gold, and a finished (not a site) Lumen Nexus.
+func test_each_conflux_gate_part_is_required() -> void:
+	s.era_current = "city"
+	var id := s.place_building_instant("lumen_nexus", _free_spot("lumen_nexus"))
+	assert_gt(id, -1)
+	_grow_to(199)
+	s.gold = 1200.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "city", "pop 199")
+	_grow_to(200)
+	s.gold = 1199.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "city", "gold 1199")
+	s.gold = 1200.0
+	s.buildings[id].site = true  # an unfinished Lumen Nexus does not count
+	s.step_hours(1)
+	assert_eq(s.era_id(), "city", "site only")
+	s.buildings[id].site = false
+	s.step_hours(1)
+	assert_eq(s.era_id(), "conflux")
+
+
+# AC2: nothing in the City set is unbuildable. A City settlement with enough storage and gold places every City
+# building through the real command API, delivers its cost and lets the builders finish it on seed 42. Same shape as
+# the Town test above. The Lumen Reactor (on_vein) goes first: veins are scarce and the other sites would cover them.
+func test_every_city_building_can_be_built() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	s.era_current = "city"
+	s.gold = 3000.0
+	for i in 8:
+		var st_spot := _village_spot(s, "storehouse")
+		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
+		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
+	_stock(s, "materials", 1000.0)
+	_stock(s, "planks", 60.0)
+	_stock(s, "lumen", 1200.0)  # the whole cost plus the upkeep of the finished buildings while the sites go up
+	_stock(s, "cut_stone", 175.0)
+	_stock(s, "tools", 40.0)
+	_stock(s, "lumen_cells", 30.0)
+	_stock(s, "food", 800.0)  # keeps the builders from leaving over the months of work
+
+	var real := DataRegistry.new()
+	real.load_all()
+	var city: Array[BuildingDef] = []
+	for d: BuildingDef in real.buildings.values():
+		if d.era == "city":
+			city.append(d)
+	city.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool:
+		if (a.placement_rule == "on_vein") != (b.placement_rule == "on_vein"):
+			return a.placement_rule == "on_vein"
+		return a.id < b.id)
+	assert_eq(city.size(), 7, "the City set of design section 16")
+
+	for d in city:
+		var spot := _village_spot(s, d.id)
+		assert_ne(spot, Vector2i(-1, -1), "%s has a legal spot on seed 42" % d.id)
+		var id := s.place_building(d.id, spot)
+		assert_gt(id, -1, "%s placed through place_building at %s" % [d.id, spot])
+		var site: Building = s.buildings.get(id)
+		for g in d.cost:
+			if g == BuildingDef.GOLD:
+				continue
+			assert_eq(_deliver(s, site, g, float(d.cost[g])), 0.0, "%s: the %s cost was in storage" % [d.id, g])
+		assert_true(site.site_delivered(), "%s site has its whole cost" % d.id)
+		s.refresh_population()
+		for i in 60 * 24:
+			if not site.site:
+				break
+			s.step_hours(1)
+		assert_false(site.site, "builders finished the %s" % d.id)

@@ -103,10 +103,15 @@ func poll() -> void:
 		clear("planet:low")
 
 
-## Notices raised within the last `ttl_hours`, newest last.
+## Notices raised within the last `ttl_hours`, newest last. One entry per cause: a halt that clears and comes back
+## (a Reactor whose buffer fills, is hauled, fills again) shows only its newest notice, not a stack of copies.
 func recent(ttl_hours: int = 48) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for it in items:
 		if s.clock.total_hours - int(it["hour"]) <= ttl_hours:
+			for i in out.size():
+				if out[i]["key"] == it["key"]:
+					out.remove_at(i)
+					break
 			out.append(it)
 	return out
