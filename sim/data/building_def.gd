@@ -56,6 +56,9 @@ const GOLD := "gold"
 ## footprint (Euclidean, the same measure blight_radius uses) is never chosen by BlightSystem while the building
 ## works. 0 = blocks nothing.
 @export var blight_block_radius: int = 0
+## True for the Park (design.md section 12): a finished building's own footprint is never chosen by BlightSystem.
+## Unlike blight_block_radius this needs no workers or upkeep; the land itself is blight-proof.
+@export var blight_proof: bool = false
 ## True for extractors that sit on a vein: their output scales with the vein yield factor (section 13).
 @export var vein_extractor: bool = false
 ## Output factor during a Dimming (section 14): 0.5 for Forager and plain farms, 1.0 for everything unaffected.

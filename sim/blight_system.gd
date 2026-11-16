@@ -105,12 +105,15 @@ func _collect_staffed(s: Settlement) -> Dictionary:
 	return out
 
 
-## The default shield (design.md section 12): every working building with blight_block_radius > 0 keeps new blight
-## out of that radius. "Working" is the Cleanser rule (staffed and its Lumen upkeep paid, ticket 30), so an unstaffed,
-## paused or unpaid Purifier Tower shields nothing.
+## The default shield (design.md section 12): a finished building with blight_proof keeps its own footprint clear
+## (the Park; the land itself, so pausing it changes nothing), and every working building with blight_block_radius > 0
+## keeps new blight out of that radius. "Working" is the Cleanser rule (staffed and its Lumen upkeep paid, ticket 30),
+## so an unstaffed, paused or unpaid Purifier Tower shields nothing.
 func _shield_block(s: Settlement, t: Vector2i) -> bool:
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
+		if not b.site and b.def.blight_proof and b.footprint().has_point(t):
+			return true
 		var r := b.def.blight_block_radius
 		if r <= 0 or not CleaningSystem.is_working(s, b, _staffed):
 			continue
