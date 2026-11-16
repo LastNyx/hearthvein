@@ -1,15 +1,16 @@
 extends SceneTree
 ## Screenshots of the sky layer (ticket 40d): godot --path . -s tools/sky_shot.gd [-- seed [nodraw]]
 ## A Skyborne settlement: the city set, a finished Sky Foundry, a Lift Anchor with its raised island over the Hearth's
-## region, a Lumen grid feeding it (so the island is not still), two Sky Lifts, sky roads, an island Airship Dock beside
-## the ground one, and citizens walking (some commute over the lifts). Camera centred on the island.
-## Writes .scratch/v1/hv_71_ground_z1.png, hv_71_sky_z1.png, hv_71_ground_z2.png, hv_71_sky_z2.png (the sky ones
+## region, a Lumen grid feeding it (so the island is not still), two Sky Lifts, sky roads, every Skyborne building on the
+## island (Skyspire, Cloud Cistern, Sky Garden, Aether Collector, Skyforge, Observatory, island Airship Dock) and the
+## Dawn Beacon on the ground near the anchor, and citizens walking (some commute over the lifts). Camera centred on the island.
+## Writes .scratch/v1/hv_72_ground_z1.png, hv_72_sky_z1.png, hv_72_ground_z2.png, hv_72_sky_z2.png (the sky ones
 ## after the Tab toggle, HudModel.toggle_layer). With "nodraw" no image is written: it prints the layout report only.
 
 const L := preload("res://tools/shot_layout.gd")
 const OUT := "/home/ngeng/Proyek/hearthvein/.scratch/v1/"
-## File name prefix of the shots (ticket 71 polish; the 40d shots keep their hv_40d_ names).
-const PREFIX := "hv_71_"
+## File name prefix of the shots (ticket 72 sky art pass 2; the 71 shots keep their hv_71_ names).
+const PREFIX := "hv_72_"
 
 
 func _shoot(path: String) -> void:
@@ -172,7 +173,18 @@ func _init() -> void:
 			s.place_road(Vector2i(x, a.y - 1), Settlement.ROAD_DIRT, Building.LAYER_SKY)
 		for y in range(mini(a.y, b.y) - 1, maxi(a.y, b.y) + 1):
 			s.place_road(Vector2i(b.x, y), Settlement.ROAD_DIRT, Building.LAYER_SKY)
-	var dock := sky_build(s, "airship_dock", Vector2i(c.x, c.y - 2), isl.rect, 6)
+	# Every Skyborne building on the island, each joined to the lift spine by a sky road (targets are island-relative)
+	var p := isl.rect.position
+	var placed := {}
+	for spec: Array in [["skyspire", Vector2i(1, 2)], ["cloud_cistern", Vector2i(4, 3)], ["sky_garden", Vector2i(7, 2)],
+			["aether_collector", Vector2i(11, 2)], ["skyforge", Vector2i(1, 8)], ["observatory", Vector2i(5, 8)]]:
+		placed[spec[0]] = sky_build(s, spec[0], p + (spec[1] as Vector2i), isl.rect, 3)
+	var dock := sky_build(s, "airship_dock", p + Vector2i(8, 8), isl.rect, 3)
+	placed["airship_dock"] = dock
+	placed["dawn_beacon"] = _try(s, "dawn_beacon", anchor.origin + Vector2i(-6, 4), 8)
+	for k in placed:
+		if placed[k] == null:
+			print("sky_shot: NOT PLACED ", k)
 	L.populate(s)
 	JobSystem.refresh(s)
 	for i in 3 * 24:

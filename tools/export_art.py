@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw, ImageFilter
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mockups as M  # noqa: E402
 import mockups_v1 as MV  # noqa: E402  (HUD icons)
+import sky_island_art as SI  # noqa: E402  (ticket 72 island slabs and kit)
 
 T = M.T
 ROOT = Path(__file__).resolve().parent.parent
@@ -579,115 +580,6 @@ def cap_images(corner):
     return Image.fromarray(fill, "RGBA"), rim
 
 
-def under_color(depth, rng):
-    """Cliff colour by depth below the island edge, with a few speckles."""
-    lvl = 3 if depth < 7 else (2 if depth < 16 else 1)
-    if rng.random() < 0.07:
-        lvl = max(1, lvl - 1) if rng.random() < 0.6 else min(3, lvl + 1)
-    return CLIFF[lvl]
-
-
-def under_profile(kind, seed):
-    xs = np.arange(T) + 0.5
-    win = np.clip(np.minimum(xs, T - xs) / 8.0, 0.0, 1.0)
-    bump = pnoise(8, 940 + seed)[0]
-    if kind == "host":  # reaches the tile bottom in the middle: a spike hangs from it
-        s = np.clip((1.0 - np.abs(xs - 16.0) / 15.0) * 3.0, 0.0, 1.0)
-        return 27.0 + 5.0 * s
-    return 27.0 + 4.0 * bump * win
-
-
-def under_tile(kind, seed):
-    """Row-1 underside tile: stone hanging from the island's south edge. kinds: plain, roots, crystal, host,
-    left, right. Every kind is 27 px deep at both sides (hosts and ends differ in the middle or at the outer side)."""
-    rng = random.Random(seed)
-    if kind in ("left", "right"):
-        xs = np.arange(T) + 0.5
-        xx = xs if kind == "right" else T - xs  # mirror: build the right end, flip for the left
-        h = np.where(xx < 20.0, 27.0, 27.0 - (xx - 20.0) * 2.0)  # tapers away over the outer 10 px
-    else:
-        h = under_profile(kind, seed)
-    im = Image.new("RGBA", (T, T))
-    px = im.load()
-    for x in range(T):
-        for y in range(T):
-            if y < h[x]:
-                px[x, y] = under_color(y, rng) + (255,)
-    d = ImageDraw.Draw(im)
-    for x in range(T):  # dark underline along the ragged bottom
-        yb = int(h[x])
-        if yb < T:
-            px[x, yb] = CLIFF[0] + (255,)
-    for y in (9, 15):  # strata
-        for x in range(rng.randrange(0, 8), T, 1):
-            if rng.random() < 0.35 and y < h[x]:
-                px[x, y] = CLIFF[1] + (255,)
-    if kind == "roots":
-        for x0 in (rng.randrange(6, 12), rng.randrange(18, 26)):
-            x, y = x0, int(h[x0])
-            for k in range(rng.randint(5, 8)):
-                if y >= T:
-                    break
-                px[x, y] = ((98, 70, 44) if k % 3 else (126, 92, 56)) + (255,)
-                y += 1
-                x = max(0, min(T - 1, x + rng.choice([0, 0, 1, -1])))
-    if kind == "crystal":
-        for x0, ln in ((rng.randrange(7, 12), 7), (rng.randrange(17, 24), 5)):
-            top = int(h[x0]) - 1
-            for k in range(ln):
-                if top + k >= T:
-                    break
-                half = max(0, 1 - k // 3)
-                for dx in range(-half, half + 1):
-                    c = M.CRYSTAL[1] if dx > 0 else M.CRYSTAL[2]
-                    px[x0 + dx, top + k] = tuple(c[:3]) + (255,)
-                if k >= 1:
-                    px[x0, top + k] = tuple(M.CRYSTAL[3][:3]) + (255,)
-    return im
-
-
-def spike_tile(kind, seed):
-    """Row-2 underside tile below a host: a stalactite tapering to a point, with a root or a crystal at the tip."""
-    rng = random.Random(seed)
-    length = {"short": 14, "mid": 22, "long": 30}[kind.split("_")[0]]
-    im = Image.new("RGBA", (T, T))
-    px = im.load()
-    tip = 16 + rng.choice([-2, -1, 1, 2])
-    for y in range(T):
-        if y >= length:
-            break
-        half = 12.0 * (1.0 - y / length) ** 0.85 + 0.4
-        cx = 16.0 + (tip - 16.0) * (y / length)
-        for x in range(T):
-            if abs(x + 0.5 - cx) <= half:
-                px[x, y] = under_color(y + 30, rng) + (255,)
-    for y in range(min(length, T)):  # darker rim on the right
-        for x in range(T - 1):
-            if px[x, y][3] and not px[x + 1, y][3]:
-                px[x, y] = CLIFF[0] + (255,)
-    if kind.endswith("root"):
-        x, y = tip, length - 1
-        for k in range(7):
-            if y + k >= T:
-                break
-            px[x, y + k] = ((98, 70, 44) if k % 3 else (126, 92, 56)) + (255,)
-            x = max(0, min(T - 1, x + rng.choice([0, 0, 1, -1])))
-    if kind.endswith("crystal"):
-        for k in range(6):
-            if length - 2 + k >= T:
-                break
-            for dx in range(-max(0, 1 - k // 3), max(0, 1 - k // 3) + 1):
-                c = M.CRYSTAL[1] if dx > 0 else M.CRYSTAL[2]
-                px[tip + dx, length - 2 + k] = tuple(c[:3]) + (255,)
-            px[tip, length - 2 + k] = tuple(M.CRYSTAL[3][:3]) + (255,)
-    return im
-
-
-# column layout of sky_under.png (8 columns; row 0 hangs from the south edge, row 1 below a host)
-UNDER_COLS = ["plain_a", "plain_b", "roots", "crystal", "host_a", "host_b", "left", "right"]
-SPIKE_COLS = ["short_root", "mid_crystal", "long", "mid", "short", "long_root", "mid_root", "long_crystal"]
-
-
 def island_shadow_image():
     """Soft ground shadow of an island: a blurred rounded blob (stretched to the island by the renderer)."""
     im = Image.new("RGBA", (64, 48), (0, 0, 0, 0))
@@ -705,25 +597,32 @@ def export_sky_rim(manifest):
     im, rows = pack_atlas(rim, 4)
     save(im, OUT / "terrain" / "sky_rim.png")
     caps = [cap_images(c) for c in range(4)]
-    fill = Image.new("RGBA", (4 * T, T))
     crim = Image.new("RGBA", (4 * CAP_SIZE, CAP_SIZE))
     for c, (f, r) in enumerate(caps):
-        fill.paste(f, (c * T, 0))
         crim.paste(r, (c * CAP_SIZE, 0))
-    save(fill, OUT / "terrain" / "sky_corner_fill.png")
     save(crim, OUT / "terrain" / "sky_corner_rim.png")
-    under = Image.new("RGBA", (8 * T, 2 * T))
-    for i, k in enumerate(UNDER_COLS):
-        kind = k.split("_")[0]
-        under.paste(under_tile(kind, 960 + i), (i * T, 0))
-    for i, k in enumerate(SPIKE_COLS):
-        under.paste(spike_tile(k, 980 + i), (i * T, T))
-    save(under, OUT / "terrain" / "sky_under.png")
+    # ticket 72: one slab sheet and one kit (underside, side masses, rim lumps) per variant, stacked vertically
+    slabs = Image.new("RGBA", (SI.W, SI.H * SI.VARIANTS))
+    fills = Image.new("RGBA", (4 * T, T * SI.VARIANTS))
+    kits = Image.new("RGBA", (SI.KW, SI.KH * SI.VARIANTS))
+    cells = []
+    for v in range(SI.VARIANTS):
+        slab = SI.slab_image(7000 + v * 17)
+        kit = SI.kit_image(7100 + v * 31, cap_sd)
+        slabs.paste(slab, (0, v * SI.H))
+        fills.paste(SI.corner_cells(slab, cap_sd), (0, v * T))
+        kits.paste(kit, (0, v * SI.KH))
+        cells.append(SI.kit_cells(kit))
+    save(slabs, OUT / "terrain" / "sky_slabs.png")
+    save(fills, OUT / "terrain" / "sky_corner_fill.png")
+    save(kits, OUT / "terrain" / "sky_kit.png")
     save(island_shadow_image(), OUT / "terrain" / "island_shadow.png")
     manifest["sky_rim"] = {"rim": "terrain/sky_rim.png", "rim_cols": 4, "rim_rows": rows,
                            "corner_fill": "terrain/sky_corner_fill.png", "corner_rim": "terrain/sky_corner_rim.png",
-                           "corner_size": CAP_SIZE, "under": "terrain/sky_under.png", "under_cols": 8,
-                           "under_rows": 2, "under_kinds": UNDER_COLS, "spike_kinds": SPIKE_COLS,
+                           "corner_size": CAP_SIZE, "variants": SI.VARIANTS,
+                           "slabs": "terrain/sky_slabs.png", "slab_cols": SI.IW, "slab_rows": SI.IH,
+                           "kit": "terrain/sky_kit.png", "kit_cols": SI.KW // T, "kit_rows": SI.KH // T,
+                           "kit_origin": [SI.KIT_L, SI.KIT_T], "kit_cells": cells,
                            "shadow": "terrain/island_shadow.png"}
 
 
@@ -1339,6 +1238,11 @@ SHEET = {
     "airship_dock": lambda: M.b_airship_dock(),  # ticket 38
     "sky_foundry": lambda: M.b_sky_foundry(),  # ticket 39d
     "sky_lift": lambda: M.b_sky_lift(),  # ticket 71
+    # ticket 72: the Skyborne buildings, one family (pale stone, teal copper, brass, crystal)
+    "skyspire": lambda: M.b_skyspire(), "cloud_cistern": lambda: M.b_cloud_cistern(),
+    "sky_garden": lambda: M.b_sky_garden(), "aether_collector": lambda: M.b_aether_collector(),
+    "skyforge": lambda: M.b_skyforge(), "observatory": lambda: M.b_observatory(),
+    "dawn_beacon": lambda: M.b_dawn_beacon(),
     "conduit_terraces": lambda: M.b_conduit_terraces(), "water_tower": lambda: M.b_water_tower(),  # ticket 39
     "vein_bore": lambda: M.b_vein_bore(), "hydroponic_hall": lambda: M.b_hydroponic_hall(),  # ticket 39b, 39c
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge

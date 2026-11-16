@@ -33,7 +33,7 @@ var active_layer: int = 0  # Building.LAYER_GROUND; set through set_active_layer
 var sky_group: CanvasGroup
 var sky_base: TileMapLayer
 var sky_rim: TileMapLayer     # cliff rim autotile (crisp: outside the faded group)
-var sky_under: TileMapLayer   # stone hanging under the south edge
+var sky_under: TileMapLayer   # island kit: tapered underside, side masses, rim lumps (outside the data rect)
 var sky_corners: Node2D       # corner tiles with the rounded bite cut out (inside the group)
 var sky_cap_rims: Node2D      # cliff band round those bites
 var sky_edge: Node2D          # rim + cap rims, z 31
@@ -167,7 +167,7 @@ func _build_sky() -> void:
 	add_child(sky_group)
 	sky_base = TileMapLayer.new()
 	sky_base.name = "SkyBase"
-	sky_base.tile_set = ArtLibrary.terrain_tileset()
+	sky_base.tile_set = ArtLibrary.sky_slab_tileset()
 	sky_base.rendering_quadrant_size = 16
 	sky_group.add_child(sky_base)
 	sky_corners = Node2D.new()
@@ -199,7 +199,7 @@ func _build_sky() -> void:
 	# the faded group, the underside below it (z 29, it only hangs outside the data rect) and the rim above (z 31).
 	sky_under = TileMapLayer.new()
 	sky_under.name = "SkyUnder"
-	sky_under.tile_set = ArtLibrary.sky_under_tileset()
+	sky_under.tile_set = ArtLibrary.sky_kit_tileset()
 	sky_under.rendering_quadrant_size = 16
 	sky_under.z_index = 29
 	sky_under.visible = false
@@ -248,6 +248,7 @@ func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
 	var cap_tex := ArtLibrary.texture(info["corner_rim"])
 	var cap_size: int = int(info["corner_size"])
 	for r in rects:
+		var vars := ArtLibrary.island_variants(r, map.seed_used)
 		var corners: Array[Vector2i] = [r.position, Vector2i(r.end.x - 1, r.position.y),
 				Vector2i(r.end.x - 1, r.end.y - 1), Vector2i(r.position.x, r.end.y - 1)]
 		var skip := {}  # rim cells a cap covers (2x2 cells from each corner tile)
@@ -259,7 +260,7 @@ func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
 			var fill := Sprite2D.new()
 			fill.texture = fill_tex
 			fill.region_enabled = true
-			fill.region_rect = Rect2(ci * TILE, 0, TILE, TILE)
+			fill.region_rect = Rect2(ci * TILE, vars.x * TILE, TILE, TILE)
 			fill.centered = false
 			fill.position = Vector2(c) * TILE
 			sky_corners.add_child(fill)
@@ -273,8 +274,9 @@ func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
 		for y in range(r.position.y, r.end.y):
 			for x in range(r.position.x, r.end.x):
 				if sky.terrain_id_at(x, y) == MapState.SKY_STONE and not corners.has(Vector2i(x, y)):
-					var cell := ArtLibrary.terrain_cell(MapState.SKY_STONE, x, y, map.seed_used)
-					sky_base.set_cell(Vector2i(x, y), cell[0], cell[1])
+					var sx := (x - r.position.x) % int(info["slab_cols"])
+					var sy := (y - r.position.y) % int(info["slab_rows"]) + vars.x * int(info["slab_rows"])
+					sky_base.set_cell(Vector2i(x, y), 0, Vector2i(sx, sy))
 		for j in range(r.position.y, r.end.y + 1):
 			for i in range(r.position.x, r.end.x + 1):
 				if skip.has(Vector2i(i, j)):
@@ -286,7 +288,7 @@ func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
 						mask |= 1 << k
 				if mask != 0 and mask != 15:
 					sky_rim.set_cell(Vector2i(i, j), 0, ArtLibrary.autotile_coords(mask))
-		_paint_underside(r)
+		_paint_underside(r, vars.y)
 	for c in sky_roads.get_used_cells():  # a removed island takes its roads with it (no road_changed event)
 		if not _sky_rects.any(func(r: Rect2i) -> bool: return r.has_point(c)):
 			sky_roads.erase_cell(c)
@@ -299,26 +301,15 @@ func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
 	_sky_dim.visible = active_layer == 1 and any
 
 
-## Underside of one island: a row of stone hanging from the south edge (end pieces taper at the corners), and below
-## the hosts in the middle stretch a stalactite, so the island tapers away to the south. Variants are hashed per tile.
-func _paint_underside(r: Rect2i) -> void:
-	var kinds: Array = ArtLibrary.sky_rim_info()["under_kinds"]
-	var y := r.end.y
-	for x in range(r.position.x, r.end.x):
-		var h := absi(hash(Vector3i(x, y, map.seed_used)))
-		var col: int
-		if x == r.position.x:
-			col = kinds.find("left")
-		elif x == r.end.x - 1:
-			col = kinds.find("right")
-		else:
-			var host := x >= r.position.x + 3 and x <= r.end.x - 4 and h % 100 < 55
-			if host:
-				col = kinds.find("host_a") + (h / 100) % 2
-				sky_under.set_cell(Vector2i(x, y + 1), 0, Vector2i((h / 200) % 8, 1))
-			else:
-				col = (h / 100) % 4  # plain_a, plain_b, roots, crystal come first
-		sky_under.set_cell(Vector2i(x, y), 0, Vector2i(col, 0))
+## The island kit of this rect: every non-empty cell of the baked underside / side masses / rim lumps, placed so the
+## kit's island cell lands on the rect's first tile. Entirely outside the island body.
+func _paint_underside(r: Rect2i, variant: int) -> void:
+	var info := ArtLibrary.sky_rim_info()
+	var origin: Array = info["kit_origin"]
+	var rows := int(info["kit_rows"])
+	var base := r.position - Vector2i(int(origin[0]), int(origin[1]))
+	for c: Array in (info["kit_cells"] as Array)[variant]:
+		sky_under.set_cell(base + Vector2i(int(c[0]), int(c[1])), 0, Vector2i(int(c[0]), int(c[1]) + variant * rows))
 
 
 func _overlay_layer(ground: String) -> TileMapLayer:

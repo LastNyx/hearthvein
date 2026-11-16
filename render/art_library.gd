@@ -174,13 +174,30 @@ static func sky_rim_tileset() -> TileSet:
 	return ts
 
 
-## Underside tiles: row 0 hangs from the south edge (see under_kinds), row 1 hangs below a host tile (spike_kinds).
-static func sky_under_tileset() -> TileSet:
+## Skystone slab sheets (ticket 72): `variants` islands stacked vertically, each slab_cols x slab_rows cells.
+static func sky_slab_tileset() -> TileSet:
 	var info := sky_rim_info()
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(TILE, TILE)
-	ts.add_source(_atlas(info["under"], int(info["under_cols"]), int(info["under_rows"])), 0)
+	ts.add_source(_atlas(info["slabs"], int(info["slab_cols"]), int(info["slab_rows"]) * int(info["variants"])), 0)
 	return ts
+
+
+## Island kit (underside, side masses, rim lumps, roots, crystals), `variants` stacked vertically, kit_cols x kit_rows
+## cells each; kit_cells[v] lists the non-empty cells. kit_origin is the island's first cell inside the kit.
+static func sky_kit_tileset() -> TileSet:
+	var info := sky_rim_info()
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	ts.add_source(_atlas(info["kit"], int(info["kit_cols"]), int(info["kit_rows"]) * int(info["variants"])), 0)
+	return ts
+
+
+## Variants of an island (slab sheet, kit): deterministic from its rect and the map seed, so it never flickers.
+static func island_variants(rect: Rect2i, seed: int) -> Vector2i:
+	var n := int(sky_rim_info()["variants"])
+	var h := tile_hash(seed + 72, rect.position.x, rect.position.y)
+	return Vector2i(h % n, (h / n) % n)
 
 
 ## Tile-state overlays (blight, fouled): one atlas of translucent variants each, drawn over the ground.

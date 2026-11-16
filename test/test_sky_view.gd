@@ -193,9 +193,15 @@ func test_map_view_draws_islands_on_the_sky_group() -> void:
 	assert_eq(v.sky_corners.get_child_count(), 4, "four corner caps")
 	assert_eq(v.sky_cap_rims.get_child_count(), 4, "and their cliff bands")
 	assert_gt(v.sky_rim.get_used_cells().size(), 0, "the rim runs round the edge")
-	assert_gt(v.sky_under.get_used_cells().size(), isl.rect.size.x, "the underside hangs below the south edge")
+	assert_gt(v.sky_under.get_used_cells().size(), isl.rect.size.x, "the kit (underside, side masses, lumps) hangs round the island")
+	var corner_tiles: Array[Vector2i] = [isl.rect.position, Vector2i(isl.rect.end.x - 1, isl.rect.position.y),
+			Vector2i(isl.rect.end.x - 1, isl.rect.end.y - 1), Vector2i(isl.rect.position.x, isl.rect.end.y - 1)]
+	var deepest := 0
 	for c in v.sky_under.get_used_cells():
-		assert_gte(c.y, isl.rect.end.y, "the underside is outside the data rect")
+		if isl.rect.has_point(c):
+			assert_true(corner_tiles.has(c), "the kit only reaches into the island at the bitten corner tiles")
+		deepest = maxi(deepest, c.y - isl.rect.end.y + 1)
+	assert_gte(deepest, 3, "the underside hangs at least three tiles below the south edge")
 	assert_true(v.sky_edge.visible and v.sky_under.visible)
 	assert_almost_eq(v.sky_group.modulate.a, MapView.GROUND_VIEW_SKY_ALPHA, 0.001, "translucent from the ground")
 	v.set_active_layer(Building.LAYER_SKY)

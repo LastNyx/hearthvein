@@ -2117,6 +2117,388 @@ def b_airship_dock():
     return Sprite(im, 3, 3, glows, [], (1.0, 10))
 
 
+# ------------------------------------------------------------------ Skyborne buildings (ticket 72)
+# Pale warm stone, teal copper roofs, brass and Lumen crystal: one family that reads as "sky" and not as a cottage.
+SKYSTONE_WALL = pal("8c8068", "b4a68a", "cfc2a4", "e4d9bc", "f4edd6")
+
+
+def _plinth(im, d, x0, x1, yb, h, seed):
+    """Pale stone plinth with a lit top edge and a brass trim line."""
+    im.paste(tex_stone(x1 - x0 + 1, h, seed, SKYSTONE_WALL), (x0, yb - h + 1))
+    R(d, x0, yb - h, x1, yb - h, SKYSTONE_WALL[4])
+    R(d, x0, yb - 1, x1, yb, SKYSTONE_WALL[0])
+
+
+def _drum(im, d, x0, x1, y0, y1, seed, p=SKYSTONE_WALL, f_right=0.62):
+    """A shaded cylinder wall: stone texture, lit left, shaded right, ring joints."""
+    wall = tex_stone(x1 - x0 + 1, y1 - y0 + 1, seed, p)
+    w = x1 - x0 + 1
+    a = np.array(wall, dtype=np.float32)
+    k = np.linspace(1.12, f_right, w)[None, :, None]
+    a[..., :3] = np.clip(a[..., :3] * k, 0, 255)
+    im.paste(Image.fromarray(a.astype(np.uint8), "RGBA"), (x0, y0))
+    R(d, x0, y0, x0, y1, mul(p[4], 0.96))
+    R(d, x1, y0, x1, y1, p[0])
+
+
+def _dome(d, cx, yb, hw, h, p, rib=True):
+    """Half-ellipse dome (copper-teal) with a lit left, shaded right and ribs."""
+    d.pieslice([cx - hw, yb - h, cx + hw, yb + h], 180, 360, fill=p[2])
+    d.pieslice([cx + hw // 4, yb - h, cx + hw, yb + h], 270, 360, fill=p[1])
+    d.arc([cx - hw, yb - h, cx + hw, yb + h], 180, 360, fill=p[0])
+    d.arc([cx - hw + 2, yb - h + 2, cx + hw - 2, yb + h - 2], 190, 260, fill=p[3])
+    if rib:
+        for k in (-hw // 2, 0, hw // 2):
+            d.line([(cx + k, yb - 1), (cx + k // 2, yb - int(h * (1 - (k / hw) ** 2) ** 0.5) + 1)], fill=p[1])
+
+
+def b_skyspire():
+    """Skyspire (2x2, ticket 72): a slender tapering pale-stone tower of stacked rooms with warm windows, brass bands, a
+    balcony ring, a teal copper spire roof and a crystal finial."""
+    W, H = 64, 124
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    _plinth(im, d, 6, W - 7, yb, 8, 721)
+    base, top = yb - 8, 38
+    st = tex_stone(W, H, 722, SKYSTONE_WALL)
+
+    def hw(y):
+        return 9 + 7 * (y - top) / (base - top)
+
+    fill_poly(im, [(cx - hw(base), base), (cx - hw(top), top), (cx + hw(top), top), (cx + hw(base), base)], st)
+    fill_poly(im, [(cx + 2, base), (cx + 1, top), (cx + hw(top), top), (cx + hw(base), base)], shade(st, 0.72))
+    d.line([(cx - hw(base), base), (cx - hw(top), top)], fill=SKYSTONE_WALL[4])
+    d.line([(cx + hw(base), base), (cx + hw(top), top)], fill=SKYSTONE_WALL[0])
+    for y in (top + 22, top + 46):  # balcony rings
+        R(d, cx - hw(y) - 4, y, cx + hw(y) + 4, y + 2, BRASS[1])
+        d.line([(cx - hw(y) - 4, y), (cx + hw(y) + 4, y)], fill=BRASS[3])
+        for x in range(int(cx - hw(y) - 3), int(cx + hw(y) + 4), 3):
+            d.line([(x, y - 3), (x, y - 1)], fill=BRASS[2])
+        d.line([(cx - hw(y) - 4, y - 3), (cx + hw(y) + 4, y - 3)], fill=BRASS[1])
+    for y in (top + 12, top + 34, top + 58):  # warm round-topped windows
+        for wx in (cx - 5, cx + 1):
+            R(d, wx, y, wx + 3, y + 6, WOOD[1])
+            R(d, wx + 1, y + 1, wx + 2, y + 5, WARM)
+            glows.append((wx + 2, y + 3, 6, WARM))
+    arch_door(d, cx, base, 7, 12)
+    # teal copper spire roof with a flared eave
+    d.polygon([(cx - hw(top) - 4, top), (cx, top - 28), (cx + hw(top) + 4, top)], fill=TEAL[2])
+    d.polygon([(cx, top - 28), (cx + hw(top) + 4, top), (cx + 1, top)], fill=TEAL[1])
+    d.line([(cx - hw(top) - 4, top), (cx, top - 28)], fill=TEAL[3])
+    d.line([(cx - hw(top) - 4, top), (cx + hw(top) + 4, top)], fill=TEAL[0])
+    R(d, cx - hw(top) - 4, top, cx + hw(top) + 4, top, BRASS[2])
+    for k in (-6, 6):
+        d.line([(cx + k, top - 1), (cx + k // 3, top - 22)], fill=TEAL[1])
+    crystal(d, cx - 3, top - 26, 14, 6)
+    glows += [(cx, top - 34, 14, GLOW), (cx, top - 34, 6, CRYSTAL[4])]
+    return Sprite(im, 2, 2, glows, [], (0.9, 10))
+
+
+def b_cloud_cistern():
+    """Cloud Cistern (2x1, ticket 72): a pale stone drum tank with brass hoops and a teal dome lid, fed by a wide brass
+    cloud-catching funnel on a post, with a water gauge and a tap drip."""
+    W, H = 64, 66
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows = []
+    _plinth(im, d, 3, W - 4, yb, 7, 731)
+    tx0, tx1, ty0, ty1 = 27, 56, 20, yb - 7
+    _drum(im, d, tx0, tx1, ty0, ty1, 732)
+    for y in (ty0 + 7, ty1 - 14, ty1 - 3):
+        R(d, tx0 - 1, y, tx1 + 1, y + 1, BRASS[1])
+        R(d, tx0 - 1, y, tx1 + 1, y, BRASS[3])
+    # water gauge: a glass slit showing blue water
+    R(d, tx0 + 5, ty0 + 12, tx0 + 8, ty1 - 6, IRON[0])
+    R(d, tx0 + 6, ty0 + 14, tx0 + 7, ty1 - 7, WATER[1])
+    R(d, tx0 + 6, ty0 + 24, tx0 + 7, ty1 - 7, WATER[3])
+    # dome lid and finial
+    _dome(d, (tx0 + tx1) // 2, ty0, 16, 12, TEAL)
+    R(d, (tx0 + tx1) // 2 - 1, ty0 - 16, (tx0 + tx1) // 2 + 1, ty0 - 12, BRASS[2])
+    d.point(((tx0 + tx1) // 2, ty0 - 17), fill=BRASS[3])
+    # funnel on a post with a pipe into the tank
+    fx = 12
+    R(d, fx - 1, 34, fx + 1, yb - 7, WOOD[2])
+    R(d, fx - 1, 34, fx - 1, yb - 7, WOOD[3])
+    d.polygon([(fx - 11, 14), (fx + 11, 14), (fx + 3, 34), (fx - 3, 34)], fill=BRASS[2])
+    d.polygon([(fx + 1, 14), (fx + 11, 14), (fx + 3, 34), (fx + 1, 34)], fill=BRASS[1])
+    d.ellipse([fx - 11, 11, fx + 11, 17], fill=BRASS[1])
+    d.ellipse([fx - 9, 12, fx + 9, 16], fill=WATER[3])
+    d.line([(fx - 7, 13), (fx - 2, 13)], fill=WATER[5])
+    d.line([(fx - 11, 14), (fx - 3, 33)], fill=BRASS[3])
+    d.line([(fx + 1, 34), (fx + 1, 40), (tx0, 40)], fill=BRASS[2], width=2)
+    # a few cloud wisps in the funnel mouth
+    for x, y in ((fx - 3, 9), (fx + 2, 8), (fx, 6)):
+        d.point((x, y), fill=hexc("f4f8ff"))
+    # tap and drip basin
+    R(d, tx1 - 4, ty1 - 8, tx1 + 3, ty1 - 6, BRASS[2])
+    d.point((tx1 + 3, ty1 - 4), fill=WATER[4])
+    R(d, tx1 - 8, ty1 + 1, tx1 + 3, ty1 + 3, STONE[2])
+    R(d, tx1 - 7, ty1 + 1, tx1 + 2, ty1 + 1, WATER[3])
+    return Sprite(im, 2, 1, glows, [], (0.9, 7))
+
+
+def b_sky_garden():
+    """Sky Garden (3x2, ticket 72): two tiers of pale stone terraces planted with crops, flowering shrubs and a small
+    crystal-lit tree, with a white pergola of hanging vines over a water rill."""
+    W, H = 96, 84
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows = []
+    rng = random.Random(741)
+    lf = LEAF["green"]
+    # lower terrace
+    _plinth(im, d, 2, W - 3, yb, 22, 742)
+    R(d, 2, yb - 22, W - 3, yb - 21, SKYSTONE_WALL[4])
+    R(d, 3, yb - 31, W - 4, yb - 22, DIRT[1])  # planting bed
+    for y in (yb - 29, yb - 25):
+        for x in range(5, W - 6, 4):
+            c = rng.choice([lf[2], lf[3], lf[4]])
+            d.point([(x, y), (x + 1, y), (x, y - 1), (x + 1, y - 2)], fill=c)
+            d.point((x, y + 1), fill=lf[0])
+    R(d, 2, yb - 32, W - 3, yb - 31, SKYSTONE_WALL[3])
+    # upper terrace (back, left)
+    ux0, ux1, uy = 6, 62, yb - 56
+    im.paste(tex_stone(ux1 - ux0 + 1, 22, 743, SKYSTONE_WALL), (ux0, uy))
+    R(d, ux0, uy, ux1, uy, SKYSTONE_WALL[4])
+    R(d, ux0 + 1, uy - 9, ux1 - 1, uy - 1, DIRT[1])
+    for x in range(ux0 + 3, ux1 - 3, 5):
+        h = rng.randint(4, 8)
+        d.line([(x, uy - 2), (x - 1, uy - 2 - h)], fill=lf[3])
+        d.line([(x + 1, uy - 2), (x + 2, uy - 1 - h)], fill=lf[2])
+        d.point((x, uy - 3 - h), fill=hexc("f4c040") if x % 2 else hexc("f07aa8"))
+    R(d, ux0, uy - 10, ux1, uy - 9, SKYSTONE_WALL[3])
+    # flowering shrubs along the right edge and a little tree
+    for sx, sy, r in ((72, yb - 36, 8), (84, yb - 34, 7), (78, yb - 44, 6)):
+        d.ellipse([sx - r, sy - r, sx + r, sy + r], fill=lf[2])
+        d.ellipse([sx - r + 2, sy - r + 2, sx + r - 2, sy], fill=lf[3])
+        d.arc([sx - r, sy - r, sx + r, sy + r], 20, 160, fill=lf[1])
+        for _ in range(6):
+            d.point((sx + rng.randint(-r + 2, r - 2), sy + rng.randint(-r + 2, r - 3)),
+                    fill=rng.choice([hexc("f07aa8"), hexc("f6f0e0"), hexc("f4d050")]))
+    R(d, 77, yb - 62, 78, yb - 48, BARK[2])
+    d.ellipse([68, yb - 80, 88, yb - 58], fill=lf[2])
+    d.ellipse([70, yb - 79, 84, yb - 66], fill=lf[3])
+    d.arc([68, yb - 80, 88, yb - 58], 10, 170, fill=lf[1])
+    for x, y in ((74, yb - 72), (82, yb - 66), (78, yb - 76)):
+        d.point((x, y), fill=hexc("f4c040"))
+    # white pergola over a water rill, with hanging vines
+    px0, px1, py = 20, 56, yb - 40
+    for x in (px0, px1 - 2):
+        R(d, x, py, x + 1, yb - 22, PLASTER[3])
+        R(d, x + 1, py, x + 1, yb - 22, PLASTER[0])
+    R(d, px0 - 2, py - 2, px1 + 1, py, PLASTER[2])
+    for x in range(px0 - 1, px1 + 1, 4):
+        R(d, x, py - 3, x + 1, py - 2, PLASTER[3])
+    for x in range(px0 + 3, px1 - 3, 5):
+        ln = rng.randint(5, 10)
+        d.line([(x, py + 1), (x, py + ln)], fill=lf[2])
+        d.point([(x + 1, py + ln - 2), (x - 1, py + ln - 4)], fill=lf[4])
+    R(d, px0 + 4, yb - 23, px1 - 4, yb - 21, WATER[2])
+    R(d, px0 + 4, yb - 23, px1 - 4, yb - 23, WATER[4])
+    # small crystal lamp
+    crystal(d, 59, yb - 29, 9, 4)
+    glows.append((61, yb - 33, 8, GLOW))
+    return Sprite(im, 3, 2, glows, [], (1.0, 9))
+
+
+def b_aether_collector():
+    """Aether Collector (2x2, ticket 72): a stone base with a capacitor housing, under a tilted brass dish on an iron
+    mast that gathers Lumen into a floating crystal at its focus."""
+    W, H = 64, 108
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    _plinth(im, d, 4, W - 5, yb, 10, 751)
+    # capacitor housing
+    R(d, 10, yb - 28, 30, yb - 10, IRON[1])
+    R(d, 10, yb - 28, 30, yb - 28, IRON[3])
+    R(d, 10, yb - 28, 10, yb - 10, IRON[2])
+    R(d, 28, yb - 27, 30, yb - 10, IRON[0])
+    for x in (13, 19, 25):
+        R(d, x, yb - 24, x + 3, yb - 14, CRYSTAL[1])
+        R(d, x + 1, yb - 24, x + 1, yb - 14, CRYSTAL[4])
+        glows.append((x + 2, yb - 19, 7, GLOW))
+    # iron mast with braces
+    mx = 42
+    R(d, mx - 2, 40, mx + 2, yb - 10, IRON[2])
+    R(d, mx - 2, 40, mx - 2, yb - 10, IRON[3])
+    R(d, mx + 2, 40, mx + 2, yb - 10, IRON[0])
+    d.line([(mx - 9, yb - 10), (mx - 2, yb - 36)], fill=IRON[1], width=2)
+    d.line([(mx + 9, yb - 10), (mx + 2, yb - 36)], fill=IRON[1], width=2)
+    # brass dish, tilted: ellipse bowl with a lit rim and a darker inside
+    dx, dy = 36, 40
+    d.ellipse([dx - 24, dy - 14, dx + 22, dy + 8], fill=BRASS[1])
+    d.ellipse([dx - 22, dy - 12, dx + 20, dy + 5], fill=BRASS[0])
+    d.ellipse([dx - 20, dy - 10, dx + 17, dy + 3], fill=BRASS[1])
+    d.ellipse([dx - 16, dy - 8, dx + 12, dy + 1], fill=CRYSTAL[0])
+    d.ellipse([dx - 12, dy - 7, dx + 6, dy - 1], fill=CRYSTAL[1])
+    d.arc([dx - 24, dy - 14, dx + 22, dy + 8], 150, 340, fill=BRASS[3])
+    d.line([(dx - 18, dy - 4), (dx - 6, dy - 8)], fill=CRYSTAL[3])
+    # three struts to the focus crystal
+    fx, fy = dx - 2, 10
+    for sx in (dx - 20, dx - 2, dx + 17):
+        d.line([(sx, dy - 6 if sx != dx - 2 else dy - 4), (fx, fy + 8)], fill=BRASS[2])
+    d.polygon([(fx, fy - 6), (fx - 5, fy + 3), (fx, fy + 12), (fx + 5, fy + 3)], fill=CRYSTAL[2])
+    d.polygon([(fx, fy - 6), (fx - 5, fy + 3), (fx - 1, fy + 3)], fill=CRYSTAL[3])
+    d.polygon([(fx, fy + 12), (fx + 5, fy + 3), (fx, fy + 3)], fill=CRYSTAL[1])
+    d.point((fx - 1, fy), fill=CRYSTAL[4])
+    glows += [(fx, fy + 3, 20, GLOW), (fx, fy + 3, 7, CRYSTAL[4]), (dx - 4, dy - 4, 12, GLOW)]
+    # cable from the mast to the housing
+    d.line([(mx - 2, yb - 30), (30, yb - 24)], fill=CRYSTAL[2])
+    return Sprite(im, 2, 2, glows, [], (0.9, 10))
+
+
+def b_skyforge():
+    """Skyforge (2x2, ticket 72): a compact pale-stone smithy with a slate roof, a tall chimney throwing smoke, a bright
+    furnace arch, a wooden bellows and a crystal-lit quench trough, with an anvil and tool rack out front."""
+    W, H = 64, 96
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows, smoke = [], []
+    _plinth(im, d, 3, W - 4, yb, 8, 761)
+    hx0, hx1, hy1 = 6, 46, yb - 8
+    hy0 = hy1 - 26
+    im.paste(tex_stone(hx1 - hx0, hy1 - hy0, 762, SKYSTONE_WALL), (hx0, hy0))
+    R(d, hx1 - 8, hy0, hx1 - 1, hy1, SKYSTONE_WALL[1])
+    # slate roof (single big pitch with a lit ridge)
+    d.polygon([(hx0 - 3, hy0 + 1), (hx0 + 8, hy0 - 14), (hx1 - 6, hy0 - 14), (hx1 + 3, hy0 + 1)], fill=SLATE[2])
+    d.polygon([(hx1 - 6, hy0 - 14), (hx1 + 3, hy0 + 1), (hx1 - 10, hy0 + 1)], fill=SLATE[1])
+    for y in range(hy0 - 11, hy0, 3):
+        d.line([(hx0 + 2, y), (hx1 - 2, y)], fill=SLATE[1])
+    R(d, hx0 - 3, hy0 + 1, hx1 + 3, hy0 + 2, SLATE[0])
+    R(d, hx0 + 8, hy0 - 15, hx1 - 6, hy0 - 14, SLATE[4])
+    # furnace mouth
+    ax0, aw, ah = 13, 15, 19  # furnace mouth: an iron arch with an orange fire inside
+    R(d, ax0, hy1 - ah + aw // 2, ax0 + aw - 1, hy1, IRON[0])
+    d.ellipse([ax0, hy1 - ah, ax0 + aw - 1, hy1 - ah + aw], fill=IRON[0])
+    R(d, ax0 + 1, hy1 - ah + aw // 2, ax0 + aw - 2, hy1, hexc("e8641e"))
+    d.ellipse([ax0 + 1, hy1 - ah + 1, ax0 + aw - 2, hy1 - ah + aw - 1], fill=hexc("e8641e"))
+    R(d, ax0 + 3, hy1 - 11, ax0 + aw - 4, hy1, hexc("ffb040"))
+    R(d, ax0 + 5, hy1 - 7, ax0 + aw - 6, hy1, hexc("fff0b0"))
+    glows.append((ax0 + aw // 2, hy1 - 8, 14, WARM))
+    R(d, 12, hy1 - 3, 28, hy1, STONE[1])
+    # side window
+    R(d, 34, hy0 + 8, 40, hy0 + 14, WOOD[1])
+    R(d, 35, hy0 + 9, 39, hy0 + 13, WARM)
+    glows.append((37, hy0 + 11, 7, WARM))
+    # chimney
+    cx0, cx1, ctop = 33, 42, 12
+    im.paste(tex_stone(cx1 - cx0, hy0 - 14 - ctop, 763, SKYSTONE_WALL), (cx0, ctop))
+    R(d, cx1 - 3, ctop, cx1 - 1, hy0 - 14, SKYSTONE_WALL[1])
+    R(d, cx0 - 1, ctop - 2, cx1, ctop, BRASS[2])
+    R(d, cx0 - 1, ctop - 2, cx1, ctop - 2, BRASS[3])
+    glows.append((cx0 + 4, ctop - 1, 8, WARM))
+    smoke.append((cx0 + 4, ctop - 3))
+    # bellows (right): wooden folds and a brass nozzle
+    bx = 48
+    d.polygon([(bx, hy1 - 10), (bx + 12, hy1 - 14), (bx + 12, hy1 - 3), (bx, hy1 - 3)], fill=WOOD[2])
+    for k in range(bx + 2, bx + 12, 3):
+        d.line([(k, hy1 - 13), (k, hy1 - 3)], fill=WOOD[1])
+    R(d, bx, hy1 - 10, bx + 12, hy1 - 10, WOOD[4])
+    R(d, bx - 4, hy1 - 8, bx, hy1 - 7, BRASS[2])
+    # quench trough with glowing water, anvil
+    R(d, 50, hy1 - 2, 60, hy1, WOOD[1])
+    R(d, 51, hy1 - 3, 59, hy1 - 2, TEAL[2])
+    glows.append((55, hy1 - 3, 6, TEAL_GLOW))
+    R(d, 8, hy1 - 8, 15, hy1 - 6, IRON[2])
+    R(d, 10, hy1 - 6, 13, hy1 - 3, IRON[1])
+    R(d, 8, hy1 - 8, 15, hy1 - 8, IRON[4])
+    return Sprite(im, 2, 2, glows, smoke, (0.9, 9))
+
+
+def b_observatory():
+    """Observatory (2x2, ticket 72): a round pale-stone drum with a teal copper dome split by a slit, a long brass
+    telescope barrel pointing out at the sky, a balcony ring and a glowing star-crystal."""
+    W, H = 64, 104
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    _plinth(im, d, 4, W - 5, yb, 9, 771)
+    x0, x1, y0, y1 = 12, W - 13, 44, yb - 9
+    _drum(im, d, x0, x1, y0, y1, 772)
+    for y in (y0 + 14, y1 - 4):
+        R(d, x0 - 3, y, x1 + 3, y + 2, BRASS[1])
+        R(d, x0 - 3, y, x1 + 3, y, BRASS[3])
+    for x in range(x0 - 2, x1 + 3, 3):
+        d.line([(x, y0 + 11), (x, y0 + 13)], fill=BRASS[2])
+    R(d, x0 - 3, y0 + 11, x1 + 3, y0 + 11, BRASS[1])
+    for wx in (x0 + 6, x1 - 10):
+        R(d, wx, y0 + 21, wx + 3, y0 + 30, WOOD[1])
+        R(d, wx + 1, y0 + 22, wx + 2, y0 + 29, WARM)
+        glows.append((wx + 2, y0 + 26, 6, WARM))
+    arch_door(d, cx, y1, 7, 12)
+    # dome with a slit in it and the telescope
+    dy = y0
+    d.pieslice([x0 - 2, dy - 24, x1 + 2, dy + 24], 180, 360, fill=TEAL[2])
+    d.pieslice([cx + 8, dy - 24, x1 + 2, dy + 24], 270, 360, fill=TEAL[1])
+    d.arc([x0 - 2, dy - 24, x1 + 2, dy + 24], 180, 360, fill=TEAL[0])
+    d.arc([x0, dy - 22, x1, dy + 22], 195, 255, fill=TEAL[3])
+    d.polygon([(cx + 2, dy - 23), (cx + 10, dy - 21), (cx + 10, dy), (cx + 2, dy)], fill=IRON[0])  # the slit
+    R(d, cx + 4, dy - 20, cx + 8, dy - 1, SLATE[0])
+    for k in (-14, -7):
+        d.line([(cx + k, dy - 1), (cx + k // 2, dy - 20)], fill=TEAL[1])
+    # telescope
+    d.line([(cx + 5, dy - 8), (cx + 22, dy - 28)], fill=BRASS[1], width=5)
+    d.line([(cx + 5, dy - 10), (cx + 22, dy - 30)], fill=BRASS[3], width=1)
+    d.line([(cx + 20, dy - 27), (cx + 24, dy - 32)], fill=BRASS[0], width=6)
+    d.ellipse([cx + 21, dy - 34, cx + 26, dy - 30], fill=CRYSTAL[3])
+    glows.append((cx + 24, dy - 32, 10, GLOW))
+    # star crystal on a finial
+    R(d, cx - 1, dy - 30, cx, dy - 22, BRASS[2])
+    crystal(d, cx - 4, dy - 28, 12, 6)
+    glows += [(cx - 1, dy - 34, 12, GLOW), (cx - 1, dy - 34, 5, CRYSTAL[4])]
+    return Sprite(im, 2, 2, glows, [], (0.9, 10))
+
+
+def b_dawn_beacon():
+    """Dawn Beacon (2x2, ticket 72): a stepped pale-stone tower under a brass lantern cage holding a blazing golden prism,
+    with warm light fanning out; the Skyborne landmark."""
+    W, H = 64, 136
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    _plinth(im, d, 4, W - 5, yb, 9, 781)
+    # three stepped tiers
+    base = yb - 9
+    for i, (hw_, h_) in enumerate(((24, 22), (18, 30), (12, 34))):
+        y0 = base - h_
+        _drum(im, d, cx - hw_, cx + hw_ - 1, y0, base - 1, 782 + i)
+        R(d, cx - hw_ - 2, y0 - 2, cx + hw_ + 1, y0, BRASS[1])
+        R(d, cx - hw_ - 2, y0 - 2, cx + hw_ + 1, y0 - 2, BRASS[3])
+        base = y0 - 2
+    # warm windows on the middle tier
+    for wx in (cx - 8, cx + 5):
+        R(d, wx, yb - 52, wx + 3, yb - 45, WOOD[1])
+        R(d, wx + 1, yb - 51, wx + 2, yb - 46, WARM)
+        glows.append((wx + 2, yb - 48, 6, WARM))
+    arch_door(d, cx, yb - 9, 9, 14)
+    # lantern cage with the prism
+    cy = base
+    R(d, cx - 12, cy - 4, cx + 11, cy - 1, BRASS[2])
+    R(d, cx - 12, cy - 4, cx + 11, cy - 4, BRASS[3])
+    d.polygon([(cx - 8, cy - 5), (cx, cy - 34), (cx + 8, cy - 5)], fill=hexc("ffe9a8"))
+    d.polygon([(cx, cy - 34), (cx + 8, cy - 5), (cx, cy - 5)], fill=hexc("ffc65a"))
+    d.line([(cx, cy - 33), (cx, cy - 6)], fill=hexc("fffbe8"))
+    for x in (cx - 10, cx + 9):
+        R(d, x, cy - 30, x + 1, cy - 5, BRASS[2])
+    R(d, cx - 10, cy - 31, cx + 10, cy - 29, BRASS[2])
+    R(d, cx - 10, cy - 31, cx + 10, cy - 31, BRASS[3])
+    d.polygon([(cx - 11, cy - 31), (cx, cy - 44), (cx + 11, cy - 31)], fill=TEAL[2])
+    d.polygon([(cx, cy - 44), (cx + 11, cy - 31), (cx, cy - 31)], fill=TEAL[1])
+    d.point((cx, cy - 46), fill=BRASS[3])
+    R(d, cx, cy - 47, cx, cy - 44, BRASS[2])
+    glows += [(cx, cy - 18, 30, WARM), (cx, cy - 18, 14, hexc("fff4c8")), (cx, cy - 18, 46, WARM)]
+    return Sprite(im, 2, 2, glows, [], (0.9, 10))
+
+
 AIRSHIP_CELL = (48, 32)
 
 
