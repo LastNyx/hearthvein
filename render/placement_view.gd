@@ -48,6 +48,7 @@ func _on_event(kind: String, e: Dictionary) -> void:
 			var t: Vector2i = e["tile"]
 			for d in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
 				_refresh_road(t + d)
+				_refresh_track(t + d)  # a crossing tile switches between plain track and the crossing art
 		"building_placed":
 			if settlement.buildings.has(e["id"]) and not _nodes.has(e["id"]):
 				_add_building(settlement.buildings[e["id"]])
@@ -76,8 +77,8 @@ func _refresh_road(t: Vector2i) -> void:
 	var lv := _level(t)
 	if lv <= 0:
 		view.roads.erase_cell(t)
-		# Props come back unless a building still covers the tile.
-		view.set_props_visible(t, settlement.building_at(t) == null)
+		# Props come back unless a building or track still covers the tile.
+		view.set_props_visible(t, settlement.building_at(t) == null and not settlement.track_at(t))
 		return
 	view.set_props_visible(t, false)  # roads cover rock/vein/tree props
 	var mask := 0
@@ -102,7 +103,7 @@ func _refresh_track(t: Vector2i) -> void:
 	for i in 4:
 		if settlement.track_at(t + dirs[i]):
 			mask |= 1 << i
-	view.track.set_cell(t, 0, Vector2i(mask, 0))
+	view.track.set_cell(t, 1 if _level(t) > 0 else 0, Vector2i(mask, 0))  # source 1: level crossing over a road
 
 
 func _dug(t: Vector2i) -> bool:

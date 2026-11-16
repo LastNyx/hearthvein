@@ -899,7 +899,7 @@ func can_place_road(tile: Vector2i) -> bool:
 	if tid == "water" or (tdef != null and not tdef.buildable):
 		return false
 	var i := MapState.idx(tile.x, tile.y)
-	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE and track[i] == 0
+	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE  # a track tile may take a road: a level crossing (ticket 67)
 
 
 ## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
@@ -972,8 +972,6 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "overlap"}
 	if channels[i] != CHANNEL_NONE:
 		return {"ok": false, "reason": "channel"}
-	if track[i] != 0:
-		return {"ok": false, "reason": "track"}
 	if roads[i] >= ROAD_PAVED:
 		return {"ok": false, "reason": "already_paved"}
 	if not _road_unlocked(ROAD_PAVED):
@@ -1019,7 +1017,8 @@ func track_at(tile: Vector2i) -> bool:
 ## its own layer, placed like road: on owned, buildable land, never under a building. A track tile and a road tile are
 ## different overlays and cannot share a tile (reason "road"; the same goes for a channel). The cost is
 ## LogisticsDef.track_cost_materials + track_cost_cut_stone per tile (design.md section 8: 2 materials + 1 cut stone).
-## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, road, channel, track, materials, cut_stone.
+## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, channel, track, materials, cut_stone.
+## A road tile takes track too (ticket 67, a level crossing): both layers stay set, and lifting one leaves the other.
 func can_place_track(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
 		return {"ok": false, "reason": "out_of_bounds"}
@@ -1034,8 +1033,6 @@ func can_place_track(tile: Vector2i) -> Dictionary:
 	var i := MapState.idx(tile.x, tile.y)
 	if occupancy[i] >= 0:
 		return {"ok": false, "reason": "overlap"}
-	if roads[i] != ROAD_NONE:
-		return {"ok": false, "reason": "road"}
 	if channels[i] != CHANNEL_NONE:
 		return {"ok": false, "reason": "channel"}
 	if track[i] != 0:

@@ -325,6 +325,8 @@ static func track_tileset() -> TileSet:
 	ts.tile_size = Vector2i(TILE, TILE)
 	var r: Dictionary = manifest()["rail"]["track"]
 	ts.add_source(_atlas(r["file"], int(r["cols"]), int(r["rows"])), 0)
+	var c: Dictionary = manifest()["rail"]["crossing"]  # source 1: planks and rails over a road tile (ticket 67)
+	ts.add_source(_atlas(c["file"], int(c["cols"]), int(c["rows"])), 1)
 	return ts
 
 

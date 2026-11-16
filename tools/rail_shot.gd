@@ -1,11 +1,11 @@
 extends SceneTree
-## Windowed screenshot of rail track and a train (ticket 37c): godot --path . -s tools/rail_shot.gd [-- seed [nodraw]]
+## Windowed screenshot of rail track and a train (tickets 37c, 67): godot --path . -s tools/rail_shot.gd [-- seed [nodraw]]
 ## A Conflux settlement with two regions side by side: the Hearth region holds a road-connected, staffed Rail Depot and
 ## a stock of food; the next region holds a second depot (road stub beside it, so it is staffed over the rail link) and
 ## homes that need food. Rail track with two corners joins the depots. The sim is stepped until a shipment leaves, then
 ## to about half way, so a train stands on the track. The sim is then frozen and the camera frames the train.
 ## With "nodraw" no image is written (headless layout check): it prints the shipment instead.
-## Writes .scratch/v1/hv_37c_rail_z1.png (zoom step 1) and hv_37c_rail_z2.png (zoom step 2).
+## Writes .scratch/v1/hv_67_rail_z1.png (zoom step 1) and hv_67_rail_z2.png (zoom step 2).
 
 const L := preload("res://tools/shot_layout.gd")
 const OUT := "/home/ngeng/Proyek/hearthvein/.scratch/v1/"
@@ -60,6 +60,11 @@ func _init() -> void:
 		x += sign
 	for y in range(y0, y0 + 5):
 		s.place_track(Vector2i(cx, y))
+	# A road crosses the track row between the corners (level crossing, ticket 67), north-south through the track.
+	var crossx := (ax + cx) / 2
+	for y in range(y0 - 3, y0 + 4):
+		s.place_road(Vector2i(crossx, y))  # the row y0 tile is laid over the track
+	print("rail_shot: crossing at ", Vector2i(crossx, y0), " road ", s.road_at(Vector2i(crossx, y0)), " track ", s.track_at(Vector2i(crossx, y0)))
 	# Homes in region B that need food, homes in region A for the staff.
 	var homes := [b_origin + Vector2i(5 * sign, -3), b_origin + Vector2i(5 * sign, 2), b_origin + Vector2i(5 * sign, 5)]
 	for t in homes:
@@ -102,8 +107,8 @@ func _init() -> void:
 	var cam: CameraController = main.get_node("Camera")
 	cam.position = (Vector2(mid) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
 	cam.set_zoom_step(1)
-	await _shoot(OUT + "hv_37c_rail_z1.png")
+	await _shoot(OUT + "hv_67_rail_z1.png")
 	cam.set_zoom_step(2)
 	cam.position = (Vector2(mid) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
-	await _shoot(OUT + "hv_37c_rail_z2.png")
+	await _shoot(OUT + "hv_67_rail_z2.png")
 	quit()

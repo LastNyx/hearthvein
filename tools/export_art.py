@@ -762,11 +762,12 @@ def export_channels(manifest):
 ARMS = {1: (0, -1), 2: (1, 0), 4: (0, 1), 8: (-1, 0)}  # N, E, S, W as (dx, dy); same bits as roads
 
 
-def track_tile(mask):
+def track_tile(mask, crossing=False):
     """Rails on wooden sleepers over gravel ballast, for a connection mask (N=1, E=2, S=4, W=8). A tile with one or
     no neighbour is drawn as a straight piece along its axis (the depot or the open end sits there). Corners are
     mitered rails; a T is two corners; a cross lets both lines run through. Roads and channels never share a tile
-    with track, so the tile has no road variant yet (a level crossing, ticket 67, can add one here)."""
+    with track in the plain tile. crossing=True (ticket 67) draws only what lies over a road: plank infill between and
+    just outside the rails plus the two rails, on transparent pixels, for the track layer to sit over the road tile."""
     if mask in (0, 2, 8):
         mask = 2 | 8
     elif mask in (1, 4):
@@ -781,9 +782,10 @@ def track_tile(mask):
             rd = np.minimum(rd, M.seg_dist(XS, YS, a, b))
     ballast = rd < 9.5 + (BAY - 0.5) * 1.6
     v = pfbm(1300, 17)
-    gravel = np.array([M.ROCK[1][:3], M.STONE[1][:3], M.ROCK[2][:3], M.STONE[2][:3]], dtype=np.uint8)
+    gravel = np.array([M.hexc("4a4238"), M.hexc("5e5548"), M.hexc("756b5c"), M.hexc("8a806e")], dtype=np.uint8)[:, :3]
     rgb = gravel[pquant(v, 4, 0.0, 0.9)]
     sleeper = np.zeros((T, T), dtype=bool)
+    plank = np.zeros((T, T), dtype=bool)
     rail = np.zeros((T, T), dtype=np.int8)  # 1 outer rail pixel, 2 inner (lit) rail pixel
     for bit, (ax, ay) in ARMS.items():
         if not mask & bit:
@@ -792,19 +794,32 @@ def track_tile(mask):
         u = px * ax + py * ay
         w = px * lx + py * ly
         axis = iy if ax == 0 else ix
-        sleeper |= (u > 0) & (np.abs(w) < 7.5) & ((axis % 8 == 2) | (axis % 8 == 3))
+        sleeper |= (u > 0) & (np.abs(w) < 7.5) & ((axis % 8 == 2) | (axis % 8 == 3) | (axis % 8 == 4))
+        plank |= (u > -5.0) & (np.abs(w) < 7.5)
         for side in (-1, 1):
             perp = ARMS_BIT(side * lx, side * ly)
             lo = 3.0 if (mask != 15 and mask & perp) else -5.0
-            on = (u >= lo) & (np.abs(w - side * 3.9) < 1.1)
+            on = (u >= lo) & (np.abs(w - side * 3.9) < 1.3)
             lit = on & (np.abs(w) < 4.0)
             rail[on] = np.maximum(rail[on], 1)
             rail[lit] = 2
     rgb = rgb.copy()
-    rgb[sleeper] = M.WOOD[2][:3]
-    top = sleeper & (BAY > 0.5)
-    rgb[top] = M.WOOD[3][:3]
-    rgb[rail == 1] = M.IRON[2][:3]
+    if crossing:
+        # Planks laid along the road between and beside the rails; the plain sleepers' bands are skipped.
+        seam = np.zeros((T, T), dtype=bool)
+        for bit, (ax, ay) in ARMS.items():
+            if mask & bit:
+                seam |= ((ix if ax == 0 else iy) % 4 == 0)
+        rgb[plank] = M.WOOD[2][:3]
+        rgb[plank & seam] = M.WOOD[1][:3]
+        rgb[plank & (BAY > 0.5) & ~seam] = M.WOOD[3][:3]
+        sleeper = plank
+        ballast = np.zeros((T, T), dtype=bool)
+    else:
+        rgb[sleeper] = M.WOOD[2][:3]
+        rgb[sleeper & (BAY > 0.5)] = M.WOOD[3][:3]
+        rgb[sleeper & (np.abs(iy % 8 - 4) == 0) & (np.abs(ix % 8 - 4) == 0)] = M.WOOD[1][:3]
+    rgb[rail == 1] = M.IRON[1][:3]
     rgb[rail == 2] = M.IRON[4][:3]
     return to_img(rgb, np.where(ballast | sleeper | (rail > 0), 255, 0))
 
@@ -906,6 +921,9 @@ def export_rail(manifest):
     tiles = [track_tile(m) for m in range(16)]
     im, rows = pack_atlas(tiles, 16)
     save(im, OUT / "rail" / "track.png")
+    tiles = [track_tile(m, True) for m in range(16)]
+    im, rows = pack_atlas(tiles, 16)
+    save(im, OUT / "rail" / "crossing.png")
     cw, ch = TRAIN_CELL
     atlas = Image.new("RGBA", (cw * len(TRAIN_DIRS), ch * 2))
     for r, kind in enumerate(("loco", "wagon")):
@@ -914,6 +932,7 @@ def export_rail(manifest):
     save(atlas, OUT / "rail" / "train.png")
     manifest["rail"] = {
         "track": {"file": "rail/track.png", "cols": 16, "rows": rows},
+        "crossing": {"file": "rail/crossing.png", "cols": 16, "rows": rows},
         "train": {"file": "rail/train.png", "cell": list(TRAIN_CELL), "foot": list(TRAIN_FOOT),
                   "dirs": TRAIN_DIRS, "kinds": ["loco", "wagon"], "gap": TRAIN_CAR_GAP, "cars": ["loco", "wagon", "wagon"]},
     }

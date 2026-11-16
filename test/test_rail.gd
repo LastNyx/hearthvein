@@ -148,11 +148,8 @@ func test_track_cost_and_rules() -> void:
 	assert_almost_eq(float(s.totals()["materials"]), m0 - 2.0, 0.001)
 	assert_almost_eq(float(s.totals()["cut_stone"]), c0 - 1.0, 0.001)
 	assert_eq(s.can_place_track(Vector2i(bx, y0))["reason"], "track", "no double track")
-	assert_false(s.place_road(Vector2i(bx, y0)), "a road cannot cover track")
 	assert_eq(s.can_place("tent", Vector2i(bx, y0))["reason"], "track", "nor a building")
 	assert_eq(s.can_place_channel(Vector2i(bx, y0))["reason"], "track", "nor a channel")
-	s.place_road(Vector2i(bx, y0 + 1))
-	assert_eq(s.can_place_track(Vector2i(bx, y0 + 1))["reason"], "road", "track does not cross a road")
 	s.remove_track(Vector2i(bx, y0))
 	assert_almost_eq(float(s.totals()["materials"]), m0 - 1.0, 0.001, "half the materials come back")
 	# Short of cut stone: refused and nothing spent.
@@ -181,3 +178,61 @@ func test_track_survives_save_round_trip() -> void:
 	var rail2: RailSystem = s2.get_system(RailSystem)
 	assert_true(rail2.linked(s2, d[0], d[1]), "the link is rebuilt from the loaded track")
 	assert_true(s2.track_at(Vector2i(bx, y0)))
+
+
+# ---- ticket 67: level crossings
+
+func test_track_on_road_is_a_crossing_for_both_layers() -> void:
+	var d := _two_depots()
+	var t := Vector2i(bx, y0 + 1)  # a road tile beside the track row, then the track runs through it
+	_lay_track(bx - 2, bx - 1)
+	assert_true(s.place_road(Vector2i(bx, y0)), "a road may cover track")
+	assert_true(s.place_road(t))
+	assert_true(s.place_road(Vector2i(bx, y0 - 1)))
+	var m0 := float(s.totals()["materials"])
+	assert_true(s.can_place_track(Vector2i(bx, y0 + 1))["ok"], "track may cross a road")
+	assert_true(s.place_track(Vector2i(bx, y0 + 1)))
+	assert_almost_eq(float(s.totals()["materials"]), m0 - 2.0, 0.001, "the added layer is charged")
+	assert_true(s.track_at(t) and s.road_at(t) > 0, "both layers stay set")
+	assert_true(s.place_track(Vector2i(bx + 1, y0)) and s.place_track(Vector2i(bx, y0)))
+	assert_true(s.road_at(Vector2i(bx, y0)) > 0 and s.track_at(Vector2i(bx, y0)), "road laid first then track")
+	assert_true(rail.linked(s, d[0], d[1]), "a crossing counts as track for the depot link")
+	assert_eq(s.can_place_track(Vector2i(bx, y0))["reason"], "track")
+	assert_false(s.can_place("tent", t)["ok"], "no building on a crossing")
+
+
+func test_lifting_one_layer_leaves_the_other() -> void:
+	var d := _two_depots()
+	_lay_track(bx - 2, bx + 1)
+	var t := Vector2i(bx, y0)
+	assert_true(s.place_road(t))
+	assert_true(s.remove_track(t))
+	assert_true(s.road_at(t) > 0, "road stays")
+	assert_false(rail.linked(s, d[0], d[1]), "the link breaks with the track gone")
+	assert_true(s.place_track(t))
+	assert_true(s.remove_road(t))
+	assert_true(s.track_at(t), "track stays")
+	assert_true(rail.linked(s, d[0], d[1]))
+	assert_eq(s.road_at(t), 0)
+
+
+func test_crossing_keeps_road_connectivity_and_survives_save() -> void:
+	var d := _two_depots()
+	_lay_track(bx - 2, bx + 1)
+	var t := Vector2i(bx, y0)
+	for x in range(bx - 1, bx + 2):
+		s.place_road(Vector2i(x, y0 + 1))
+	assert_true(s.place_road(t))
+	assert_true(s.road_at(t) > 0)
+	var s2 := Settlement.from_dict(s.to_dict(), reg)
+	assert_not_null(s2)
+	assert_true(s2.track_at(t) and s2.road_at(t) > 0, "crossing survives the round trip")
+	assert_eq(s2.track, s.track)
+	assert_eq(s2.roads, s.roads)
+	assert_true((s2.get_system(RailSystem) as RailSystem).linked(s2, d[0], d[1]))
+
+
+func test_crossing_art_in_manifest() -> void:
+	var r: Dictionary = ArtLibrary.manifest()["rail"]
+	assert_true(r.has("crossing") and r.has("track"), "track and crossing atlases are exported")
+	assert_eq(ArtLibrary.track_tileset().get_source_count(), 2)

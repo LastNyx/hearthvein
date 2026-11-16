@@ -2856,6 +2856,11 @@
   }
  },
  "rail": {
+  "crossing": {
+   "cols": 16,
+   "file": "rail/crossing.png",
+   "rows": 1
+  },
   "track": {
    "cols": 16,
    "file": "rail/track.png",
