@@ -1,6 +1,6 @@
 extends GutTest
 ## Ticket 34c: special tier III rules (design.md sections 9 and 10). Farm III is the Terraced Farm, which loses no
-## fertility; Greenhouse III ignores blight, where a Greenhouse of tier I or II stops ("blight" halt) when its tiles
+## fertility; Greenhouse III ignores blight, where a Greenhouse of tier I or II makes half when its tiles
 ## or the ring around them are blighted.
 
 const SEED := 42
@@ -59,43 +59,45 @@ func test_terraced_farm_keeps_fertility() -> void:
 	assert_almost_eq(fs.fertility_at(s, plain.origin), 56.0, 0.001, "a plain farm loses 4 a year")
 
 
-# AC2: a Greenhouse of tier I and II stops beside blight; Greenhouse III keeps working.
+# AC2: a Greenhouse of tier I and II makes half beside blight; Greenhouse III keeps full output.
 func test_greenhouse_three_keeps_working_on_blight() -> void:
-	var ps := s.get_system(ProductionSystem) as ProductionSystem
 	var g := _place("greenhouse", 4, -1)
 	s.refresh_population()
 	_run_days(1)
 	assert_eq(g.halt, "", "clean ground: it works")
-	var before := ps.produced_total
-	_run_days(1)
-	assert_gt(ps.produced_total, before, "it produces")
+	assert_almost_eq(BlightSystem.output_modifier(s, g), 1.0, 0.0001, "clean ground: full output")
 	# Blight on a footprint tile and on the ring beside it.
 	s.set_blighted(g.origin, true)
 	s.set_blighted(g.origin + Vector2i(-1, 0), true)
 	for tier in [1, 2]:
 		g.tier = tier
-		s.refresh_population()
-		_run_days(1)
-		assert_eq(g.halt, "blight", "tier %d halts on blight" % tier)
-		before = ps.produced_total
-		_run_days(1)
-		assert_almost_eq(ps.produced_total, before, 0.0001, "tier %d makes nothing under blight" % tier)
+		assert_almost_eq(BlightSystem.output_modifier(s, g), g.def.blight_output_factor, 0.0001,
+				"tier %d makes the blight share" % tier)
+		assert_almost_eq(g.def.blight_output_factor, 0.5, 0.0001, "half, like farm fertility")
+	var ps := s.get_system(ProductionSystem) as ProductionSystem
+	g.tier = 1
+	s.refresh_population()
+	_run_days(1)
+	var before := ps.produced_total
+	_run_days(1)
+	var blighted_day := ps.produced_total - before
+	assert_gt(blighted_day, 0.0, "tier I still produces under blight")
 	g.tier = 3
 	s.refresh_population()
 	_run_days(1)
-	assert_ne(g.halt, "blight", "tier III ignores blight")
+	assert_almost_eq(BlightSystem.output_modifier(s, g), 1.0, 0.0001, "tier III ignores blight")
 	before = ps.produced_total
 	_run_days(1)
-	assert_gt(ps.produced_total, before, "Greenhouse III keeps producing on blighted tiles")
+	assert_gt(ps.produced_total - before, blighted_day, "Greenhouse III makes more than a blighted tier I")
 
 
 # Blight farther than the ring does not stop a tier I Greenhouse; other buildings are unaffected.
 func test_blight_reach_is_one_tile() -> void:
 	var g := _place("greenhouse", 4, -1)
 	s.set_blighted(g.origin + Vector2i(-2, 0), true)
-	assert_false(BlightSystem.halts_production(s, g), "two tiles away")
+	assert_false(BlightSystem.blight_hits(s, g), "two tiles away")
 	s.set_blighted(g.origin + Vector2i(-1, 0), true)
-	assert_true(BlightSystem.halts_production(s, g), "the ring")
+	assert_true(BlightSystem.blight_hits(s, g), "the ring")
 	var farm := _place("farm", 8, -1)
 	s.set_blighted(farm.origin, true)
-	assert_false(BlightSystem.halts_production(s, farm), "farms only lose fertility")
+	assert_false(BlightSystem.blight_hits(s, farm), "farms only lose fertility")

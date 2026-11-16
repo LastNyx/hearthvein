@@ -147,10 +147,17 @@ static func near_blight(s: Settlement, b: Building) -> bool:
 	return false
 
 
-## True when blight stops this building's production: its def has a blight_halt_reach, the current tier does not
-## ignore blight (Greenhouse III), and a tile within that reach of the footprint is blighted.
-static func halts_production(s: Settlement, b: Building) -> bool:
-	var reach := b.def.blight_halt_reach
+## Production modifier: def.blight_output_factor when a tile within def.blight_reach of the footprint is blighted
+## and the current tier does not ignore blight (Greenhouse III); 1.0 otherwise.
+static func output_modifier(s: Settlement, b: Building) -> float:
+	if b.def.blight_reach <= 0:
+		return 1.0
+	return b.def.blight_output_factor if blight_hits(s, b) else 1.0
+
+
+## True when blight within def.blight_reach of the footprint cuts this building (its tier does not ignore blight).
+static func blight_hits(s: Settlement, b: Building) -> bool:
+	var reach := b.def.blight_reach
 	if reach <= 0:
 		return false
 	var td := b.tier_def(s.registry)
