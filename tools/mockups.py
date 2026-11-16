@@ -1357,6 +1357,274 @@ def b_skyheart():
     return Sprite(im, 3, 3, glows, [], (0.9, 16))
 
 
+# ------------------------------------------------------------------ City art (ticket 64)
+WHITE = pal("9eb0b2", "c6d8d8", "e2f0f0", "f8ffff")
+TEAL_GLOW = hexc("7ff0d8")
+FORGE = hexc("ff8a3a")
+
+
+def b_hut(seed=0):
+    """Tent II: a small plank hut with a thatch roof, a step up from the tent."""
+    return pack(*gable_house(17, 10, 8, 7, "thatch", "planks", 0, seed, lantern=False, door=(6, 9),
+                             gable_window=False), shadow=(0.9, 7))
+
+
+def b_lodge(seed=0):
+    """Tent III: a stout stone-footed lodge, shingle roof, shuttered windows, a Lumen lantern at the door."""
+    return pack(*gable_house(22, 13, 10, 8, "shingle", "planks", 2, seed, shutters=hexc("a83a3a"),
+                             door=(7, 11)), shadow=(0.9, 9))
+
+
+def b_purifier():
+    """City water: a slim white tower with teal bands over a glowing teal filter basin (clean water, not Lumen)."""
+    W, H = 32, 86
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    # basin
+    cylinder(d, 1, 30, yb - 14, yb - 3, STONE)
+    d.ellipse([1, yb - 20, 30, yb - 7], fill=STONE[3])
+    d.ellipse([3, yb - 19, 28, yb - 9], fill=TEAL[1])
+    d.ellipse([4, yb - 18, 27, yb - 10], fill=TEAL[3])
+    d.ellipse([8, yb - 16, 23, yb - 11], fill=TEAL_GLOW)
+    d.arc([7, yb - 17, 24, yb - 10], 190, 330, fill=hexc("eaffff"))
+    # tower
+    R(d, cx - 8, yb - 24, cx + 8, yb - 17, STONE[2])
+    R(d, cx - 8, yb - 24, cx + 8, yb - 24, STONE[4])
+    cylinder(d, cx - 6, cx + 5, 20, yb - 24, WHITE)
+    for y in (30, 46, 62):
+        R(d, cx - 7, y, cx + 6, y + 2, TEAL[2])
+        d.line([(cx - 7, y), (cx + 6, y)], fill=TEAL[3])
+        R(d, cx + 3, y + 1, cx + 6, y + 2, TEAL[0])
+    for y in (35, 51):
+        R(d, cx - 2, y, cx + 1, y + 6, TEAL[0])
+        R(d, cx - 1, y + 1, cx, y + 5, TEAL_GLOW)
+        glows.append((cx, y + 3, 7, TEAL_GLOW))
+    d.ellipse([cx - 7, 13, cx + 6, 27], fill=TEAL[2])
+    d.chord([cx - 7, 12, cx + 6, 26], 180, 360, fill=TEAL[2])
+    R(d, cx - 7, 20, cx + 6, 21, TEAL[1])
+    d.arc([cx - 5, 13, cx + 2, 22], 200, 280, fill=TEAL[3])
+    R(d, cx, 4, cx, 13, BRASS[1])
+    d.ellipse([cx - 2, 1, cx + 2, 5], fill=TEAL_GLOW)
+    glows.append((cx, 3, 9, TEAL_GLOW))
+    # settling pipes and the clean-water spout into the basin
+    pipe(d, [(cx - 6, yb - 22), (cx - 12, yb - 22), (cx - 12, yb - 15)], 2)
+    pipe(d, [(cx + 5, yb - 22), (cx + 11, yb - 22), (cx + 11, yb - 15)], 2)
+    d.line([(cx, yb - 24), (cx, yb - 13)], fill=TEAL_GLOW)
+    glows += [(cx, yb - 13, 16, TEAL_GLOW), (cx, yb - 12, 6, hexc("eaffff"))]
+    for x in (2, 27):
+        d.ellipse([x, yb - 5, x + 4, yb - 1], fill=LEAF["green"][3])
+    return Sprite(im, 1, 1, glows, [], (1.0, 9))
+
+
+def b_toolsmith(seed=0):
+    """City refining: stone forge with a glowing furnace door and chimney, an anvil and a tool rack."""
+    house, glows, smoke = gable_house(34, 15, 10, 8, "shingle", "stone", 0, seed, lantern=False, door=(9, 13),
+                                      gable_window=False)
+    hw_, hh = house.size
+    W, H = 66, hh + 4
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    hy = H - hh
+    im.alpha_composite(house, (0, hy))
+    glows = [(x, y + hy, r, c) for x, y, r, c in glows]
+    smoke = [(x, y + hy) for x, y in smoke]
+    yb = H - 1
+    cx = 4 + 17
+    # furnace mouth in the door arch: orange fire
+    d.rectangle([cx - 3, yb - 12, cx + 3, yb - 1], fill=IRON[0])
+    d.rectangle([cx - 2, yb - 10, cx + 2, yb - 1], fill=FORGE)
+    d.rectangle([cx - 1, yb - 8, cx + 1, yb - 1], fill=hexc("ffd27a"))
+    glows += [(cx, yb - 6, 16, FORGE), (cx, yb - 5, 6, hexc("ffd27a"))]
+    # chimney glow
+    glows.append((smoke[0][0], smoke[0][1] + 6, 9, FORGE))
+    # sign: crossed hammer plate over the door
+    R(d, cx - 5, yb - 20, cx + 5, yb - 17, WOOD[1])
+    d.line([(cx - 3, yb - 19), (cx + 3, yb - 19)], fill=BRASS[3])
+    # anvil on a stump
+    ax = 46
+    R(d, ax + 2, yb - 8, ax + 9, yb - 1, WOOD[2])
+    R(d, ax + 2, yb - 8, ax + 3, yb - 1, WOOD[3])
+    R(d, ax, yb - 13, ax + 11, yb - 10, IRON[2])
+    R(d, ax, yb - 13, ax + 11, yb - 13, IRON[4])
+    d.polygon([(ax + 11, yb - 13), (ax + 15, yb - 12), (ax + 11, yb - 10)], fill=IRON[2])
+    R(d, ax + 3, yb - 10, ax + 8, yb - 9, IRON[1])
+    d.point((ax + 5, yb - 15), fill=FORGE)
+    d.point((ax + 7, yb - 14), fill=hexc("ffd27a"))
+    glows.append((ax + 6, yb - 14, 7, FORGE))
+    # tool rack: two posts, a bar, hanging tools
+    rx = 58
+    for px_ in (rx, rx + 7):
+        R(d, px_, yb - 30, px_ + 1, yb - 1, WOOD[1])
+    R(d, rx - 1, yb - 29, rx + 8, yb - 28, WOOD[3])
+    R(d, rx - 1, yb - 19, rx + 8, yb - 18, WOOD[3])
+    # hammer, saw, axe
+    R(d, rx + 1, yb - 27, rx + 1, yb - 21, WOOD[4])
+    R(d, rx - 1, yb - 27, rx + 3, yb - 25, IRON[3])
+    d.polygon([(rx + 3, yb - 27), (rx + 6, yb - 27), (rx + 6, yb - 20), (rx + 3, yb - 22)], fill=IRON[3])
+    d.line([(rx + 3, yb - 27), (rx + 3, yb - 22)], fill=IRON[4])
+    R(d, rx + 4, yb - 17, rx + 4, yb - 9, WOOD[4])
+    d.polygon([(rx + 1, yb - 17), (rx + 4, yb - 17), (rx + 4, yb - 12), (rx + 1, yb - 14)], fill=IRON[3])
+    return Sprite(im, 2, 1, glows, smoke, (1.0, 10))
+
+
+def b_bazaar(seed=0):
+    """City civic: a long plaster hall under a slate roof, fronted by four striped market stalls."""
+    rng = random.Random(seed)
+    W, H = 100, 82
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    x0, x1, yb = 3, W - 4, H - 1
+    glows, smoke = [], []
+    # hall: roof, wall, windows
+    rt = tex_shingle(W, H, SLATE)
+    ry0, ry1 = 12, 30
+    fill_poly(im, [(x0 - 2, ry1), (x0 + 8, ry0), (x1 - 8, ry0), (x1 + 2, ry1)], rt)
+    fill_poly(im, [(x1 - 22, ry0), (x1 - 8, ry0), (x1 + 2, ry1), (x1 - 12, ry1)], shade(rt, 0.75))
+    d.line([(x0 + 8, ry0), (x1 - 8, ry0)], fill=SLATE[4])
+    R(d, x0 - 2, ry1, x1 + 2, ry1 + 1, STONE[4])
+    R(d, x0 - 2, ry1 + 2, x1 + 2, ry1 + 2, STONE[1])
+    wy0 = ry1 + 3
+    im.paste(tex_plaster(x1 - x0 + 1, yb - wy0 - 6, seed), (x0, wy0))
+    for i in range(7):
+        wx = x0 + 6 + i * 13
+        window(d, wx, wy0 + 4, WARM if rng.random() < 0.75 else hexc("34445a"), box=False, w=7, h=9)
+        R(d, wx - 1, wy0 + 3, wx + 7, wy0 + 3, PLASTER[0])
+    for tx in (x0, x1 - 3):
+        R(d, tx, wy0, tx + 2, yb - 6, WOOD[2])
+    R(d, x0, wy0 + 17, x1, wy0 + 17, WOOD[2])
+    # chimney and lumen lamp vane, pennants at the gable ends
+    for chx, sd_ in ((x0 + 14, 1), (x1 - 20, 2)):
+        im.paste(tex_stone(6, 12, seed + chx), (chx, ry0 - 9))
+        R(d, chx - 1, ry0 - 10, chx + 6, ry0 - 9, STONE[1])
+        smoke.append((chx + 3, ry0 - 13))
+    for fx_, col in ((x0 + 36, hexc("c83a3a")), (x1 - 36, TEAL[2])):
+        R(d, fx_, ry0 - 12, fx_, ry0 + 1, WOOD[1])
+        d.polygon([(fx_, ry0 - 12), (fx_ + 8, ry0 - 9), (fx_, ry0 - 6)], fill=col)
+    # grand brass sign above the arch
+    cx = W // 2
+    R(d, cx - 11, wy0 + 1, cx + 11, wy0 + 8, WOOD[0])
+    R(d, cx - 10, wy0 + 2, cx + 10, wy0 + 7, BRASS[1])
+    for k in range(-8, 9, 4):
+        R(d, cx + k, wy0 + 4, cx + k + 1, wy0 + 5, BRASS[3])
+    # stone footing
+    im.paste(tex_stone(x1 - x0 + 1, 7, seed + 7), (x0, yb - 6))
+    R(d, x0, yb - 7, x1, yb - 7, STONE[4])
+    # stalls in front of the hall
+    cols = [hexc("b83a32"), TEAL[2], hexc("e0a22e"), hexc("3a5a9a")]
+    goods = [[hexc("d84a3a"), hexc("f4c040"), LEAF["green"][3]], [CRYSTAL[3], hexc("e88a3a"), hexc("f4f0e0")],
+             [hexc("e88a3a"), hexc("d84a3a"), hexc("f4c040")], [LEAF["green"][3], hexc("c070d0"), hexc("f4c040")]]
+    sw = 23
+    for i in range(4):
+        sx = x0 + 2 + i * (sw + 1)
+        ay = wy0 + 22
+        d.rectangle([sx + 1, ay + 4, sx + sw - 2, ay + 5], fill=WOOD[1])
+        for px_ in (sx + 1, sx + sw - 3):
+            R(d, px_, ay + 4, px_ + 1, yb - 2, WOOD[1])
+        # counter with goods
+        R(d, sx + 1, yb - 12, sx + sw - 2, yb - 8, WOOD[3])
+        R(d, sx + 1, yb - 12, sx + sw - 2, yb - 12, WOOD[4])
+        R(d, sx + 1, yb - 7, sx + sw - 2, yb - 2, WOOD[2])
+        for k, c in enumerate(goods[i] * 2):
+            ex = sx + 3 + k * 3
+            d.ellipse([ex, yb - 16, ex + 3, yb - 12], fill=c)
+            d.point((ex + 1, yb - 15), fill=mul(c, 1.3))
+        # striped awning with scalloped valance
+        for s in range(0, sw, 4):
+            c = cols[i] if (s // 4) % 2 == 0 else CANVAS[3]
+            d.polygon([(sx - 1 + s, ay + 5), (sx + 2 + s, ay - 3), (sx + 6 + s, ay - 3), (sx + 3 + s, ay + 5)], fill=c)
+            d.polygon([(sx - 1 + s, ay + 5), (sx + 3 + s, ay + 5), (sx + 3 + s, ay + 8), (sx - 1 + s, ay + 8)],
+                      fill=mul(c, 0.85))
+            d.ellipse([sx - 1 + s, ay + 6, sx + 3 + s, ay + 10], fill=mul(c, 0.85))
+        glows.append((sx + sw // 2, yb - 12, 11, WARM))
+    # barrels and crates at the corners
+    R(d, W - 6, yb - 10, W - 1, yb - 1, WOOD[2])
+    R(d, W - 6, yb - 7, W - 1, yb - 7, BRASS[1])
+    d.ellipse([W - 6, yb - 12, W - 1, yb - 8], fill=WOOD[3])
+    R(d, 0, yb - 7, 5, yb - 1, WOOD[3])
+    d.line([(0, yb - 7), (5, yb - 1)], fill=WOOD[1])
+    return Sprite(im, 3, 2, glows, smoke, (1.0, 12))
+
+
+def b_nexus():
+    """City landmark: a crystal node floating over a brass cradle on a gold-and-stone plinth, flanked by pylons."""
+    W, H = 96, 150
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    cx, yb = W // 2, H - 1
+    glows = []
+    st = tex_stone(W, H, 91)
+    im.paste(tex_stone(W - 6, 11, 92), (3, yb - 10))
+    R(d, 3, yb - 11, W - 4, yb - 11, STONE[4])
+    R(d, 3, yb - 4, W - 4, yb - 3, BRASS[1])
+    im.paste(tex_stone(W - 24, 10, 93), (12, yb - 20))
+    R(d, 12, yb - 21, W - 13, yb - 21, STONE[4])
+    for ax in (10, W - 11):
+        glow_arch(d, ax, yb - 1, 5, 7, glows)
+    for ax in (22, W - 23):
+        glow_arch(d, ax, yb - 11, 5, 7, glows)
+    base, ty = yb - 21, 84
+    # side pylons
+    for sgn in (-1, 1):
+        px_ = cx + sgn * 32
+        ptop = 96
+        d.polygon([(px_ - 4, base), (px_ - 2, ptop), (px_ + 2, ptop), (px_ + 4, base)], fill=BRASS[1])
+        d.polygon([(px_ - 4, base), (px_ - 2, ptop), (px_, ptop), (px_ - 1, base)], fill=BRASS[2])
+        for y in range(ptop + 12, base, 14):
+            d.point((px_, y), fill=CRYSTAL[4])
+        R(d, px_ - 4, ptop - 2, px_ + 4, ptop, BRASS[2])
+        crystal(d, px_ - 3, ptop - 2, 14, 6)
+        glows.append((px_, ptop - 9, 11, GLOW))
+    # plinth
+    fill_poly(im, [(cx - 20, base), (cx - 9, ty), (cx + 9, ty), (cx + 20, base)], st)
+    fill_poly(im, [(cx + 3, base), (cx + 1, ty), (cx + 9, ty), (cx + 20, base)], shade(st, 0.66))
+    for u in (-1, 1):
+        d.line([(cx + u * 20, base), (cx + u * 9, ty)], fill=BRASS[2], width=2)
+
+    def hw(y):
+        return 9 + 11 * (y - ty) / (base - ty)
+
+    for y in (ty + 14, base - 16):
+        R(d, cx - hw(y) - 1, y, cx + hw(y) + 1, y + 2, BRASS[1])
+        d.line([(cx - hw(y) - 1, y), (cx + hw(y) + 1, y)], fill=BRASS[3])
+    R(d, cx - 1, ty + 3, cx, base - 18, CRYSTAL[3])
+    for y in range(ty + 8, base - 18, 12):
+        glows.append((cx, y, 7, GLOW))
+    glow_arch(d, cx, base, 11, 15, glows)
+    # cradle
+    R(d, cx - 11, ty - 3, cx + 11, ty + 1, BRASS[1])
+    d.line([(cx - 11, ty - 3), (cx + 11, ty - 3)], fill=BRASS[3])
+    for sgn in (-1, 1):
+        pts = [(cx + sgn * 10, ty - 2), (cx + sgn * 15, ty - 11), (cx + sgn * 13, ty - 19)]
+        d.line(pts, fill=BRASS[1], width=3)
+        d.line(pts, fill=BRASS[3])
+    rng = random.Random(7)
+    for y in range(ty - 22, ty - 3, 3):
+        d.point((cx + rng.choice((-2, 0, 2)), y), fill=CRYSTAL[4])
+    # floating node, a smaller sibling of the Skyheart
+    hy_top, hy_mid, hy_bot, hr = 22, 42, 66, 15
+    T_, L_, Rt, B_, M_ = (cx, hy_top), (cx - hr, hy_mid), (cx + hr, hy_mid), (cx, hy_bot), (cx - 4, hy_mid - 3)
+    ring = [cx - 25, hy_mid - 6, cx + 25, hy_mid + 6]
+    d.arc(ring, 180, 360, fill=BRASS[1], width=2)
+    d.polygon([T_, L_, M_], fill=CRYSTAL[3])
+    d.polygon([T_, M_, Rt], fill=CRYSTAL[2])
+    d.polygon([L_, M_, B_], fill=CRYSTAL[2])
+    d.polygon([M_, Rt, B_], fill=CRYSTAL[1])
+    d.line([T_, M_, B_], fill=CRYSTAL[4])
+    d.line([L_, M_], fill=CRYSTAL[4])
+    d.line([M_, Rt], fill=CRYSTAL[3])
+    d.polygon([(cx - 7, hy_top + 11), (cx - 3, hy_top + 5), (cx - 4, hy_top + 13)], fill=CRYSTAL[4])
+    d.arc(ring, 0, 180, fill=BRASS[3], width=2)
+    for a in (30, 100, 150):
+        x = cx + 25 * math.cos(math.radians(a))
+        y = hy_mid + 6 * math.sin(math.radians(a))
+        d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=CRYSTAL[3])
+        glows.append((int(x), int(y), 5, GLOW))
+    glows += [(cx, hy_mid, 40, GLOW), (cx, hy_mid, 16, CRYSTAL[4])]
+    return Sprite(im, 3, 3, glows, [], (0.9, 14))
+
+
 # ------------------------------------------------------------------ citizens
 def citizen(kind, facing, frame, cloth=None, hair=None, skin=None):
     """11x17 walker, about door height (D26: scaled down from 16x24). kinds: villager, weaver, farmer, mage."""

@@ -670,3 +670,46 @@ func test_rock_water_only_corners_are_left_to_the_shore() -> void:
 	assert_eq(shore.get_cell_source_id(c), ArtLibrary.autotile_source("water", "rock"),
 			"the shore rounds the water against the rock")
 	assert_eq(shore.get_cell_atlas_coords(c), ArtLibrary.autotile_coords(8), "water in the bottom-left")
+
+
+# ---------------------------------------------------------------- City art (ticket 64)
+func test_city_buildings_and_tier_art_are_not_generic_fallbacks() -> void:
+	for id in ["grand_bazaar", "purifier_tower", "toolsmith", "lumen_nexus", "hut", "lodge"]:
+		assert_true(ArtLibrary.has_building(id), "%s has a sprite" % id)
+		assert_false(ArtLibrary.building_entry(id)["generic"], "%s is a drawn sprite, not the category house" % id)
+
+
+func test_tent_tiers_use_hut_and_lodge_art() -> void:
+	var tent := _reg.get_building("tent")
+	assert_eq((tent.tiers[0] as TierDef).art_id, "hut")
+	assert_eq((tent.tiers[1] as TierDef).art_id, "lodge")
+
+
+func test_park_is_flat_and_draws_under_a_tall_neighbour() -> void:
+	assert_true(ArtLibrary.building_entry("park")["flat"])
+	assert_false(ArtLibrary.building_entry("apartment_block")["flat"])
+	var s := Settlement.new_game(42, _reg)
+	var view := MapView.new()
+	add_child_autofree(view)
+	view.setup(s.map)
+	var o := Vector2i(-1, -1)
+	for y in range(2, MapState.HEIGHT - 6):
+		for x in range(2, MapState.WIDTH - 6):
+			if o.x < 0:
+				var clear := true
+				for dy in 4:
+					for dx in 2:
+						if s.map.terrain_id_at(x + dx, y + dy) != "grass":
+							clear = false
+				if clear:
+					o = Vector2i(x, y)
+	assert_true(o.x >= 0, "found open grass")
+	s._insert_building(_reg.get_building("park"), o)  # placement rules (era, roads) are not under test
+	s._insert_building(_reg.get_building("apartment_block"), o + Vector2i(0, 2))
+	var before := view.objects.get_child_count()
+	var pv := PlacementView.new()
+	add_child_autofree(pv)
+	pv.setup(s, view)
+	assert_eq(view.flats.get_child_count(), 1, "the park sits on the flats layer")
+	assert_true(view.objects.get_child_count() >= before + 1, "the apartment block stays among the y-sorted objects")
+	assert_lt(view.flats.get_index(), view.objects.get_index(), "flats draw before (under) objects")

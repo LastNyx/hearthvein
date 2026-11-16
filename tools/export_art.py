@@ -887,7 +887,14 @@ SHEET = {
     "cleanser": lambda: M.b_cleanser(4), "lumen_spire": lambda: M.b_lumen_spire(),
     "apartment_block": lambda: M.b_apartment(5), "lumen_reactor": lambda: M.b_reactor(), "park": lambda: M.b_park(6),
     "skyheart": lambda: M.b_skyheart(),
+    # ticket 64: City row additions (same drawing helpers and palette as the sheet)
+    "purifier_tower": lambda: M.b_purifier(), "toolsmith": lambda: M.b_toolsmith(7),
+    "grand_bazaar": lambda: M.b_bazaar(8), "lumen_nexus": lambda: M.b_nexus(),
+    # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge
+    "hut": lambda: M.b_hut(9), "lodge": lambda: M.b_lodge(10),
 }
+# Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
+FLAT = {"park"}
 
 # Not on a sheet: generic gable house (same generator as the cottage), tinted by category. id: (category, fw, fh).
 GENERIC = {
@@ -896,8 +903,7 @@ GENERIC = {
     "forester": ("materials", 1, 1), "builders_yard": ("logistics", 2, 1),
     "workshop": ("refining", 2, 1), "tax_office": ("civic", 1, 1), "well": ("water", 1, 1),
     "mason": ("refining", 2, 1), "refinery": ("refining", 2, 2), "kitchen": ("food", 1, 1),
-    "handcart_shed": ("logistics", 2, 1), "purifier_tower": ("water", 1, 1), "grand_bazaar": ("civic", 3, 2),
-    "toolsmith": ("refining", 2, 1), "lumen_nexus": ("lumen", 3, 3),
+    "handcart_shed": ("logistics", 2, 1),
     "conduit_terraces": ("housing", 3, 2), "lumen_pylon": ("lumen", 1, 1), "grid_battery": ("lumen", 2, 1),
     "rail_depot": ("logistics", 3, 1), "airship_dock": ("sky", 3, 3), "vein_bore": ("lumen", 2, 2),
     "hydroponic_hall": ("food", 3, 2), "water_tower": ("water", 1, 1), "sky_foundry": ("landmark", 3, 3),
@@ -934,7 +940,8 @@ def generic_house(cat, fw, fh, seed):
 def export_buildings(manifest):
     manifest["buildings"] = {}
     for bid, fn in SHEET.items():
-        manifest["buildings"][bid] = export_sprite(fn(), f"buildings/{bid}.png", {"generic": False})
+        manifest["buildings"][bid] = export_sprite(fn(), f"buildings/{bid}.png",
+                                                   {"generic": False, "flat": bid in FLAT})
     for i, (bid, (cat, fw, fh)) in enumerate(sorted(GENERIC.items())):
         manifest["buildings"][bid] = export_sprite(generic_house(cat, fw, fh, 200 + i), f"buildings/{bid}.png",
                                                    {"generic": True, "category": cat})

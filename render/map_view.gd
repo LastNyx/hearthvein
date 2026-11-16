@@ -19,6 +19,7 @@ var map: MapState
 var roads: TileMapLayer
 var channels: TileMapLayer
 var shadows: Node2D
+var flats: Node2D  # flat footprints (Park): on the ground, under every y-sorted object
 var objects: Node2D
 var fx: Node2D
 var _base: TileMapLayer
@@ -94,6 +95,10 @@ func setup(m: MapState) -> void:
 	shadows = Node2D.new()
 	shadows.name = "Shadows"
 	add_child(shadows)
+	flats = Node2D.new()
+	flats.name = "Flats"
+	flats.y_sort_enabled = true
+	add_child(flats)
 	objects = Node2D.new()
 	objects.name = "Objects"
 	objects.y_sort_enabled = true

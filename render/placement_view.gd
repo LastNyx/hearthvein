@@ -124,7 +124,8 @@ func _add_building(b: Building) -> void:
 	holder.position = base
 	holder.add_child(ArtLibrary.building_sprite(_art_id(b)))
 	holder.visible = not b.site  # a site draws itself in _draw
-	view.objects.add_child(holder)
+	# A flat building (the Park) lies on the ground: a tall neighbour in front must overhang it, never hide it.
+	(view.flats if e.get("flat", false) else view.objects).add_child(holder)
 	list.append(holder)
 	var sh := ArtLibrary.shadow_sprite(e)
 	if sh != null:
