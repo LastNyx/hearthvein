@@ -10,6 +10,8 @@ const CHUNK := GameClock.REAL_SECONDS_PER_HOUR / 150.0
 ## as soon as the best is inside budget. Background load on the machine only ever makes a run slower, so one clean
 ## repeat proves the code fits; a real regression is slow in every repeat and still fails. Budgets are unchanged.
 const REPEATS := 4
+## Repeats for the commute worst-tick check (see test_no_sim_tick_above_eight_ms_at_either_commute).
+const COMMUTE_REPEATS := 8
 ## A fixed pure-GDScript workload (ms on this PC when the machine is idle) timed next to each measurement. When it runs
 ## slower than this the machine is busy (or slower), so the sim timings are divided by that slowdown, capped at
 ## MAX_LOAD_FACTOR so a big real regression cannot hide behind it. Tune CALIB_QUIET_MS only if the workload changes.
@@ -144,12 +146,15 @@ func _commute_ticks(world: Settlement, from_hour: int, to_hour: int) -> Array[fl
 ## 99% of commute ticks under 8 ms with 600 citizens; the worst inside one 60 FPS frame (16 ms).
 func test_no_sim_tick_above_eight_ms_at_either_commute() -> void:
 	# A fresh world per repeat: a second commute on the same world reuses warm path caches and would read too fast.
+	# The worst tick is the HaulingSystem planning burst (5-9 ms on an idle PC, identical at cd47336 and on v1-conflux,
+	# ticket 69), so one preempted tick under load doubles it past 16 ms. More repeats than the default (it stops at the
+	# first clean one, so an idle PC still runs one); both budgets are unchanged and a real regression fails all of them.
 	var within := func(b: Array) -> bool: return b[0] < 8.0 and b[1] < 16.0
-	var morning := _best_of(func() -> Array: return _commute_ticks(_world(), 5, 9), within)
+	var morning := _best_of(func() -> Array: return _commute_ticks(_world(), 5, 9), within, 2, COMMUTE_REPEATS)
 	print("PERF 06:00 commute ticks: p99 %.2f ms, worst %.2f ms" % [morning[0], morning[1]])
 	assert_lt(morning[0], 8.0, "99%% of morning-commute ticks under 8 ms with 600 citizens")
 	assert_lt(morning[1], 16.0, "worst morning-commute tick inside one 60 FPS frame")
-	var evening := _best_of(func() -> Array: return _commute_ticks(_world(), 17, 21), within)
+	var evening := _best_of(func() -> Array: return _commute_ticks(_world(), 17, 21), within, 2, COMMUTE_REPEATS)
 	print("PERF 18:00 commute ticks: p99 %.2f ms, worst %.2f ms" % [evening[0], evening[1]])
 	assert_lt(evening[0], 8.0, "99%% of evening-commute ticks under 8 ms with 600 citizens")
 	assert_lt(evening[1], 16.0, "worst evening-commute tick inside one 60 FPS frame")
