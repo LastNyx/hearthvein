@@ -1086,6 +1086,7 @@ SHEET = {
     "lumen_pylon": lambda: M.b_pylon(), "grid_battery": lambda: M.b_battery(),
     "rail_depot": lambda: M.b_rail_depot(),  # ticket 37c
     "airship_dock": lambda: M.b_airship_dock(),  # ticket 38
+    "sky_foundry": lambda: M.b_sky_foundry(),  # ticket 39d
     "conduit_terraces": lambda: M.b_conduit_terraces(), "water_tower": lambda: M.b_water_tower(),  # ticket 39
     "vein_bore": lambda: M.b_vein_bore(), "hydroponic_hall": lambda: M.b_hydroponic_hall(),  # ticket 39b, 39c
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge

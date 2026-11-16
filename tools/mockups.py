@@ -1921,6 +1921,89 @@ def b_hydroponic_hall():
     return Sprite(im, 3, 2, glows, [], (1.0, 9))
 
 
+def b_sky_foundry():
+    """Sky Foundry (3x3, ticket 39d): a stone foundry hall with a glowing furnace arch and a tall chimney, beside a timber
+    gantry that cradles a half-built airship hull (bare ribs aft, canvas skin forward) under a floating crystal."""
+    W, H = 96, 140
+    im = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(im)
+    yb = H - 1
+    glows, smoke = [], []
+    # stone plinth
+    im.paste(tex_stone(W - 6, 12, 151), (3, yb - 11))
+    R(d, 3, yb - 12, W - 4, yb - 12, STONE[4])
+    R(d, 3, yb - 4, W - 4, yb - 3, BRASS[1])
+    # foundry hall (left)
+    hx0, hx1, hy1 = 5, 44, yb - 12
+    hy0 = hy1 - 28
+    im.paste(tex_stone(hx1 - hx0, hy1 - hy0, 152), (hx0, hy0))
+    d.polygon([(hx0 - 2, hy0), (hx0 + 10, hy0 - 14), (hx1 - 10, hy0 - 14), (hx1 + 2, hy0)], fill=SLATE[2])
+    d.polygon([(hx0 - 2, hy0), (hx0 + 10, hy0 - 14), (hx0 + 10, hy0 - 10), (hx0 + 1, hy0)], fill=SLATE[3])
+    R(d, hx0 - 2, hy0, hx1 + 2, hy0 + 1, SLATE[1])
+    for x in range(hx0 + 8, hx1 - 8, 6):
+        d.line([(x, hy0 - 13), (x, hy0 - 1)], fill=SLATE[1])
+    glow_arch(d, 22, hy1, 14, 20, glows)  # furnace mouth
+    for wx in (9, 36):
+        R(d, wx, hy0 + 8, wx + 3, hy0 + 14, IRON[0])
+        R(d, wx + 1, hy0 + 9, wx + 2, hy0 + 13, WARM)
+        glows.append((wx + 2, hy0 + 11, 7, WARM))
+    # tall chimney
+    cx0, cx1, ctop = 31, 40, 6
+    im.paste(tex_stone(cx1 - cx0, hy0 - ctop, 153), (cx0, ctop))
+    R(d, cx1 - 3, ctop, cx1 - 1, hy0, STONE[1])
+    for y in range(ctop + 14, hy0 - 6, 16):
+        R(d, cx0 - 1, y, cx1, y + 1, BRASS[1])
+    R(d, cx0 - 2, ctop - 3, cx1 + 1, ctop, BRASS[2])
+    R(d, cx0 - 2, ctop - 3, cx1 + 1, ctop - 3, BRASS[3])
+    glows.append((cx0 + 4, ctop - 2, 9, GLOW))
+    smoke.append((cx0 + 4, ctop - 4))
+    # timber gantry (right)
+    gx0, gx1 = 52, 91
+    gtop = 40
+    for gx in (gx0, gx1 - 4):
+        R(d, gx, gtop, gx + 3, yb - 12, WOOD[2])
+        R(d, gx, gtop, gx, yb - 12, WOOD[3])
+        R(d, gx + 3, gtop, gx + 3, yb - 12, WOOD[1])
+    R(d, gx0 - 2, gtop - 3, gx1 + 1, gtop, WOOD[3])
+    R(d, gx0 - 2, gtop - 3, gx1 + 1, gtop - 3, WOOD[4])
+    R(d, gx0 - 2, yb - 40, gx1 + 1, yb - 38, WOOD[2])  # lower cross beam
+    for y0 in (gtop, yb - 40):
+        d.line([(gx0 + 3, y0 + 2), (gx1 - 4, y0 + 14)], fill=WOOD[1])
+    # half-built hull: bare ribs aft (left), canvas skin forward (right)
+    ex, ey = 66, 78
+    d.arc([ex - 26, ey - 13, ex + 26, ey + 13], 0, 360, fill=BRASS[1], width=2)
+    for k in range(-22, 4, 7):
+        h = int(13 * (1 - (k / 26.0) ** 2) ** 0.5)
+        d.line([(ex + k, ey - h), (ex + k, ey + h)], fill=WOOD[3])
+    d.line([(ex - 26, ey), (ex + 26, ey)], fill=BRASS[1])
+    skin = tex_planks(26, 26, 154, CANVAS, vertical=False)
+    m = Image.new("L", (W, H))
+    ImageDraw.Draw(m).ellipse([ex - 26, ey - 13, ex + 26, ey + 13], fill=255)
+    ImageDraw.Draw(m).rectangle([0, 0, ex + 2, H], fill=0)
+    layer = Image.new("RGBA", (W, H))
+    layer.paste(skin, (ex + 2, ey - 13))
+    im.paste(layer, (0, 0), m)
+    d.arc([ex - 26, ey - 13, ex + 26, ey + 13], 270, 90, fill=CANVAS[0])
+    R(d, ex + 2, ey - 1, ex + 25, ey, TEAL[1])
+    d.polygon([(ex + 22, ey + 8), (ex + 30, ey + 16), (ex + 20, ey + 14)], fill=TEAL[1])
+    for k in (-14, 6):  # hoist ropes from the gantry beam
+        d.line([(ex + k, gtop), (ex + k, ey - 12)], fill=WOOD[1])
+    R(d, ex - 8, ey + 14, ex + 8, ey + 20, WOOD[2])  # unfinished gondola frame
+    R(d, ex - 8, ey + 14, ex + 8, ey + 14, WOOD[4])
+    # floating crystal above the gantry
+    ccx = 66
+    d.polygon([(ccx, 6), (ccx - 6, 17), (ccx, 28), (ccx + 6, 17)], fill=CRYSTAL[2])
+    d.polygon([(ccx, 6), (ccx - 6, 17), (ccx - 1, 17)], fill=CRYSTAL[3])
+    d.polygon([(ccx, 28), (ccx + 6, 17), (ccx, 17)], fill=CRYSTAL[1])
+    d.line([(ccx, 6), (ccx - 1, 17)], fill=CRYSTAL[4])
+    glows += [(ccx, 17, 22, GLOW), (ccx, 17, 8, CRYSTAL[4])]
+    # crates and an anvil at the hall door
+    R(d, 46, yb - 20, 52, yb - 13, WOOD[2])
+    R(d, 46, yb - 20, 52, yb - 19, WOOD[4])
+    R(d, 12, yb - 16, 18, yb - 13, IRON[1])
+    return Sprite(im, 3, 3, glows, smoke, (1.0, 12))
+
+
 def b_airship_dock():
     """Airship Dock (3x3, ticket 38): a timber-and-stone landing platform with a tall brass-capped mooring mast and a small
     airship (canvas envelope, wooden gondola) tied to it, a lamp on the mast and a crate stack on the deck."""

@@ -1468,11 +1468,11 @@
   },
   "sky_foundry": {
    "base": [
-    46,
-    72
+    49,
+    141
    ],
-   "category": "landmark",
    "file": "buildings/sky_foundry.png",
+   "flat": false,
    "footprint": [
     3,
     3
@@ -1480,20 +1480,20 @@
    "fx": {
     "file": "buildings/sky_foundry_fx.png",
     "offset": [
-     -4,
-     -87
+     -44,
+     -161
     ]
    },
-   "generic": true,
-   "h": 73,
+   "generic": false,
+   "h": 142,
    "shadow": {
     "file": "buildings/sky_foundry_shadow.png",
     "offset": [
-     -35,
-     -9
+     -38,
+     -8
     ]
    },
-   "w": 92
+   "w": 98
   },
   "sky_garden": {
    "base": [

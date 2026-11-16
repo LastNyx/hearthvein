@@ -501,3 +501,122 @@ func test_every_city_building_can_be_built() -> void:
 				break
 			s.step_hours(1)
 		assert_false(site.site, "builders finished the %s" % d.id)
+
+
+# ---------------------------------------------------------------- ticket 39d: the Sky Foundry and the Skyborne gate
+
+# AC1a: the row and the gate numbers are the design's (section 15 Conflux row, section 17).
+func test_sky_foundry_and_skyborne_gate_match_the_design() -> void:
+	var f := reg.get_building("sky_foundry")
+	assert_not_null(f)
+	assert_eq([f.era, f.category, f.size], ["conflux", "landmark", Vector2i(3, 3)])
+	assert_eq(f.cost, {"materials": 600, "gold": 400, "lumen": 400, "cut_stone": 120, "tools": 80, "lumen_cells": 60})
+	var sky := reg.get_era("skyborne")
+	assert_eq([sky.gate_pop, sky.gate_gold, sky.gate_landmark], [320, 2500, "sky_foundry"])
+
+
+# AC1b: a finished Sky Foundry + pop 320 + gold 2500 advances Conflux -> Skyborne; the gate does not spend the gold.
+func test_sky_foundry_pop_and_gold_advance_to_skyborne() -> void:
+	s.era_current = "conflux"
+	var id := s.place_building_instant("sky_foundry", _free_spot("sky_foundry"))
+	assert_gt(id, -1, "the Sky Foundry is placeable in the Conflux era")
+	_grow_to(320)
+	s.gold = 2500.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "skyborne")
+	var ev := s.events.log_of("era_changed")
+	assert_eq(ev.size(), 1)
+	assert_eq(ev[0]["data"], {"from": "conflux", "to": "skyborne"})
+	assert_eq(s.gold, 2500.0, "a gate checks the gold, it does not spend it")
+
+
+# AC1c: each part of the Skyborne gate is required on its own: pop, gold and a finished (not a site) Sky Foundry.
+func test_each_skyborne_gate_part_is_required() -> void:
+	s.era_current = "conflux"
+	var id := s.place_building_instant("sky_foundry", _free_spot("sky_foundry"))
+	assert_gt(id, -1)
+	_grow_to(319)
+	s.gold = 2500.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "conflux", "pop 319")
+	_grow_to(320)
+	s.gold = 2499.0
+	s.step_hours(1)
+	assert_eq(s.era_id(), "conflux", "gold 2499")
+	s.gold = 2500.0
+	s.buildings[id].site = true  # an unfinished Sky Foundry does not count
+	s.step_hours(1)
+	assert_eq(s.era_id(), "conflux", "site only")
+	s.buildings[id].site = false
+	s.step_hours(1)
+	assert_eq(s.era_id(), "skyborne")
+
+
+## Raises the total stock of a good over all storage to at least `level`.
+func _top_up(s: Settlement, good: String, level: float) -> void:
+	var have := s.hearth.inventory.amount_of(good)
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if b != s.hearth and not b.site and b.inventory != null:
+			have += b.inventory.amount_of(good)
+	if have < level:
+		_stock(s, good, level - have)
+
+
+# AC2: nothing in the Conflux set is unbuildable. Same shape as the City test: every Conflux row is placed through
+# place_building on a legal tile on seed 42, has its cost delivered, is finished by the builders, and shows in the
+# build bar of the Conflux era. The Vein Bore (on_vein) goes first: veins are scarce. One site at a time: each finished
+# building is demolished once checked, so it does not wall the next site's door in (as the Town test avoids).
+func test_every_conflux_building_can_be_built() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	s.era_current = "conflux"
+	s.gold = 4000.0
+	for i in 8:
+		var st_spot := _village_spot(s, "storehouse")
+		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
+		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
+
+	var real := DataRegistry.new()
+	real.load_all()
+	var conflux: Array[BuildingDef] = []
+	for d: BuildingDef in real.buildings.values():
+		if d.era == "conflux":
+			conflux.append(d)
+	conflux.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool:
+		if (a.placement_rule == "on_vein") != (b.placement_rule == "on_vein"):
+			return a.placement_rule == "on_vein"
+		return a.id < b.id)
+	assert_eq(conflux.size(), 9, "the Conflux set: pylon, battery, depot, dock, terraces, tower, bore, hall, foundry")
+
+	var hud := HudModel.new(s)  # kept in a variable: it subscribes to the event bus
+	var bar_ids := {}
+	for cat in hud.build_bar():
+		for e: Dictionary in cat["entries"]:
+			bar_ids[e["id"]] = true
+
+	for d in conflux:
+		assert_true(bar_ids.has(d.id), "%s shows in the Conflux build bar" % d.id)
+		var spot := _village_spot(s, d.id)
+		assert_ne(spot, Vector2i(-1, -1), "%s has a legal spot on seed 42" % d.id)
+		var id := s.place_building(d.id, spot)
+		assert_gt(id, -1, "%s placed through place_building at %s" % [d.id, spot])
+		var site: Building = s.buildings.get(id)
+		# food keeps the builders from leaving; the cost is stocked, then delivered from storage as a hauler would
+		_top_up(s, "food", 600.0)
+		_top_up(s, "lumen", 300.0)
+		for g in d.cost:
+			if g != BuildingDef.GOLD:
+				_stock(s, g, float(d.cost[g]))
+		for g in d.cost:
+			if g == BuildingDef.GOLD:
+				continue
+			assert_eq(_deliver(s, site, g, float(d.cost[g])), 0.0, "%s: the %s cost was in storage" % [d.id, g])
+		assert_true(site.site_delivered(), "%s site has its whole cost" % d.id)
+		s.refresh_population()
+		for i in 60 * 24:
+			if not site.site:
+				break
+			s.step_hours(1)
+		assert_false(site.site, "builders finished the %s" % d.id)
+		if not site.site:
+			s.demolish(id)
