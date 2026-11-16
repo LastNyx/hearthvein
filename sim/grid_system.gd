@@ -17,6 +17,11 @@ extends SimSystem
 ## The membership is a cache keyed on (structure_version, completion_version), so it rebuilds only when buildings are
 ## placed, completed or demolished. It holds no runtime state and is left out of saves.
 
+const SAVE_KEY := "grid"
+
+## battery building id -> Lumen held.
+var _charge: Dictionary = {}
+
 ## grid id (lowest node building id) -> {"nodes": Array[int], "members": Array[int]} both id-sorted.
 var _grids: Dictionary = {}
 var _of: Dictionary = {}  # building id -> grid id
@@ -86,7 +91,36 @@ static func on_grid(s: Settlement, b: Building) -> bool:
 	return gs != null and gs.grid_of(s, b.id) >= 0
 
 
-## Lumen a grid holds: storage inventories plus producers' door buffers.
+func save_state() -> Dictionary:
+	return {"charge": SaveGame.pairs(_charge)}
+
+
+func load_state(d: Dictionary, _settlement: Settlement) -> void:
+	_charge = SaveGame.unpairs(d.get("charge", []))
+
+
+## Lumen one battery holds (0 for a building that is not a battery).
+func charge_of(building_id: int) -> float:
+	return float(_charge.get(building_id, 0.0))
+
+
+## Lumen held by the batteries of a grid. Not part of supply().
+func battery_charge(s: Settlement, grid_id: int) -> float:
+	var total := 0.0
+	for bid in members_of(s, grid_id):
+		total += float(_charge.get(bid, 0.0))
+	return total
+
+
+## Total capacity of a grid's batteries.
+func battery_capacity(s: Settlement, grid_id: int) -> float:
+	var total := 0.0
+	for bid in members_of(s, grid_id):
+		total += (s.buildings[bid] as Building).def.battery_capacity
+	return total
+
+
+## Lumen a grid holds (storage inventories plus producers' door buffers; battery charge is separate): storage inventories plus producers' door buffers.
 func supply(s: Settlement, grid_id: int) -> float:
 	var total := 0.0
 	for bid in members_of(s, grid_id):
@@ -103,6 +137,9 @@ func supply(s: Settlement, grid_id: int) -> float:
 ## stays supply wherever it sits; with no storage room it simply waits in the door. A settlement with no node does
 ## nothing. Off-grid producers and storages are untouched.
 func on_hour(s: Settlement) -> void:
+	for bid: int in _charge.keys():
+		if not s.buildings.has(bid):
+			_charge.erase(bid)
 	for gid in grid_ids(s):
 		var members := members_of(s, gid)
 		for pid in members:
@@ -110,6 +147,18 @@ func on_hour(s: Settlement) -> void:
 			if p.door_buffer == null:
 				continue
 			var have := p.door_buffer.amount_of("lumen")
+			if have <= Inventory.EPS:
+				continue
+			for sid in members:
+				var cap := (s.buildings[sid] as Building).def.battery_capacity
+				if cap <= 0.0 or have <= Inventory.EPS:
+					continue
+				var held := float(_charge.get(sid, 0.0))
+				var put := minf(have, cap - held)
+				if put > Inventory.EPS:
+					_charge[sid] = held + put
+					p.door_buffer.remove("lumen", put)
+					have -= put
 			if have <= Inventory.EPS:
 				continue
 			for sid in members:
@@ -124,7 +173,7 @@ func on_hour(s: Settlement) -> void:
 					break
 
 
-## Takes up to `amount` Lumen from a grid's supply: door buffers first, then storages, in building-id order.
+## Takes up to `amount` Lumen from a grid: door buffers first, then storages, then batteries, in building-id order.
 ## Returns what was taken.
 func draw(s: Settlement, grid_id: int, amount: float) -> float:
 	var got := 0.0
@@ -136,6 +185,14 @@ func draw(s: Settlement, grid_id: int, amount: float) -> float:
 			var inv: Inventory = b.door_buffer if pass_no == 0 else b.inventory
 			if inv != null:
 				got += inv.remove("lumen", amount - got)
+	for bid in members_of(s, grid_id):
+		if got >= amount - Inventory.EPS:
+			break
+		var have := float(_charge.get(bid, 0.0))
+		if have > 0.0:
+			var take := minf(have, amount - got)
+			_charge[bid] = have - take
+			got += take
 	return got
 
 

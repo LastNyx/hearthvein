@@ -115,6 +115,8 @@ const GOLD := "gold"
 ## to other nodes within grid_link_range tiles (Lumen Pylon 8 and 12, Lumen Nexus 12 and 12). 0 = not a grid node.
 @export var grid_feed_radius: int = 0
 @export var grid_link_range: int = 0
+## Grid Battery (ticket 36b): Lumen this building holds for its grid, lossless. 0 = not a battery.
+@export var battery_capacity: float = 0.0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false
