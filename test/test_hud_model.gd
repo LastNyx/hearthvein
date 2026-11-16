@@ -547,3 +547,15 @@ func test_grid_battery_charge_counts_as_fed_and_is_reported() -> void:
 	for c in m.grid_consumers():
 		if c["id"] == user.id:
 			assert_true(c["fed"], "battery charge counts as supply")
+
+
+func test_battery_charge_counts_in_the_lumen_bar() -> void:
+	_grid_ground()
+	_grid_put("lumen_pylon", 3)
+	var bat := _grid_put("grid_battery", 5)
+	s.hearth.inventory.remove("lumen", s.hearth.inventory.amount_of("lumen"))
+	var gs := s.get_system(GridSystem) as GridSystem
+	gs._charge[bat.id] = 150.0
+	for r in m.resources():
+		if r["id"] == "lumen":
+			assert_eq(r["value"], floori(float(s.totals().get("lumen", 0.0)) + 150.0), "battery charge shows as Lumen stock")

@@ -104,6 +104,14 @@ func charge_of(building_id: int) -> float:
 	return float(_charge.get(building_id, 0.0))
 
 
+## Lumen held by every battery in the settlement (the HUD resource bar counts it as Lumen stock).
+func total_charge() -> float:
+	var total := 0.0
+	for v in _charge.values():
+		total += float(v)
+	return total
+
+
 ## Lumen held by the batteries of a grid. Not part of supply().
 func battery_charge(s: Settlement, grid_id: int) -> float:
 	var total := 0.0

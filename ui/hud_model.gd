@@ -41,8 +41,11 @@ func _stock() -> Dictionary:
 	var food := 0.0
 	for g in GrowthSystem.food_goods(s.registry):
 		food += float(t.get(g, 0.0))
-	return {"food": food, "materials": float(t.get("materials", 0.0)), "lumen": float(t.get("lumen", 0.0)),
-			"gold": s.gold}
+	var lumen := float(t.get("lumen", 0.0))
+	var gs := s.get_system(GridSystem) as GridSystem
+	if gs != null:
+		lumen += gs.total_charge()  # battery charge is Lumen the player owns, even though it is not in storage
+	return {"food": food, "materials": float(t.get("materials", 0.0)), "lumen": lumen, "gold": s.gold}
 
 
 # ---------------------------------------------------------------- top bar
