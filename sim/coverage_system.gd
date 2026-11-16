@@ -70,6 +70,20 @@ static func building_serves_water(source: Building, home: Building) -> bool:
 	return radius > 0 and Building.footprint_gap(source, home) <= radius
 
 
+## building_serves_water plus the layer rule: a source only serves homes on its own layer, and a sky source only
+## homes on its own island (ticket 41). Ground wells and towers never water the sky; a ground home under an island is
+## not served by the island's Cloud Cistern.
+static func water_reaches(s: Settlement, source: Building, home: Building) -> bool:
+	if source.layer != home.layer:
+		return false
+	if not building_serves_water(source, home):
+		return false
+	if source.layer == Building.LAYER_SKY:
+		var a := IslandSystem.island_at_tile(s, source.origin)
+		return a != null and a == IslandSystem.island_at_tile(s, home.origin)
+	return true
+
+
 ## Spirit hook "coverage": +coverage_bonus when more than coverage_min_share of the housed citizens live in a covered
 ## home. Homeless citizens neither help nor hurt the share; a settlement with no housed citizen gets nothing.
 static func spirit_factor(s: Settlement) -> float:
@@ -148,6 +162,6 @@ func _ensure(s: Settlement) -> void:
 			# A pumped source (no on_wet rule, the Water Tower) does not draw from the tile it stands on.
 			if src.def.placement_rule == "on_wet" and FoulingSystem.wet_only_from_fouled(s, src.origin):
 				continue
-			if building_serves_water(src, h):
+			if water_reaches(s, src, h):
 				_water[h.id] = true
 				break

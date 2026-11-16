@@ -54,6 +54,7 @@ func _set_still(s: Settlement, isl: Island, why: String) -> void:
 	isl.still_why = why
 	# Still buildings stop being water, coverage and grid sources: those caches key on structure_version.
 	s.structure_version += 1
+	WaterSystem.recompute(s)  # a still island's cistern stops wetting the sky
 	s.grid_version += 1  # a still island's Sky Lifts and docks carry nobody: walker paths and distances re-plan (ticket 40c)
 	if why != "":
 		s.events.emit("island_still", {"island": isl.id, "why": why, "region": isl.region})

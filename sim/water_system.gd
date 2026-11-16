@@ -47,11 +47,40 @@ func recompute_wet(s: Settlement) -> void:
 	var rc := def.wet_radius_channel
 	for i in flowing_tiles(s):
 		_stamp(wet, i % MapState.WIDTH, i / MapState.WIDTH, rc)
+	var sky_wetters: Array[Building] = []
 	for b: Building in s.buildings.values():
 		if b.def.wet_radius > 0 and not b.site:
+			if b.layer == Building.LAYER_SKY:
+				sky_wetters.append(b)
+				continue
 			for t in b.tiles():
 				_stamp(wet, t.x, t.y, b.def.wet_radius)
 	s.map.wet = wet
+	_recompute_sky_wet(s, sky_wetters)
+
+
+## Sky wetness: each finished Cloud Cistern (a sky building with wet_radius) wets its r3 square, clipped to skystone
+## of its own island. Derived like the ground mask (recomputed daily and on load), never mixed with it. A still island
+## stops being a water source, so its cistern wets nothing.
+func _recompute_sky_wet(s: Settlement, wetters: Array[Building]) -> void:
+	if wetters.is_empty() and not s.sky_map.wet.has(1):
+		return  # no cistern and nothing stale: the common case costs nothing
+	var wet := PackedByteArray()
+	wet.resize(MapState.WIDTH * MapState.HEIGHT)
+	for b: Building in wetters:
+		if IslandSystem.is_still_building(s, b):
+			continue
+		var isl := IslandSystem.island_at_tile(s, b.origin)
+		if isl == null:
+			continue
+		var r := b.def.wet_radius
+		var f := b.footprint()
+		for y in range(maxi(isl.rect.position.y, f.position.y - r), mini(isl.rect.end.y, f.end.y + r)):
+			for x in range(maxi(isl.rect.position.x, f.position.x - r), mini(isl.rect.end.x, f.end.x + r)):
+				if s.sky_map.terrain_id_at(x, y) == MapState.SKY_STONE:
+					wet[y * MapState.WIDTH + x] = 1
+	if wet != s.sky_map.wet:
+		s.sky_map.wet = wet
 
 
 ## Stamps the water-terrain squares into _base when water terrain changed since it was built (or never was).
@@ -194,6 +223,6 @@ static func has_water(s: Settlement, b: Building) -> bool:
 			continue
 		if src.def.placement_rule == "on_wet" and FoulingSystem.wet_only_from_fouled(s, src.origin):
 			continue
-		if CoverageSystem.building_serves_water(src, b):
+		if CoverageSystem.water_reaches(s, src, b):
 			return true
 	return false
