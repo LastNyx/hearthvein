@@ -133,15 +133,26 @@ func on_season(s: Settlement) -> void:
 	s.events.emit("dimming_forecast", {"start_day": _start_day, "length": _length})
 
 
+## Per-citizen light need: PlanetDef.light_per_citizen, or the lowest BuildingDef.light_need_per_citizen among finished
+## buildings (the Dawn Beacon, 0.35). A landmark has no workers or upkeep, so a finished one counts at once.
+static func light_per_citizen(s: Settlement) -> float:
+	var need := s.registry.planet.light_per_citizen
+	for b: Building in s.buildings.values():
+		if not b.site and b.def.light_need_per_citizen > 0.0:
+			need = minf(need, b.def.light_need_per_citizen)
+	return need
+
+
 func _light(s: Settlement) -> void:
 	var pd := s.registry.planet
 	var need_by_region := {}
+	var per_citizen := light_per_citizen(s)
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
 		var b: Building = s.buildings.get(c.home_id)
 		var t: Vector2i = b.origin if b != null else (s.hearth.origin if s.hearth != null else Vector2i.ZERO)
 		var r := s.map.get_region(t.x, t.y)
-		need_by_region[r] = float(need_by_region.get(r, 0.0)) + pd.light_per_citizen
+		need_by_region[r] = float(need_by_region.get(r, 0.0)) + per_citizen
 	var short := 0.0
 	var need_total := 0.0
 	var lumen := 0.0

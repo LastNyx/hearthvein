@@ -20,3 +20,4 @@ storage_cap = 0
 placement_rule = "any"
 placement_radius = 0
 upgradable = false
+light_need_per_citizen = 0.35

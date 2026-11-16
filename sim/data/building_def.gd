@@ -95,6 +95,10 @@ const GOLD := "gold"
 ## settled island or the ground (Observatory: 2, ticket 41d). The longest lead wins; 0 = no effect, the planet's
 ## dimming_forecast_seasons (1) applies. DimmingSystem.forecast_lead owns the query.
 @export var forecast_lead_seasons: int = 0
+## Per-citizen Lumen light need during a Dimming while at least one finished building of this def stands (Dawn Beacon:
+## 0.35 instead of PlanetDef.light_per_citizen 0.5, ticket 42). The lowest value wins; 0 = no effect.
+## DimmingSystem.light_per_citizen owns the query. Needs no workers or upkeep.
+@export var light_need_per_citizen: float = 0.0
 ## True for housing that needs drinking water (design.md section 9: Rowhouse and every later home). From Town these
 ## homes must be within water_radius of a finished Well or Water Tower; the Spirit "water" factor penalises the share
 ## of housed citizens whose home lacks it. Tents and Cottages never need water.
