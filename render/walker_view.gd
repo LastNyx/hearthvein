@@ -16,6 +16,7 @@ var _shadow: Texture2D
 var _bundles: Dictionary = {}
 var _facing: Dictionary = {}  # citizen id -> DIR_*
 var _time: float = 0.0
+var _sky: SkyWalkers  # draws the walkers whose tile is on the sky layer, above the sky group (ticket 40d)
 
 
 func setup(s: Settlement) -> void:
@@ -28,6 +29,11 @@ func setup(s: Settlement) -> void:
 	for k in e["bundle"]:
 		_bundles[k] = ArtLibrary.texture(e["bundle"][k])
 	z_index = 10  # above the y-sorted objects, below the no-road icons
+	_sky = SkyWalkers.new()
+	_sky.owner_view = self
+	_sky.z_index = 22  # above the sky group (z 30 relative to the map, this node adds to the parent's 10)
+	_sky.visible = false
+	add_child(_sky)
 
 
 ## D46: walkers are hidden at the farthest zoom step (CameraController.ZOOM_STEPS[0]).
@@ -39,20 +45,61 @@ func _process(delta: float) -> void:
 	_time += delta
 	var cam := get_viewport().get_camera_2d() if is_inside_tree() else null
 	var show_walkers := cam == null or shown_at_zoom(cam.zoom.x)
+	# Ground walkers show in the ground view, sky walkers in the sky view; the other layer's are hidden.
+	var sky_view := _active_layer() == 1
 	if show_walkers != visible:
 		visible = show_walkers
-	if show_walkers:
+	var ground_on := show_walkers and not sky_view
+	var sky_on := show_walkers and sky_view
+	if _sky.visible != sky_on:
+		_sky.visible = sky_on
+	if ground_on:
 		queue_redraw()
+	if sky_on:
+		_sky.queue_redraw()
+
+
+func _active_layer() -> int:
+	var mv := get_parent() as MapView
+	return mv.active_layer if mv != null else 0
+
+
+## Walker.position() is in global tile space (sky y offset by MapState.HEIGHT): back to the layer's own coordinates.
+static func _local_position(w: Walker, layer: int) -> Vector2:
+	if _riding(w):  # the lift or dock ride: it stays on its tile until the step ends
+		return Vector2(MapState.local_of(w.tile)) + Vector2(0.5, 0.5)
+	return w.position() - Vector2(0, MapState.HEIGHT) if layer == 1 else w.position()
+
+
+## True while the walker's current step crosses between the layers (a Sky Lift or dock ride).
+static func _riding(w: Walker) -> bool:
+	return not w.path.is_empty() and MapState.layer_of(w.path[0]) != MapState.layer_of(w.tile)
 
 
 ## Movement vector in tiles of a walker (zero when it has no path).
 static func move_vector(w: Walker) -> Vector2:
-	if w.path.is_empty():
+	if w.path.is_empty() or _riding(w):
 		return Vector2.ZERO
 	return Vector2(w.path[0] - w.tile)
 
 
 func _draw() -> void:
+	if _active_layer() == 0:
+		_draw_layer(self, 0)
+
+
+## Inner node drawing the sky layer's walkers.
+class SkyWalkers extends Node2D:
+	var owner_view: WalkerView
+
+	func _draw() -> void:
+		if owner_view != null:
+			owner_view._draw_layer(self, 1)
+
+
+## Walkers whose current (global) tile decodes to `layer` (MapState.layer_of), drawn at their local position. One on a
+## lift or dock tile shows on whichever layer its tile says.
+func _draw_layer(ci: CanvasItem, layer: int) -> void:
 	if _system == null:
 		return
 	var e := ArtLibrary.walker_entry()
@@ -69,18 +116,21 @@ func _draw() -> void:
 	var items: Array = []
 	for id in _system.walkers:
 		var w: Walker = _system.walkers[id]
-		var moving := w.is_walking()
+		var moving := w.is_walking() and not _riding(w)
 		if not moving and w.at_building >= 0:
 			continue
-		if not view.has_point(w.position() * tile):
+		if MapState.layer_of(w.tile) != layer:
+			continue
+		var local_pos := _local_position(w, layer)
+		if not view.has_point(local_pos * tile):
 			continue
 		var dir: int = ArtLibrary.facing_for(move_vector(w), _facing.get(id, ArtLibrary.DIR_DOWN))
 		_facing[id] = dir
-		var p := (w.position() * tile).round()
+		var p := (local_pos * tile).round()
 		items.append([p, id, dir, moving])
 	items.sort_custom(func(a, b): return a[0].y < b[0].y)  # nearer walkers over farther ones
 	for it in items:
-		draw_texture(_shadow, it[0] + sh_off)
+		ci.draw_texture(_shadow, it[0] + sh_off)
 	for it in items:
 		var p: Vector2 = it[0]
 		var id: int = it[1]
@@ -92,16 +142,16 @@ func _draw() -> void:
 		var carrying := _hauling != null and _hauling.trips.has(id) and (_hauling.trips[id] as HaulingSystem.Trip).carried > 0.0
 		var bundle_key := "side" if dir >= ArtLibrary.DIR_LEFT else ("back" if dir == ArtLibrary.DIR_UP else "front")
 		if carrying and dir == ArtLibrary.DIR_UP:
-			_draw_bundle(e, bundle_key, p, dir)
+			_draw_bundle(ci, e, bundle_key, p, dir)
 		var v := ArtLibrary.walker_variant(id, map_seed)
-		draw_texture_rect_region(_atlas, Rect2(p - foot_v, cell_size), ArtLibrary.walker_region(v, dir, frame))
+		ci.draw_texture_rect_region(_atlas, Rect2(p - foot_v, cell_size), ArtLibrary.walker_region(v, dir, frame))
 		if carrying and dir != ArtLibrary.DIR_UP:
-			_draw_bundle(e, bundle_key, p, dir)
+			_draw_bundle(ci, e, bundle_key, p, dir)
 
 
-func _draw_bundle(e: Dictionary, key: String, p: Vector2, dir: int) -> void:
+func _draw_bundle(ci: CanvasItem, e: Dictionary, key: String, p: Vector2, dir: int) -> void:
 	var off: Array = e["bundle_offset"][key]
 	var o := Vector2(off[0], off[1])
 	if key == "side":  # held on the side the walker faces
 		o.x = -4.0 if dir == ArtLibrary.DIR_RIGHT else -6.0
-	draw_texture(_bundles[key], p + o)
+	ci.draw_texture(_bundles[key], p + o)

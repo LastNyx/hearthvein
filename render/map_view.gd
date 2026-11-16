@@ -13,6 +13,8 @@ const TILE := ArtLibrary.TILE
 ## Dual-grid layers sit on map corners: the cell is drawn half a tile up-left of the corner it belongs to.
 const DUAL_SHIFT := Vector2(-TILE / 2.0, -TILE / 2.0)
 ## The four map tiles around a corner, in the atlas bit order: TL=1, TR=2, BR=4, BL=8.
+## Alpha of the sky layer seen from the ground view (islands and everything on them).
+const GROUND_VIEW_SKY_ALPHA := 0.45
 const DUAL_CORNERS := [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(0, 0), Vector2i(-1, 0)]
 
 var map: MapState
@@ -23,6 +25,23 @@ var shadows: Node2D
 var flats: Node2D  # flat footprints (Park): on the ground, under every y-sorted object
 var objects: Node2D
 var fx: Node2D
+## Sky layer (ticket 40d), all inside one CanvasGroup so a translucent island fades as one piece: skystone base and
+## shore_sky rim tile layers (one batched TileMapLayer each), sky roads, y-sorted sky buildings with their shadows and
+## glows, and a node PlacementView draws sky construction sites on. `lifts` holds Sky Lifts (they stand in both layers,
+## so they are drawn solid in either view). SkyDim darkens the ground in the sky view.
+var active_layer: int = 0  # Building.LAYER_GROUND; set through set_active_layer
+var sky_group: CanvasGroup
+var sky_base: TileMapLayer
+var sky_rim: TileMapLayer
+var sky_roads: TileMapLayer
+var sky_shadows: Node2D
+var sky_objects: Node2D
+var sky_fx: Node2D
+var sky_draw: Node2D
+var lifts: Node2D
+var _sky_dim: SkyDim
+var _island_shadow: IslandShadow
+var _sky_rects: Array[Rect2i] = []
 var _base: TileMapLayer
 var _shore: TileMapLayer     # water/land dual grid
 var _rock_edge: TileMapLayer  # rock/land dual grid
@@ -51,6 +70,7 @@ func _process(_delta: float) -> void:
 	var show_shadows := cam == null or not CameraController.is_farthest_zoom(cam.zoom.x)
 	if shadows.visible != show_shadows:
 		shadows.visible = show_shadows
+		sky_shadows.visible = show_shadows
 
 
 func setup(m: MapState) -> void:
@@ -112,6 +132,7 @@ func setup(m: MapState) -> void:
 	fx = Node2D.new()
 	fx.name = "Fx"
 	add_child(fx)
+	_build_sky()
 	_ground = ground
 	_overlays = overlays
 	_fill()
@@ -121,6 +142,99 @@ func setup(m: MapState) -> void:
 	_overlay = RegionOverlay.new()
 	_overlay.map = map
 	add_child(_overlay)
+
+
+func _build_sky() -> void:
+	_island_shadow = IslandShadow.new()
+	_island_shadow.name = "IslandShadow"
+	_island_shadow.z_index = 5
+	add_child(_island_shadow)
+	_sky_dim = SkyDim.new()
+	_sky_dim.name = "SkyDim"
+	_sky_dim.z_index = 25
+	_sky_dim.size = world_size()
+	_sky_dim.visible = false
+	add_child(_sky_dim)
+	sky_group = CanvasGroup.new()
+	sky_group.name = "Sky"
+	sky_group.z_index = 30
+	sky_group.visible = false
+	sky_group.modulate.a = GROUND_VIEW_SKY_ALPHA
+	add_child(sky_group)
+	sky_base = TileMapLayer.new()
+	sky_base.name = "SkyBase"
+	sky_base.tile_set = ArtLibrary.terrain_tileset()
+	sky_base.rendering_quadrant_size = 16
+	sky_group.add_child(sky_base)
+	sky_rim = TileMapLayer.new()
+	sky_rim.name = "SkyRim"
+	sky_rim.tile_set = ArtLibrary.autotile_tileset("water")
+	sky_rim.rendering_quadrant_size = 16
+	sky_rim.position = DUAL_SHIFT
+	sky_group.add_child(sky_rim)
+	sky_roads = TileMapLayer.new()
+	sky_roads.name = "SkyRoads"
+	sky_roads.tile_set = ArtLibrary.road_tileset()
+	sky_group.add_child(sky_roads)
+	sky_shadows = Node2D.new()
+	sky_shadows.name = "SkyShadows"
+	sky_group.add_child(sky_shadows)
+	sky_objects = Node2D.new()
+	sky_objects.name = "SkyObjects"
+	sky_objects.y_sort_enabled = true
+	sky_group.add_child(sky_objects)
+	sky_fx = Node2D.new()
+	sky_fx.name = "SkyFx"
+	sky_group.add_child(sky_fx)
+	sky_draw = Node2D.new()
+	sky_draw.name = "SkyDraw"
+	sky_group.add_child(sky_draw)
+	lifts = Node2D.new()
+	lifts.name = "Lifts"
+	lifts.y_sort_enabled = true
+	lifts.z_index = 30
+	add_child(lifts)
+
+
+## Switch the drawn layer (HudModel.layer_changed): the ground view shows the islands translucent over a normal
+## ground; the sky view darkens the ground and draws the islands solid.
+func set_active_layer(layer: int) -> void:
+	active_layer = layer
+	var sky := layer == 1  # Building.LAYER_SKY
+	sky_group.modulate.a = 1.0 if sky else GROUND_VIEW_SKY_ALPHA
+	_sky_dim.visible = sky and not _sky_rects.is_empty()
+
+
+## Repaint every island from the sky map: skystone tiles in `rects` (the island rects) and the rim around them.
+func refresh_sky(sky: MapState, rects: Array[Rect2i]) -> void:
+	_sky_rects = rects.duplicate()
+	sky_base.clear()
+	sky_rim.clear()
+	var rim_src := ArtLibrary.autotile_source("water", "sky")
+	for r in rects:
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				if sky.terrain_id_at(x, y) == MapState.SKY_STONE:
+					var cell := ArtLibrary.terrain_cell(MapState.SKY_STONE, x, y, map.seed_used)
+					sky_base.set_cell(Vector2i(x, y), cell[0], cell[1])
+		if rim_src < 0:
+			continue
+		for j in range(r.position.y, r.end.y + 1):
+			for i in range(r.position.x, r.end.x + 1):
+				var mask := 0
+				for k in 4:
+					var p: Vector2i = Vector2i(i, j) + DUAL_CORNERS[k]
+					if not MapState.in_bounds(p.x, p.y) or sky.terrain_id_at(p.x, p.y) != MapState.SKY_STONE:
+						mask |= 1 << k
+				if mask != 0 and mask != 15:
+					sky_rim.set_cell(Vector2i(i, j), rim_src, ArtLibrary.autotile_coords(mask))
+	for c in sky_roads.get_used_cells():  # a removed island takes its roads with it (no road_changed event)
+		if not _sky_rects.any(func(r: Rect2i) -> bool: return r.has_point(c)):
+			sky_roads.erase_cell(c)
+	_island_shadow.rects = _sky_rects
+	_island_shadow.queue_redraw()
+	sky_group.visible = not _sky_rects.is_empty()
+	_sky_dim.visible = active_layer == 1 and not _sky_rects.is_empty()
 
 
 func _overlay_layer(ground: String) -> TileMapLayer:
@@ -372,6 +486,26 @@ func world_size() -> Vector2:
 
 func hearth_world_pos() -> Vector2:
 	return (Vector2(map.hearth_spot) + Vector2(0.5, 0.5)) * TILE
+
+
+## Soft drop shadow of each island on the ground (a few dark rects, offset down-right).
+class IslandShadow extends Node2D:
+	var rects: Array[Rect2i] = []
+
+	func _draw() -> void:
+		for r in rects:
+			var o := Vector2(r.position) * TILE + Vector2(10, 16)
+			var sz := Vector2(r.size) * TILE
+			draw_rect(Rect2(o, sz), Color(0.0, 0.02, 0.06, 0.12))
+			draw_rect(Rect2(o + Vector2(6, 6), sz - Vector2(12, 12)), Color(0.0, 0.02, 0.06, 0.12))
+
+
+## Darkens the whole ground (about a 0.4 modulate) under the sky layer in the sky view.
+class SkyDim extends Node2D:
+	var size := Vector2.ZERO
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.03, 0.08, 0.6))
 
 
 class RegionOverlay extends Node2D:

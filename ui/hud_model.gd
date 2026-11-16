@@ -17,6 +17,10 @@ var s: Settlement
 var notifications: NotificationCenter
 var selected_id: int = -1
 var overlays := {"blight": false, "roads": false, "water": false, "coverage": false, "grid": false}
+## Active layer (ticket 40d): Building.LAYER_GROUND or LAYER_SKY. The one place the UI (placement, build bar, HUD tag)
+## and the render (MapView.set_active_layer, via layer_changed) read. Tab toggles it; sky only while an island exists.
+var active_layer: int = Building.LAYER_GROUND
+signal layer_changed(layer: int)
 var _deltas := {"food": 0, "materials": 0, "lumen": 0, "gold": 0}
 var _mark: Dictionary = {}
 
@@ -152,6 +156,55 @@ func dimming_text() -> String:
 	return "No Dimming expected"
 
 
+# ---------------------------------------------------------------- layer (ticket 40d)
+
+func has_islands() -> bool:
+	var isys := s.get_system(IslandSystem) as IslandSystem
+	return isys != null and not isys.islands.is_empty()
+
+
+func layer_name() -> String:
+	return "Sky" if active_layer == Building.LAYER_SKY else "Ground"
+
+
+func set_layer(layer: int) -> void:
+	if layer == active_layer:
+		return
+	active_layer = layer
+	selected_id = -1
+	layer_changed.emit(layer)
+
+
+## Tab: ground <-> sky. With no island it stays on the ground and raises a short toast. Returns the layer now active.
+func toggle_layer() -> int:
+	if active_layer == Building.LAYER_SKY:
+		set_layer(Building.LAYER_GROUND)
+	elif has_islands():
+		set_layer(Building.LAYER_SKY)
+	else:
+		notifications.clear("no_islands")
+		notifications.raise("no_islands", "info", "No islands yet")
+	return active_layer
+
+
+## Falls back to the ground when the last island is gone while the sky is shown.
+func sync_layer() -> void:
+	if active_layer == Building.LAYER_SKY and not has_islands():
+		set_layer(Building.LAYER_GROUND)
+
+
+## Why a build bar entry cannot be placed from the active layer ("" when it can). The Sky Lift always goes through the
+## ground API, so it is placeable from either view.
+func layer_block_reason(def: BuildingDef) -> String:
+	if def.sky_lift:
+		return ""
+	if active_layer == Building.LAYER_SKY and def.layers == "ground":
+		return "Ground only (Tab to the ground view)"
+	if active_layer == Building.LAYER_GROUND and def.layers == "island":
+		return "Island only (Tab to the sky view)"
+	return ""
+
+
 # ---------------------------------------------------------------- selection
 
 func select(id: int) -> void:
@@ -159,7 +212,7 @@ func select(id: int) -> void:
 
 
 func select_at(tile: Vector2i) -> void:
-	var b := s.building_at(tile)
+	var b := s.building_at(tile, active_layer)
 	selected_id = b.id if b != null else -1
 
 
@@ -351,7 +404,8 @@ func build_bar() -> Array[Dictionary]:
 		if not by_cat.has(def.category):
 			by_cat[def.category] = []
 		by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
-				"cost": goods_cost_text(def.cost), "size": "%dx%d" % [def.size.x, def.size.y]})
+				"cost": goods_cost_text(def.cost), "size": "%dx%d" % [def.size.x, def.size.y],
+				"reason": layer_block_reason(def), "enabled": layer_block_reason(def) == ""})
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:
 		if cat == "roads":

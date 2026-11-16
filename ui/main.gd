@@ -68,6 +68,9 @@ func _build_world(s: Settlement) -> void:
 	s.events.subscribe("blight_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	s.events.subscribe("fouled_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	s.events.subscribe("terrain_changed", func(e: Dictionary) -> void: view.refresh_tile(e["data"]["tile"]))
+	for kind in ["island_raised", "island_removed"]:
+		s.events.subscribe(kind, func(_e: Dictionary) -> void: _refresh_sky())
+	_refresh_sky()
 	# Dimming: darken the world (CanvasModulate does not touch the CanvasLayer HUD).
 	var dim := CanvasModulate.new()
 	dim.name = "DimmingTint"
@@ -94,6 +97,7 @@ func _build_world(s: Settlement) -> void:
 	var ghost := GhostView.new()
 	ghost.name = "Ghost"
 	ghost.visible = false
+	ghost.z_index = 40  # above the sky layer and its walkers
 	view.add_child(ghost)
 	camera = CameraController.new()
 	camera.name = "Camera"
@@ -108,14 +112,28 @@ func _build_world(s: Settlement) -> void:
 	build.setup(s, ghost, layer)
 	_add(layer)
 	hud_model = HudModel.new(s)
+	build.model = hud_model
 	overlay = OverlayView.new()
 	overlay.name = "OverlayView"
 	view.add_child(overlay)
 	overlay.setup(s, hud_model)
+	hud_model.layer_changed.connect(func(layer: int) -> void:
+		view.set_active_layer(layer)
+		overlay.z_index = 35 if layer == Building.LAYER_SKY else 15)  # the selection outline stays over the islands
 	hud = Hud.new()
 	hud.name = "Hud"
 	_add(hud)
 	hud.setup(hud_model, build, camera, driver)
+
+
+## Repaint the islands on the sky layer from the sim (raised and removed islands).
+func _refresh_sky() -> void:
+	var isys := settlement.get_system(IslandSystem) as IslandSystem
+	var rects: Array[Rect2i] = []
+	if isys != null:
+		for isl in isys.islands:
+			rects.append(isl.rect)
+	map_view.refresh_sky(settlement.sky_map, rects)
 
 
 func _add(n: Node) -> void:

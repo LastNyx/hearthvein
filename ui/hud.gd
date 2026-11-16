@@ -33,6 +33,7 @@ var _spirit_box: Control
 var _planet_label: Label
 var _overlay_buttons: Dictionary = {}
 var _overlay_toggle: Button
+var _layer_tag: Button
 var _overlay_panel: PanelContainer
 var _era_title: Label
 var _era_dimming: Label
@@ -110,6 +111,9 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	_region_map.resized.connect(_center_region_map)
 	_build_bar(col)
 	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
+	model.layer_changed.connect(func(_l: int) -> void:
+		_show_flyout()
+		refresh())
 	refresh()
 
 
@@ -247,6 +251,8 @@ func _build_top_bar(parent: Node) -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
+	_layer_tag = _button(row, "Ground (Tab)", 14)
+	_layer_tag.pressed.connect(func() -> void: model.toggle_layer())
 	_overlay_toggle = _button(row, "Overlays", 14)
 	_overlay_toggle.pressed.connect(toggle_overlay_menu)
 
@@ -464,6 +470,10 @@ func _show_flyout() -> void:
 				text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
 			var b := _button(_fly_box, text, 14)
 			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
+			if e.get("enabled", true) == false:
+				b.disabled = true
+				b.modulate = Color(1, 1, 1, 0.5)
+				b.tooltip_text = str(e["reason"])
 
 
 func _pick(kind: String, id: String) -> void:
@@ -502,9 +512,18 @@ func refresh() -> void:
 	_era_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
 	_moon.visible = ep["dimming_state"] != "none"
 	_refresh_overlay_buttons()
+	model.sync_layer()
+	_refresh_layer_tag()
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
+
+
+func _refresh_layer_tag() -> void:
+	var sky := model.active_layer == Building.LAYER_SKY
+	_layer_tag.text = "%s (Tab)" % model.layer_name()
+	_style_button(_layer_tag, sky)
+	_layer_tag.tooltip_text = "Tab switches between the ground and the sky islands" if model.has_islands() else "No islands yet"
 
 
 func toggle_region_map() -> void:
@@ -541,6 +560,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_H: _on_overlay("coverage")
 			KEY_L: _on_overlay("grid")
 			KEY_M: _region_map.toggle()
+			KEY_TAB:
+				model.toggle_layer()
+				refresh()
+				get_viewport().set_input_as_handled()
 			KEY_U:
 				if model.upgrade():
 					refresh()

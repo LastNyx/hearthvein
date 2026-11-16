@@ -6,6 +6,8 @@ extends Node
 enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK }
 
 var settlement: Settlement
+## The HUD model whose active_layer placement targets (ticket 40d); null means the ground (tests, tools).
+var model: HudModel
 var ghost: GhostView
 var mode: Mode = Mode.NONE
 var def_id: String = ""
@@ -58,6 +60,21 @@ func _refresh() -> void:
 		ghost.set_state(null, Vector2i.ZERO, false, false)
 
 
+## Layer a click or the ghost acts on: the active layer.
+func _layer() -> int:
+	return model.active_layer if model != null else Building.LAYER_GROUND
+
+
+## Layer a building def is placed on from the active view: a Sky Lift always goes through the ground API.
+func _place_layer(def: BuildingDef) -> int:
+	return Building.LAYER_GROUND if def != null and def.sky_lift else _layer()
+
+
+func _road_level(t: Vector2i, layer: int) -> int:
+	return settlement.road_at(t) if layer == Building.LAYER_GROUND else (
+			settlement.sky_roads[MapState.idx(t.x, t.y)] if MapState.in_bounds(t.x, t.y) else 0)
+
+
 func _mouse_tile() -> Vector2i:
 	var p := ghost.get_global_mouse_position()
 	return Vector2i(floori(p.x / GhostView.TILE), floori(p.y / GhostView.TILE))
@@ -70,9 +87,12 @@ func _process(_d: float) -> void:
 	match mode:
 		Mode.BUILD:
 			var def := settlement.registry.get_building(def_id)
-			ghost.set_state(def, t, settlement.can_place(def_id, t)["ok"], true)
+			var ok: bool = settlement.can_place(def_id, t, false, _place_layer(def))["ok"] \
+					and (model == null or model.layer_block_reason(def) == "")
+			ghost.set_state(def, t, ok, true)
 		Mode.ROAD:
-			ghost.set_state(null, t, settlement.can_place_road(t) and settlement.road_at(t) == 0, true)
+			var rl := _layer()
+			ghost.set_state(null, t, settlement.can_place_road(t, rl) and _road_level(t, rl) == 0, true)
 		Mode.CHANNEL:
 			var c := settlement.can_place_channel(t)
 			ghost.set_state(null, t, c["ok"] or settlement.channel_at(t), true)
@@ -99,9 +119,10 @@ func _process(_d: float) -> void:
 			else:
 				_hint.text = "Rail track: %s" % HudModel.track_refusal_text(str(c["reason"]))
 		Mode.DEMOLISH:
-			var b := settlement.building_at(t)
-			ghost.set_state(null, t, (b != null and b != settlement.hearth) or settlement.road_at(t) != 0
-					or settlement.channel_at(t) or settlement.track_at(t), true)
+			var dl := _layer()
+			var b := settlement.building_at(t, dl)
+			ghost.set_state(null, t, (b != null and b != settlement.hearth) or _road_level(t, dl) != 0
+					or (dl == Building.LAYER_GROUND and (settlement.channel_at(t) or settlement.track_at(t))), true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -135,11 +156,13 @@ func _unhandled_input(event: InputEvent) -> void:
 func _click(t: Vector2i) -> void:
 	match mode:
 		Mode.BUILD:
-			settlement.place_building(def_id, t)  # stays in build mode for repeated placement
+			var def := settlement.registry.get_building(def_id)
+			if model == null or model.layer_block_reason(def) == "":
+				settlement.place_building(def_id, t, _place_layer(def))  # stays in build mode for repeated placement
 		Mode.ROAD:
 			_painting = true
 			_last_tile = t
-			settlement.place_road(t)
+			settlement.place_road(t, Settlement.ROAD_DIRT, _layer())
 		Mode.CHANNEL:
 			_painting = true
 			_last_tile = t
@@ -153,9 +176,11 @@ func _click(t: Vector2i) -> void:
 			_last_tile = t
 			settlement.place_track(t)
 		Mode.DEMOLISH:
-			var b := settlement.building_at(t)
+			var b := settlement.building_at(t, _layer())
 			if b != null:
 				settlement.demolish(b.id)
+			elif _layer() == Building.LAYER_SKY:
+				settlement.remove_road(t, Building.LAYER_SKY)
 			elif settlement.track_at(t):
 				settlement.remove_track(t)
 			elif settlement.channel_at(t):
@@ -193,5 +218,5 @@ func _paint_to(t: Vector2i) -> void:
 		elif mode == Mode.TRACK:
 			settlement.place_track(cur)
 		else:
-			settlement.place_road(cur)
+			settlement.place_road(cur, Settlement.ROAD_DIRT, _layer())
 	_last_tile = t

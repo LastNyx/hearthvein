@@ -11,6 +11,8 @@ const TILE := ArtLibrary.TILE
 var settlement: Settlement
 var view: MapView
 var _nodes: Dictionary = {}  # building id -> Array[Node]
+var _sky_ids: Dictionary = {}  # id -> true for buildings on the sky layer (their tiles never touch ground props)
+var _sky_canvas: SkyCanvas
 var _channels_dirty := false
 var _drawn_channels: Dictionary = {}  # tile -> true for every channel cell currently on the layer
 
@@ -19,6 +21,9 @@ func setup(s: Settlement, v: MapView) -> void:
 	settlement = s
 	view = v
 	v.prop_blocked = func(t: Vector2i) -> bool: return _level(t) > 0 or _dug(t) or settlement.track_at(t) or settlement.building_at(t) != null
+	_sky_canvas = SkyCanvas.new()
+	_sky_canvas.owner_view = self
+	v.sky_draw.add_child(_sky_canvas)
 	z_index = 20  # the no-road icon sits above sprites and glows
 	for kind in ["building_placed", "building_demolished", "road_changed", "building_connection_changed", "building_completed", "building_upgraded"]:
 		s.events.subscribe(kind, func(entry: Dictionary) -> void: _on_event(entry["kind"], entry["data"]))
@@ -31,6 +36,9 @@ func setup(s: Settlement, v: MapView) -> void:
 		var t: Vector2i = e["data"]["tile"]
 		for d in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
 			_refresh_track(t + d))
+	for i in s.sky_roads.size():
+		if s.sky_roads[i] > 0:
+			_refresh_sky_road(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
 	for i in s.track.size():
 		if s.track[i] != 0:
 			_refresh_track(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
@@ -38,6 +46,7 @@ func setup(s: Settlement, v: MapView) -> void:
 		_add_building(s.buildings[id])
 	_refresh_channels()
 	queue_redraw()
+	_sky_canvas.queue_redraw()
 
 
 
@@ -47,6 +56,9 @@ func _on_event(kind: String, e: Dictionary) -> void:
 		"road_changed":
 			var t: Vector2i = e["tile"]
 			for d in [Vector2i.ZERO, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+				if int(e.get("layer", Building.LAYER_GROUND)) == Building.LAYER_SKY:
+					_refresh_sky_road(t + d)
+					continue
 				_refresh_road(t + d)
 				_refresh_track(t + d)  # a crossing tile switches between plain track and the crossing art
 		"building_placed":
@@ -63,12 +75,35 @@ func _on_event(kind: String, e: Dictionary) -> void:
 		"building_demolished":
 			_remove_building(e["id"], e["origin"], e["def"])
 	queue_redraw()
+	_sky_canvas.queue_redraw()
 
 
 func _level(t: Vector2i) -> int:
 	if not MapState.in_bounds(t.x, t.y):
 		return 0
 	return settlement.roads[MapState.idx(t.x, t.y)]
+
+
+func _sky_level(t: Vector2i) -> int:
+	if not MapState.in_bounds(t.x, t.y):
+		return 0
+	return settlement.sky_roads[MapState.idx(t.x, t.y)]
+
+
+## Sky road tile on the island road layer (same atlas as the ground, 4-neighbour mask among sky roads).
+func _refresh_sky_road(t: Vector2i) -> void:
+	if not MapState.in_bounds(t.x, t.y):
+		return
+	var lv := _sky_level(t)
+	if lv <= 0:
+		view.sky_roads.erase_cell(t)
+		return
+	var mask := 0
+	var dirs := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+	for i in 4:
+		if _sky_level(t + dirs[i]) > 0:
+			mask |= 1 << i
+	view.sky_roads.set_cell(t, lv, ArtLibrary.road_coords(mask, t.x, t.y))
 
 
 func _refresh_road(t: Vector2i) -> void:
@@ -151,30 +186,49 @@ func _add_building(b: Building) -> void:
 	holder.add_child(ArtLibrary.building_sprite(_art_id(b)))
 	holder.visible = not b.site  # a site draws itself in _draw
 	# A flat building (the Park) lies on the ground: a tall neighbour in front must overhang it, never hide it.
-	(view.flats if e.get("flat", false) else view.objects).add_child(holder)
+	# A sky building (layer 1) lives in the sky group; a Sky Lift (ground building, also on the island) in `lifts`, solid in both views.
+	var sky := b.layer == Building.LAYER_SKY
+	var parent: Node = view.objects
+	var shadow_parent: Node = view.shadows
+	var fx_parent: Node = view.fx
+	if sky:
+		parent = view.sky_objects
+		shadow_parent = view.sky_shadows
+		fx_parent = view.sky_fx
+	elif b.def.sky_lift:
+		parent = view.lifts
+	elif e.get("flat", false):
+		parent = view.flats
+	parent.add_child(holder)
 	list.append(holder)
 	var sh := ArtLibrary.shadow_sprite(e)
 	if sh != null:
 		sh.position = base
-		view.shadows.add_child(sh)
+		shadow_parent.add_child(sh)
 		list.append(sh)
 	var f := ArtLibrary.fx_sprite(e)
 	if f != null:
 		f.position = base
-		view.fx.add_child(f)
+		fx_parent.add_child(f)
 		list.append(f)
 	_nodes[b.id] = list
 	if b.site:  # shadow and glows wait for the finished building
 		for n in list:
 			(n as CanvasItem).visible = false
-	for t in b.tiles():
-		view.set_props_visible(t, false)
+	if sky:
+		_sky_ids[b.id] = true
+	else:
+		for t in b.tiles():
+			view.set_props_visible(t, false)
 
 
 func _remove_building(id: int, origin: Vector2i, def_id: String) -> void:
 	for n in _nodes.get(id, []):
 		(n as Node).queue_free()
 	_nodes.erase(id)
+	if _sky_ids.erase(id):
+		_sky_canvas.queue_redraw()
+		return
 	var def := settlement.registry.get_building(def_id)
 	for y in def.size.y:
 		for x in def.size.x:
@@ -190,20 +244,38 @@ func _process(_d: float) -> void:
 		var b: Building = settlement.buildings[id]
 		if b.site or b.upgrading():
 			queue_redraw()
+			_sky_canvas.queue_redraw()
 			return
 
 
 func _draw() -> void:
+	_draw_layer(self, Building.LAYER_GROUND)
+
+
+## Construction sites, upgrade bars and no-road icons of the buildings on `layer`, drawn on `ci` (this node for the
+## ground, the SkyCanvas inside the sky group for islands).
+func _draw_layer(ci: CanvasItem, layer: int) -> void:
 	if settlement == null:
 		return
 	for id in settlement.buildings:
 		var b: Building = settlement.buildings[id]
+		if b.layer != layer:
+			continue
 		if b.site:
-			_draw_site(b)
+			_draw_site(ci, b)
 		elif b.upgrading():
-			_draw_upgrade_bar(b)
+			_draw_upgrade_bar(ci, b)
 		if not b.connected:
-			_draw_no_road(b)
+			_draw_no_road(ci, b)
+
+
+## Draw node of the sky group: forwards to PlacementView._draw_layer for the sky layer.
+class SkyCanvas extends Node2D:
+	var owner_view: PlacementView
+
+	func _draw() -> void:
+		if owner_view != null:
+			owner_view._draw_layer(self, Building.LAYER_SKY)
 
 
 ## Share of the cost already delivered to a site, 0..1.
@@ -217,33 +289,33 @@ func _delivered_share(b: Building) -> float:
 	return have / need if need > 0.0 else 1.0
 
 
-func _draw_site(b: Building) -> void:
+func _draw_site(ci: CanvasItem, b: Building) -> void:
 	var fr := Rect2(Vector2(b.origin) * TILE, Vector2(b.def.size) * TILE)
 	var r := ArtLibrary.sprite_rect(b.def.id, b.origin, b.def.size)
 	var p := b.build_progress()
 	var art := ArtLibrary.site_art(b.def.size, r.size.y)
-	draw_texture(art["plot"], fr.position)
+	ci.draw_texture(art["plot"], fr.position)
 	if p > 0.0:  # the finished sprite rises bottom-up behind the scaffold
 		var tex := ArtLibrary.texture(ArtLibrary.building_entry(b.def.id)["file"])
 		var h := r.size.y * p
-		draw_texture_rect_region(tex, Rect2(r.position.x, r.end.y - h, r.size.x, h),
+		ci.draw_texture_rect_region(tex, Rect2(r.position.x, r.end.y - h, r.size.x, h),
 				Rect2(0, r.size.y - h, r.size.x, h), Color(1, 1, 1, 0.95))
 	var sc: Texture2D = art["scaffold"]
-	draw_texture(sc, Vector2(fr.position.x, fr.end.y - sc.get_height()))
+	ci.draw_texture(sc, Vector2(fr.position.x, fr.end.y - sc.get_height()))
 	var bar := Rect2(fr.position.x, fr.end.y + 2.0, fr.size.x, 5.0)
-	draw_rect(bar.grow(1.0), Color(0.05, 0.05, 0.05, 0.85))
+	ci.draw_rect(bar.grow(1.0), Color(0.05, 0.05, 0.05, 0.85))
 	var building := b.site_delivered()
 	var share := p if building else _delivered_share(b)
-	draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)),
+	ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)),
 			Color("5fc34a") if building else Color("e8a33a"))
 
 
 ## Progress bar under a building that is being upgraded, same look as a site's: orange while goods are delivered,
 ## green while builders work.
-func _draw_upgrade_bar(b: Building) -> void:
+func _draw_upgrade_bar(ci: CanvasItem, b: Building) -> void:
 	var fr := Rect2(Vector2(b.origin) * TILE, Vector2(b.def.size) * TILE)
 	var bar := Rect2(fr.position.x, fr.end.y + 2.0, fr.size.x, 5.0)
-	draw_rect(bar.grow(1.0), Color(0.05, 0.05, 0.05, 0.85))
+	ci.draw_rect(bar.grow(1.0), Color(0.05, 0.05, 0.05, 0.85))
 	var working := b.upgrade_delivered()
 	var share := b.upgrade_progress()
 	if not working:
@@ -253,14 +325,14 @@ func _draw_upgrade_bar(b: Building) -> void:
 			need += float(b.upgrade_cost[g])
 			have += minf(float(b.upgrade_cost[g]), b.upgrade_buffer.amount_of(g))
 		share = have / need if need > 0.0 else 1.0
-	draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)),
+	ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)),
 			Color("5fc34a") if working else Color("e8a33a"))
 
 
-func _draw_no_road(b: Building) -> void:
+func _draw_no_road(ci: CanvasItem, b: Building) -> void:
 	var r := ArtLibrary.sprite_rect(b.def.id, b.origin, b.def.size)
 	var c := Vector2(r.end.x - 6, r.position.y + 8)
-	draw_circle(c, 7.0, Color(0.1, 0.05, 0.05, 0.9))
-	draw_circle(c, 6.0, Color("d8362e"))
-	draw_rect(Rect2(c + Vector2(-3.5, -1.5), Vector2(7, 3)), Color.WHITE)
-	draw_line(c + Vector2(-4, 4), c + Vector2(4, -4), Color(0.1, 0.05, 0.05), 2.0)
+	ci.draw_circle(c, 7.0, Color(0.1, 0.05, 0.05, 0.9))
+	ci.draw_circle(c, 6.0, Color("d8362e"))
+	ci.draw_rect(Rect2(c + Vector2(-3.5, -1.5), Vector2(7, 3)), Color.WHITE)
+	ci.draw_line(c + Vector2(-4, 4), c + Vector2(4, -4), Color(0.1, 0.05, 0.05), 2.0)
