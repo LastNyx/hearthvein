@@ -54,6 +54,7 @@ func _set_still(s: Settlement, isl: Island, why: String) -> void:
 	isl.still_why = why
 	# Still buildings stop being water, coverage and grid sources: those caches key on structure_version.
 	s.structure_version += 1
+	s.grid_version += 1  # a still island's Sky Lifts and docks carry nobody: walker paths and distances re-plan (ticket 40c)
 	if why != "":
 		s.events.emit("island_still", {"island": isl.id, "why": why, "region": isl.region})
 	else:
@@ -147,11 +148,12 @@ func island_at(tile: Vector2i) -> Island:
 	return null
 
 
-## Sky-layer buildings (sites included) standing on the island.
+## Buildings (sites included) standing on the island: sky-layer ones, and Sky Lifts, which stand on the ground but also
+## hold a sky tile of the island (a lift counts, so an anchor with a lift still on its island cannot be demolished).
 func buildings_on(s: Settlement, isl: Island) -> Array[Building]:
 	var out: Array[Building] = []
 	for b: Building in s.buildings.values():
-		if b.layer == Building.LAYER_SKY and isl.rect.intersects(b.footprint()):
+		if (b.layer == Building.LAYER_SKY or b.def.sky_lift) and isl.rect.intersects(b.footprint()):
 			out.append(b)
 	return out
 

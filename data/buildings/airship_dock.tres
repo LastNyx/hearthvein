@@ -21,3 +21,4 @@ placement_rule = "any"
 placement_radius = 0
 upgradable = false
 airship_dock = true
+layers = "either"

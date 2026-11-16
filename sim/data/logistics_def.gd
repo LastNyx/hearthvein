@@ -46,3 +46,7 @@ extends Resource
 @export var island_max: int = 4
 ## Lumen per day each raised island draws through the grid of its Lift Anchor (ticket 40b); drawn hourly pro rata.
 @export var island_upkeep_lumen: float = 20.0
+## Game seconds (1x) a walker spends riding a Sky Lift or crossing between a ground and an island Airship Dock
+## (ticket 40c). Entering the other layer costs this instead of 1 / tile speed.
+@export var lift_ride_seconds: float = 3.0
+@export var dock_ride_seconds: float = 6.0

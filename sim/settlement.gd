@@ -64,6 +64,8 @@ var terrain_dirty: Array[Vector2i] = []
 var forest_gain_version: int = 0
 ## Road reachability from the Hearth (see _recompute_connections).
 var _reached := {}
+## Sky road tiles joined to a connected Sky Lift or island dock (see _reach_sky), a cache like _reached.
+var _sky_reached := {}
 var _roads_dirty := true
 ## Game seconds already spent inside the current hour (only non-zero between step_seconds calls).
 var _hour_acc: float = 0.0
@@ -427,8 +429,9 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false, layer
 	if def.airship_dock and MapState.in_bounds(origin.x, origin.y):
 		var dock_region := map.get_region(origin.x, origin.y)
 		for other: Building in buildings.values():
-			if other.def.airship_dock and map.get_region(other.origin.x, other.origin.y) == dock_region:
-				return {"ok": false, "reason": "region_dock"}  # one Airship Dock per region, sites count
+			if other.def.airship_dock and other.layer == Building.LAYER_GROUND \
+					and map.get_region(other.origin.x, other.origin.y) == dock_region:
+				return {"ok": false, "reason": "region_dock"}  # one ground Airship Dock per region, sites count
 	for y in range(origin.y, origin.y + def.size.y):
 		for x in range(origin.x, origin.x + def.size.x):
 			if not MapState.in_bounds(x, y):
@@ -453,11 +456,25 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false, layer
 	var why := Placement.check_rule(map, registry, def, origin)
 	if why != "":
 		return {"ok": false, "reason": why}
+	if def.sky_lift:  # a Sky Lift also holds the sky tile right above: skystone of an island, free of buildings and roads
+		var si := MapState.idx(origin.x, origin.y)
+		if sky_map.terrain_id_at(origin.x, origin.y) != MapState.SKY_STONE:
+			return {"ok": false, "reason": "no_island"}
+		if sky_occupancy[si] >= 0:
+			return {"ok": false, "reason": "overlap"}
+		if sky_roads[si] != ROAD_NONE:
+			return {"ok": false, "reason": "road"}
 	return {"ok": true, "reason": ""}
 
 
 ## Sky-layer half of can_place: the footprint must lie on skystone (a raised island) and be free.
 func _can_place_sky(def: BuildingDef, origin: Vector2i) -> Dictionary:
+	if def.airship_dock and MapState.in_bounds(origin.x, origin.y):  # one island dock per region (ground docks count apart)
+		var dock_region := map.get_region(origin.x, origin.y)
+		for other: Building in buildings.values():
+			if other.def.airship_dock and other.layer == Building.LAYER_SKY \
+					and map.get_region(other.origin.x, other.origin.y) == dock_region:
+				return {"ok": false, "reason": "region_dock"}
 	for y in range(origin.y, origin.y + def.size.y):
 		for x in range(origin.x, origin.x + def.size.x):
 			if not MapState.in_bounds(x, y):
@@ -547,8 +564,8 @@ func complete_site(b: Building) -> void:
 	_raise_island_for(b)
 	if b.def.wet_radius > 0:
 		WaterSystem.recompute(self)
-	if b.def.rail_depot:
-		_roads_dirty = true  # a finished depot can join road networks; refresh_population runs below
+	if b.def.rail_depot or b.def.sky_lift or b.def.airship_dock:
+		_roads_dirty = true  # a finished depot, lift or dock can join road networks; refresh_population runs below
 		_recompute_connections()
 	events.emit("building_completed", {"id": b.id, "def": b.def.id, "origin": b.origin})
 	refresh_population()
@@ -605,9 +622,11 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false,
 	var occ := occupancy_for_layer(layer)
 	for t in b.tiles():
 		occ[MapState.idx(t.x, t.y)] = b.id
+	if def.sky_lift:
+		sky_occupancy[MapState.idx(origin.x, origin.y)] = b.id  # the lift also stands in the sky tile above
 	if not as_site:
 		_raise_island_for(b)
-	if def.rail_depot and not as_site:
+	if (def.rail_depot or def.sky_lift or def.airship_dock) and not as_site:
 		_roads_dirty = true
 	if def.wet_radius > 0 and not as_site and hearth != null:
 		WaterSystem.recompute(self)  # a finished wetting building wets its tiles at once
@@ -630,6 +649,8 @@ func demolish(id: int) -> bool:
 	var occ := occupancy_for_layer(b.layer)
 	for t in b.tiles():
 		occ[MapState.idx(t.x, t.y)] = -1
+	if b.def.sky_lift:
+		sky_occupancy[MapState.idx(b.origin.x, b.origin.y)] = -1
 	# Contents of a demolished storehouse are lost.
 	buildings.erase(id)
 	grid_version += 1
@@ -637,10 +658,10 @@ func demolish(id: int) -> bool:
 	if b.def.wet_radius > 0 and not b.site:
 		WaterSystem.recompute(self)
 	var refund := _refund_for(b)
-	_return_goods(refund, b.origin)
+	_return_goods(refund, b.origin, b.layer)
 	events.emit("building_demolished", {"id": id, "def": b.def.id, "origin": b.origin, "site": b.site, "refund": refund})
-	if b.def.rail_depot:
-		_roads_dirty = true  # losing a depot can cut a rail link, and with it connections
+	if b.def.rail_depot or b.def.sky_lift or b.def.airship_dock:
+		_roads_dirty = true  # losing a depot, lift or dock can cut a rail or sky link, and with it connections
 		_recompute_connections()
 	refresh_population()  # otherwise removing a building changes no road, so no connection can change
 	return true
@@ -676,14 +697,14 @@ func store_goods(goods: Dictionary, from: Vector2i) -> void:
 
 ## Gold goes to the counter; each good to the nearest storage with room (measured from `from`), spilling over to
 ## the next nearest when one fills up. What fits nowhere is lost.
-func _return_goods(goods: Dictionary, from: Vector2i) -> void:
+func _return_goods(goods: Dictionary, from: Vector2i, from_layer: int = Building.LAYER_GROUND) -> void:
 	for g in goods:
 		var left: float = goods[g]
 		if g == BuildingDef.GOLD:
 			gold += left
 			continue
 		while left > Inventory.EPS:
-			var st := find_storage_with_room(g, from)
+			var st := find_storage_with_room(g, from, 0.000001, from_layer)
 			if st == null:
 				break
 			var put := st.inventory.add(g, left)
@@ -1016,16 +1037,33 @@ func set_storage_filter(building_id: int, goods: Array) -> bool:
 ## Nearest storage building that can take at least `amount` (default any room) of `good`, measured as
 ## Manhattan distance from `from` to the closest footprint tile (ties: lowest id). Null if none.
 ## Walking distance replaces this in ticket 09.
-func find_storage_with_room(good: String, from: Vector2i, amount: float = 0.000001) -> Building:
+## `from_layer` is the layer `from` is on; a storage on the other layer is as far as the way through the nearest Sky
+## Lift or dock (WalkerSystem.estimate_distance), and skipped when there is none (ticket 40c).
+func find_storage_with_room(good: String, from: Vector2i, amount: float = 0.000001,
+		from_layer: int = Building.LAYER_GROUND) -> Building:
 	var best: Building = null
 	var best_d := 0
+	var ws: WalkerSystem = null
 	for id in buildings:
 		var b: Building = buildings[id]
 		if b.inventory == null or b.inventory.free_for(good) < amount:
 			continue
 		var d := 1 << 30
-		for t in b.tiles():
-			d = mini(d, absi(t.x - from.x) + absi(t.y - from.y))
+		if b.layer == from_layer:
+			for t in b.tiles():
+				d = mini(d, absi(t.x - from.x) + absi(t.y - from.y))
+		else:
+			if ws == null:
+				ws = get_system(WalkerSystem) as WalkerSystem
+			if ws == null:
+				continue
+			var gf := MapState.to_global(from, from_layer)
+			for t in b.tiles():
+				var est := ws.estimate_distance(self, gf, MapState.to_global(t, b.layer))
+				if est < INF:
+					d = mini(d, int(est))
+			if d == 1 << 30:
+				continue  # no lift or dock to carry it over
 		if best == null or d < best_d or (d == best_d and b.id < best.id):
 			best = b
 			best_d = d
@@ -1055,7 +1093,9 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT, layer: int = Building.LA
 		sky_roads[MapState.idx(tile.x, tile.y)] = level
 		grid_version += 1
 		structure_version += 1
+		_roads_dirty = true
 		events.emit("road_changed", {"tile": tile, "level": level, "layer": layer})
+		_recompute_connections()
 		return true
 	if not can_place_road(tile) or roads[MapState.idx(tile.x, tile.y)] >= level:
 		return false
@@ -1075,7 +1115,9 @@ func remove_road(tile: Vector2i, layer: int = Building.LAYER_GROUND) -> bool:
 		sky_roads[MapState.idx(tile.x, tile.y)] = ROAD_NONE
 		grid_version += 1
 		structure_version += 1
+		_roads_dirty = true
 		events.emit("road_changed", {"tile": tile, "level": ROAD_NONE, "layer": layer})
+		_recompute_connections()
 		return true
 	if not MapState.in_bounds(tile.x, tile.y) or roads[MapState.idx(tile.x, tile.y)] == ROAD_NONE:
 		return false
@@ -1422,6 +1464,47 @@ func _ring(b: Building) -> Array[Vector2i]:
 	return out
 
 
+func _set_connected(b: Building, now: bool) -> void:
+	if now != b.connected:
+		b.connected = now
+		events.emit("building_connection_changed", {"id": b.id, "connected": now})
+
+
+## Sky road tiles reachable from a finished Sky Lift or island Airship Dock whose ground side is connected: roads on the
+## sky layer touching the link's footprint ring, then every sky road joined to them. Island still state is ignored on
+## purpose (a still island keeps its jobs; WalkerSystem is what refuses to carry anyone then).
+func _reach_sky() -> void:
+	_sky_reached.clear()
+	var queue: Array[Vector2i] = []
+	var sources: Array[Building] = []
+	var ground_docks: Dictionary = {}  # region -> true, a finished connected ground dock stands there
+	for b: Building in buildings.values():
+		if b.site:
+			continue
+		if b.def.sky_lift and b.connected:
+			sources.append(b)
+		elif b.def.airship_dock and b.layer == Building.LAYER_GROUND and b.connected:
+			ground_docks[map.get_region(b.origin.x, b.origin.y)] = true
+	for b: Building in buildings.values():
+		if not b.site and b.def.airship_dock and b.layer == Building.LAYER_SKY \
+				and ground_docks.has(map.get_region(b.origin.x, b.origin.y)):
+			sources.append(b)
+	for b in sources:
+		for t in _ring(b):
+			if MapState.in_bounds(t.x, t.y) and sky_roads[MapState.idx(t.x, t.y)] != ROAD_NONE and not _sky_reached.has(t):
+				_sky_reached[t] = true
+				queue.append(t)
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		for d in Placement.DIRS:
+			var n := c + d
+			if MapState.in_bounds(n.x, n.y) and sky_roads[MapState.idx(n.x, n.y)] != ROAD_NONE and not _sky_reached.has(n):
+				_sky_reached[n] = true
+				queue.append(n)
+
+
 ## BFS over road tiles from the road tiles touching the Hearth; updates every building's connected flag (or only
 ## `only`'s when given and no road changed since the last BFS). Ends with refresh_population().
 ## The BFS result only depends on roads, so it is kept until a road is placed or removed (_roads_dirty).
@@ -1455,12 +1538,24 @@ func _recompute_connections(only: Building = null) -> void:
 	var check: Array = buildings.values() if all else [only]
 	for b: Building in check:
 		var now := b == hearth
-		if not now and b.layer == Building.LAYER_GROUND:  # sky buildings reach the ground by Sky Lift only (ticket 40c)
+		if not now and b.layer == Building.LAYER_GROUND:
 			for t in _ring(b):
 				if reached.has(t):
 					now = true
 					break
-		if now != b.connected:
-			b.connected = now
-			events.emit("building_connection_changed", {"id": b.id, "connected": now})
+		if b.layer == Building.LAYER_GROUND:
+			_set_connected(b, now)
+	# Sky buildings reach the ground only through a Sky Lift or an island Airship Dock whose ground side is connected
+	# (ticket 40c): a BFS over the island's sky roads, seeded beside those links, after the ground flags are final.
+	if _roads_dirty_pass:
+		_reach_sky()
+	for b: Building in check:
+		if b.layer != Building.LAYER_SKY:
+			continue
+		var now := false
+		for t in _ring(b):
+			if _sky_reached.has(t):
+				now = true
+				break
+		_set_connected(b, now)
 	refresh_population()

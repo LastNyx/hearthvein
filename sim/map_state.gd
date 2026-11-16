@@ -96,6 +96,27 @@ static func new_sky() -> MapState:
 	return m
 
 
+## Global tile space for walkers and paths (ticket 40c): ground tile (x, y) is Vector2i(x, y); sky tile (x, y) is
+## Vector2i(x, y + HEIGHT). So a global tile with y >= HEIGHT is on the sky layer. Renderers decode with layer_of and
+## local_of; Walker.tile, Walker.path, WalkerSystem.find_path and door_tile all use this encoding.
+static func to_global(tile: Vector2i, layer: int) -> Vector2i:
+	return Vector2i(tile.x, tile.y + HEIGHT) if layer == 1 else tile  # 1 = Building.LAYER_SKY
+
+
+## Layer of a global tile: 0 ground (Building.LAYER_GROUND), 1 sky (Building.LAYER_SKY).
+static func layer_of(gtile: Vector2i) -> int:
+	return 1 if gtile.y >= HEIGHT else 0
+
+
+## The tile's own coordinates on its layer (the ground / sky map index space).
+static func local_of(gtile: Vector2i) -> Vector2i:
+	return Vector2i(gtile.x, gtile.y - HEIGHT) if gtile.y >= HEIGHT else gtile
+
+
+static func in_bounds_global(gtile: Vector2i) -> bool:
+	return gtile.x >= 0 and gtile.x < WIDTH and gtile.y >= 0 and gtile.y < HEIGHT * 2
+
+
 static func region_at(x: int, y: int) -> int:
 	return (y / REGION_H) * REGION_COLS + x / REGION_W
 

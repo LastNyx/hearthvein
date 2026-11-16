@@ -367,6 +367,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: unknown layer rule '%s'" % [who, b.layers])
 	if b.raises_island and b.layers != "ground":
 		errors.append("%s: an island raiser stands on the ground" % who)
+	if b.sky_lift and (b.layers != "ground" or b.size != Vector2i(1, 1)):
+		errors.append("%s: a Sky Lift is a 1x1 ground building" % who)
 	if b.free_first_with != "" and not buildings.has(b.free_first_with):
 		errors.append("%s: unknown free_first_with building '%s'" % [who, b.free_first_with])
 	if not BuildingDef.STORAGE_MODES.has(b.storage_mode):

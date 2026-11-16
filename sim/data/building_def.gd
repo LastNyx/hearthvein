@@ -130,8 +130,12 @@ const GOLD := "gold"
 ## depots joined by track tiles form a rail network (RailSystem).
 @export var rail_depot: bool = false
 ## Airship Dock (ticket 38): a staffed dock joins the air freight network (AirshipSystem) and can fly surveys. At most
-## one per region.
+## one per region and layer (an island dock and a ground dock of the same region form a walker link, ticket 40c).
 @export var airship_dock: bool = false
+## Sky Lift (ticket 40c): one building on the GROUND layer (layers "ground") that also holds the sky tile directly
+## above its tile. Placing it needs a valid ground tile and a free skystone tile of a raised island above; it writes its
+## id into both occupancy grids. A finished one on a fed island carries walkers and haulers between the layers.
+@export var sky_lift: bool = false
 ## Layer rule, one of LAYER_RULES. Lift Anchor is ground-only; later island buildings use "island" or "either".
 @export var layers: String = "ground"
 ## Lift Anchor (ticket 40): a finished one raises a sky island over the region its origin is in (IslandSystem).

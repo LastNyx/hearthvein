@@ -4,6 +4,15 @@ extends SimSystem
 ##
 ## Pathing: one AStarGrid2D over the whole map, 4-neighbour moves. Cost of entering a tile is
 ## (fastest speed / that tile's speed), so roads attract paths without making the heuristic inadmissible.
+## The sky layer (ticket 40c) has a second AStarGrid2D (_sky_grid, void tiles solid, speeds from sky roads), and walkers
+## use ONE global tile space: ground tile (x, y) is Vector2i(x, y), sky tile (x, y) is Vector2i(x, y + MapState.HEIGHT)
+## (MapState.to_global / layer_of / local_of). Walker.tile, Walker.path, find_path, door_tile and tile_speed all speak
+## global tiles; the renderer decodes by layer. find_path on one layer is that layer's grid. Across layers a path is a
+## ground leg to a link, the crossing step, and a sky leg from the link's other end: the links are the finished Sky
+## Lifts on the island (ground tile and the sky tile above it) and each finished island Airship Dock paired with the
+## ground dock of its region. The crossing step costs LogisticsDef.lift_ride_seconds / dock_ride_seconds. The best link
+## (lowest path_seconds) wins; sky to sky across two islands goes down one link and up another. An island that is
+## still (40b) offers no links, no link means no path ([]).
 ## Speed comes from data: RoadDef.walk_speed on a road tile, else TerrainDef.walk_speed (0 = impassable).
 ## Time: speeds are tiles per game second at 1x; one game hour is GameClock.REAL_SECONDS_PER_HOUR (2.5) seconds.
 ## Entering a tile takes 1 / speed(entered tile) seconds.
@@ -57,6 +66,17 @@ var _last_max_speed: float = -1.0
 var _structure_version: int = -1
 var _solid := PackedByteArray()  # per tile: 1 when the A* grid has it solid
 var _cache: Dictionary = {}  # int key -> Array[Vector2i] (empty array = no path)
+## Sky layer grid (same size as the ground's, indexed by local sky tile), built with the ground grid. Only walked over
+## when an island exists; until then every cell stays solid and nothing is rewritten.
+var _sky_grid: AStarGrid2D
+var _sky_speeds := PackedFloat32Array()
+var _sky_solid := PackedByteArray()
+var _sky_structure: int = -1
+var _sky_max: float = -1.0
+var _sky_content: bool = false  # the sky grid has open cells (an island exists or did until the last refresh)
+## island id -> Array of links {g: ground global tile, k: sky global tile, ride: seconds}, rebuilt lazily per grid version.
+var _links: Dictionary = {}
+var _links_ready: bool = false
 var path_computations: int = 0  # for tests: how many real A* runs happened
 ## Departures scheduled for the current hour: citizen ids encoded as (depart_bin << 20 | id), sorted by that int,
 ## so the sort is the native int sort.
@@ -255,53 +275,229 @@ func work_counts() -> Dictionary:
 
 
 ## The door tile of a building (see class comment).
+## Global tile (a sky building's door is on the sky layer, beside sky roads).
 func door_tile(b: Building) -> Vector2i:
 	var r := b.footprint()
+	var roads := _s.roads_for_layer(b.layer)
 	for t in b.tiles():
 		for d in Placement.DIRS:
 			var n: Vector2i = t + d
-			if not r.has_point(n) and _s.road_at(n) != Settlement.ROAD_NONE:
-				return t
-	return Vector2i(r.position.x + r.size.x / 2, r.end.y - 1)
+			if not r.has_point(n) and MapState.in_bounds(n.x, n.y) and roads[MapState.idx(n.x, n.y)] != Settlement.ROAD_NONE:
+				return MapState.to_global(t, b.layer)
+	return MapState.to_global(Vector2i(r.position.x + r.size.x / 2, r.end.y - 1), b.layer)
 
 
-## Walking speed in tiles per second on a tile (0 = impassable).
+## Walking speed in tiles per second on a global tile (0 = impassable).
 func tile_speed(tile: Vector2i) -> float:
 	_refresh_grid()
-	return _speeds[MapState.idx(tile.x, tile.y)]
+	return _spd(tile)
 
 
-## Seconds at 1x to walk a path as returned by find_path (the first tile is the start and costs nothing).
+## Seconds at 1x to walk a path as returned by find_path (the first tile is the start and costs nothing). A step
+## between layers costs the lift or dock ride time.
 func path_seconds(p: Array[Vector2i]) -> float:
 	_refresh_grid()
 	var t := 0.0
 	for i in range(1, p.size()):
-		t += 1.0 / _speeds[MapState.idx(p[i].x, p[i].y)]
+		t += _step_seconds(p[i - 1], p[i])
 	return t
 
 
-## Cached path from one tile to another, start and end included, [] when unreachable. Start and end are
-## walkable even when they are building doors.
+## Cached path from one global tile to another, start and end included, [] when unreachable. Start and end are
+## walkable even when they are building doors. Crosses layers only through a lift or dock link (see class comment).
 func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	_refresh_grid()
-	if not MapState.in_bounds(from.x, from.y) or not MapState.in_bounds(to.x, to.y):
+	if not MapState.in_bounds_global(from) or not MapState.in_bounds_global(to):
 		return []
-	var key := MapState.idx(from.x, from.y) * MapState.WIDTH * MapState.HEIGHT + MapState.idx(to.x, to.y)
+	var key := _gidx(from) * (MapState.WIDTH * MapState.HEIGHT * 2) + _gidx(to)
 	if _cache.has(key):
 		return _cache[key]
-	var reopen: Array[Vector2i] = []
-	for t in [from, to]:
-		if _grid.is_point_solid(t) and _speeds[MapState.idx(t.x, t.y)] > 0.0:
-			_grid.set_point_solid(t, false)
-			reopen.append(t)
-	var out: Array[Vector2i] = []
-	if not _grid.is_point_solid(from) and not _grid.is_point_solid(to):
-		path_computations += 1
-		out.assign(_grid.get_id_path(from, to))
-	for t in reopen:
-		_grid.set_point_solid(t, true)
+	var out: Array[Vector2i]
+	var lf := MapState.layer_of(from)
+	if lf == MapState.layer_of(to) and (lf == Building.LAYER_GROUND or _same_island(from, to)):
+		out = _leg(from, to)
+	else:
+		out = _cross(from, to)
 	_cache[key] = out
 	return out
+
+
+## True when two global sky tiles lie on one island (a tile on no island counts as same: its leg is simply blocked).
+func _same_island(a: Vector2i, b: Vector2i) -> bool:
+	var isys := _s.get_system(IslandSystem) as IslandSystem
+	if isys == null:
+		return true
+	var ia := isys.island_at(MapState.local_of(a))
+	return ia == null or ia == isys.island_at(MapState.local_of(b))
+
+
+## A* on one layer's grid between two global tiles of that layer.
+func _leg(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var sky := MapState.layer_of(from) == Building.LAYER_SKY
+	var grid := _sky_grid if sky else _grid
+	var spd := _sky_speeds if sky else _speeds
+	var a := MapState.local_of(from)
+	var b := MapState.local_of(to)
+	var reopen: Array[Vector2i] = []
+	for t in [a, b]:
+		if grid.is_point_solid(t) and spd[MapState.idx(t.x, t.y)] > 0.0:
+			grid.set_point_solid(t, false)
+			reopen.append(t)
+	var out: Array[Vector2i] = []
+	if not grid.is_point_solid(a) and not grid.is_point_solid(b):
+		path_computations += 1
+		var ids := grid.get_id_path(a, b)
+		if sky:
+			for t in ids:
+				out.append(MapState.to_global(t, Building.LAYER_SKY))
+		else:
+			out.assign(ids)
+	for t in reopen:
+		grid.set_point_solid(t, true)
+	return out
+
+
+## Path between two tiles on different layers (or two islands): the cheapest combination of links.
+func _cross(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	_ensure_links()
+	var from_sky := MapState.layer_of(from) == Building.LAYER_SKY
+	var to_sky := MapState.layer_of(to) == Building.LAYER_SKY
+	var best: Array[Vector2i] = []
+	var best_t := INF
+	var from_links: Array = _links_at(from) if from_sky else [null]
+	var to_links: Array = _links_at(to) if to_sky else [null]
+	for la in from_links:
+		for lb in to_links:
+			var cand: Array[Vector2i] = []
+			if la != null:  # the leg on the start island down to its link
+				var down := find_path(from, la["k"])
+				if down.is_empty():
+					continue
+				cand.append_array(down)
+			var g_from: Vector2i = la["g"] if la != null else from
+			var g_to: Vector2i = lb["g"] if lb != null else to
+			var mid := find_path(g_from, g_to)
+			if mid.is_empty():
+				continue
+			cand.append_array(mid)
+			if lb != null:  # and the leg up from the link on the target island
+				var up := find_path(lb["k"], to)
+				if up.is_empty():
+					continue
+				cand.append_array(up)
+			var secs := path_seconds(cand)
+			if secs < best_t - 0.000001:
+				best_t = secs
+				best = cand
+	return best
+
+
+## Links of the island holding a global sky tile (empty when none or the island is still).
+func _links_at(sky_tile: Vector2i) -> Array:
+	var isys := _s.get_system(IslandSystem) as IslandSystem
+	var isl := isys.island_at(MapState.local_of(sky_tile)) if isys != null else null
+	return _links.get(isl.id, []) if isl != null else []
+
+
+## Ride seconds of the step between a ground tile and a sky tile: a Sky Lift stands on the ground tile of a lift link,
+## anything else is a dock crossing.
+func _ride_seconds(a: Vector2i, b: Vector2i) -> float:
+	var g := a if MapState.layer_of(a) == Building.LAYER_GROUND else b
+	var occ: int = _s.occupancy[MapState.idx(g.x, g.y)]
+	var host: Building = _s.buildings.get(occ) if occ >= 0 else null
+	var lg := _s.registry.logistics
+	var secs := lg.lift_ride_seconds if host != null and host.def.sky_lift else lg.dock_ride_seconds
+	return maxf(secs, 0.001)
+
+
+func _step_seconds(a: Vector2i, b: Vector2i) -> float:
+	if MapState.layer_of(a) != MapState.layer_of(b):
+		return _ride_seconds(a, b)
+	return 1.0 / _spd(b)
+
+
+func _ensure_links() -> void:
+	if _links_ready:
+		return
+	_links_ready = true
+	_links.clear()
+	var isys := _s.get_system(IslandSystem) as IslandSystem
+	if isys == null or isys.islands.is_empty():
+		return
+	var lg := _s.registry.logistics
+	var ground_docks := {}  # region -> finished ground dock
+	for b: Building in _s.buildings.values():
+		if not b.site and b.def.airship_dock and b.layer == Building.LAYER_GROUND:
+			ground_docks[_s.map.get_region(b.origin.x, b.origin.y)] = b
+	for b: Building in _s.buildings.values():
+		if b.site:
+			continue
+		var isl: Island = null
+		var link := {}
+		if b.def.sky_lift:
+			isl = isys.island_at(b.origin)
+			link = {"g": b.origin, "k": MapState.to_global(b.origin, Building.LAYER_SKY), "ride": lg.lift_ride_seconds}
+		elif b.def.airship_dock and b.layer == Building.LAYER_SKY:
+			isl = isys.island_at(b.origin)
+			var gd: Building = ground_docks.get(_s.map.get_region(b.origin.x, b.origin.y))
+			if gd != null:
+				link = {"g": door_tile(gd), "k": door_tile(b), "ride": lg.dock_ride_seconds}
+		if isl == null or link.is_empty() or isl.still_why != "":
+			continue  # a still island carries nobody
+		if not _links.has(isl.id):
+			_links[isl.id] = []
+		(_links[isl.id] as Array).append(link)
+
+
+## Rough tiles between two global tiles for pickers that must not run A*: Manhattan on one layer, and across layers (or
+## islands) Manhattan to the nearest link plus the ride (1 tile per second) plus Manhattan from it. INF when no link.
+func estimate_distance(s: Settlement, a: Vector2i, b: Vector2i) -> float:
+	_s = s
+	_refresh_grid()
+	var la := MapState.layer_of(a)
+	var lb := MapState.layer_of(b)
+	if la == lb and (la == Building.LAYER_GROUND or _same_island(a, b)):
+		return _manhattan(a, b)
+	_ensure_links()
+	var best := INF
+	var a_links: Array = _links_at(a) if la == Building.LAYER_SKY else [null]
+	var b_links: Array = _links_at(b) if lb == Building.LAYER_SKY else [null]
+	for x in a_links:
+		for y in b_links:
+			var d := 0.0
+			var at_g := a
+			if x != null:
+				d += _manhattan(a, x["k"]) + float(x["ride"])
+				at_g = x["g"]
+			var to_g := b
+			if y != null:
+				d += _manhattan(y["k"], b) + float(y["ride"])
+				to_g = y["g"]
+			d += _manhattan(at_g, to_g)
+			best = minf(best, d)
+	return best
+
+
+static func _manhattan(a: Vector2i, b: Vector2i) -> float:
+	return float(absi(a.x - b.x) + absi(a.y - b.y))
+
+
+static func _gidx(g: Vector2i) -> int:
+	return g.y * MapState.WIDTH + g.x
+
+
+## Speed of a global tile.
+func _spd(g: Vector2i) -> float:
+	if g.y >= MapState.HEIGHT:
+		return _sky_speeds[MapState.idx(g.x, g.y - MapState.HEIGHT)]
+	return _speeds[MapState.idx(g.x, g.y)]
+
+
+## Building id standing on a global tile (a Sky Lift counts on both layers), -1 for none.
+func _occ_id(g: Vector2i) -> int:
+	if g.y >= MapState.HEIGHT:
+		return _s.sky_occupancy[MapState.idx(g.x, g.y - MapState.HEIGHT)]
+	return _s.occupancy[MapState.idx(g.x, g.y)]
 
 
 # ---------------------------------------------------------------- commands
@@ -362,6 +558,7 @@ func _refresh_grid() -> void:
 	var first := _grid == null
 	_grid_version = _s.grid_version
 	_cache.clear()
+	_links_ready = false
 	var n := MapState.WIDTH * MapState.HEIGHT
 	if first:
 		_grid = AStarGrid2D.new()
@@ -398,10 +595,59 @@ func _refresh_grid() -> void:
 			_update_cell(t.x, t.y, terrain_speed, false)
 	_structure_version = _s.structure_version
 	_s.terrain_dirty.clear()
+	_refresh_sky(first)
 	if first and _from_save:
 		_from_save = false  # saved walkers already sit on the saved layout; keep their paths as they were
 		return
 	_replan_all()
+
+
+## Sky grid: only touched while an island exists (or just stopped existing); void tiles and buildings are solid.
+func _refresh_sky(first: bool) -> void:
+	var n := MapState.WIDTH * MapState.HEIGHT
+	if first:
+		_sky_grid = AStarGrid2D.new()
+		_sky_grid.region = Rect2i(0, 0, MapState.WIDTH, MapState.HEIGHT)
+		_sky_grid.cell_size = Vector2.ONE
+		_sky_grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+		_sky_grid.default_compute_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
+		_sky_grid.default_estimate_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
+		_sky_grid.update()
+		_sky_grid.fill_solid_region(_sky_grid.region, true)
+		_sky_speeds.resize(n)
+		_sky_solid.resize(n)
+		_sky_solid.fill(1)
+	var isys := _s.get_system(IslandSystem) as IslandSystem
+	var active := isys != null and not isys.islands.is_empty()
+	if not active and not _sky_content:
+		return
+	var force := _sky_max != _max_speed
+	if force or _sky_structure != _s.structure_version:
+		var stone := _s.registry.get_terrain(MapState.SKY_STONE)
+		var stone_speed := stone.walk_speed if stone != null else 1.0
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				_update_sky_cell(x, y, stone_speed, force)
+	_sky_max = _max_speed
+	_sky_structure = _s.structure_version
+	_sky_content = active
+
+
+func _update_sky_cell(x: int, y: int, stone_speed: float, force: bool) -> void:
+	var i := MapState.idx(x, y)
+	var sp := stone_speed if _s.sky_map.terrain_id_at(x, y) == MapState.SKY_STONE else 0.0
+	if sp > 0.0 and _s.sky_roads[i] != Settlement.ROAD_NONE:
+		var rd := _s.registry.get_road_by_level(_s.sky_roads[i])
+		if rd != null:
+			sp = rd.walk_speed
+	var solid := 1 if (sp <= 0.0 or _s.sky_occupancy[i] >= 0) else 0
+	if not force and _sky_speeds[i] == sp and _sky_solid[i] == solid:
+		return
+	_sky_speeds[i] = sp
+	_sky_solid[i] = solid
+	var p := Vector2i(x, y)
+	_sky_grid.set_point_solid(p, solid == 1)
+	_sky_grid.set_point_weight_scale(p, _max_speed / sp if sp > 0.0 else 1.0)
 
 
 func _update_cell(x: int, y: int, terrain_speed: Array[float], force: bool) -> void:
@@ -436,7 +682,10 @@ func _paved_haul_factor(citizen_id: int) -> float:
 
 
 func _passable(t: Vector2i) -> bool:
-	return MapState.in_bounds(t.x, t.y) and _speeds[MapState.idx(t.x, t.y)] > 0.0 and not _grid.is_point_solid(t)
+	if not MapState.in_bounds_global(t):
+		return false
+	var grid := _sky_grid if t.y >= MapState.HEIGHT else _grid
+	return _spd(t) > 0.0 and not grid.is_point_solid(MapState.local_of(t))
 
 
 ## Roads, buildings or terrain changed: doors move, standing walkers follow, moving walkers get fresh paths. The
@@ -458,7 +707,7 @@ func _replan_all() -> void:
 				else:
 					w.tile = door_tile(b)
 					w.dest_tile = w.tile
-			elif not _passable(w.tile) and _speeds[MapState.idx(w.tile.x, w.tile.y)] > 0.0 and _s.occupancy[MapState.idx(w.tile.x, w.tile.y)] >= 0:
+			elif not _passable(w.tile) and _spd(w.tile) > 0.0 and _occ_id(w.tile) >= 0:
 				w.tile = _nearest_passable(w.tile)
 			continue
 		if routed >= REPLAN_BUDGET:
@@ -500,11 +749,13 @@ func _stop(w: Walker) -> void:
 
 
 func _nearest_passable(t: Vector2i) -> Vector2i:
+	var layer := MapState.layer_of(t)
+	var l := MapState.local_of(t)
 	for r in range(1, 12):
-		for y in range(t.y - r, t.y + r + 1):
-			for x in range(t.x - r, t.x + r + 1):
-				var c := Vector2i(x, y)
-				if _passable(c):
+		for y in range(l.y - r, l.y + r + 1):
+			for x in range(l.x - r, l.x + r + 1):
+				var c := MapState.to_global(Vector2i(x, y), layer)
+				if MapState.in_bounds(x, y) and _passable(c):
 					return c
 	return t
 
@@ -547,18 +798,21 @@ func _route(w: Walker, dest: Vector2i, building_id: int) -> bool:
 
 
 func _passable_or_door(t: Vector2i) -> bool:
-	return _passable(t) or (MapState.in_bounds(t.x, t.y) and _speeds[MapState.idx(t.x, t.y)] > 0.0
-			and _s.occupancy[MapState.idx(t.x, t.y)] >= 0)
+	return _passable(t) or (MapState.in_bounds_global(t) and _spd(t) > 0.0 and _occ_id(t) >= 0)
 
 
 func _advance(w: Walker, seconds: float) -> void:
 	var budget := seconds
 	while not w.path.is_empty():
 		var nxt := w.path[0]
-		var ni := MapState.idx(nxt.x, nxt.y)
-		var sp := _speeds[ni]
-		if _s.roads[ni] == Settlement.ROAD_PAVED:
-			sp *= _paved_haul_factor(w.citizen_id)
+		var sp: float
+		if MapState.layer_of(nxt) != MapState.layer_of(w.tile):
+			sp = 1.0 / _ride_seconds(w.tile, nxt)  # a lift or dock crossing
+		else:
+			sp = _spd(nxt)
+			var nl := MapState.local_of(nxt)
+			if _s.roads_for_layer(MapState.layer_of(nxt))[MapState.idx(nl.x, nl.y)] == Settlement.ROAD_PAVED:
+				sp *= _paved_haul_factor(w.citizen_id)
 		var need := (1.0 - w.progress) / sp
 		if budget >= need:
 			budget -= need
