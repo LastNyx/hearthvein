@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"lumen": 6.0}
+
+[resource]
+script = ExtResource("1")
+id = "aether_collector"
+display_name = "Aether Collector"
+era = "skyborne"
+category = "lumen"
+size = Vector2i(2, 2)
+cost = {"materials": 150, "gold": 60, "cut_stone": 30, "tools": 20}
+worker_slots = 3
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+blight_radius = 0
+blight_period_days = 0
+vein_extractor = false
+dimming_factor = 0.5
+health_per_day = 0.0
+recipe = SubResource("Recipe")
+upgradable = false
+layers = "island"
