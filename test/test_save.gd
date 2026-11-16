@@ -39,6 +39,12 @@ const SKIP := {
 	"FoulingSystem._mask_water_version": "version the fouling mask was built for, rebuilt on demand",
 	"FoulingSystem._mask_foul_version": "version the fouling mask was built for, rebuilt on demand",
 	"FoulingSystem._mask_structure_version": "version the fouling mask was built for, rebuilt on demand",
+	# GridSystem
+	"GridSystem._grids": "grid membership cache, rebuilt from the buildings on the first query",
+	"GridSystem._of": "grid membership cache, rebuilt",
+	"GridSystem._links": "grid link cache, rebuilt",
+	"GridSystem._key": "grid cache key, rebuilt",
+	"GridSystem._count": "grid cache key, rebuilt",
 	# WalkerSystem
 	"WalkerSystem._s": "back-reference to the settlement, set on the first hook after load",
 	"WalkerSystem._grid": "AStarGrid2D, rebuilt from the loaded map and buildings",

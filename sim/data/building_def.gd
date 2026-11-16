@@ -110,6 +110,11 @@ const GOLD := "gold"
 ## Speed multiplier for those haulers on paved tiles (Handcart Shed: 1.25, so design.md section 6's 2.5 tiles/s).
 ## 1.0 = no effect.
 @export var paved_haul_speed_factor: float = 1.0
+## Lumen grid node (design.md sections 7 and 17, ticket 36): a finished building with grid_feed_radius > 0 feeds every
+## building within that many tiles (Chebyshev, footprint to footprint, the Building.footprint_gap measure) and links
+## to other nodes within grid_link_range tiles (Lumen Pylon 8 and 12, Lumen Nexus 12 and 12). 0 = not a grid node.
+@export var grid_feed_radius: int = 0
+@export var grid_link_range: int = 0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

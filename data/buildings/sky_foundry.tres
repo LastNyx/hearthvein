@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "sky_foundry"
+display_name = "Sky Foundry"
+era = "conflux"
+category = "landmark"
+size = Vector2i(3, 3)
+cost = {"materials": 600, "gold": 400, "lumen": 400, "cut_stone": 120, "tools": 80, "lumen_cells": 60}
+worker_slots = 0
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+upgradable = false

@@ -20,3 +20,5 @@ storage_cap = 0
 placement_rule = "any"
 placement_radius = 0
 upgradable = false
+grid_feed_radius = 12
+grid_link_range = 12

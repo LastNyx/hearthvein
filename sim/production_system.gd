@@ -168,6 +168,10 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	if workers == 0:
 		_set_halt(s, b, "")
 		return
+	if recipe.inputs.has("lumen"):
+		var gs := s.get_system(GridSystem) as GridSystem
+		if gs != null:
+			gs.feed_inputs(s, b)  # an on-grid building takes its Lumen from the grid supply, no hauler trip
 	var f := float(workers) * shift_part * multiplier(s, b)  # worker-days of work done this tick
 	var flex := flexible_inputs(recipe, b.input_buffer)
 	if recipe.any_input_count > 0 and flex.size() < recipe.any_input_count:

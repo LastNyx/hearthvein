@@ -290,6 +290,8 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 			var dst := nearest_storage_with_room(s, ws, b, g, load)
 			if dst == null or (dst != b and _walk(s, ws, b, dst) == INF):
 				continue
+			if g == "lumen" and GridSystem.on_grid(s, b) and GridSystem.on_grid(s, dst):
+				continue  # Lumen inside the grid is never hauled (design.md section 8): it already counts as grid supply
 			best = _trip(g, b.id, true, dst.id, false, load)
 			best_avail = avail
 	if best != null:
@@ -315,7 +317,10 @@ func _plan_for_need(s: Settlement, ws: WalkerSystem, b: Building, buf: Inventory
 		return null
 	var lg := s.registry.logistics
 	var kind := "u" if upgrade else "i"
+	var on_grid := not upgrade and need.has("lumen") and not b.site and GridSystem.on_grid(s, b)
 	for g in need:
+		if on_grid and g == "lumen":
+			continue  # the grid feeds this building's Lumen directly
 		var deficit: float = float(need[g]) - buf.amount_of(g) - _res(kind, b.id, g)
 		if deficit < lg.min_pickup - Inventory.EPS:
 			continue

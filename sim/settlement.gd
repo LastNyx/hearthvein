@@ -82,6 +82,7 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 func add_default_systems() -> void:
 	add_system(EraSystem.new())
 	add_system(StorageSystem.new())
+	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier

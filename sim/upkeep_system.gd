@@ -62,7 +62,14 @@ func _pay(s: Settlement, b: Building) -> bool:
 	var need := b.def.upkeep_lumen
 	if need <= 0.0:
 		return true
+	var gs := s.get_system(GridSystem) as GridSystem
+	var gid := gs.grid_of(s, b.id) if gs != null else -1
+	if gid >= 0:
+		# On the Lumen grid (ticket 36): upkeep x grid_upkeep_factor, taken straight from the grid's supply.
+		need *= s.registry.logistics.grid_upkeep_factor
 	var got := b.input_buffer.remove("lumen", need) if b.input_buffer != null else 0.0
+	if got < need - Inventory.EPS and gid >= 0:
+		got += gs.draw(s, gid, need - got)
 	if got >= need - Inventory.EPS:
 		return true
 	if float(s.totals().get("lumen", 0.0)) <= Inventory.EPS:

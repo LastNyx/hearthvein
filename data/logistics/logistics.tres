@@ -16,3 +16,4 @@ build_days_max = 6.0
 builder_crew = 4
 demolish_refund = 0.5
 unpaid_upkeep_factor = 0.5
+grid_upkeep_factor = 0.75
