@@ -17,6 +17,8 @@ extends Resource
 @export var great_dimming_vein_factor: float = 0.1
 @export var great_dimming_food_factor: float = 0.5
 @export var great_dimming_light: float = 0.75
+## Planet health the Great Dimming must end at or above for the win (design.md section 18, ticket 45c).
+@export var win_health: float = 50.0
 ## Vein yield factor = vein_base + health / vein_divisor.
 @export var vein_base: float = 0.5
 @export var vein_divisor: float = 200.0

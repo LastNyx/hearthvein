@@ -91,7 +91,12 @@ func on_day(s: Settlement) -> void:
 	if _active and today >= _start_day + days:
 		_active = false
 		_done = true
-		s.events.emit("great_dimming_ended", {"population": s.citizens.size(), "planet_health": s.planet_health()})
+		var pop := s.citizens.size()
+		var health := s.planet_health()
+		s.events.emit("great_dimming_ended", {"population": pop, "planet_health": health})
+		var cs := s.get_system(CampaignSystem) as CampaignSystem
+		if cs != null:
+			cs.on_great_dimming_ended(s, pop, health)
 		_start_day = -1
 	if not _active and not _done and _start_day >= 0 and today >= _start_day:
 		_active = true

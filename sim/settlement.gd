@@ -133,6 +133,7 @@ func add_default_systems() -> void:
 	add_system(ConstructionSystem.new())
 	add_system(SkyheartSystem.new())  # stage gold and the finished Skyheart's reservoir fill (ticket 45); after the grid
 	add_system(GreatDimmingSystem.new())  # the Skyheart's Great Dimming (ticket 45b); before the regular Dimming, which yields to it
+	add_system(CampaignSystem.new())  # win and loss outcome (ticket 45c): hourly population check, Great Dimming result
 	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
