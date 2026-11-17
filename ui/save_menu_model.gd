@@ -10,6 +10,8 @@ var current: Callable
 var status: String = ""
 ## Row waiting for a Yes/No: {"action": "overwrite" | "delete", "slot": int}, or empty.
 var pending: Dictionary = {}
+## New game option (ticket 46c): no Great Dimming, no win.
+var endless_toggle: bool = false
 
 
 func _init(save_slots: SaveSlots, reg: DataRegistry, current_settlement: Callable) -> void:
@@ -91,16 +93,31 @@ func request_delete(slot: int) -> void:
 	status = "Delete Slot %d?" % (slot + 1)
 
 
-## Yes: run the pending action.
-func confirm() -> void:
+## New game Start button: asks first (the unsaved progress is lost).
+func request_new_game() -> void:
+	pending = {"action": "new_game", "slot": -1}
+	status = "Unsaved progress will be lost. Start a new game?"
+
+
+## A fresh Settlement (random seed unless given), endless per the toggle; ui/main.gd swaps it in.
+func new_game(seed: int = -1) -> Settlement:
+	return Settlement.new_game(seed if seed >= 0 else randi(), registry, endless_toggle)
+
+
+## Yes: run the pending action. Returns the new Settlement for a new game, else null.
+func confirm() -> Settlement:
 	var p := pending
 	pending = {}
 	if p.is_empty():
-		return
+		return null
+	if p["action"] == "new_game":
+		status = ""
+		return new_game()
 	if p["action"] == "overwrite":
 		save_to(p["slot"])
 	else:
 		delete_slot(p["slot"])
+	return null
 
 
 ## No: drop the pending action.

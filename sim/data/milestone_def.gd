@@ -25,3 +25,5 @@ const KINDS: PackedStringArray = ["dimming_survived", "dimming_streak_no_dark", 
 @export var amount: float = 0.0
 @export var dip: float = 0.0
 @export var text: String = ""
+## The bonus milestone: listed last and marked on the pause screen.
+@export var bonus: bool = false

@@ -9,3 +9,4 @@ display_name = "10 Dimmings in a row with no darkness day"
 order = 16
 kind = "dimming_streak_no_dark"
 amount = 10.0
+bonus = true

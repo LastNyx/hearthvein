@@ -13,6 +13,10 @@ var _dim: ColorRect
 var _list: VBoxContainer
 var _status: Label
 var _continue: Button
+var _main_view: VBoxContainer
+var _ms_view: VBoxContainer
+var _ms_body: HBoxContainer
+var _new_row: HBoxContainer
 
 
 func setup(m: SaveMenuModel) -> void:
@@ -37,17 +41,29 @@ func setup(m: SaveMenuModel) -> void:
 	col.add_theme_constant_override("separation", 8)
 	col.custom_minimum_size = Vector2(760, 0)
 	panel.add_child(col)
-	_text(col, "Paused", 22, Hud.GOLD)
+	_main_view = VBoxContainer.new()
+	_main_view.add_theme_constant_override("separation", 8)
+	col.add_child(_main_view)
+	_ms_view = VBoxContainer.new()
+	_ms_view.add_theme_constant_override("separation", 8)
+	_ms_view.visible = false
+	col.add_child(_ms_view)
+	_text(_main_view, "Paused", 22, Hud.GOLD)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
-	col.add_child(top)
+	_main_view.add_child(top)
 	_button(top, "Resume", 16).pressed.connect(close)
 	_continue = _button(top, "Continue (latest autosave)", 16)
 	_continue.pressed.connect(func() -> void: _emit_load(model.continue_latest()))
+	_button(top, "Milestones", 16).pressed.connect(show_milestones)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 4)
-	col.add_child(_list)
-	_status = _text(col, "", 16, Hud.DIM)
+	_main_view.add_child(_list)
+	_new_row = HBoxContainer.new()
+	_new_row.add_theme_constant_override("separation", 8)
+	_main_view.add_child(_new_row)
+	_status = _text(_main_view, "", 16, Hud.DIM)
+	_build_milestone_view()
 	_dim.visible = false
 	visible = false
 
@@ -69,6 +85,8 @@ func close() -> void:
 	if not visible:
 		return
 	model.pending = {}
+	_ms_view.visible = false
+	_main_view.visible = true
 	visible = false
 	_dim.visible = false
 	if is_inside_tree():
@@ -103,8 +121,86 @@ func refresh() -> void:
 			var del := _button(row, "Delete", 16)
 			del.disabled = not r["can_delete"]
 			del.pressed.connect(func() -> void: model.request_delete(slot); refresh())
+	_refresh_new_row()
 	_continue.disabled = not model.has_continue()
 	_status.text = model.status
+
+
+func _refresh_new_row() -> void:
+	for c in _new_row.get_children():
+		_new_row.remove_child(c)
+		c.queue_free()
+	_text(_new_row, "New game", 16, Hud.CYAN).custom_minimum_size = Vector2(110, 0)
+	var cb := CheckBox.new()
+	cb.text = "Endless start (no Great Dimming, no win)"
+	cb.focus_mode = Control.FOCUS_NONE
+	cb.button_pressed = model.endless_toggle
+	cb.add_theme_font_override("font", _body_font)
+	cb.add_theme_font_size_override("font_size", Hud._px_size(16))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		cb.add_theme_color_override(c, Hud.INK)
+	cb.toggled.connect(func(on: bool) -> void: model.endless_toggle = on)
+	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_new_row.add_child(cb)
+	if not model.pending.is_empty() and model.pending["action"] == "new_game":
+		_text(_new_row, "Unsaved progress will be lost", 16, Hud.GOLD)
+		_button(_new_row, "Yes", 16).pressed.connect(func() -> void:
+			var s := model.confirm()
+			if s != null:
+				load_requested.emit(s)
+			else:
+				refresh())
+		_button(_new_row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
+	else:
+		_button(_new_row, "Start", 16).pressed.connect(func() -> void: model.request_new_game(); refresh())
+
+
+## The Milestones panel (ticket 46c): "This run" and "Lifetime" side by side, Back returns to the menu.
+func show_milestones() -> void:
+	_main_view.visible = false
+	_ms_view.visible = true
+	refresh_milestones()
+
+
+func hide_milestones() -> void:
+	_ms_view.visible = false
+	_main_view.visible = true
+
+
+func _build_milestone_view() -> void:
+	_text(_ms_view, "Milestones", 22, Hud.GOLD)
+	_ms_body = HBoxContainer.new()
+	_ms_body.add_theme_constant_override("separation", 24)
+	_ms_view.add_child(_ms_body)
+	var bar := HBoxContainer.new()
+	bar.alignment = BoxContainer.ALIGNMENT_END
+	_ms_view.add_child(bar)
+	_button(bar, "Back", 16).pressed.connect(hide_milestones)
+
+
+func refresh_milestones() -> void:
+	for c in _ms_body.get_children():
+		_ms_body.remove_child(c)
+		c.queue_free()
+	var s: Settlement = model.current.call()
+	var ms: MilestoneSystem = s.get_system(MilestoneSystem) as MilestoneSystem if s != null else null
+	var data := MilestonePanelModel.build(model.registry, ms, MilestoneSystem.lifetime())
+	for key in ["run", "lifetime"]:
+		var sec: Dictionary = data[key]
+		var colm := VBoxContainer.new()
+		colm.add_theme_constant_override("separation", 4)
+		colm.custom_minimum_size = Vector2(360, 0)
+		_ms_body.add_child(colm)
+		_text(colm, sec["header"], 17, Hud.CYAN)
+		for r: Dictionary in sec["rows"]:
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+			colm.add_child(row)
+			var done: bool = r["done"]
+			var name_l := _text(row, ("Bonus: " if r["bonus"] else "") + str(r["name"]), 16, Hud.INK if done else Hud.DIM)
+			name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_text(row, MilestonePanelModel.status_text(r), 16, Hud.GOLD if done else Color(Hud.DIM, 0.6))
 
 
 func _emit_load(s: Settlement) -> void:

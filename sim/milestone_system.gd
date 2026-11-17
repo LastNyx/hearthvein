@@ -20,6 +20,8 @@ const SAVE_KEY := "milestones"
 static var lifetime_path: String = ""
 
 var _earned: Array[String] = []
+## id -> in-game date label it was earned this run (saved; an old save without it shows no date).
+var _dates: Dictionary = {}
 var _fell_below: bool = false
 var _streak: int = 0
 ## A regular Dimming is on and has had a dark day so far.
@@ -27,7 +29,8 @@ var _dark_seen: bool = false
 
 
 func save_state() -> Dictionary:
-	return {"earned": _earned.duplicate(), "fell_below": _fell_below, "streak": _streak, "dark_seen": _dark_seen}
+	return {"earned": _earned.duplicate(), "fell_below": _fell_below, "streak": _streak, "dark_seen": _dark_seen,
+			"dates": _dates.duplicate()}
 
 
 func load_state(d: Dictionary, _settlement: Settlement) -> void:
@@ -35,11 +38,17 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_fell_below = bool(d["fell_below"])
 	_streak = int(d["streak"])
 	_dark_seen = bool(d["dark_seen"])
+	_dates = (d["dates"] as Dictionary).duplicate() if d.get("dates") is Dictionary else {}
 
 
 ## Ids earned this run, in the order earned.
 func earned() -> Array[String]:
 	return _earned
+
+
+## In-game date the milestone was earned this run, "" if unknown or not earned.
+func date_of(id: String) -> String:
+	return str(_dates.get(id, ""))
 
 
 func has(id: String) -> bool:
@@ -181,5 +190,6 @@ func _fire(s: Settlement, m: MilestoneDef) -> void:
 	if _earned.has(m.id):
 		return
 	_earned.append(m.id)
+	_dates[m.id] = s.clock.label()
 	_record_lifetime(m.id, s)
 	s.events.emit("milestone", {"id": m.id, "name": m.display_name})
