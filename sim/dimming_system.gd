@@ -65,9 +65,48 @@ static func output_modifier(s: Settlement, b: Building) -> float:
 	return b.def.dimming_factor
 
 
-## Spirit hook "darkness".
+## Spirit hook "darkness": PlanetDef.darkness_spirit while dark, scaled by the mean per-home share of the housed
+## citizens (home_darkness_share): homes covered by a working Hall of Seasons take half. Homeless citizens count in full.
 static func darkness_factor(s: Settlement) -> float:
-	return s.registry.planet.darkness_spirit if is_dark(s) else 0.0
+	if not is_dark(s):
+		return 0.0
+	var full := s.registry.planet.darkness_spirit
+	var halls := _darkness_halls(s)
+	if halls.is_empty() or s.citizens.is_empty():
+		return full
+	var total := 0.0
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		total += _share_for(s, halls, s.buildings.get(c.home_id))
+	return full * total / float(s.citizens.size())
+
+
+## Share of the darkness penalty a home takes (1.0 = all, 0.5 = a working Hall of Seasons covers it).
+static func home_darkness_share(s: Settlement, home: Building) -> float:
+	return _share_for(s, _darkness_halls(s), home)
+
+
+static func _share_for(s: Settlement, halls: Array[Building], home: Building) -> float:
+	var share := 1.0
+	if home == null or home.site:
+		return share
+	for hall in halls:
+		if hall.def.darkness_factor < share and CoverageSystem.coverage_reaches(s, hall, home):
+			share = hall.def.darkness_factor
+	return share
+
+
+## Finished, unpaused buildings with darkness_factor < 1 that have an assigned worker and are not on a still island.
+static func _darkness_halls(s: Settlement) -> Array[Building]:
+	var halls: Array[Building] = []
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if b.def.darkness_factor < 1.0 and not b.site and not b.paused and not IslandSystem.is_still_building(s, b):
+			halls.append(b)
+	if halls.is_empty():
+		return halls
+	var assigned := MarketSystem.assigned_workers(s)
+	return halls.filter(func(b: Building) -> bool: return int(assigned.get(b.id, 0)) > 0)
 
 
 ## Seasons of warning: PlanetDef.dimming_forecast_seasons, or the longest BuildingDef.forecast_lead_seasons among

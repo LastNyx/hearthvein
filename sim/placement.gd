@@ -17,6 +17,13 @@ static func check_rule(map: MapState, reg: DataRegistry, def: BuildingDef, origi
 		for t in tiles:
 			if map.is_blighted(t.x, t.y):
 				return "blighted"
+	# Bloom Orchard: the mean fertility of the footprint must reach def.min_fertility.
+	if def.min_fertility > 0.0:
+		var sum := 0.0
+		for t in tiles:
+			sum += float(map.get_fertility(t.x, t.y))
+		if sum / float(tiles.size()) < def.min_fertility - 0.000001:
+			return "low_fertility"
 	match def.placement_rule:
 		"any":
 			return ""

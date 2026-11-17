@@ -13,6 +13,7 @@ const UPGRADABLE_CATEGORIES: Array[String] = ["housing", "food", "materials", "l
 ##  any: any buildable tile. on_vein / on_rock: on that terrain. shore: next to water.
 ##  wet: any tile of the footprint is wet. on_wet: the origin tile is wet (Well, design.md section 9).
 ##  near_forage / near_forest: needs grass-or-forest / forest within placement_radius.
+##  (min_fertility is a separate rule on top of any of these.)
 ##  on_river: at least one footprint tile is a river tile (Clearwater Works); river water tiles may be built on for this
 ##  rule only, the other footprint tiles must be ordinary buildable land.
 const PLACEMENT_RULES: Array[String] = [
@@ -76,6 +77,13 @@ const GOLD := "gold"
 ## Heartroot Tap (design.md section 17): the building only works while Settlement.planet_health() is at least this
 ## much; below it ProductionSystem halts it with "planet_too_sick" and it resumes once health is back. 0 = no gate.
 @export var min_planet_health: float = 0.0
+## Bloom Orchard (design.md section 17): placement needs the mean fertility of the footprint tiles to be at least this
+## (Placement reason "low_fertility"). Output does not scale with fertility. 0 = no rule.
+@export var min_fertility: float = 0.0
+## Hall of Seasons (design.md section 17): while a finished, staffed, unpaused building of this def covers a home
+## (coverage_radius, CoverageSystem.coverage_reaches), that home takes this share of the Spirit darkness penalty
+## (0.5 = half). The lowest value in reach wins; 1.0 = no effect. DimmingSystem.darkness_factor applies it.
+@export var darkness_factor: float = 1.0
 ## Healers (design.md section 17, Ascendant), measured like clean_radius (Euclidean from the closest footprint tile),
 ## once a day while the building works. Verdant Spring: each day heal_blight_per_day blighted tiles within
 ## heal_blight_radius are cleared and turned into fertility-100 soil. 0 = no soil healing.

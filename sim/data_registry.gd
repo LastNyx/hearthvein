@@ -408,6 +408,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: market_reach must not be negative" % who)
 	if b.min_planet_health < 0.0 or b.min_planet_health > 100.0:
 		errors.append("%s: min_planet_health must be 0-100" % who)
+	if b.min_fertility < 0.0 or b.min_fertility > 100.0:
+		errors.append("%s: min_fertility must be 0-100" % who)
+	if b.darkness_factor < 0.0 or b.darkness_factor > 1.0:
+		errors.append("%s: darkness_factor must be 0-1" % who)
 	if b.coverage_radius < 0:
 		errors.append("%s: coverage_radius must not be negative" % who)
 	if b.wet_radius < 0:
