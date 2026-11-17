@@ -1,6 +1,6 @@
 class_name TitleScreen
 extends CanvasLayer
-## The title screen (ticket 77, D56): a placeholder logo label and the main menu buttons over the backdrop map Main
+## The title screen (ticket 77, D56): the logo art (assets/ui/logo.png) and the main menu buttons over the backdrop map Main
 ## draws. Only emits signals; ui/main.gd decides what each button does. Continue is hidden when there is no save.
 
 signal continue_pressed
@@ -10,15 +10,13 @@ signal milestones_pressed
 signal settings_pressed
 signal quit_pressed
 
-const LOGO_TEXT := "Hearthvein"  # placeholder, ticket 78 swaps in the art
-
 var continue_button: Button
 
 
 func setup(has_save: bool) -> void:
 	layer = 20
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.35)
+	shade.color = Color(0, 0, 0, 0.2)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -26,19 +24,19 @@ func setup(has_save: bool) -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.add_child(_vignette())
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
 	col.custom_minimum_size = Vector2(320, 0)
 	center.add_child(col)
-	var logo := Label.new()
+	var logo := TextureRect.new()
 	logo.name = "Logo"
-	logo.text = LOGO_TEXT
-	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	logo.add_theme_font_override("font", Hud._pixel_font(Hud.FONT_PATH))
-	logo.add_theme_font_size_override("font_size", 88)
-	logo.add_theme_color_override("font_color", Hud.GOLD)
-	logo.add_theme_color_override("font_outline_color", Color(0.09, 0.07, 0.06))
-	logo.add_theme_constant_override("outline_size", 12)
+	logo.texture = ArtLibrary.texture(ArtLibrary.manifest()["logo"]["file"])
+	logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE  # the art is wider than the button column: centred, not stretched
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	logo.custom_minimum_size = Vector2(0, logo.texture.get_height())
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(logo)
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 24)
@@ -51,6 +49,28 @@ func setup(has_save: bool) -> void:
 	_button(col, font, "Milestones", "Milestones", milestones_pressed)
 	_button(col, font, "Settings", "Settings", settings_pressed)
 	_button(col, font, "Quit", "Quit", quit_pressed)
+
+
+## A soft dark ellipse behind the logo and buttons so they do not sit on busy forest.
+func _vignette() -> TextureRect:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g.colors = PackedColorArray([Color(0.03, 0.02, 0.02, 0.78), Color(0.03, 0.02, 0.02, 0.7), Color(0.03, 0.02, 0.02, 0.0)])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	t.width = 256
+	t.height = 256
+	var r := TextureRect.new()
+	r.name = "Vignette"
+	r.texture = t
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.custom_minimum_size = Vector2(980, 860)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
 
 
 func _button(parent: Node, font: FontFile, text: String, id: String, sig: Signal) -> Button:

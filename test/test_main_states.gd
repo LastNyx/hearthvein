@@ -111,3 +111,20 @@ func test_start_new_game_takes_seed_and_endless() -> void:
 	await wait_process_frames(1)
 	assert_eq(main.settlement.map.seed_used, 42)
 	assert_true((main.settlement.get_system(CampaignSystem) as CampaignSystem).endless_start)
+
+
+## Ticket 78: the title shows the logo art (nearest filter, buttons stay column width) over a backdrop without region tint.
+func test_title_logo_art_and_backdrop_without_region_tint() -> void:
+	var main := _main()
+	await wait_process_frames(3)
+	var logo := main.get_node("TitleScreen").find_child("Logo", true, false) as TextureRect
+	assert_true(logo is TextureRect)
+	assert_eq(logo.texture, ArtLibrary.texture(ArtLibrary.manifest()["logo"]["file"]))
+	assert_eq(logo.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
+	assert_true(ArtLibrary.manifest()["logo"]["file_2x"] != "")
+	assert_lt(_button(main, "NewGame").size.x, 400.0)
+	assert_false(main.map_view.show_regions)
+	assert_false(main.map_view.get_children().filter(func(n: Node) -> bool: return n is MapView.RegionOverlay)[0].visible)
+	main.start_new_game()
+	await wait_process_frames(2)
+	assert_true(main.map_view.show_regions)

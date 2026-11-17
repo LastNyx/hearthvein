@@ -1386,9 +1386,87 @@ def export_icons(manifest):
     manifest["icons"] = {k: f"ui/icon_{k}.png" for k in names}
 
 
+LOGO_CHUNK = 4  # screen pixels per art pixel in logo.png; logo@2x.png doubles it (4 stays whole at UI scale 1.5)
+
+
+def logo_base():
+    """'Hearthvein' as chunky pixel art on a small grid: warm banded letters, dark outline, cyan Lumen vein."""
+    from PIL import ImageFont
+    font = ImageFont.truetype(str(ROOT / "assets" / "ui" / "PixelifySans.ttf"), 22)
+    text = "Hearthvein"
+    pad = 12
+    box = font.getbbox(text)
+    w, h = box[2] - box[0], box[3] - box[1]
+    mask = Image.new("L", (w + 2 * pad, h + 2 * pad), 0)
+    ImageDraw.Draw(mask).text((pad - box[0], pad - box[1]), text, font=font, fill=255)
+    mask = mask.point(lambda v: 255 if v > 127 else 0)
+    W, H = mask.size
+    m = np.array(mask) > 0
+    ys = np.where(m.any(axis=1))[0]
+    top, bot = int(ys.min()), int(ys.max())
+    bands = [(0.0, "fff1c4"), (0.28, "f7d98a"), (0.6, "e8a944"), (0.82, "c47a2c")]
+    rgba = np.zeros((H, W, 4), np.uint8)
+    for y in range(H):
+        t = (y - top) / max(1, bot - top)
+        col = bands[0][1]
+        for b, c in bands:
+            if t >= b:
+                col = c
+        rgba[y, m[y]] = (*M.hexc(col)[:3], 255)
+    letters = Image.fromarray(rgba, "RGBA")
+    out = Image.new("RGBA", (W + 16, H + 16), (0, 0, 0, 0))
+    ox = oy = 8
+    # dark outline (2 px) and a drop shadow one row lower
+    solid = Image.fromarray((m * 255).astype(np.uint8), "L")
+    grown = solid.filter(ImageFilter.MaxFilter(3))
+    shadow = Image.new("RGBA", out.size, (0, 0, 0, 0))
+    shadow.paste((20, 12, 8, 150), (ox, oy + 1), grown)
+    out.alpha_composite(shadow)
+    edge = Image.new("RGBA", out.size, (0, 0, 0, 0))
+    edge.paste((38, 25, 16, 255), (ox, oy), grown)
+    out.alpha_composite(edge)
+    out.alpha_composite(letters, (ox, oy))
+    # the vein: a thin wavy cyan line through the lower third, with tails past both ends and a node at each tail
+    vein = Image.new("L", out.size, 0)
+    vd = ImageDraw.Draw(vein)
+    cy = oy + bot + 4
+    x0, x1 = 2, out.width - 3
+    pts = [(x, cy + int(round(1.0 * math.sin((x - x0) / 7.0)))) for x in range(x0, x1 + 1)]
+    for i in range(len(pts) - 1):
+        vd.line([pts[i], pts[i + 1]], fill=255)
+    return out, vein, vein.filter(ImageFilter.MaxFilter(3))
+
+
+def export_logo(manifest):
+    base, vein, vshell = logo_base()
+    k = LOGO_CHUNK
+    sizes = {}
+    for scale, name in ((1, "logo.png"), (2, "logo@2x.png")):
+        c = k * scale
+        art = base.resize((base.width * c, base.height * c), Image.NEAREST)
+        v = vein.resize(art.size, Image.NEAREST)
+        va = np.array(v) > 0
+        # glow: blurred vein mask, cyan, drawn over everything at low alpha
+        g = np.array(v.filter(ImageFilter.GaussianBlur(c * 2.2)), np.float32) / 255.0
+        glow = np.zeros(va.shape + (4,), np.uint8)
+        glow[..., :3] = (60, 220, 240)
+        glow[..., 3] = np.clip(g * 2.4, 0, 1) * 150
+        art.alpha_composite(Image.fromarray(glow, "RGBA"))
+        # vein body: dark cyan shell, bright core
+        shell = np.array(vshell.resize(art.size, Image.NEAREST)) > 0
+        core = np.zeros_like(glow)
+        core[shell] = (18, 96, 118, 255)
+        core[va] = (150, 250, 255, 255)
+        art.alpha_composite(Image.fromarray(core, "RGBA"))
+        save(art, OUT / "ui" / name)
+        sizes[name] = list(art.size)
+    manifest["logo"] = {"file": "ui/logo.png", "file_2x": "ui/logo@2x.png", "size": sizes["logo.png"], "chunk": k}
+
+
 def main():
     manifest = {"tile": T}
     export_icons(manifest)
+    export_logo(manifest)
     export_terrain(manifest)
     export_overlays(manifest)
     export_autotiles(manifest)

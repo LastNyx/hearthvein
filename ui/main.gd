@@ -122,6 +122,7 @@ func _build_title() -> void:
 	map_view = MapView.new()
 	map_view.name = "MapView"
 	_add_title(map_view)
+	map_view.show_regions = false
 	map_view.setup(MapGen.generate(randi(), registry))
 	var cam := Camera2D.new()
 	cam.name = "Camera"
