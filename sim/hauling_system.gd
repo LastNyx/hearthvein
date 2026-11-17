@@ -298,7 +298,7 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 			var t := _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
 			if t != null:
 				return t
-	# 1. and 2. take turns going first, so busy producers cannot starve consumers' input buffers (or the reverse).
+	# 1. and 2. take turns going first (by clock hour and hauler id), so busy producers cannot starve consumers' input buffers.
 	if (int(s.clock.total_hours) + cid) % 2 == 0:
 		var d := _plan_door(s, ws, load_cap)
 		if d != null:

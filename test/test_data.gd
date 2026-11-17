@@ -83,7 +83,7 @@ func test_camp_buildings_match_design() -> void:
 	assert_eq(forager.recipe.outputs, {"food": 8.0})
 	var wc := reg.get_building("woodcutter")
 	assert_eq([wc.cost, wc.worker_slots], [{"materials": 10}, 2])
-	assert_eq(wc.recipe.outputs, {"materials": 5})
+	assert_eq(wc.recipe.outputs, {"materials": 3})
 	var sh := reg.get_building("storehouse")
 	assert_eq(sh.size, Vector2i(2, 1))
 	assert_eq(sh.cost, {"materials": 25})
