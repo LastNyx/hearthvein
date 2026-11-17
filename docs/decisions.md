@@ -147,3 +147,21 @@ Ben wants an Oxygen Not Included-like long game. Reverses D7's 45-60 min target.
   from City on and Skyheart stage costs stay first guesses until play checks.
 - D55. Tests run headless with GUT against the simulation; placeholder art is generated procedurally (like the
   mockups) until the art decision. Work is tracked as one feature `v1` in `.scratch/v1/` (Nyx decided).
+
+## Round 12 (2026-11-17) - main menu, settings and onboarding
+
+- D56. The game boots into a title screen: a freshly generated map pans slowly behind it (sim not running). Menu:
+  Continue (latest save, hidden when there is none), New game, Load, Milestones, Settings, Quit.
+- D57. New game panel: seed field (blank = random), Endless start toggle, Tutorial toggle (on by default for the
+  first run, off after). No difficulty or map size options in v1.
+- D58. Settings: fullscreen/windowed, UI scale (100/125/150%), hints on/off, reset tutorial, plus sound (D61). No key
+  rebinding in v1.
+- D59. Onboarding has three layers: (a) guided goals in the first session (one goal at a time, the matching build
+  button highlighted, ticks off when the sim sees it done, game keeps running, skippable), covering Camp up to the
+  first Dimming; (b) first-time hint cards afterwards (first Dimming forecast, full buffer, new era, first blight, ...);
+  (c) an F1 help screen on the core loop, plus hover tooltips (description, inputs/outputs) on build buttons and
+  buildings on the map.
+- D60. Esc becomes a plain pause menu: Resume, Save, Load, Settings, Help, Main menu, Quit. New game and the Endless
+  start toggle move to the title screen; Milestones is reachable from both.
+- D61. v1 gets sound (Ben, 2026-11-17); scope settled in the next round.
+- D62. Map pan moves from middle-drag to right-drag (Ben, 2026-11-17); right-click cancel is reconciled next round.
