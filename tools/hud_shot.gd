@@ -14,6 +14,7 @@ func _init() -> void:
 	main.game_seed = 42
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	var s: Settlement = main.settlement
 	var m: HudModel = main.hud_model
 	var h := s.map.hearth_spot

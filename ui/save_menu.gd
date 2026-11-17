@@ -20,6 +20,12 @@ var _new_row: HBoxContainer
 var _settings_view: VBoxContainer
 ## Built by setup() when a GameSettings is given (Main passes its own); the Settings button opens it.
 var settings_panel: SettingsPanel
+## Title screen mode (ticket 77): opened from the title, so no pause, no Save buttons, no Continue, no new game row.
+## The three views (load list, Milestones, Settings) are opened one at a time with open_view(); Back closes the menu.
+var title_mode: bool = false
+var _view: String = ""
+var _heading: Label
+var _resume: Button
 
 
 func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
@@ -54,11 +60,12 @@ func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
 	_settings_view = VBoxContainer.new()
 	_settings_view.visible = false
 	col.add_child(_settings_view)
-	_text(_main_view, "Paused", 22, Hud.GOLD)
+	_heading = _text(_main_view, "Paused", 22, Hud.GOLD)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
 	_main_view.add_child(top)
-	_button(top, "Resume", 16).pressed.connect(close)
+	_resume = _button(top, "Resume", 16)
+	_resume.pressed.connect(close)
 	_continue = _button(top, "Continue (latest autosave)", 16)
 	_continue.pressed.connect(func() -> void: _emit_load(model.continue_latest()))
 	_button(top, "Milestones", 16).pressed.connect(show_milestones)
@@ -90,14 +97,34 @@ func open() -> void:
 		return
 	visible = true
 	_dim.visible = true
-	get_tree().paused = true
+	if not title_mode:
+		get_tree().paused = true
 	refresh()
+
+
+## Title screen: opens the menu in title mode on one view: "load" (the slot list), "milestones" or "settings".
+func open_view(view: String) -> void:
+	title_mode = true
+	_view = view
+	_heading.text = "Load game"
+	_resume.text = "Back"
+	_continue.visible = false
+	open()
+	if view == "milestones":
+		show_milestones()
+	elif view == "settings":
+		show_settings()
 
 
 func close() -> void:
 	if not visible:
 		return
 	model.pending = {}
+	title_mode = false
+	_view = ""
+	_heading.text = "Paused"
+	_resume.text = "Resume"
+	_continue.visible = true
 	_ms_view.visible = false
 	_settings_view.visible = false
 	_main_view.visible = true
@@ -125,7 +152,7 @@ func refresh() -> void:
 			_button(row, "Yes", 16).pressed.connect(func() -> void: model.confirm(); refresh())
 			_button(row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
 			continue
-		if r["can_save"]:
+		if r["can_save"] and not title_mode:
 			_button(row, "Save", 16).pressed.connect(func() -> void: model.request_save(slot); refresh())
 		var load_b := _button(row, "Load", 16)
 		load_b.disabled = not r["can_load"]
@@ -135,7 +162,9 @@ func refresh() -> void:
 			var del := _button(row, "Delete", 16)
 			del.disabled = not r["can_delete"]
 			del.pressed.connect(func() -> void: model.request_delete(slot); refresh())
-	_refresh_new_row()
+	_new_row.visible = not title_mode
+	if not title_mode:
+		_refresh_new_row()
 	_continue.disabled = not model.has_continue()
 	_status.text = model.status
 
@@ -193,11 +222,17 @@ func show_settings() -> void:
 
 
 func hide_settings() -> void:
+	if title_mode and _view == "settings":
+		close()
+		return
 	_settings_view.visible = false
 	_main_view.visible = true
 
 
 func hide_milestones() -> void:
+	if title_mode and _view == "milestones":
+		close()
+		return
 	_ms_view.visible = false
 	_main_view.visible = true
 

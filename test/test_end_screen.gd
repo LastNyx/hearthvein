@@ -34,6 +34,7 @@ func _main() -> Node:
 	main.game_seed = SEED
 	main.saves_dir = dir
 	add_child_autofree(main)
+	main.start_new_game()
 	return main
 
 

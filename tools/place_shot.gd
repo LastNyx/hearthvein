@@ -20,6 +20,7 @@ func _init() -> void:
 	main.game_seed = 42
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	var s: Settlement = main.settlement
 	var h := s.map.hearth_spot
 	# A road east of the hearth with buildings along it, one building left disconnected.

@@ -136,6 +136,7 @@ func _main(save_dir: String) -> Node:
 	main.game_seed = SEED
 	main.saves_dir = save_dir
 	add_child_autofree(main)
+	main.start_new_game()
 	return main
 
 

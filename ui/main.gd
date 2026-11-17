@@ -3,12 +3,18 @@ extends Node
 ##
 ## Everything that belongs to one Settlement is a direct child of Main named as before (MapView, DimmingTint, Camera,
 ## SimDriver, BuildController, Hud; tools/*_shot.gd look them up by name) and is tracked in `_world` so a swap can free
-## exactly those. swap_settlement() is the one path that replaces the Settlement (a load): it
+## exactly those. Main has two states (ticket 77): TITLE (boot: a backdrop MapView of a fresh random map under a slow
+## camera pan, plus TitleScreen; no Settlement, SimDriver or Hud, so nothing ticks) and GAME (the world above).
+## start_new_game() and swap_settlement() enter GAME, return_to_title() autosaves and goes back. swap_settlement() is the one path that replaces the Settlement (a load): it
 ## detaches autosave, silences the old EventBus, frees those nodes and builds fresh ones for the new Settlement, so every
 ## view is bound to the new Settlement and its bus and draws it from scratch. The menu and SaveSlots outlive swaps.
 
+enum State { TITLE, GAME }
+
+var state: State = State.TITLE
+## Default seed for start_new_game() when it is not given one (tests and shot scripts set it; -1 = random).
 var game_seed: int = -1
-## New game option (ticket 46): no win check, no Great Dimming. Set before the node enters the tree (ticket 46c adds the toggle).
+## Default for start_new_game()'s endless option: no win check, no Great Dimming (ticket 46).
 var endless_start: bool = false
 ## Where saves go; tests set a temp dir before add_child.
 var saves_dir: String = "user://saves"
@@ -24,7 +30,10 @@ var slots: SaveSlots
 var menu: SaveMenu
 var menu_model: SaveMenuModel
 var end_screen: EndScreen
+var title_screen: TitleScreen
 var _world: Array[Node] = []
+var _title: Array[Node] = []
+var _pan: Tween
 var driver: SimDriver
 var map_view: MapView
 var placement: PlacementView
@@ -58,20 +67,103 @@ func _ready() -> void:
 	add_child(end_screen)
 	end_screen.setup(menu, slots, func() -> Settlement: return settlement)
 	menu.load_requested.connect(func(_s: Settlement) -> void: end_screen.close())
-	_build_world(Settlement.new_game(game_seed if game_seed >= 0 else randi(), registry, endless_start))
-	slots.attach(settlement)
+	_build_title()
 
 
-## Replaces the running Settlement with `s` (a loaded one) and re-binds every view to it.
+## Starts a fresh Settlement and enters GAME. Seed -1 uses `game_seed`, else a random one; endless is OR-ed with `endless_start`.
+func start_new_game(new_seed: int = -1, endless: bool = false) -> void:
+	var sd := new_seed if new_seed >= 0 else (game_seed if game_seed >= 0 else randi())
+	swap_settlement(Settlement.new_game(sd, registry, endless or endless_start))
+
+
+## Replaces whatever is showing (the title, or the running Settlement) with `s` and re-binds every view to it.
 func swap_settlement(s: Settlement) -> void:
+	_free_title()
+	_free_world()
+	_build_world(s)
+	slots.attach(s)
+	state = State.GAME
+
+
+## GAME to TITLE: autosaves, detaches, frees the world nodes and rebuilds the backdrop and title screen.
+func return_to_title() -> void:
+	if state != State.GAME:
+		return
+	slots.autosave(settlement)
+	_free_world()
+	_build_title()
+
+
+func _free_world() -> void:
+	if settlement == null:
+		return
 	slots.detach()
 	settlement.events.clear_subscribers()
 	for n in _world:
 		remove_child(n)  # out of the tree now so the new nodes' names are free
 		n.queue_free()
 	_world.clear()
-	_build_world(s)
-	slots.attach(s)
+	settlement = null
+	driver = null
+	map_view = null
+	placement = null
+	walkers = null
+	trains = null
+	airships = null
+	overlay = null
+	hud = null
+	hud_model = null
+	camera = null
+	get_tree().paused = false
+
+
+func _build_title() -> void:
+	state = State.TITLE
+	map_view = MapView.new()
+	map_view.name = "MapView"
+	_add_title(map_view)
+	map_view.setup(MapGen.generate(randi(), registry))
+	var cam := Camera2D.new()
+	cam.name = "Camera"
+	_add_title(cam)
+	cam.make_current()
+	var half := get_viewport().get_visible_rect().size * 0.5
+	var size := map_view.world_size()
+	var y := randf_range(half.y, maxf(half.y, size.y - half.y))
+	cam.position = Vector2(half.x, y)
+	_pan = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_pan.tween_property(cam, "position", Vector2(maxf(half.x, size.x - half.x), y), 120.0)
+	_pan.tween_property(cam, "position", Vector2(half.x, y), 120.0)
+	title_screen = TitleScreen.new()
+	title_screen.name = "TitleScreen"
+	_add_title(title_screen)
+	title_screen.setup(not menu_model.newest_save().is_empty())
+	title_screen.continue_pressed.connect(func() -> void:
+		var s := menu_model.continue_newest()
+		if s != null:
+			swap_settlement(s))
+	title_screen.new_game_pressed.connect(func() -> void: start_new_game())
+	title_screen.load_pressed.connect(menu.open_view.bind("load"))
+	title_screen.milestones_pressed.connect(menu.open_view.bind("milestones"))
+	title_screen.settings_pressed.connect(menu.open_view.bind("settings"))
+	title_screen.quit_pressed.connect(func() -> void: get_tree().quit())
+
+
+func _add_title(n: Node) -> void:
+	add_child(n)
+	_title.append(n)
+
+
+func _free_title() -> void:
+	if _pan != null:
+		_pan.kill()
+		_pan = null
+	for n in _title:
+		remove_child(n)
+		n.queue_free()
+	_title.clear()
+	title_screen = null
+	map_view = null
 
 
 func _build_world(s: Settlement) -> void:
@@ -169,6 +261,6 @@ func _input(event: InputEvent) -> void:
 		if menu.is_open():
 			menu.close()
 			get_viewport().set_input_as_handled()
-		elif not hud.has_cancelable():
+		elif state == State.GAME and not hud.has_cancelable():
 			menu.open()
 			get_viewport().set_input_as_handled()

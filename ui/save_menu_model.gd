@@ -142,6 +142,27 @@ func load_row(kind: String, slot: int) -> Settlement:
 	return s
 
 
+## The newest save of any kind (autosave or manual slot) as a slots.list() entry, or empty when there is none.
+func newest_save() -> Dictionary:
+	var best := {}
+	var auto := slots.latest_auto()
+	for e in slots.list():
+		if e["kind"] == "auto" and e["slot"] != auto:
+			continue
+		if best.is_empty() or int(e["saved_at"]) > int(best["saved_at"]):
+			best = e
+	return best
+
+
+## Title screen Continue: loads the newest save of any kind. Null (status says why) when there is none.
+func continue_newest() -> Settlement:
+	var e := newest_save()
+	if e.is_empty():
+		status = "No save yet"
+		return null
+	return load_row(e["kind"], e["slot"])
+
+
 func continue_latest() -> Settlement:
 	var i := slots.latest_auto()
 	if i < 0:

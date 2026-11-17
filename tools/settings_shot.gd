@@ -13,6 +13,7 @@ func _init() -> void:
 	main.settings_path = CFG
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	main.menu.open()
 	main.menu.show_settings()
 	for i in 4:
