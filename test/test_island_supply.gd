@@ -130,6 +130,7 @@ func test_one_notification_per_cause() -> void:
 
 
 func test_notification_center_one_toast_per_cause() -> void:
+	s.systems.erase(s.get_system(MilestoneSystem))  # its "first island" toast is not what this counts
 	var nc := NotificationCenter.new(s)
 	_staff()
 	s.hearth.inventory.remove("lumen", s.hearth.inventory.amount_of("lumen"))

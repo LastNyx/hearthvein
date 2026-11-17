@@ -27,7 +27,7 @@ func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
 			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished",
-			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended"]:
+			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -103,6 +103,8 @@ func _on_event(e: Dictionary) -> void:
 			raise("skyheart:%d" % d["stage"], "milestone", "Skyheart stage %d done: %s" % [d["stage"], d["name"]])
 		"skyheart_finished":
 			raise("skyheart:finished", "milestone", "The Skyheart is finished")
+		"milestone":
+			raise("milestone:%s" % d["id"], "milestone", "Milestone: %s" % d["name"])
 		"building_demolished":
 			_clear_building(d["id"])
 		"era_changed":

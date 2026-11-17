@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MilestoneDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/milestone_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "streak_10"
+display_name = "10 Dimmings in a row with no darkness day"
+order = 16
+kind = "dimming_streak_no_dark"
+amount = 10.0

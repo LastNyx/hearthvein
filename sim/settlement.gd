@@ -137,6 +137,10 @@ func add_default_systems() -> void:
 	add_system(GreatDimmingSystem.new())  # the Skyheart's Great Dimming (ticket 45b); before the regular Dimming, which yields to it
 	add_system(CampaignSystem.new())  # win and loss outcome (ticket 45c): hourly population check, Great Dimming result
 	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
+	var ms := MilestoneSystem.new()  # milestones (ticket 46b): daily state checks and the event kinds; after Dimming so a day's darkness is seen
+	add_system(ms)
+	for kind in ["dimming_ended", "skyheart_finished", "campaign_won"]:
+		events.subscribe(kind, ms.on_event.bind(self))
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
 	add_system(CleaningSystem.new())  # cleaners clear after the spread, before the day's health is counted

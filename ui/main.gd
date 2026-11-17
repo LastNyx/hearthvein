@@ -12,6 +12,8 @@ var game_seed: int = -1
 var endless_start: bool = false
 ## Where saves go; tests set a temp dir before add_child.
 var saves_dir: String = "user://saves"
+## Lifetime milestone list (ticket 46b), outside the saves.
+var milestones_path: String = "user://milestones.json"
 var settlement: Settlement
 var hud_model: HudModel
 var registry: DataRegistry
@@ -34,6 +36,7 @@ var camera: CameraController
 func _ready() -> void:
 	registry = DataRegistry.new()
 	registry.load_all()
+	MilestoneSystem.lifetime_path = milestones_path
 	slots = SaveSlots.new(saves_dir)
 	menu_model = SaveMenuModel.new(slots, registry, func() -> Settlement: return settlement)
 	menu = SaveMenu.new()

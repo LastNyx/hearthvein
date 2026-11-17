@@ -20,6 +20,7 @@ var water: WaterDef = null    # the single data/water/water.tres
 var regions: RegionsDef = null  # the single data/regions/regions.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var tiers: TierRuleDef = null       # the single data/tiers/tiers.tres (upgrade tier default rule)
+var milestones: Dictionary = {}  # id -> MilestoneDef
 var errors: Array[String] = []
 
 
@@ -29,6 +30,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	goods.clear()
 	buildings.clear()
 	eras.clear()
+	milestones.clear()
 	terrain.clear()
 	roads.clear()
 	logistics = null
@@ -76,6 +78,15 @@ func get_road_by_level(level: int) -> RoadDef:
 		if r.level == level:
 			return r
 	return null
+
+
+## Milestones sorted by order.
+func milestones_in_order() -> Array[MilestoneDef]:
+	var out: Array[MilestoneDef] = []
+	for m in milestones.values():
+		out.append(m)
+	out.sort_custom(func(a: MilestoneDef, b: MilestoneDef) -> bool: return a.order < b.order)
+	return out
 
 
 ## Eras sorted by order.
@@ -126,6 +137,8 @@ func _index(path: String) -> void:
 		_add(buildings, res.id, res, path, "building")
 	elif res is EraDef:
 		_add(eras, res.id, res, path, "era")
+	elif res is MilestoneDef:
+		_add(milestones, res.id, res, path, "milestone")
 	elif res is TerrainDef:
 		_add(terrain, res.id, res, path, "terrain")
 	elif res is LogisticsDef:
@@ -184,6 +197,11 @@ func _add(table: Dictionary, id: String, res: Resource, path: String, label: Str
 
 
 func _validate() -> void:
+	for m: MilestoneDef in milestones.values():
+		if not MilestoneDef.KINDS.has(m.kind):
+			errors.append("milestone '%s': unknown kind '%s'" % [m.id, m.kind])
+		elif m.kind == "era" and not eras.has(m.text):
+			errors.append("milestone '%s': unknown era '%s'" % [m.id, m.text])
 	for g: GoodDef in goods.values():
 		if g.kind != GoodDef.KIND_BASE and g.kind != GoodDef.KIND_REFINED:
 			errors.append("good '%s': unknown kind '%s'" % [g.id, g.kind])
