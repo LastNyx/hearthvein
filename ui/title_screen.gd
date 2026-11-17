@@ -20,11 +20,15 @@ func setup(has_save: bool) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var vignette := _vignette()
+	add_child(vignette)
+	# Full-rect, not inside the CenterContainer: a fixed-size child there sets the container's minimum and pushes the
+	# button column off the bottom of a 720 px window.
+	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.add_child(_vignette())
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
 	col.custom_minimum_size = Vector2(320, 0)
@@ -60,7 +64,7 @@ func _vignette() -> TextureRect:
 	t.gradient = g
 	t.fill = GradientTexture2D.FILL_RADIAL
 	t.fill_from = Vector2(0.5, 0.5)
-	t.fill_to = Vector2(1.0, 0.5)
+	t.fill_to = Vector2(0.85, 0.5)
 	t.width = 256
 	t.height = 256
 	var r := TextureRect.new()
@@ -68,7 +72,6 @@ func _vignette() -> TextureRect:
 	r.texture = t
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	r.stretch_mode = TextureRect.STRETCH_SCALE
-	r.custom_minimum_size = Vector2(980, 860)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
 
