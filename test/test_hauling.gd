@@ -203,3 +203,19 @@ func test_site_is_served_before_a_full_door_buffer() -> void:
 	assert_not_null(t)
 	assert_eq(t.dst, site.id, "the site comes before emptying the door buffer")
 	assert_false(t.src_door)
+
+
+func test_consumer_inputs_are_not_starved_by_a_busy_door_buffer() -> void:
+	var store := _put("storehouse", 7)
+	var fg := _put("forager", 3, -1)
+	var saw := _put("sawmill", 10, -1)
+	store.inventory.add("materials", 50.0)
+	s.step_hours(1)
+	fg.door_buffer.add("food", 15.0)
+	var served := false
+	for i in 2:
+		var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+		assert_not_null(t)
+		if t != null and t.dst == saw.id:
+			served = true
+	assert_true(served, "within two plans the sawmill's input is served though a door buffer waits")

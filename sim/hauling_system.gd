@@ -290,7 +290,6 @@ func _haul_load(s: Settlement, cid: int) -> float:
 
 
 func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
-	var lg := s.registry.logistics
 	var load_cap := _haul_load(s, cid)
 	_layout(s)
 	# 0. construction sites first: a busy settlement's door buffers must not starve its builders.
@@ -299,7 +298,25 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 			var t := _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
 			if t != null:
 				return t
-	# 1. door buffers: fullest pickup first.
+	# 1. and 2. take turns going first, so busy producers cannot starve consumers' input buffers (or the reverse).
+	_turn += 1
+	if _turn % 2 == 0:
+		var d := _plan_door(s, ws, load_cap)
+		if d != null:
+			return d
+		return _plan_inputs(s, ws, load_cap)
+	var i := _plan_inputs(s, ws, load_cap)
+	if i != null:
+		return i
+	return _plan_door(s, ws, load_cap)
+
+
+var _turn: int = 0
+
+
+## Door buffers: the fullest pickup first.
+func _plan_door(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
+	var lg := s.registry.logistics
 	var best: Trip = null
 	var best_avail := 0.0
 	for b in _door_blds:
@@ -315,9 +332,11 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 				continue  # Lumen inside the grid is never hauled (design.md section 8): it already counts as grid supply
 			best = _trip(g, b.id, true, dst.id, false, load)
 			best_avail = avail
-	if best != null:
-		return best
-	# 2. storage -> consumer input buffers and in-place upgrade buffers.
+	return best
+
+
+## Storage -> consumer input buffers and in-place upgrade buffers.
+func _plan_inputs(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 	for b in _blds:
 		if b.input_buffer != null:
 			var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
