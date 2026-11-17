@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Hearthvein
+Comment=Hearthvein settlement game
+Exec=Hearthvein.x86_64
+Icon=hearthvein
+Categories=Game;Simulation;
+Terminal=false
