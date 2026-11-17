@@ -4,6 +4,8 @@ config_version=5
 [application]
 
 config/name="Hearthvein"
+config/version="1.0.0"
+config/icon="res://assets/icon/hearthvein.png"
 run/main_scene="res://ui/main.tscn"
 config/features=PackedStringArray("4.7")
 
