@@ -16,11 +16,10 @@ var _continue: Button
 var _main_view: VBoxContainer
 var _ms_view: VBoxContainer
 var _ms_body: HBoxContainer
-var _new_row: HBoxContainer
 var _settings_view: VBoxContainer
 ## Built by setup() when a GameSettings is given (Main passes its own); the Settings button opens it.
 var settings_panel: SettingsPanel
-## Title screen mode (ticket 77): opened from the title, so no pause, no Save buttons, no Continue, no new game row.
+## Title screen mode (ticket 77): opened from the title, so no pause, no Save buttons, no Continue.
 ## The three views (load list, Milestones, Settings) are opened one at a time with open_view(); Back closes the menu.
 var title_mode: bool = false
 var _view: String = ""
@@ -79,9 +78,6 @@ func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 4)
 	_main_view.add_child(_list)
-	_new_row = HBoxContainer.new()
-	_new_row.add_theme_constant_override("separation", 8)
-	_main_view.add_child(_new_row)
 	_status = _text(_main_view, "", 16, Hud.DIM)
 	_build_milestone_view()
 	_dim.visible = false
@@ -162,49 +158,8 @@ func refresh() -> void:
 			var del := _button(row, "Delete", 16)
 			del.disabled = not r["can_delete"]
 			del.pressed.connect(func() -> void: model.request_delete(slot); refresh())
-	_new_row.visible = not title_mode
-	if not title_mode:
-		_refresh_new_row()
 	_continue.disabled = not model.has_continue()
 	_status.text = model.status
-
-
-func _refresh_new_row() -> void:
-	for c in _new_row.get_children():
-		_new_row.remove_child(c)
-		c.queue_free()
-	_text(_new_row, "New game", 16, Hud.CYAN).custom_minimum_size = Vector2(110, 0)
-	var cb := CheckBox.new()
-	cb.text = "Endless start (no Great Dimming, no win)"
-	cb.focus_mode = Control.FOCUS_NONE
-	cb.button_pressed = model.endless_toggle
-	cb.add_theme_font_override("font", _body_font)
-	cb.add_theme_font_size_override("font_size", Hud._px_size(16))
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-		cb.add_theme_color_override(c, Hud.INK)
-	cb.name = "EndlessToggle"
-	cb.add_theme_constant_override("h_separation", 10)
-	for k in ["unchecked", "checked", "unchecked_disabled", "checked_disabled"]:
-		cb.add_theme_icon_override(k, _box_icon(k.begins_with("checked"), Hud.INK))
-	var hover_ink := Hud.INK.lightened(0.35)
-	cb.add_theme_icon_override("unchecked_mirrored", _box_icon(false, Hud.INK))
-	cb.add_theme_icon_override("checked_mirrored", _box_icon(true, Hud.INK))
-	cb.add_theme_color_override("font_hover_color", hover_ink)
-	cb.add_theme_color_override("font_hover_pressed_color", hover_ink)
-	cb.toggled.connect(func(on: bool) -> void: model.endless_toggle = on)
-	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_new_row.add_child(cb)
-	if not model.pending.is_empty() and model.pending["action"] == "new_game":
-		_text(_new_row, "Unsaved progress will be lost", 16, Hud.GOLD)
-		_button(_new_row, "Yes", 16).pressed.connect(func() -> void:
-			var s := model.confirm()
-			if s != null:
-				load_requested.emit(s)
-			else:
-				refresh())
-		_button(_new_row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
-	else:
-		_button(_new_row, "Start", 16).pressed.connect(func() -> void: model.request_new_game(); refresh())
 
 
 ## The Milestones panel (ticket 46c): "This run" and "Lifetime" side by side, Back returns to the menu.

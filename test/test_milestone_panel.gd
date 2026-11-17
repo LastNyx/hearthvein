@@ -95,33 +95,6 @@ func test_run_date_saved_and_old_save_has_none() -> void:
 	assert_eq(ms3.date_of("village"), "")
 
 
-func test_new_game_with_endless_toggle() -> void:
-	var dir := "/tmp/nyx-flash/hearthvein_panel_%d" % OS.get_process_id()
-	var m := SaveMenuModel.new(SaveSlots.new(dir), reg, func() -> Settlement: return null)
-	m.endless_toggle = true
-	m.request_new_game()
-	assert_eq(m.pending["action"], "new_game")
-	var s := m.confirm()
-	assert_not_null(s)
-	assert_true(m.pending.is_empty())
-	var c := s.get_system(CampaignSystem) as CampaignSystem
-	assert_true(c.endless_start)
-	assert_false(c.win_check_enabled)
-
-
-func test_new_game_without_toggle_is_normal_campaign() -> void:
-	var dir := "/tmp/nyx-flash/hearthvein_panel_%d" % OS.get_process_id()
-	var m := SaveMenuModel.new(SaveSlots.new(dir), reg, func() -> Settlement: return null)
-	m.request_new_game()
-	var s := m.confirm()
-	var c := s.get_system(CampaignSystem) as CampaignSystem
-	assert_false(c.endless_start)
-	assert_true(c.win_check_enabled)
-	m.request_new_game()
-	m.cancel()
-	assert_null(m.confirm())
-
-
 func test_header_splits_title_and_count() -> void:
 	var d := MilestonePanelModel.build(reg, null, {})
 	assert_eq(d["run"]["title"], "This run")
@@ -129,19 +102,19 @@ func test_header_splits_title_and_count() -> void:
 	assert_eq(d["lifetime"]["bonus_text"], "(+bonus locked)")
 
 
-func test_menu_header_count_label_and_checkbox_toggle() -> void:
+func test_menu_header_count_label_and_no_new_game_row() -> void:
 	var dir := "/tmp/nyx-flash/hearthvein_panel_ui_%d" % OS.get_process_id()
 	var m := SaveMenuModel.new(SaveSlots.new(dir), reg, func() -> Settlement: return null)
 	var menu := SaveMenu.new()
 	add_child_autofree(menu)
 	menu.setup(m)
 	menu.refresh()
-	var cb := menu.find_child("EndlessToggle", true, false) as CheckBox
-	assert_not_null(cb)
-	assert_false(m.endless_toggle)
-	cb.button_pressed = true
-	assert_true(m.endless_toggle)
-	assert_true(cb.has_theme_icon_override("checked"))
+	# Ticket 79: New game and the Endless toggle moved to the title's NewGamePanel.
+	assert_null(menu.find_child("EndlessToggle", true, false))
+	for l in menu.find_children("*", "Label", true, false):
+		assert_ne((l as Label).text, "New game")
+	for b in menu.find_children("*", "Button", true, false):
+		assert_ne((b as Button).text, "Start")
 	menu.refresh_milestones()
 	var counts := menu.find_children("Count", "Label", true, false)
 	assert_eq(counts.size(), 2)

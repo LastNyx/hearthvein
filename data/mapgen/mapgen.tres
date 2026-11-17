@@ -22,3 +22,4 @@ pond_radius_min = 1.8
 pond_radius_max = 3.2
 pond_river_gap = 3.0
 shore_wobble = 0.22
+tutorial_seed = 1

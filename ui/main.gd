@@ -31,6 +31,7 @@ var menu: SaveMenu
 var menu_model: SaveMenuModel
 var end_screen: EndScreen
 var title_screen: TitleScreen
+var new_game_panel: NewGamePanel
 var _world: Array[Node] = []
 var _title: Array[Node] = []
 var _pan: Tween
@@ -70,10 +71,37 @@ func _ready() -> void:
 	_build_title()
 
 
-## Starts a fresh Settlement and enters GAME. Seed -1 uses `game_seed`, else a random one; endless is OR-ed with `endless_start`.
-func start_new_game(new_seed: int = -1, endless: bool = false) -> void:
-	var sd := new_seed if new_seed >= 0 else (game_seed if game_seed >= 0 else randi())
-	swap_settlement(Settlement.new_game(sd, registry, endless or endless_start))
+## Starts a fresh Settlement and enters GAME. Seed -1 is the tutorial seed (data) when `tutorial` is on, else `game_seed`,
+## else a random one; endless is OR-ed with `endless_start`. A tutorial game marks the tutorial as done in the settings.
+func start_new_game(new_seed: int = -1, endless: bool = false, tutorial: bool = false) -> void:
+	var sd := new_seed
+	if sd < 0:
+		sd = registry.mapgen.tutorial_seed if tutorial else (game_seed if game_seed >= 0 else randi())
+	if tutorial and not settings.tutorial_first_run_done:
+		settings.tutorial_first_run_done = true
+		settings.save()
+	swap_settlement(Settlement.new_game(sd, registry, endless or endless_start, tutorial))
+
+
+## The title's New game button: the options panel over the title (Back closes it, Start begins the game).
+func open_new_game_panel() -> void:
+	if new_game_panel != null or state != State.TITLE:
+		return
+	new_game_panel = NewGamePanel.new()
+	new_game_panel.name = "NewGamePanel"
+	_add_title(new_game_panel)
+	new_game_panel.setup(settings.tutorial_first_run_done)
+	new_game_panel.back_pressed.connect(close_new_game_panel)
+	new_game_panel.start_pressed.connect(start_new_game)
+
+
+func close_new_game_panel() -> void:
+	if new_game_panel == null:
+		return
+	_title.erase(new_game_panel)
+	remove_child(new_game_panel)
+	new_game_panel.queue_free()
+	new_game_panel = null
 
 
 ## Replaces whatever is showing (the title, or the running Settlement) with `s` and re-binds every view to it.
@@ -143,7 +171,7 @@ func _build_title() -> void:
 		var s := menu_model.continue_newest()
 		if s != null:
 			swap_settlement(s))
-	title_screen.new_game_pressed.connect(func() -> void: start_new_game())
+	title_screen.new_game_pressed.connect(open_new_game_panel)
 	title_screen.load_pressed.connect(menu.open_view.bind("load"))
 	title_screen.milestones_pressed.connect(menu.open_view.bind("milestones"))
 	title_screen.settings_pressed.connect(menu.open_view.bind("settings"))
@@ -164,6 +192,7 @@ func _free_title() -> void:
 		n.queue_free()
 	_title.clear()
 	title_screen = null
+	new_game_panel = null
 	map_view = null
 
 
@@ -261,6 +290,9 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_ESCAPE:
 		if menu.is_open():
 			menu.close()
+			get_viewport().set_input_as_handled()
+		elif new_game_panel != null:
+			close_new_game_panel()
 			get_viewport().set_input_as_handled()
 		elif state == State.GAME and not hud.has_cancelable():
 			menu.open()

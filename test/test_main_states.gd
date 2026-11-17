@@ -86,7 +86,10 @@ func test_new_game_enters_game_and_returning_to_title_frees_the_world() -> void:
 	var main := _main()
 	await wait_process_frames(2)
 	var title_children: int = main.get_child_count()
-	_button(main, "NewGame").pressed.emit()
+	_button(main, "NewGame").pressed.emit()  # ticket 79: opens the New game panel; Start begins the game
+	await wait_process_frames(2)
+	assert_eq(main.state, main.State.TITLE)
+	main.get_node("NewGamePanel").start_button.pressed.emit()
 	await wait_process_frames(2)
 	assert_eq(main.state, main.State.GAME)
 	assert_not_null(main.settlement)
