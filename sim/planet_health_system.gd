@@ -64,6 +64,16 @@ static func is_working(s: Settlement, b: Building, staffed: Dictionary = {}) -> 
 	return false
 
 
+## Vein Mender (design.md section 17): the lowest drain_factor among the working menders within drain_radius of the
+## extractor (footprint gap), 1.0 when none reaches it. Menders never stack.
+static func drain_factor_for(b: Building, menders: Array[Building]) -> float:
+	var f := 1.0
+	for m in menders:
+		if m.layer == b.layer and Building.footprint_gap(m, b) <= m.def.drain_radius:
+			f = minf(f, m.def.drain_factor)
+	return f
+
+
 ## {"blight": x, "forest": x, "buildings": x, "extra": x, "total": x} for today (percent points).
 func daily_breakdown(s: Settlement) -> Dictionary:
 	var pd := s.registry.planet
@@ -75,10 +85,19 @@ func daily_breakdown(s: Settlement) -> Dictionary:
 		if c.job_kind == Citizen.JOB_WORK:
 			staffed[c.job_id] = true
 	var bld := 0.0
+	var working: Array[Building] = []
+	var menders: Array[Building] = []
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
 		if is_working(s, b, staffed):
-			bld += b.def.health_per_day
+			working.append(b)
+			if b.def.drain_radius > 0 and b.layer == Building.LAYER_GROUND:
+				menders.append(b)
+	for b in working:
+		var hp := b.def.health_per_day
+		if hp < 0.0 and b.def.vein_extractor:
+			hp *= drain_factor_for(b, menders)
+		bld += hp
 	var extra := 0.0
 	for f in extra_sources:
 		extra += float(f.call(s))

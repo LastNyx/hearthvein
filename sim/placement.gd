@@ -39,6 +39,11 @@ static func check_rule(map: MapState, reg: DataRegistry, def: BuildingDef, origi
 					if MapState.in_bounds(n.x, n.y) and map.terrain_id_at(n.x, n.y) == "water":
 						return ""
 			return "needs_shore"
+		"on_river":
+			for t in tiles:
+				if map.is_river(t.x, t.y):
+					return ""
+			return "needs_river"
 		"near_forage":
 			return "" if _near(map, tiles, def.placement_radius, ["grass", "forest"]) else "needs_forage"
 		"near_forest":

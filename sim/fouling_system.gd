@@ -22,6 +22,12 @@ const SAVE_KEY := "fouling"
 var _tiles: Array[int] = []
 ## Flat index -> hours since a live source last fed it, for every fouled tile. 0 = fed this hour.
 var _fouled: Dictionary = {}
+## Clearwater Works candidates (buildings with stops_fouling), rebuilt when the structure changes. The hourly pass only
+## asks each of these whether it works, so it never scans every building.
+var _works: Array[Building] = []
+var _works_version: int = -1
+## Flat index -> true for the river tiles under a working Clearwater Works this hour: fouling does not flow on from them.
+var _stops: Dictionary = {}
 
 ## Cache of "wet only from fouled water" per tile (ticket 29c), rebuilt when the map, channels or fouling change.
 var _only_foul := PackedByteArray()
@@ -51,6 +57,7 @@ func on_hour(s: Settlement) -> void:
 		return
 	if _tiles.is_empty():
 		_build_tiles(s)
+	_refresh_stops(s)
 	var sources := _sources(s)
 	var supplied := _supplied(s, sources, maxi(1, def.foul_spread_tiles_per_hour))
 	var clear_hours := maxi(0, def.foul_clear_hours)
@@ -134,8 +141,37 @@ func _supplied(s: Settlement, sources: Array[int], spread: int) -> Dictionary:
 	return fed
 
 
-## Flat index of the river tile this tile flows into, -1 when the flow leaves the map or hits a non-river tile.
+## Rebuilds the stop tiles: the river tiles under every working stops_fouling building. The candidate list is cached per
+## structure change; staffing and upkeep are read each hour for those few buildings only.
+func _refresh_stops(s: Settlement) -> void:
+	if _works_version != s.structure_version:
+		_works_version = s.structure_version
+		_works.clear()
+		for id in s.buildings:
+			var b: Building = s.buildings[id]
+			if b.def.stops_fouling and b.layer == Building.LAYER_GROUND:
+				_works.append(b)
+	_stops.clear()
+	if _works.is_empty():
+		return
+	var staffed := {}
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_kind == Citizen.JOB_WORK:
+			staffed[c.job_id] = true
+	for b in _works:
+		if not PlanetHealthSystem.is_working(s, b, staffed):
+			continue
+		for t in b.tiles():
+			if MapState.in_bounds(t.x, t.y) and s.map.is_river(t.x, t.y):
+				_stops[MapState.idx(t.x, t.y)] = true
+
+
+## Flat index of the river tile this tile flows into, -1 when the flow leaves the map, hits a non-river tile or leaves
+## a tile under a working Clearwater Works.
 func _downstream(s: Settlement, i: int) -> int:
+	if _stops.has(i):
+		return -1
 	var x := i % MapState.WIDTH
 	var y := i / MapState.WIDTH
 	var n: Vector2i = s.map.downstream(x, y)

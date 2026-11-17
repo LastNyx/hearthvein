@@ -440,10 +440,11 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false, layer
 			if not map.is_region_owned(map.get_region(x, y)):
 				return {"ok": false, "reason": "locked_region"}
 			var tid := map.terrain_id_at(x, y)
-			if tid == "water":
+			var on_river := def.placement_rule == "on_river" and map.is_river(x, y)  # a weir may stand in the river
+			if tid == "water" and not on_river:
 				return {"ok": false, "reason": "water"}
 			var tdef := registry.get_terrain(tid)
-			if tdef != null and not tdef.buildable:
+			if tdef != null and not tdef.buildable and not on_river:
 				return {"ok": false, "reason": "blocked_terrain"}
 			var i := MapState.idx(x, y)
 			if occupancy[i] >= 0:

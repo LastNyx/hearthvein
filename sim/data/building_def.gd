@@ -13,8 +13,10 @@ const UPGRADABLE_CATEGORIES: Array[String] = ["housing", "food", "materials", "l
 ##  any: any buildable tile. on_vein / on_rock: on that terrain. shore: next to water.
 ##  wet: any tile of the footprint is wet. on_wet: the origin tile is wet (Well, design.md section 9).
 ##  near_forage / near_forest: needs grass-or-forest / forest within placement_radius.
+##  on_river: at least one footprint tile is a river tile (Clearwater Works); river water tiles may be built on for this
+##  rule only, the other footprint tiles must be ordinary buildable land.
 const PLACEMENT_RULES: Array[String] = [
-	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest",
+	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest", "on_river",
 ]
 ## Which layer a def may be placed on (ticket 40): "ground" (default), "island" (sky layer only) or "either".
 const LAYER_RULES: Array[String] = ["ground", "island", "either"]
@@ -79,6 +81,13 @@ const GOLD := "gold"
 ## Rewilding Grove: each day rewild_per_day grass or stump tiles within rewild_radius turn into forest. 0 = none.
 @export var rewild_radius: int = 0
 @export var rewild_per_day: int = 0
+## Vein Mender (design.md section 17): every vein extractor whose footprint is within drain_radius tiles (footprint gap,
+## like coverage) of this building while it works has its negative health_per_day multiplied by drain_factor. Several
+## menders never stack (the lowest factor in reach counts). drain_radius 0 = not a mender.
+@export var drain_radius: int = 0
+@export var drain_factor: float = 1.0
+## Clearwater Works: while it works, river fouling does not flow downstream out of its river tile(s).
+@export var stops_fouling: bool = false
 ## True for a Farm (design.md section 9): output is multiplied by the mean fertility of the footprint / 100.
 @export var fertility_output: bool = false
 ## Multiplier applied when the tile under the origin started as fertile soil (Farm: 1.5). 1.0 = no bonus.
