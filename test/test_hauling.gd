@@ -170,3 +170,36 @@ func test_woodcutter_turns_forest_into_stumps() -> void:
 	assert_almost_eq(float(stumps.size()), made / reg.logistics.units_per_felled_tile, 3.0)
 	assert_eq(s.events.log_of("terrain_changed").size() - before, stumps.size(), "one event per stump")
 
+
+
+func _site_for(id: String, dx: int) -> Building:
+	var bid := s.place_building(id, Vector2i(h.x + dx, h.y + 1))
+	assert_true(bid >= 0, "site placed")
+	return s.buildings[bid]
+
+
+func test_site_last_delivery_may_be_below_min_pickup() -> void:
+	var store := _put("storehouse", 7)
+	var site := _site_for("woodcutter", 4)
+	var cost: Dictionary = site.effective_cost()
+	var need: float = float(cost["materials"])
+	site.input_buffer.add("materials", need - 0.4)  # 0.4 left, min_pickup is 1.0
+	store.inventory.add("materials", 50.0)
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_not_null(t, "a trip for the last 0.4 units")
+	assert_eq(t.dst, site.id)
+	assert_almost_eq(t.planned, 0.4, 0.001)
+
+
+func test_site_is_served_before_a_full_door_buffer() -> void:
+	var store := _put("storehouse", 7)
+	var fg := _put("forager", 3, -1)
+	fg.door_buffer.add("food", 15.0)
+	var site := _site_for("woodcutter", 10)
+	store.inventory.add("materials", 50.0)
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_not_null(t)
+	assert_eq(t.dst, site.id, "the site comes before emptying the door buffer")
+	assert_false(t.src_door)

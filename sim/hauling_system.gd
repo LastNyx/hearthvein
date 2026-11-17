@@ -125,6 +125,7 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_storages.clear()
 	_blds.clear()
 	_door_blds.clear()
+	_site_blds.clear()
 	_layout_version = -1
 	_layout_count = -1
 	_layout_completion = -1
@@ -195,6 +196,7 @@ var _layout_count: int = -1
 var _layout_completion: int = -1
 var _blds: Array[Building] = []  # every building in id order
 var _door_blds: Array[Building] = []  # ... those with a door buffer (producers)
+var _site_blds: Array[Building] = []  # ... those still under construction
 
 
 func _layout(s: Settlement) -> void:
@@ -209,9 +211,12 @@ func _layout(s: Settlement) -> void:
 	_storages.clear()
 	_blds.clear()
 	_door_blds.clear()
+	_site_blds.clear()
 	for id in _ids:
 		var b: Building = s.buildings[id]
 		_blds.append(b)
+		if b.site:
+			_site_blds.append(b)
 		if b.door_buffer != null:
 			_door_blds.append(b)
 		if b.inventory != null:
@@ -288,6 +293,12 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	var lg := s.registry.logistics
 	var load_cap := _haul_load(s, cid)
 	_layout(s)
+	# 0. construction sites first: a busy settlement's door buffers must not starve its builders.
+	for b in _site_blds:
+		if b.input_buffer != null:
+			var t := _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
+			if t != null:
+				return t
 	# 1. door buffers: fullest pickup first.
 	var best: Trip = null
 	var best_avail := 0.0
@@ -346,9 +357,11 @@ func _plan_for_need(s: Settlement, ws: WalkerSystem, b: Building, buf: Inventory
 		if on_grid and g == "lumen":
 			continue  # the grid feeds this building's Lumen directly
 		var deficit: float = float(need[g]) - buf.amount_of(g) - _res(kind, b.id, g)
-		if deficit < lg.min_pickup - Inventory.EPS:
+		# A site's last delivery may be smaller than min_pickup.
+		var floor_amt := minf(lg.min_pickup, deficit) if b.site else lg.min_pickup
+		if deficit < floor_amt - Inventory.EPS or deficit <= Inventory.EPS:
 			continue
-		var src := _nearest_source(s, ws, b, g, lg.min_pickup)
+		var src := _nearest_source(s, ws, b, g, floor_amt)
 		if src == null:
 			continue
 		var avail := src.inventory.amount_of(g) - _res("s", src.id, g)
