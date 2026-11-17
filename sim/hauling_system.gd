@@ -299,8 +299,7 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 			if t != null:
 				return t
 	# 1. and 2. take turns going first, so busy producers cannot starve consumers' input buffers (or the reverse).
-	_turn += 1
-	if _turn % 2 == 0:
+	if (int(s.clock.total_hours) + cid) % 2 == 0:
 		var d := _plan_door(s, ws, load_cap)
 		if d != null:
 			return d
@@ -309,9 +308,6 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	if i != null:
 		return i
 	return _plan_door(s, ws, load_cap)
-
-
-var _turn: int = 0
 
 
 ## Door buffers: the fullest pickup first.

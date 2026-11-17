@@ -101,6 +101,7 @@ const SKIP := {
 	"HaulingSystem._layout_completion": "layout cache version",
 	"HaulingSystem._blds": "building list cache (id order)",
 	"HaulingSystem._door_blds": "producer (door buffer) list cache",
+	"HaulingSystem._site_blds": "construction-site list cache",
 	"HaulingSystem._def_need": "per-def input need cache, rebuilt lazily",
 	# ProductionSystem
 	"ProductionSystem._forest_cache": "nearest forest tile cache, rebuilt",
