@@ -235,3 +235,13 @@ func test_citizens_commute_home_work() -> void:
 	s.step_hours(12)  # hour 22, home again
 	assert_false(ws.is_at_work(worker.id))
 	assert_eq(ws.walker_of(worker.id).at_building, worker.home_id)
+
+
+func test_hour_tick_survives_one_citizen_leaving_as_another_arrives() -> void:
+	var gone: int = s.citizens.keys().back()
+	assert_true(s.remove_citizen(gone))
+	var fresh := s.add_citizen()  # same head count, different ids
+	assert_eq(ws.walkers.size(), s.citizens.size())
+	ws.on_hour(s)
+	assert_false(ws.walkers.has(gone), "the departed walker is dropped")
+	assert_true(ws.walkers.has(fresh), "the newcomer has a walker")

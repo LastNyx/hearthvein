@@ -156,8 +156,7 @@ func on_seconds(settlement: Settlement, seconds: float) -> void:
 
 func on_hour(settlement: Settlement) -> void:
 	_s = settlement
-	if walkers.size() != settlement.citizens.size():  # on_seconds keeps them in step; a direct call may not
-		_sync()
+	_sync()  # always: one citizen leaving and another arriving between two syncs keeps the count equal
 	_refresh_grid()
 	_hour_elapsed = 0.0
 	_queue.clear()
