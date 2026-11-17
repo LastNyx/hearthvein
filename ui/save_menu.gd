@@ -1,18 +1,26 @@
 class_name SaveMenu
 extends CanvasLayer
-## The Esc pause menu (ticket 19d): Resume, Continue (latest autosave), then the autosaves and 8 manual slots with
-## Save / Load / Delete. Styled like the HUD (same pixel fonts and panel look). Opening pauses the scene tree (this
+## The Esc pause menu (tickets 19d, 80): a column of Resume, Save, Load, Settings, Help, Milestones, Main menu, Quit.
+## Save opens the 8 manual slots, Load the autosaves and slots. Styled like the HUD (same pixel fonts and panel look). Opening pauses the scene tree (this
 ## layer keeps running); the logic lives in SaveMenuModel. Loading emits `load_requested` and ui/main.gd swaps.
 
 signal load_requested(settlement: Settlement)
+## Pause menu buttons that leave the menu; ui/main.gd decides what they do. Help stays hidden until something
+## is connected to help_requested (ticket 85's HelpScreen).
+signal help_requested
+signal main_menu_requested
+signal quit_requested
 
 var model: SaveMenuModel
+## "save" or "load": which slot list show_slots() / refresh() draw.
+var slots_mode: String = "load"
+var _slots_view: VBoxContainer
+var _help: Button
 var _font: FontFile
 var _body_font: FontFile
 var _dim: ColorRect
 var _list: VBoxContainer
 var _status: Label
-var _continue: Button
 var _main_view: VBoxContainer
 var _ms_view: VBoxContainer
 var _ms_body: HBoxContainer
@@ -24,7 +32,6 @@ var settings_panel: SettingsPanel
 var title_mode: bool = false
 var _view: String = ""
 var _heading: Label
-var _resume: Button
 
 
 func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
@@ -59,29 +66,49 @@ func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
 	_settings_view = VBoxContainer.new()
 	_settings_view.visible = false
 	col.add_child(_settings_view)
-	_heading = _text(_main_view, "Paused", 22, Hud.GOLD)
-	var top := HBoxContainer.new()
+	_text(_main_view, "Paused", 22, Hud.GOLD)
+	var top := VBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
+	top.custom_minimum_size = Vector2(300, 0)
+	top.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_main_view.add_child(top)
-	_resume = _button(top, "Resume", 16)
-	_resume.pressed.connect(close)
-	_continue = _button(top, "Continue (latest autosave)", 16)
-	_continue.pressed.connect(func() -> void: _emit_load(model.continue_latest()))
-	_button(top, "Milestones", 16).pressed.connect(show_milestones)
+	_menu_button(top, "Resume").pressed.connect(close)
+	_menu_button(top, "Save").pressed.connect(show_slots.bind("save"))
+	_menu_button(top, "Load").pressed.connect(show_slots.bind("load"))
 	if settings != null:
-		_button(top, "Settings", 16).pressed.connect(show_settings)
+		_menu_button(top, "Settings").pressed.connect(show_settings)
 		settings_panel = SettingsPanel.new()
 		settings_panel.name = "SettingsPanel"
 		_settings_view.add_child(settings_panel)
 		settings_panel.setup(settings)
 		settings_panel.back_requested.connect(hide_settings)
+	_help = _menu_button(top, "Help")
+	_help.pressed.connect(func() -> void: help_requested.emit())
+	_menu_button(top, "Milestones").pressed.connect(show_milestones)
+	_menu_button(top, "MainMenu", "Main menu").pressed.connect(func() -> void: main_menu_requested.emit())
+	_menu_button(top, "Quit").pressed.connect(func() -> void: quit_requested.emit())
+	_slots_view = VBoxContainer.new()
+	_slots_view.add_theme_constant_override("separation", 8)
+	_slots_view.visible = false
+	col.add_child(_slots_view)
+	_heading = _text(_slots_view, "Load game", 22, Hud.GOLD)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 4)
-	_main_view.add_child(_list)
-	_status = _text(_main_view, "", 16, Hud.DIM)
+	_slots_view.add_child(_list)
+	_status = _text(_slots_view, "", 16, Hud.DIM)
+	var bar := HBoxContainer.new()
+	bar.alignment = BoxContainer.ALIGNMENT_END
+	_slots_view.add_child(bar)
+	_button(bar, "Back", 16).pressed.connect(hide_slots)
 	_build_milestone_view()
 	_dim.visible = false
 	visible = false
+
+
+func _menu_button(parent: Node, id: String, text: String = "") -> Button:
+	var b := _button(parent, text if text != "" else id, 18)
+	b.name = id
+	return b
 
 
 func is_open() -> bool:
@@ -93,6 +120,7 @@ func open() -> void:
 		return
 	visible = true
 	_dim.visible = true
+	_help.visible = help_requested.get_connections().size() > 0  # hidden until the HelpScreen is wired (ticket 85)
 	if not title_mode:
 		get_tree().paused = true
 	refresh()
@@ -102,11 +130,11 @@ func open() -> void:
 func open_view(view: String) -> void:
 	title_mode = true
 	_view = view
-	_heading.text = "Load game"
-	_resume.text = "Back"
-	_continue.visible = false
 	open()
-	if view == "milestones":
+	_main_view.visible = false
+	if view == "load":
+		show_slots("load")
+	elif view == "milestones":
 		show_milestones()
 	elif view == "settings":
 		show_settings()
@@ -118,11 +146,9 @@ func close() -> void:
 	model.pending = {}
 	title_mode = false
 	_view = ""
-	_heading.text = "Paused"
-	_resume.text = "Resume"
-	_continue.visible = true
 	_ms_view.visible = false
 	_settings_view.visible = false
+	_slots_view.visible = false
 	_main_view.visible = true
 	visible = false
 	_dim.visible = false
@@ -130,11 +156,31 @@ func close() -> void:
 		get_tree().paused = false
 
 
+## The slot list: mode "save" (manual slots, Save buttons) or "load" (autosaves and slots, Load buttons).
+func show_slots(mode: String) -> void:
+	slots_mode = mode
+	_heading.text = "Save game" if mode == "save" else "Load game"
+	model.pending = {}
+	model.status = ""
+	_main_view.visible = false
+	_slots_view.visible = true
+	refresh()
+
+
+func hide_slots() -> void:
+	if title_mode and _view == "load":
+		close()
+		return
+	model.pending = {}
+	_slots_view.visible = false
+	_main_view.visible = true
+
+
 func refresh() -> void:
 	for c in _list.get_children():
 		_list.remove_child(c)
 		c.queue_free()
-	for r in model.rows():
+	for r in model.rows(slots_mode):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
@@ -148,17 +194,17 @@ func refresh() -> void:
 			_button(row, "Yes", 16).pressed.connect(func() -> void: model.confirm(); refresh())
 			_button(row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
 			continue
-		if r["can_save"] and not title_mode:
-			_button(row, "Save", 16).pressed.connect(func() -> void: model.request_save(slot); refresh())
-		var load_b := _button(row, "Load", 16)
-		load_b.disabled = not r["can_load"]
 		var kind: String = r["kind"]
-		load_b.pressed.connect(func() -> void: _emit_load(model.load_row(kind, slot)))
+		if slots_mode == "save":
+			_button(row, "Save", 16).pressed.connect(func() -> void: model.request_save(slot); refresh())
+		else:
+			var load_b := _button(row, "Load", 16)
+			load_b.disabled = not r["can_load"]
+			load_b.pressed.connect(func() -> void: _emit_load(model.load_row(kind, slot)))
 		if r["kind"] == "manual":
 			var del := _button(row, "Delete", 16)
 			del.disabled = not r["can_delete"]
 			del.pressed.connect(func() -> void: model.request_delete(slot); refresh())
-	_continue.disabled = not model.has_continue()
 	_status.text = model.status
 
 

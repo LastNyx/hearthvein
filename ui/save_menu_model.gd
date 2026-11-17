@@ -19,8 +19,9 @@ func _init(save_slots: SaveSlots, reg: DataRegistry, current_settlement: Callabl
 
 
 ## Existing autosaves (newest first), then the 8 manual slots, empty ones included:
-## {kind, slot, title, empty, detail, can_save, can_load, can_delete}.
-func rows() -> Array[Dictionary]:
+## {kind, slot, title, empty, detail, can_save, can_load, can_delete}. mode "save" lists the manual slots only
+## (autosaves are not written by hand); "load" and the default list both.
+func rows(mode: String = "all") -> Array[Dictionary]:
 	var listed := slots.list()
 	var autos: Array[Dictionary] = []
 	var manual := {}
@@ -31,7 +32,7 @@ func rows() -> Array[Dictionary]:
 			manual[e["slot"]] = e
 	autos.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["saved_at"] > b["saved_at"])
 	var out: Array[Dictionary] = []
-	for n in autos.size():
+	for n in (0 if mode == "save" else autos.size()):
 		var e: Dictionary = autos[n]
 		out.append({"kind": "auto", "slot": e["slot"], "title": "Autosave %d" % (n + 1), "empty": false,
 				"detail": detail_text(e), "can_save": false, "can_load": true, "can_delete": false, "confirm": ""})

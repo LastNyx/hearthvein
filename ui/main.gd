@@ -23,6 +23,8 @@ var milestones_path: String = "user://milestones.json"
 ## User settings (ticket 76); tests set a temp path before add_child. Loaded and applied in _ready, before the world.
 var settings_path: String = "user://settings.cfg"
 var settings: GameSettings
+## What quit_game() ends the program with; tests swap it so the test run survives.
+var quit_fn: Callable = func() -> void: get_tree().quit()
 var settlement: Settlement
 var hud_model: HudModel
 var registry: DataRegistry
@@ -68,6 +70,9 @@ func _ready() -> void:
 	add_child(end_screen)
 	end_screen.setup(menu, slots, func() -> Settlement: return settlement)
 	menu.load_requested.connect(func(_s: Settlement) -> void: end_screen.close())
+	menu.main_menu_requested.connect(return_to_title)
+	menu.quit_requested.connect(quit_game)
+	end_screen.title_requested.connect(return_to_title)
 	_build_title()
 
 
@@ -118,8 +123,17 @@ func return_to_title() -> void:
 	if state != State.GAME:
 		return
 	slots.autosave(settlement)
+	menu.close()
+	end_screen.close()
 	_free_world()
 	_build_title()
+
+
+## The pause menu's Quit: autosaves a running game, then ends the program (quit_fn is replaced in tests).
+func quit_game() -> void:
+	if state == State.GAME:
+		slots.autosave(settlement)
+	quit_fn.call()
 
 
 func _free_world() -> void:

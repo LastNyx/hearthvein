@@ -4,6 +4,9 @@ extends CanvasLayer
 ## scene tree like the save menu, and is built in code with the same fonts and panel look. Continue closes and
 ## unpauses; the loss screen stays up and keeps the game paused (also while the save menu is opened over it).
 
+## The loss screen's Quit: ui/main.gd returns to the title (ticket 80).
+signal title_requested
+
 var menu: SaveMenu
 var slots: SaveSlots
 var settlement_fn: Callable
@@ -104,7 +107,7 @@ func press(id: String) -> void:
 			if menu != null:
 				menu.open()
 		"quit":
-			get_tree().quit()
+			title_requested.emit()
 
 
 ## The loss screen keeps the game paused even after the save menu opened over it was closed.

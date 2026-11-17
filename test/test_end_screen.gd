@@ -127,3 +127,14 @@ func test_no_reopen_after_loading_a_save_with_an_outcome_set() -> void:
 	await wait_process_frames(2)
 	assert_false(main.end_screen.is_open())
 	assert_false(get_tree().paused)
+
+
+func test_loss_screen_quit_goes_to_the_title() -> void:
+	var main := _main()
+	await wait_process_frames(2)
+	main.settlement.events.emit("campaign_lost", {})
+	main.end_screen.press("quit")
+	await wait_process_frames(2)
+	assert_eq(main.state, main.State.TITLE)
+	assert_false(main.end_screen.is_open())
+	assert_false(get_tree().paused)

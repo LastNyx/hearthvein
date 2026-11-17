@@ -1,7 +1,7 @@
 extends SceneTree
 ## Windowed shots of the pause menu with the new rows and the Milestones panel: godot --path . -s tools/milestone_shot.gd
 ## A few milestones reached this run, the lifetime file (a /tmp path) holding others. Writes
-## .scratch/v1/hv_46c_menu.png and hv_46c_milestones.png.
+## /tmp/hv_pause.png (the pause menu, ticket 80) and .scratch/v1/hv_46c_milestones.png.
 
 const OUT := "/home/ngeng/Proyek/hearthvein/.scratch/v1/"
 const LIFE := "/tmp/hv_milestone_shot_life.json"
@@ -39,8 +39,7 @@ func _init() -> void:
 	for i in 30 * 24:
 		s.step_hours(1)
 	main.menu.open()
-	await _shoot(OUT + "hv_46c_menu.png")
-	main.menu.hide_milestones()
+	await _shoot("/tmp/hv_pause.png")  # ticket 80: the pause menu button column
 	main.menu.show_milestones()
 	await _shoot(OUT + "hv_46c_milestones.png")
 	main.menu.close()
