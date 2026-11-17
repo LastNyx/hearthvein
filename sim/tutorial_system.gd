@@ -78,6 +78,13 @@ func current_goal() -> TutorialDef:
 	return goals[_index] if _index < goals.size() else null
 
 
+## True while the tutorial is active and its current goal covers the hint `hint_id` (TutorialDef.covers_hints): the
+## hint system (ticket 84) stays quiet, the goal panel already says it.
+func covers_hint(hint_id: String) -> bool:
+	var g := current_goal()
+	return g != null and g.covers_hints.has(hint_id)
+
+
 ## Turns the tutorial on (new game option) and completes whatever is already met.
 func start(s: Settlement) -> void:
 	_active = not _goals.is_empty()

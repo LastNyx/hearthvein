@@ -59,6 +59,9 @@ var _cat_buttons: Dictionary = {}
 var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _open_cat := ""
+var tutorial_panel: TutorialPanel
+var _pulsed: Button
+var _pulse_t := 0.0
 var _acc := 0.0
 ## Hover tooltips (ticket 81): a build button or a placed building under the mouse, shown after TIP_DELAY seconds.
 const TIP_DELAY := 0.4
@@ -123,6 +126,9 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	_region_map.resized.connect(_center_region_map)
 	_build_bar(col)
 	_build_tooltip()
+	tutorial_panel = TutorialPanel.new()
+	right.add_child(tutorial_panel)
+	tutorial_panel.setup(self, model.s, _float)
 	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
 	model.layer_changed.connect(func(_l: int) -> void:
 		_show_flyout()
@@ -483,6 +489,8 @@ func _show_flyout() -> void:
 				text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
 			var b := _button(_fly_box, text, 14)
 			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
+			if e["kind"] != "building":
+				b.name = "Tool_" + str(e["id"])
 			if e["kind"] == "building":
 				b.name = "Build_" + str(e["id"])
 				b.set_meta("def_id", e["id"])
@@ -543,6 +551,8 @@ func refresh() -> void:
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
+	tutorial_panel.refresh()
+	update_highlight()
 
 
 func _refresh_layer_tag() -> void:
@@ -563,6 +573,8 @@ func _center_region_map() -> void:
 
 func _process(delta: float) -> void:
 	hover_tick(delta)
+	_pulse_t += delta
+	update_highlight(_pulse_t)
 	if _sel_panel.visible:
 		_place_selection_panel()
 	if _region_map.visible:
@@ -611,6 +623,43 @@ func _unhandled_input(event: InputEvent) -> void:
 			var p := camera.get_global_mouse_position()
 			model.select_at(Vector2i(floori(p.x / ArtLibrary.TILE), floori(p.y / ArtLibrary.TILE)))
 			refresh()
+
+
+# ---------------------------------------------------------------- tutorial highlight (ticket 83)
+
+## The button the current tutorial goal points at, or null: the goal's build button when its category flyout is open,
+## else that category's button; the Roads category / road tool for the road goal; an overlay's button (its toggle
+## while the overlay menu is closed) for an overlay goal. Null when the tutorial is not active.
+func highlight_button() -> Button:
+	var g := (model.s.get_system(TutorialSystem) as TutorialSystem).current_goal()
+	if g == null or g.highlight == "":
+		return null
+	if _overlay_buttons.has(g.highlight):
+		return _overlay_buttons[g.highlight] if _overlay_panel.visible else _overlay_toggle
+	var cat := ""
+	var entry := ""
+	if g.highlight == "road":
+		cat = "roads"
+		entry = "Tool_road"
+	else:
+		var def := model.s.registry.get_building(g.highlight)
+		if def == null:
+			return null
+		cat = def.category
+		entry = "Build_" + g.highlight
+	if _open_cat == cat:
+		return _fly_box.find_child(entry, true, false) as Button
+	return _cat_buttons.get(cat) as Button
+
+
+## Pulses the highlighted button (self_modulate, so a disabled button's fade is kept) and clears the previous one.
+func update_highlight(t: float = 0.0) -> void:
+	var target := highlight_button()
+	if _pulsed != null and is_instance_valid(_pulsed) and _pulsed != target:
+		_pulsed.self_modulate = Color.WHITE
+	_pulsed = target
+	if target != null:
+		target.self_modulate = Color.WHITE.lerp(GOLD * 1.4, 0.5 + 0.5 * sin(t * 6.0))
 
 
 # ---------------------------------------------------------------- tooltips

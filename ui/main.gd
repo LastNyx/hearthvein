@@ -262,6 +262,7 @@ func _build_world(s: Settlement) -> void:
 	_add(camera)
 	camera.setup(Rect2(Vector2.ZERO, view.world_size()), view.hearth_world_pos())
 	camera.make_current()
+	camera.explored.connect(s.report_camera_moved)
 	var layer := CanvasLayer.new()
 	_add(driver)
 	var build := BuildController.new()

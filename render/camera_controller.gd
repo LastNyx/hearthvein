@@ -2,6 +2,9 @@ class_name CameraController
 extends Camera2D
 ## Wheel zoom in exactly 4 steps, middle-drag and WASD pan, clamped to the map. Pure maths is static.
 
+## Emitted once, when the player has both panned (drag or WASD) and zoomed (tutorial goal 1, ticket 83).
+signal explored
+
 const ZOOM_STEPS: Array[float] = [0.25, 0.5, 1.0, 2.0]
 const START_STEP := 2
 const PAN_SPEED := 900.0  # screen pixels per second
@@ -10,6 +13,8 @@ var bounds: Rect2 = Rect2(0, 0, 4096, 3072)
 var zoom_step: int = START_STEP
 var _dragging := false
 var _right := RightDrag.new()
+var _panned := false
+var _zoomed := false
 
 
 ## True at the farthest zoom step (D46: walkers and prop shadows are not drawn there).
@@ -73,13 +78,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			set_zoom_step(step_index(zoom_step, 1))
+			_note(false, true)
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			set_zoom_step(step_index(zoom_step, -1))
+			_note(false, true)
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			_dragging = mb.pressed
 	_right.feed(event)
 	if event is InputEventMouseMotion and (_dragging or _right.dragged):
 		position = _clamped(panned(position, (event as InputEventMouseMotion).relative, zoom.x))
+		_note(true, false)
+
+
+func _note(pan: bool, zoomed: bool) -> void:
+	var was := _panned and _zoomed
+	_panned = _panned or pan
+	_zoomed = _zoomed or zoomed
+	if _panned and _zoomed and not was:
+		explored.emit()
 
 
 func _process(delta: float) -> void:
@@ -90,3 +106,4 @@ func _process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_D): dir.x += 1
 	if dir != Vector2.ZERO:
 		position = _clamped(position + dir.normalized() * PAN_SPEED * delta / zoom.x)
+		_note(true, false)
