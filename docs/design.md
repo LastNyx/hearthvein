@@ -384,7 +384,8 @@ Count: Conflux 8 + landmark, Skyborne 8 + landmark, Ascendant 8 + Skyheart.
   14. Great Dimming survived (win). 15. 600 citizens. Bonus: 10 Dimmings in a row with no darkness day.
 
 ## 20. Controls and UI
-- Mouse: left place/select, right cancel, wheel zoom (4 steps; walkers hidden at the farthest), middle drag or
+- Mouse: left place/select, right click (on release) cancel/deselect, wheel zoom (4 steps; walkers hidden at the
+  farthest), right drag, middle drag or
   WASD to pan. Tab: ground/sky layer.
 - Keys: space pause, 1/2/3 speed, B build menu, R road, C channel, X demolish, U upgrade selected, M region map.
 - HUD (see `mockups/scene_village.png`): top bar with resources and deltas (refined goods in a fold-out),
