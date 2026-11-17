@@ -40,8 +40,11 @@ func _init() -> void:
 	await _shoot("/tmp/hv_tooltip_bar.png")
 	b.mouse_exited.emit()
 	hud.open_category("food")
+	hud.set_process(false)  # _process re-ticks hover from the real (absent) mouse and would hide the map tip
 	hud.hover_tick(0.0)
 	hud.hover_tick(1.0, wc_tile)
+	await process_frame  # wrapped labels size after one layout pass; the game re-places the tip every frame
+	hud.hover_tick(0.0, wc_tile)
 	await _shoot("/tmp/hv_tooltip_map.png")
 	print("tooltip: ", hud.tooltip_text())
 	quit()
