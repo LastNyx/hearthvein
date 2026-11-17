@@ -139,6 +139,15 @@ func _refresh_new_row() -> void:
 	cb.add_theme_font_size_override("font_size", Hud._px_size(16))
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
 		cb.add_theme_color_override(c, Hud.INK)
+	cb.name = "EndlessToggle"
+	cb.add_theme_constant_override("h_separation", 10)
+	for k in ["unchecked", "checked", "unchecked_disabled", "checked_disabled"]:
+		cb.add_theme_icon_override(k, _box_icon(k.begins_with("checked"), Hud.INK))
+	var hover_ink := Hud.INK.lightened(0.35)
+	cb.add_theme_icon_override("unchecked_mirrored", _box_icon(false, Hud.INK))
+	cb.add_theme_icon_override("checked_mirrored", _box_icon(true, Hud.INK))
+	cb.add_theme_color_override("font_hover_color", hover_ink)
+	cb.add_theme_color_override("font_hover_pressed_color", hover_ink)
 	cb.toggled.connect(func(on: bool) -> void: model.endless_toggle = on)
 	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_new_row.add_child(cb)
@@ -191,7 +200,13 @@ func refresh_milestones() -> void:
 		colm.add_theme_constant_override("separation", 4)
 		colm.custom_minimum_size = Vector2(360, 0)
 		_ms_body.add_child(colm)
-		_text(colm, sec["header"], 17, Hud.CYAN)
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 10)
+		colm.add_child(head)
+		_text(head, sec["title"], 17, Hud.CYAN)
+		_text(head, sec["count"], 16, Hud.CYAN).name = "Count"  # Tiny5: Pixelify reads "15" as "1S"
+		if sec["bonus_text"] != "":
+			_text(head, sec["bonus_text"], 16, Hud.DIM)
 		for r: Dictionary in sec["rows"]:
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 8)
@@ -201,6 +216,22 @@ func refresh_milestones() -> void:
 			name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_text(row, MilestonePanelModel.status_text(r), 16, Hud.GOLD if done else Color(Hud.DIM, 0.6))
+
+
+## A 20 px box drawn in code: 2 px light border on the dark panel; checked adds a filled square inside.
+func _box_icon(checked: bool, ink: Color) -> ImageTexture:
+	var n := 20
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in n:
+		for x in n:
+			var border := x < 2 or y < 2 or x >= n - 2 or y >= n - 2
+			var inner := checked and x >= 6 and y >= 6 and x < n - 6 and y < n - 6
+			if border or inner:
+				img.set_pixel(x, y, ink)
+			else:
+				img.set_pixel(x, y, Color(0, 0, 0, 0.35))
+	return ImageTexture.create_from_image(img)
 
 
 func _emit_load(s: Settlement) -> void:

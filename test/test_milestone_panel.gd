@@ -120,3 +120,29 @@ func test_new_game_without_toggle_is_normal_campaign() -> void:
 	m.request_new_game()
 	m.cancel()
 	assert_null(m.confirm())
+
+
+func test_header_splits_title_and_count() -> void:
+	var d := MilestonePanelModel.build(reg, null, {})
+	assert_eq(d["run"]["title"], "This run")
+	assert_eq(d["run"]["count"], "0 / %d" % d["run"]["total"])
+	assert_eq(d["lifetime"]["bonus_text"], "(+bonus locked)")
+
+
+func test_menu_header_count_label_and_checkbox_toggle() -> void:
+	var dir := "/tmp/nyx-flash/hearthvein_panel_ui_%d" % OS.get_process_id()
+	var m := SaveMenuModel.new(SaveSlots.new(dir), reg, func() -> Settlement: return null)
+	var menu := SaveMenu.new()
+	add_child_autofree(menu)
+	menu.setup(m)
+	menu.refresh()
+	var cb := menu.find_child("EndlessToggle", true, false) as CheckBox
+	assert_not_null(cb)
+	assert_false(m.endless_toggle)
+	cb.button_pressed = true
+	assert_true(m.endless_toggle)
+	assert_true(cb.has_theme_icon_override("checked"))
+	menu.refresh_milestones()
+	var counts := menu.find_children("Count", "Label", true, false)
+	assert_eq(counts.size(), 2)
+	assert_eq((counts[0] as Label).text, "0 / %d" % (reg.milestones_in_order().size() - 1))

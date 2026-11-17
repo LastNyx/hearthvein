@@ -5,7 +5,7 @@ extends RefCounted
 ## user://milestones.json entries). Row: {id, name, done, date, bonus}. Counts leave the bonus out of "x / y".
 
 
-## {"run": section, "lifetime": section}; section = {rows, done, total, bonus_done, header}.
+## {"run": section, "lifetime": section}; section = {rows, done, total, bonus_done, header, title, count, bonus_text}; the panel draws title, count (Tiny5) and bonus_text as separate labels.
 static func build(reg: DataRegistry, ms: MilestoneSystem, lifetime: Dictionary) -> Dictionary:
 	var run_rows: Array[Dictionary] = []
 	var life_rows: Array[Dictionary] = []
@@ -33,10 +33,15 @@ static func _section(title: String, rows: Array[Dictionary]) -> Dictionary:
 			total += 1
 			if r["done"]:
 				done += 1
-	var header := "%s %d / %d" % [title, done, total]
+	var count := "%d / %d" % [done, total]
+	var bonus_text := ""
 	if has_bonus:
-		header += " (+bonus)" if bonus_done else " (+bonus locked)"
-	return {"rows": rows, "done": done, "total": total, "bonus_done": bonus_done, "header": header}
+		bonus_text = "(+bonus)" if bonus_done else "(+bonus locked)"
+	var header := "%s %s" % [title, count]
+	if bonus_text != "":
+		header += " " + bonus_text
+	return {"rows": rows, "done": done, "total": total, "bonus_done": bonus_done, "header": header,
+			"title": title, "count": count, "bonus_text": bonus_text}
 
 
 ## Row text: "Name" and the right-hand "Year 2, Spring, Day 3" / "locked".
