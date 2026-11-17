@@ -69,7 +69,8 @@ func setup(h: Hud, settlement: Settlement, card_parent: Control) -> void:
 	s.events.subscribe("tutorial_goal_completed", func(_e: Dictionary) -> void: _flash_check())
 	s.events.subscribe("tutorial_finished", func(e: Dictionary) -> void:
 		if not bool(e["data"].get("skipped", false)):
-			card.visible = true)
+			card.visible = true
+			refresh())
 	refresh()
 
 
@@ -80,7 +81,7 @@ func _wrapped(l: Label) -> Label:
 
 
 func refresh() -> void:
-	visible = _tut.is_active()
+	visible = _tut.is_active() and not card.visible
 	var g := _tut.current_goal()
 	if g == null:
 		_confirm.visible = false
@@ -141,10 +142,12 @@ func _build_card(parent: Control) -> void:
 	card.name = "TutorialCard"
 	card.add_theme_stylebox_override("panel", hud._style(Hud.PANEL_BG, Hud.GOLD))
 	card.visible = false
-	parent.add_child(card)
-	card.set_anchors_preset(Control.PRESET_CENTER)
-	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var holder := CenterContainer.new()  # centres the card whatever the screen size
+	holder.name = "TutorialCardHolder"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(holder)
+	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(card)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	card.add_child(v)

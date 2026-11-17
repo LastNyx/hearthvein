@@ -185,6 +185,15 @@ func test_closing_card_after_finish_not_after_skip() -> void:
 	assert_false(p.card.visible, "skipped: no card")
 	s.events.emit("tutorial_finished", {"skipped": false})
 	assert_true(p.card.visible)
+	assert_false(p.visible, "goal panel hidden while the card is open")
+	var old := get_window().size
+	get_window().size = Vector2i(1280, 720)  # the headless window is tiny
+	await wait_process_frames(3)
+	var vp := Rect2(Vector2.ZERO, p.get_viewport().get_visible_rect().size)
+	assert_true(vp.encloses(p.card.get_global_rect()), "card inside the viewport: %s" % p.card.get_global_rect())
+	assert_almost_eq(p.card.get_global_rect().get_center().x, vp.get_center().x, 2.0, "centred")
+	assert_almost_eq(p.card.get_global_rect().get_center().y, vp.get_center().y, 2.0, "centred")
+	get_window().size = old
 	var texts := _label_texts(p.card)
 	assert_string_contains(texts, "Meeting Hall")
 	assert_string_contains(texts, "15 citizens")

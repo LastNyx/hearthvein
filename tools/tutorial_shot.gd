@@ -38,5 +38,7 @@ func _init() -> void:
 	hud.update_highlight(0.26)
 	await _shoot("/tmp/hv_tutorial.png")
 	s.events.emit("tutorial_finished", {"skipped": false})
+	await process_frame
+	await process_frame
 	await _shoot("/tmp/hv_tutorial_done.png")
 	quit()
