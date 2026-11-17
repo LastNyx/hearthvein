@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"lumen": 16.0}
+
+[resource]
+script = ExtResource("1")
+id = "vein_bore"
+display_name = "Vein Bore"
+era = "conflux"
+category = "lumen"
+size = Vector2i(2, 2)
+cost = {"materials": 200, "gold": 80, "cut_stone": 40, "tools": 20}
+worker_slots = 4
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "on_vein"
+placement_radius = 0
+blight_radius = 5
+blight_period_days = 1
+vein_extractor = true
+dimming_vein_factor = 0.4
+health_per_day = -0.05
+recipe = SubResource("Recipe")
+upgradable = false

@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("2")
+display_name = "Rowhouse II"
+multiplier = 1.5
+extra_worker_slots = 1
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("2")
+display_name = "Rowhouse III"
+multiplier = 2.0
+extra_worker_slots = 2
+
+[resource]
+script = ExtResource("1")
+id = "rowhouse"
+display_name = "Rowhouse"
+era = "town"
+category = "housing"
+size = Vector2i(2, 1)
+cost = {"materials": 40, "gold": 5, "planks": 10}
+worker_slots = 0
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 10
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+needs_water = true
+upgradable = true
+tiers = Array[ExtResource("2")]([SubResource("Tier2"), SubResource("Tier3")])

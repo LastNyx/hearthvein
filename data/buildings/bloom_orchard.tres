@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"fruit": 3.0}
+
+[resource]
+script = ExtResource("1")
+id = "bloom_orchard"
+display_name = "Bloom Orchard"
+era = "ascendant"
+category = "food"
+size = Vector2i(3, 3)
+cost = {"materials": 120, "gold": 40, "planks": 30}
+worker_slots = 4
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+dimming_factor = 0.75
+placement_rule = "any"
+placement_radius = 0
+min_fertility = 60.0
+recipe = SubResource("Recipe")
+upgradable = false
+layers = "ground"

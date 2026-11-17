@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="PlanetDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/planet_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+start = 100.0
+per_blight_tile = -0.0006
+per_forest_tile = 0.00005
+great_dimming_day = -0.5
+great_dimming_days = 16
+great_dimming_vein_factor = 0.1
+great_dimming_food_factor = 0.5
+great_dimming_light = 0.75
+win_health = 50.0
+endless_years_per_day = 2
+vein_base = 0.5
+vein_divisor = 200.0
+dieback_below = 60.0
+dieback_divisor = 10.0
+dieback_terrain = "grass"
+trend_days = 32
+dimming_start_season = 3
+dimming_forecast_seasons = 1
+dimming_vein_factor = 0.25
+light_per_citizen = 0.5
+lumen_per_cell = 5.0
+darkness_spirit = -20.0

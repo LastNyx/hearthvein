@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="3"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"crops": 4.0}
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("3")
+display_name = "Irrigated Farm"
+multiplier = 1.5
+extra_worker_slots = 1
+needs_wet = true
+wet_bonus = 1.5
+cost = {"planks": 15, "cut_stone": 8}
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("3")
+display_name = "Terraced Farm"
+multiplier = 2.0
+extra_worker_slots = 2
+stops_fertility_loss = true
+cost = {"tools": 6, "lumen_cells": 3, "cut_stone": 8}
+
+[resource]
+script = ExtResource("1")
+id = "farm"
+display_name = "Farm"
+era = "village"
+category = "food"
+size = Vector2i(2, 2)
+cost = {"materials": 30}
+worker_slots = 3
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+dimming_factor = 0.5
+placement_rule = "any"
+placement_radius = 0
+fertility_output = true
+fertile_origin_bonus = 1.5
+recipe = SubResource("Recipe")
+upgradable = true
+tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

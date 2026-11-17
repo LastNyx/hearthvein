@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "skyspire"
+display_name = "Skyspire"
+era = "skyborne"
+category = "housing"
+size = Vector2i(2, 2)
+cost = {"materials": 160, "gold": 60, "planks": 40, "cut_stone": 40, "tools": 20}
+worker_slots = 0
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 2.0
+housing_beds = 40
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+needs_water = true
+upgradable = false
+layers = "either"

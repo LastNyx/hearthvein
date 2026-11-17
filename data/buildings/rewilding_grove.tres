@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rewilding_grove"
+display_name = "Rewilding Grove"
+era = "ascendant"
+category = "civic"
+size = Vector2i(2, 2)
+cost = {"materials": 100, "gold": 60, "planks": 20}
+worker_slots = 2
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 1.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+health_per_day = 0.03
+rewild_radius = 8
+rewild_per_day = 1
+upgradable = false

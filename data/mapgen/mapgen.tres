@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="MapGenDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/mapgen_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+river_width_min = 2.0
+river_width_max = 4.0
+river_width_freq = 0.014
+river_smooth_window = 10
+river_meander_spacing = 12
+river_meander_jitter = 4
+river_start_offset = 8
+lake_count_min = 2
+lake_count_max = 3
+lake_radius_min = 4.0
+lake_radius_max = 5.5
+water_hearth_clear = 12.0
+pond_count_min = 3
+pond_count_max = 6
+pond_radius_min = 1.8
+pond_radius_max = 3.2
+pond_river_gap = 3.0
+shore_wobble = 0.22

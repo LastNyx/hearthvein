@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ForestDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/forest_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+regrow_seasons = 2
+forester_regrow_seasons = 1
+regrow_min_health = 60.0
+plant_per_worker_day = 1.0
+old_forest_regrow_factor = 0.5

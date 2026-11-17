@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MilestoneDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/milestone_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rail_3"
+display_name = "Cargo rail links 3 regions"
+order = 8
+kind = "rail_regions"
+amount = 3.0

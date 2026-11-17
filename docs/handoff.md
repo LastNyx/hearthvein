@@ -19,7 +19,7 @@ Great Dimming with planet health >= 50%; lose: population 0. No combat in v1; Sp
    drafted Conflux/Skyborne/Ascendant lists (D45, section 17) and seven open points (section 22).
    Waiting on Ben's review of design.md, then cut tickets (whole game is v1, D44; build order era by era with a
    play check after each). DONE: spec + 47 tickets in `.scratch/v1/` (own local git repo, not pushed).
-3. Only after Ben's go: install Godot 4 (not installed; check pacman/flathub), create the project skeleton.
+3. Building v1 now: see `.scratch/v1/handoff.md` for progress, routing and the next ticket.
 
 ## Open for Ben
 - Nothing blocking. Art for the real game (hand-drawn vs licensed asset pack) is a later decision.

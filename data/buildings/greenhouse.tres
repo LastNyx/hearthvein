@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="3"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"greenhouse": 2.5}
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("3")
+display_name = "Greenhouse II"
+multiplier = 1.5
+extra_worker_slots = 1
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("3")
+display_name = "Greenhouse III"
+multiplier = 2.0
+extra_worker_slots = 2
+ignores_blight = true
+
+[resource]
+script = ExtResource("1")
+id = "greenhouse"
+display_name = "Greenhouse"
+era = "town"
+category = "food"
+size = Vector2i(2, 1)
+cost = {"materials": 50, "gold": 10, "lumen": 10, "planks": 10}
+worker_slots = 3
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 1.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+dimming_factor = 1.0
+blight_reach = 1
+blight_output_factor = 0.5
+placement_rule = "any"
+placement_radius = 0
+recipe = SubResource("Recipe")
+upgradable = true
+tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

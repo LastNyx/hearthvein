@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {"lumen_cells": 3.0, "planks": 3.0}
+outputs = {"tools": 3.0}
+
+[resource]
+script = ExtResource("1")
+id = "skyforge"
+display_name = "Skyforge"
+era = "skyborne"
+category = "refining"
+size = Vector2i(2, 2)
+cost = {"materials": 140, "gold": 60, "cut_stone": 40}
+worker_slots = 3
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 2.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+recipe = SubResource("Recipe")
+upgradable = false
+layers = "island"

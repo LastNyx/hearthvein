@@ -1,0 +1,49 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/recipe_def.gd" id="2"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="3"]
+
+[sub_resource type="Resource" id="Recipe"]
+script = ExtResource("2")
+inputs = {}
+outputs = {"lumen": 4.5}
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("3")
+display_name = "Lumen Tap II"
+multiplier = 1.5
+extra_worker_slots = 1
+cost = {"planks": 10, "cut_stone": 5}
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("3")
+display_name = "Lumen Tap III"
+multiplier = 2.0
+extra_worker_slots = 2
+cost = {"tools": 4, "lumen_cells": 2, "cut_stone": 5}
+
+[resource]
+script = ExtResource("1")
+id = "lumen_tap"
+display_name = "Lumen Tap"
+era = "camp"
+category = "lumen"
+size = Vector2i(1, 1)
+cost = {"materials": 20}
+worker_slots = 2
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "on_vein"
+placement_radius = 0
+blight_radius = 2
+blight_period_days = 6
+vein_extractor = true
+health_per_day = -0.005
+recipe = SubResource("Recipe")
+upgradable = true
+tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

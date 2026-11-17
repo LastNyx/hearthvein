@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="TierRuleDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tier_rule_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+eras = Array[String](["town", "city"])
+output_factors = Array[float]([1.5, 2.0])
+extra_worker_slots = Array[int]([1, 2])
+cost_fractions = Array[Dictionary]([{"planks": 0.5, "cut_stone": 0.25}, {"tools": 0.2, "lumen_cells": 0.1, "cut_stone": 0.25}])

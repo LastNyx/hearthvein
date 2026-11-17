@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "airship_dock"
+display_name = "Airship Dock"
+era = "conflux"
+category = "logistics"
+size = Vector2i(3, 3)
+cost = {"materials": 200, "gold": 120, "planks": 40, "tools": 20}
+worker_slots = 3
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 4.0
+housing_beds = 0
+storage_mode = "total"
+storage_cap = 100
+placement_rule = "any"
+placement_radius = 0
+upgradable = false
+airship_dock = true
+layers = "either"

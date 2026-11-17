@@ -3,3 +3,5 @@ __pycache__/
 .godot/
 /samples/
 .scratch/
+/docs/**/*.import
+/assets/**/*.import

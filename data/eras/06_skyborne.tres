@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EraDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/era_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "skyborne"
+display_name = "Skyborne"
+order = 6
+gate_pop = 320
+gate_gold = 2500
+gate_landmark = "sky_foundry"
+dimming_base_days = 7

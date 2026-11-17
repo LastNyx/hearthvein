@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MilestoneDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/milestone_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "citizens_300"
+display_name = "300 citizens"
+order = 9
+kind = "population"
+amount = 300.0
