@@ -17,9 +17,12 @@ var _main_view: VBoxContainer
 var _ms_view: VBoxContainer
 var _ms_body: HBoxContainer
 var _new_row: HBoxContainer
+var _settings_view: VBoxContainer
+## Built by setup() when a GameSettings is given (Main passes its own); the Settings button opens it.
+var settings_panel: SettingsPanel
 
 
-func setup(m: SaveMenuModel) -> void:
+func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
 	model = m
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -48,6 +51,9 @@ func setup(m: SaveMenuModel) -> void:
 	_ms_view.add_theme_constant_override("separation", 8)
 	_ms_view.visible = false
 	col.add_child(_ms_view)
+	_settings_view = VBoxContainer.new()
+	_settings_view.visible = false
+	col.add_child(_settings_view)
 	_text(_main_view, "Paused", 22, Hud.GOLD)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
@@ -56,6 +62,13 @@ func setup(m: SaveMenuModel) -> void:
 	_continue = _button(top, "Continue (latest autosave)", 16)
 	_continue.pressed.connect(func() -> void: _emit_load(model.continue_latest()))
 	_button(top, "Milestones", 16).pressed.connect(show_milestones)
+	if settings != null:
+		_button(top, "Settings", 16).pressed.connect(show_settings)
+		settings_panel = SettingsPanel.new()
+		settings_panel.name = "SettingsPanel"
+		_settings_view.add_child(settings_panel)
+		settings_panel.setup(settings)
+		settings_panel.back_requested.connect(hide_settings)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 4)
 	_main_view.add_child(_list)
@@ -86,6 +99,7 @@ func close() -> void:
 		return
 	model.pending = {}
 	_ms_view.visible = false
+	_settings_view.visible = false
 	_main_view.visible = true
 	visible = false
 	_dim.visible = false
@@ -171,6 +185,18 @@ func show_milestones() -> void:
 	refresh_milestones()
 
 
+func show_settings() -> void:
+	if settings_panel == null:
+		return
+	_main_view.visible = false
+	_settings_view.visible = true
+
+
+func hide_settings() -> void:
+	_settings_view.visible = false
+	_main_view.visible = true
+
+
 func hide_milestones() -> void:
 	_ms_view.visible = false
 	_main_view.visible = true
@@ -219,7 +245,7 @@ func refresh_milestones() -> void:
 
 
 ## A 20 px box drawn in code: 2 px light border on the dark panel; checked adds a filled square inside.
-func _box_icon(checked: bool, ink: Color) -> ImageTexture:
+static func _box_icon(checked: bool, ink: Color) -> ImageTexture:
 	var n := 20
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -243,7 +269,7 @@ func _emit_load(s: Settlement) -> void:
 
 # ---------------------------------------------------------------- look (same as ui/hud.gd)
 
-func _style(bg: Color, edge: Color, radius: int = 5, border: int = 2, margin: int = 12) -> StyleBoxFlat:
+static func _style(bg: Color, edge: Color, radius: int = 5, border: int = 2, margin: int = 12) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = edge

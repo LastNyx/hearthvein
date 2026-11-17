@@ -14,6 +14,9 @@ var endless_start: bool = false
 var saves_dir: String = "user://saves"
 ## Lifetime milestone list (ticket 46b), outside the saves.
 var milestones_path: String = "user://milestones.json"
+## User settings (ticket 76); tests set a temp path before add_child. Loaded and applied in _ready, before the world.
+var settings_path: String = "user://settings.cfg"
+var settings: GameSettings
 var settlement: Settlement
 var hud_model: HudModel
 var registry: DataRegistry
@@ -34,6 +37,10 @@ var camera: CameraController
 
 
 func _ready() -> void:
+	settings = GameSettings.new()
+	settings.path = settings_path
+	settings.load_file()
+	settings.apply(get_window())
 	registry = DataRegistry.new()
 	registry.load_all()
 	MilestoneSystem.lifetime_path = milestones_path
@@ -42,7 +49,7 @@ func _ready() -> void:
 	menu = SaveMenu.new()
 	menu.name = "SaveMenu"
 	add_child(menu)
-	menu.setup(menu_model)
+	menu.setup(menu_model, settings)
 	menu.load_requested.connect(func(s: Settlement) -> void:
 		menu.close()
 		swap_settlement(s))
