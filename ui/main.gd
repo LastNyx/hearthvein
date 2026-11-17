@@ -8,6 +8,8 @@ extends Node
 ## view is bound to the new Settlement and its bus and draws it from scratch. The menu and SaveSlots outlive swaps.
 
 var game_seed: int = -1
+## New game option (ticket 46): no win check, no Great Dimming. Set before the node enters the tree (ticket 46c adds the toggle).
+var endless_start: bool = false
 ## Where saves go; tests set a temp dir before add_child.
 var saves_dir: String = "user://saves"
 var settlement: Settlement
@@ -46,7 +48,7 @@ func _ready() -> void:
 	add_child(end_screen)
 	end_screen.setup(menu, slots, func() -> Settlement: return settlement)
 	menu.load_requested.connect(func(_s: Settlement) -> void: end_screen.close())
-	_build_world(Settlement.new_game(game_seed if game_seed >= 0 else randi(), registry))
+	_build_world(Settlement.new_game(game_seed if game_seed >= 0 else randi(), registry, endless_start))
 	slots.attach(settlement)
 
 

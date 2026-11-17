@@ -54,10 +54,18 @@ static func daily_need(s: Settlement, grid_id: int) -> float:
 	return need * s.registry.logistics.grid_upkeep_factor
 
 
-## Takes up to `amount` Lumen out of reservoirs, only while the Great Dimming is active. grid_id >= 0 limits it to the
+## True when the reservoir may pour now: during the Great Dimming, and (ticket 46) during a regular Dimming once the
+## Great Dimming is over or in an endless start. Before the Great Dimming in a campaign run it only fills.
+static func can_pour(s: Settlement) -> bool:
+	if GreatDimmingSystem.is_active(s):
+		return true
+	return DimmingSystem.is_active(s) and (GreatDimmingSystem.is_done(s) or CampaignSystem.is_endless_start(s))
+
+
+## Takes up to `amount` Lumen out of reservoirs, only while can_pour(). grid_id >= 0 limits it to the
 ## Skyhearts on that grid; -1 takes from any. Returns what was taken.
 func take(s: Settlement, amount: float, grid_id: int = -1) -> float:
-	if not GreatDimmingSystem.is_active(s):
+	if not can_pour(s):
 		return 0.0
 	var gs := s.get_system(GridSystem) as GridSystem
 	var got := 0.0
@@ -80,7 +88,7 @@ func on_hour(s: Settlement) -> void:
 	for bid: int in _charge.keys():
 		if not s.buildings.has(bid):
 			_charge.erase(bid)
-	var pouring := GreatDimmingSystem.is_active(s)
+	var pouring := can_pour(s)
 	var gs := s.get_system(GridSystem) as GridSystem
 	var ids: Array = s.buildings.keys()
 	ids.sort()

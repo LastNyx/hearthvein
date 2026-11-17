@@ -19,6 +19,9 @@ extends Resource
 @export var great_dimming_light: float = 0.75
 ## Planet health the Great Dimming must end at or above for the win (design.md section 18, ticket 45c).
 @export var win_health: float = 50.0
+## Endless (design.md section 19, ticket 46): the regular Dimming's base grows by one day every this many years after
+## the endless phase began (the Great Dimming ended, or Ascendant was reached in an endless start). No cap.
+@export var endless_years_per_day: int = 2
 ## Vein yield factor = vein_base + health / vein_divisor.
 @export var vein_base: float = 0.5
 @export var vein_divisor: float = 200.0

@@ -141,6 +141,9 @@ static func forecast_lead(s: Settlement) -> int:
 static func length_for(s: Settlement, era_id: String, health: float) -> int:
 	var era := s.registry.get_era(era_id)
 	var base := era.dimming_base_days if era != null else 2
+	var years := CampaignSystem.endless_years(s)
+	if years > 0:
+		base += years / maxi(1, s.registry.planet.endless_years_per_day)
 	return roundi(float(base) * (2.0 - health / 100.0))
 
 
@@ -253,7 +256,7 @@ func _light(s: Settlement) -> void:
 		if need > Inventory.EPS:
 			short += need
 	var reservoir := 0.0
-	if short > Inventory.EPS and GreatDimmingSystem.is_active(s):
+	if short > Inventory.EPS and SkyheartSystem.can_pour(s):
 		var sky := s.get_system(SkyheartSystem) as SkyheartSystem
 		if sky != null:
 			reservoir = sky.take(s, short)

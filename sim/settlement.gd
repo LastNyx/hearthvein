@@ -71,7 +71,7 @@ var _roads_dirty := true
 var _hour_acc: float = 0.0
 
 
-static func new_game(seed: int, reg: DataRegistry) -> Settlement:
+static func new_game(seed: int, reg: DataRegistry, endless_start: bool = false) -> Settlement:
 	var s := Settlement.new()
 	s.registry = reg
 	s.map = MapGen.generate(seed, reg)
@@ -90,6 +90,8 @@ static func new_game(seed: int, reg: DataRegistry) -> Settlement:
 		for i in START_CITIZENS:
 			s.add_citizen()
 	s.add_default_systems()
+	if endless_start:
+		(s.get_system(CampaignSystem) as CampaignSystem).set_endless_start(true)
 	WaterSystem.recompute(s)  # the map starts dry; a new game's first day should not wait for the day hook
 	return s
 

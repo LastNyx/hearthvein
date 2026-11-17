@@ -13,6 +13,7 @@ great_dimming_vein_factor = 0.1
 great_dimming_food_factor = 0.5
 great_dimming_light = 0.75
 win_health = 50.0
+endless_years_per_day = 2
 vein_base = 0.5
 vein_divisor = 200.0
 dieback_below = 60.0

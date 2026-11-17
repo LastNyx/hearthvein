@@ -2,7 +2,7 @@ class_name GreatDimmingSystem
 extends SimSystem
 ## The Great Dimming (design.md sections 14 and 18, D33, D51, ticket 45b). Once per run.
 ##
-## Finishing the Skyheart (Settlement.complete_site calls schedule) announces it: event great_dimming_forecast
+## (In an endless start, ticket 46, it is never scheduled.) Finishing the Skyheart (Settlement.complete_site calls schedule) announces it: event great_dimming_forecast
 ## {start_day} and a toast. It starts on day 1 of the first season that begins at least one full season after the
 ## completion day (one to two seasons of warning) and lasts PlanetDef.great_dimming_days (16) whatever the health.
 ##
@@ -74,7 +74,7 @@ static func start_for(completion_day: int) -> int:
 
 ## Called when the Skyheart is finished. Only the first call per run counts.
 func schedule(s: Settlement) -> void:
-	if _done or _active or _start_day >= 0:
+	if _done or _active or _start_day >= 0 or CampaignSystem.is_endless_start(s):
 		return
 	_start_day = start_for(s.clock.total_days())
 	s.events.emit("great_dimming_forecast", {"start_day": _start_day})
