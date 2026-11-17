@@ -39,6 +39,7 @@ housing_beds = 0
 storage_mode = "none"
 storage_cap = 0
 dimming_factor = 1.0
+great_dimming_immune = true
 placement_rule = "shore"
 placement_radius = 0
 recipe = SubResource("Recipe")

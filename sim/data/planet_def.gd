@@ -11,6 +11,12 @@ extends Resource
 @export var per_forest_tile: float = 0.00005
 ## Per active Great Dimming day (ticket 45 reports it through PlanetHealthSystem.extra_sources).
 @export var great_dimming_day: float = -0.5
+## The Great Dimming (design.md sections 14 and 18, D33, ticket 45b): length in days (not scaled by health), vein
+## extractor and food producer output factors, light need per citizen (the Dawn Beacon's lower need does not apply).
+@export var great_dimming_days: int = 16
+@export var great_dimming_vein_factor: float = 0.1
+@export var great_dimming_food_factor: float = 0.5
+@export var great_dimming_light: float = 0.75
 ## Vein yield factor = vein_base + health / vein_divisor.
 @export var vein_base: float = 0.5
 @export var vein_divisor: float = 200.0

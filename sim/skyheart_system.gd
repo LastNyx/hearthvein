@@ -10,8 +10,8 @@ extends SimSystem
 ## at most BuildingDef.reservoir_fill_per_hour, up to reservoir_capacity (3000), through GridSystem.draw so the take
 ## order (doors, storages, batteries) matches every other draw. It only takes what lies above a keep-back of one day of
 ## the grid's Lumen upkeep, so the city is never starved to fill it. Lossless: nothing decays or converts. The charge
-## is not part of GridSystem.supply() or the battery totals. It never discharges here (ticket 45b pours it during the
-## Great Dimming).
+## is not part of GridSystem.supply() or the battery totals. Only during the Great Dimming (ticket 45b) it pours, as a
+## last resort, through take(): GridSystem.draw after batteries, and the nightly light draw. It does not fill then.
 
 const SAVE_KEY := "skyheart"
 
@@ -54,10 +54,33 @@ static func daily_need(s: Settlement, grid_id: int) -> float:
 	return need * s.registry.logistics.grid_upkeep_factor
 
 
+## Takes up to `amount` Lumen out of reservoirs, only while the Great Dimming is active. grid_id >= 0 limits it to the
+## Skyhearts on that grid; -1 takes from any. Returns what was taken.
+func take(s: Settlement, amount: float, grid_id: int = -1) -> float:
+	if not GreatDimmingSystem.is_active(s):
+		return 0.0
+	var gs := s.get_system(GridSystem) as GridSystem
+	var got := 0.0
+	var ids: Array = _charge.keys()
+	ids.sort()
+	for bid: int in ids:
+		if got >= amount - Inventory.EPS:
+			break
+		if grid_id >= 0 and (gs == null or gs.grid_of(s, bid) != grid_id):
+			continue
+		var have := float(_charge[bid])
+		var t := minf(have, amount - got)
+		if t > 0.0:
+			_charge[bid] = have - t
+			got += t
+	return got
+
+
 func on_hour(s: Settlement) -> void:
 	for bid: int in _charge.keys():
 		if not s.buildings.has(bid):
 			_charge.erase(bid)
+	var pouring := GreatDimmingSystem.is_active(s)
 	var gs := s.get_system(GridSystem) as GridSystem
 	var ids: Array = s.buildings.keys()
 	ids.sort()
@@ -66,7 +89,7 @@ func on_hour(s: Settlement) -> void:
 		if b.site:
 			s.pay_stage_gold(b)
 			continue
-		if b.def.reservoir_capacity <= 0.0 or b.paused or gs == null:
+		if b.def.reservoir_capacity <= 0.0 or b.paused or gs == null or pouring:
 			continue
 		var gid := gs.grid_of(s, bid)
 		if gid < 0:

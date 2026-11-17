@@ -149,9 +149,12 @@ func dimming_text() -> String:
 	match st["state"]:
 		"forecast":
 			var n: int = st["days_until"]
-			return "Dimming %s - lasts %d" % ["today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n), st["length"]]
+			var label := "Great Dimming" if st.get("great", false) else "Dimming"
+			return "%s %s - lasts %d" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n), st["length"]]
 		"active":
 			var total: int = st["length"]
+			if st.get("great", false):
+				return "GREAT DIMMING - day %d of %d%s" % [total - int(st["days_left"]) + 1, total, " (dark)" if st["dark"] else ""]
 			return "DIMMING - day %d of %d%s" % [total - int(st["days_left"]) + 1, total, " (dark)" if st["dark"] else ""]
 	return "No Dimming expected"
 

@@ -132,6 +132,7 @@ func add_default_systems() -> void:
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
 	add_system(SkyheartSystem.new())  # stage gold and the finished Skyheart's reservoir fill (ticket 45); after the grid
+	add_system(GreatDimmingSystem.new())  # the Skyheart's Great Dimming (ticket 45b); before the regular Dimming, which yields to it
 	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
@@ -161,6 +162,7 @@ func add_default_systems() -> void:
 	sp.set_hook("blight", BlightSystem.spirit_factor)
 	sp.set_hook("darkness", DimmingSystem.darkness_factor)
 	sp.set_hook("planet_grief", PlanetHealthSystem.grief_factor)
+	(get_system(PlanetHealthSystem) as PlanetHealthSystem).extra_sources.append(GreatDimmingSystem.planet_source)
 
 
 func add_system(system: SimSystem) -> void:
@@ -573,6 +575,9 @@ func complete_site(b: Building) -> void:
 			_open_stage(b)  # the next stage's site opens on the same building, no command
 			return
 		events.emit("skyheart_finished", {"id": b.id})
+		var gd := get_system(GreatDimmingSystem) as GreatDimmingSystem
+		if gd != null:
+			gd.schedule(self)
 	b.site = false
 	b.gold_due = 0
 	b.input_buffer = null

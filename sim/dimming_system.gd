@@ -15,6 +15,9 @@ extends SimSystem
 ## each). Any citizen short = darkness for that day: Spirit hook "darkness" (PlanetDef.darkness_spirit) and
 ## GrowthSystem blocks growth and immigration (DimmingSystem.is_dark). Darkness clears when the Dimming ends.
 ##
+## The Great Dimming (GreatDimmingSystem) replaces it: while that is on, the regular one ends, none starts or is
+## forecast inside its window, is_active / is_dark stay true and status() reports it with "great": true.
+##
 ## HUD query: status(s) -> {state: "none"|"forecast"|"active", start_day, length, days_until, days_left, dark}.
 
 const SAVE_KEY := "dimming"
@@ -50,15 +53,23 @@ static func is_dark(s: Settlement) -> bool:
 	return d != null and d._dark
 
 
+## True during a regular Dimming and during the Great Dimming (which replaces it, GreatDimmingSystem).
 static func is_active(s: Settlement) -> bool:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
-	return d != null and d._active
+	return (d != null and d._active) or GreatDimmingSystem.is_active(s)
 
 
 ## ProductionSystem modifier: output factor while a Dimming is on.
 static func output_modifier(s: Settlement, b: Building) -> float:
 	if not is_active(s):
 		return 1.0
+	if GreatDimmingSystem.is_active(s):
+		var pd := s.registry.planet
+		if b.def.vein_extractor:
+			return pd.great_dimming_vein_factor
+		if b.def.category == "food" and not b.def.great_dimming_immune:
+			return pd.great_dimming_food_factor
+		return b.def.dimming_factor
 	if b.def.vein_extractor:
 		return b.def.dimming_vein_factor if b.def.dimming_vein_factor > 0.0 \
 				else s.registry.planet.dimming_vein_factor
@@ -135,6 +146,14 @@ static func length_for(s: Settlement, era_id: String, health: float) -> int:
 
 func status(s: Settlement) -> Dictionary:
 	var today := s.clock.total_days()
+	var g := s.get_system(GreatDimmingSystem) as GreatDimmingSystem
+	if g != null and g.start_day() >= 0:
+		var gl := s.registry.planet.great_dimming_days
+		if GreatDimmingSystem.is_active(s):
+			return {"state": "active", "great": true, "start_day": g.start_day(), "length": gl, "days_until": 0,
+					"days_left": g.start_day() + gl - today, "dark": _dark}
+		return {"state": "forecast", "great": true, "start_day": g.start_day(), "length": gl,
+				"days_until": g.start_day() - today, "days_left": gl, "dark": false}
 	if _start_day < 0:
 		return {"state": "none", "dark": false}
 	if _active:
@@ -146,17 +165,24 @@ func status(s: Settlement) -> Dictionary:
 
 func on_day(s: Settlement) -> void:
 	var today := s.clock.total_days()
-	if _active and today >= _start_day + _length:
+	var great_on := GreatDimmingSystem.is_active(s)
+	var g := s.get_system(GreatDimmingSystem) as GreatDimmingSystem
+	if g != null and _start_day >= 0 and not _active and g.blocks_regular(s, _start_day):
+		_start_day = -1  # a forecast Dimming that the Great one swallows
+	if _active and (great_on or today >= _start_day + _length):
 		_active = false
-		if _dark:
+		if _dark and not great_on:
 			_dark = false
 			s.events.emit("darkness_ended", {})
 		s.events.emit("dimming_ended", {"start_day": _start_day, "length": _length})
 		_start_day = -1
-	if not _active and _start_day >= 0 and today >= _start_day:
+	if _dark and not _active and not great_on:
+		_dark = false
+		s.events.emit("darkness_ended", {})
+	if not _active and not great_on and _start_day >= 0 and today >= _start_day:
 		_active = true
 		s.events.emit("dimming_started", {"start_day": _start_day, "length": _length})
-	if _active:
+	if _active or great_on:
 		_light(s)
 
 
@@ -167,7 +193,11 @@ func on_season(s: Settlement) -> void:
 	# The forecast fires on the first season change inside the lead, so an Observatory finished late still forecasts.
 	if ahead < 1 or ahead > forecast_lead(s) % spy or _active or _start_day >= 0:
 		return
-	_start_day = s.clock.total_days() + ahead * GameClock.DAYS_PER_SEASON
+	var start := s.clock.total_days() + ahead * GameClock.DAYS_PER_SEASON
+	var g := s.get_system(GreatDimmingSystem) as GreatDimmingSystem
+	if g != null and g.blocks_regular(s, start):
+		return
+	_start_day = start
 	_length = length_for(s, s.era_id(), s.planet_health())
 	s.events.emit("dimming_forecast", {"start_day": _start_day, "length": _length})
 
@@ -175,6 +205,8 @@ func on_season(s: Settlement) -> void:
 ## Per-citizen light need: PlanetDef.light_per_citizen, or the lowest BuildingDef.light_need_per_citizen among finished
 ## buildings (the Dawn Beacon, 0.35). A landmark has no workers or upkeep, so a finished one counts at once.
 static func light_per_citizen(s: Settlement) -> float:
+	if GreatDimmingSystem.is_active(s):
+		return s.registry.planet.great_dimming_light
 	var need := s.registry.planet.light_per_citizen
 	for b: Building in s.buildings.values():
 		if not b.site and b.def.light_need_per_citizen > 0.0:
@@ -220,7 +252,14 @@ func _light(s: Settlement) -> void:
 			cells += took
 		if need > Inventory.EPS:
 			short += need
-	last_light = {"need": need_total, "drawn_lumen": lumen, "drawn_cells": cells, "short": short}
+	var reservoir := 0.0
+	if short > Inventory.EPS and GreatDimmingSystem.is_active(s):
+		var sky := s.get_system(SkyheartSystem) as SkyheartSystem
+		if sky != null:
+			reservoir = sky.take(s, short)
+			short -= reservoir
+	last_light = {"need": need_total, "drawn_lumen": lumen, "drawn_cells": cells, "drawn_reservoir": reservoir,
+			"short": short}
 	var dark := short > Inventory.EPS
 	if dark != _dark:
 		_dark = dark

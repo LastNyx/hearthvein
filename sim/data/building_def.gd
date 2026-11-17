@@ -72,6 +72,8 @@ const GOLD := "gold"
 ## Dimming output factor for a vein extractor (section 14, D37/D43): 0 = PlanetDef.dimming_vein_factor (0.25,
 ## Lumen Tap and Lumen Pump). The Lumen Reactor uses 0.6 and the Vein Bore 0.4; the def overrides the planet value.
 @export var dimming_vein_factor: float = 0.0
+## True for a food producer the Great Dimming leaves alone (the Fishing Dock): it keeps its regular Dimming factor.
+@export var great_dimming_immune: bool = false
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
 ## Heartroot Tap (design.md section 17): the building only works while Settlement.planet_health() is at least this

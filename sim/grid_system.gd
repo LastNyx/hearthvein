@@ -182,7 +182,7 @@ func on_hour(s: Settlement) -> void:
 
 
 ## Takes up to `amount` Lumen from a grid: door buffers first, then storages, then batteries, in building-id order.
-## Returns what was taken.
+## During the Great Dimming the grid's Skyheart reservoir comes last. Returns what was taken.
 func draw(s: Settlement, grid_id: int, amount: float) -> float:
 	var got := 0.0
 	for pass_no in 2:
@@ -201,6 +201,10 @@ func draw(s: Settlement, grid_id: int, amount: float) -> float:
 			var take := minf(have, amount - got)
 			_charge[bid] = have - take
 			got += take
+	if got < amount - Inventory.EPS:
+		var sky := s.get_system(SkyheartSystem) as SkyheartSystem
+		if sky != null:
+			got += sky.take(s, amount - got, grid_id)
 	return got
 
 

@@ -26,7 +26,8 @@ var _active: Dictionary = {}  # cause key -> true while the cause stands
 func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
-			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished"]:
+			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished",
+			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -70,6 +71,14 @@ func _on_event(e: Dictionary) -> void:
 		"dimming_forecast":
 			raise("dimming:%d" % d["start_day"], "dimming",
 					"Dimming forecast: lasts %d days" % int(d["length"]))
+		"great_dimming_forecast":
+			raise("great_dimming:forecast", "dimming", "The Great Dimming is coming in %d days and lasts %d days" % [
+					int(d["start_day"]) - s.clock.total_days(), s.registry.planet.great_dimming_days])
+		"great_dimming_started":
+			raise("great_dimming:started", "dimming", "The Great Dimming has begun")
+		"great_dimming_ended":
+			clear("great_dimming:forecast")
+			clear("great_dimming:started")
 		"dimming_ended":
 			clear("dimming:%d" % d["start_day"])
 		"production_halted":
