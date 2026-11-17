@@ -18,7 +18,7 @@ const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
-	"food": 0.30, "materials": 0.22, "lumen": 0.07, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
+	"food": 0.36, "materials": 0.24, "lumen": 0.07, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
 	"lumen_cells": 0.03, "tools": 0.03,
 }
 ## Producer buildings per good, best first. The bot takes the first one that is unlocked, affordable and has room.
@@ -33,7 +33,7 @@ const PRODUCERS := {
 	"tools": ["toolsmith"],
 }
 ## Pause a good's producers above (per citizen, flat) stock; resume below 60% of it.
-const THROTTLE := {"food": [6.0, 60.0], "lumen": [4.0, 150.0]}
+const THROTTLE := {"food": [6.0, 60.0], "lumen": [4.0, 150.0], "planks": [0.0, 50.0]}
 ## Stock above which a good stops being built for.
 const STOCK_CAP := {"materials": 2500.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
@@ -94,6 +94,13 @@ func _init() -> void:
 			print("   d%d pop %d beds %d idle %d gold %d food %d mat %d lumen %d sites %d bld %d" % [day, s.citizens.size(), s.beds_total(),
 				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0)), int(tot.get("materials", 0)), int(tot.get("lumen", 0)),
 				_open_sites(), s.buildings.size()])
+		if _verbose and day % 40 == 0:
+			for b: Building in s.buildings.values():
+				if b.site:
+					var got := {}
+					for g in b.effective_cost():
+						got[g] = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
+					print("     site ", b.def.id, b.origin, " delivered ", b.site_delivered(), " got ", got, " need ", b.effective_cost(), " progress ", b.build_progress())
 		if day % GameClock.DAYS_PER_YEAR == 0:
 			print("  year %2d end: planet health %.1f%%, pop %d, gold %d, buildings %d, era %s" % [
 				day / GameClock.DAYS_PER_YEAR, s.planet_health(), s.citizens.size(), int(s.gold), s.buildings.size(), s.era_id()])
@@ -356,6 +363,11 @@ func _act() -> void:
 	if saving:
 		if _slots_for("gold") < 2:
 			_produce(float(pop) * 1.15 + 10.0, pop, "gold")
+		# also whatever refined good the landmark needs and the settlement does not make yet
+		var lcost := s.registry.get_building(_landmark_id()).entry_cost()
+		for good in lcost:
+			if SHARES.has(good) and good != "gold" and float(_stock.get(good, 0.0)) < float(lcost[good]) and _slots_for(good) < 2:
+				_produce(float(pop) * 1.15 + 10.0, pop, good)
 		return
 	# 4. production by share
 	var goal := float(pop) * 1.15 + 10.0

@@ -60,9 +60,9 @@ func test_surplus_fills_bar_and_spawns_citizen_only_with_free_bed() -> void:
 	assert_true(g.bar < GrowthSystem.bar_size(reg, 9), "bar was spent")
 
 
-func test_bar_size_is_8_plus_pop_over_3() -> void:
-	assert_almost_eq(GrowthSystem.bar_size(reg, 8), 8.0 + 8.0 / 3.0, 0.0001)
-	assert_almost_eq(GrowthSystem.bar_size(reg, 60), 28.0, 0.0001)
+func test_bar_size_is_5_plus_pop_over_3() -> void:
+	assert_almost_eq(GrowthSystem.bar_size(reg, 8), 5.0 + 8.0 / 3.0, 0.0001)
+	assert_almost_eq(GrowthSystem.bar_size(reg, 60), 25.0, 0.0001)
 
 
 func test_new_citizen_appears_at_the_hearth() -> void:
@@ -170,20 +170,20 @@ func test_immigration_every_3_days_at_spirit_70_with_free_beds() -> void:
 	assert_eq(s.citizens.size(), 10, "no free bed left")
 
 
-func test_no_immigration_below_spirit_70() -> void:
+func test_no_immigration_below_spirit_60() -> void:
 	_tent(4)
 	s.hearth.inventory.add("food", 90.0)
-	s.spirit_override = 69.0
+	s.spirit_override = 59.0
 	s.step_days(1)
 	s.step_days(8)
 	assert_eq(s.citizens.size(), 8)
-	assert_eq(s.spirit(), 69.0)
+	assert_eq(s.spirit(), 59.0)
 
 
 func test_bar_multiplier_above_600_and_no_immigration() -> void:
-	assert_almost_eq(GrowthSystem.bar_size(reg, 600), 208.0, 0.0001, "no multiplier at the cap")
-	assert_almost_eq(GrowthSystem.bar_size(reg, 700), (8.0 + 700.0 / 3.0) * 2.0, 0.0001, "x2 at 700")
-	assert_almost_eq(GrowthSystem.bar_size(reg, 650), (8.0 + 650.0 / 3.0) * 1.5, 0.0001, "x1.5 at 650")
+	assert_almost_eq(GrowthSystem.bar_size(reg, 600), 205.0, 0.0001, "no multiplier at the cap")
+	assert_almost_eq(GrowthSystem.bar_size(reg, 700), (5.0 + 700.0 / 3.0) * 2.0, 0.0001, "x2 at 700")
+	assert_almost_eq(GrowthSystem.bar_size(reg, 650), (5.0 + 650.0 / 3.0) * 1.5, 0.0001, "x1.5 at 650")
 	reg.get_building("hearth").housing_beds = 2000
 	s.hearth.inventory.cap = 1000000.0
 	s.hearth.inventory.add("food", 1000000.0)

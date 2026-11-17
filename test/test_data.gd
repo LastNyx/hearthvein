@@ -66,7 +66,7 @@ func test_gate_landmark_required_once_its_era_has_buildings() -> void:
 # AC2: Camp buildings match design.md section 16.
 func test_camp_buildings_match_design() -> void:
 	_load_real()
-	assert_eq(reg.buildings_of_era("camp").size(), 7)
+	assert_eq(reg.buildings_of_era("camp").size(), 8)
 	var hearth := reg.get_building("hearth")
 	assert_eq(hearth.size, Vector2i(2, 2))
 	assert_eq([hearth.hauler_slots, hearth.builder_slots, hearth.housing_beds], [2, 4, 8])
@@ -80,10 +80,10 @@ func test_camp_buildings_match_design() -> void:
 	assert_eq(tent.housing_beds * tent.tiers[1].multiplier, 4.0)
 	var forager := reg.get_building("forager")
 	assert_eq([forager.cost, forager.worker_slots], [{"materials": 10}, 2])
-	assert_eq(forager.recipe.outputs, {"food": 1.5})
+	assert_eq(forager.recipe.outputs, {"food": 8.0})
 	var wc := reg.get_building("woodcutter")
 	assert_eq([wc.cost, wc.worker_slots], [{"materials": 10}, 2])
-	assert_eq(wc.recipe.outputs, {"materials": 1})
+	assert_eq(wc.recipe.outputs, {"materials": 5})
 	var sh := reg.get_building("storehouse")
 	assert_eq(sh.size, Vector2i(2, 1))
 	assert_eq(sh.cost, {"materials": 25})
@@ -133,7 +133,7 @@ func test_recipe_inputs_to_outputs() -> void:
 	assert_eq(r.outputs["planks"], 1)
 	_load_real()
 	assert_eq(reg.get_building("forager").recipe.inputs, {})
-	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 1.5})
+	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 8.0})
 
 
 func test_terrain_and_goods_present() -> void:

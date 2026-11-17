@@ -89,14 +89,17 @@ func test_cottage_and_farm_are_locked_in_camp() -> void:
 # AC2a: Farm output follows the mean fertility of its 2x2 footprint.
 func test_farm_output_follows_footprint_fertility() -> void:
 	_strip()
+	s.systems.erase(s.get_system(HaulingSystem))  # read the door buffers as filled, nobody empties them
 	var farm := reg.get_building("farm")
 	assert_eq([farm.size, farm.cost, farm.worker_slots], [Vector2i(2, 2), {"materials": 30}, 3])
-	assert_eq(farm.recipe.outputs, {"crops": 2.0})
+	assert_eq(farm.recipe.outputs, {"crops": 4.0})
 	var rich := _farm(-1, "grass", [100, 100, 100, 100])
 	var mixed := _farm(1, "grass", [100, 100, 0, 0])  # mean 50, half of the rich farm
 	s.step_days(1)  # let both crews walk to work
-	var r0 := rich.door_buffer.amount_of("crops")
-	var m0 := mixed.door_buffer.amount_of("crops")
+	rich.door_buffer.remove("crops", 100.0)  # the buffers caps at 20: start both from empty
+	mixed.door_buffer.remove("crops", 100.0)
+	var r0 := 0.0
+	var m0 := 0.0
 	s.step_days(1)
 	var a := rich.door_buffer.amount_of("crops") - r0
 	var b := mixed.door_buffer.amount_of("crops") - m0
@@ -107,12 +110,15 @@ func test_farm_output_follows_footprint_fertility() -> void:
 # AC2b: x1.5 when the origin tile started as fertile soil.
 func test_farm_fertile_origin_bonus() -> void:
 	_strip()
+	s.systems.erase(s.get_system(HaulingSystem))
 	assert_eq(reg.get_building("farm").fertile_origin_bonus, 1.5)
 	var plain := _farm(-1, "grass", [100, 100, 100, 100])
 	var fertile := _farm(1, "fertile_soil", [100, 100, 100, 100])
 	s.step_days(1)  # let both crews walk to work
-	var p0 := plain.door_buffer.amount_of("crops")
-	var f0 := fertile.door_buffer.amount_of("crops")
+	plain.door_buffer.remove("crops", 100.0)  # the buffers cap at 20: start both from empty
+	fertile.door_buffer.remove("crops", 100.0)
+	var p0 := 0.0
+	var f0 := 0.0
 	s.step_days(1)
 	var a := plain.door_buffer.amount_of("crops") - p0
 	var b := fertile.door_buffer.amount_of("crops") - f0

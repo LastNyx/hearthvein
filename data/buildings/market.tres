@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = "market"
 display_name = "Market"
-era = "village"
+era = "camp"
 category = "gold"
 size = Vector2i(2, 2)
 cost = {"materials": 40}

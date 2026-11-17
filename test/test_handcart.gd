@@ -69,7 +69,7 @@ func test_load_is_raised_only_in_the_shed_region() -> void:
 			break
 	assert_gt(other, -1, "the map has another region")
 	assert_almost_eq(RegionSystem.haul_load_in(s, r), 15.0, 0.0001, "its region carries 15")
-	assert_almost_eq(RegionSystem.haul_load_in(s, other), 5.0, 0.0001, "other regions stay at 5")
+	assert_almost_eq(RegionSystem.haul_load_in(s, other), 10.0, 0.0001, "other regions stay at 10")
 
 
 # AC1c: a shed still being built gives nothing; it counts once completed.
@@ -79,7 +79,7 @@ func test_only_completed_sheds_count() -> void:
 	var b: Building = s.buildings[bid]
 	assert_true(b.site)
 	var r := s.map.get_region(b.origin.x, b.origin.y)
-	assert_almost_eq(RegionSystem.haul_load_in(s, r), 5.0, 0.0001, "a site gives nothing")
+	assert_almost_eq(RegionSystem.haul_load_in(s, r), 10.0, 0.0001, "a site gives nothing")
 	s.complete_site(b)
 	assert_false(b.site)
 	assert_almost_eq(RegionSystem.haul_load_in(s, r), 15.0, 0.0001, "completed: 15")

@@ -93,20 +93,18 @@ func _stock_three_types() -> void:
 func test_market_data_matches_the_village_row() -> void:
 	var m := reg.get_building("market")
 	assert_not_null(m)
-	assert_eq([m.era, m.category], ["village", "gold"])
+	assert_eq([m.era, m.category], ["camp", "gold"])
 	assert_eq([m.size, m.cost, m.worker_slots], [Vector2i(2, 2), {"materials": 40}, 2])
 	assert_eq(m.gold_per_worker_day, 1.0)
 	assert_eq(m.market_reach, 12, "design gives no reach; ticket 23 chose 12 tiles")
 	assert_null(m.recipe, "gold is a counter, not a recipe output")
 
 
-func test_market_is_locked_in_camp_and_unlocked_in_village() -> void:
+func test_market_is_a_camp_building() -> void:
 	var o := _spot_in_region("market")
 	assert_ne(o, Vector2i(-1, -1), "a free spot in the start region")
 	s.era_override = ""
-	assert_eq(s.can_place("market", o), {"ok": false, "reason": "era_locked"})
-	s.era_override = "village"
-	assert_true(s.can_place("market", o)["ok"])
+	assert_true(s.can_place("market", o)["ok"], "Camp has a gold source")
 	assert_true(s.unlocked_buildings().any(func(b: BuildingDef) -> bool: return b.id == "market"))
 
 
@@ -115,8 +113,8 @@ func test_food_type_data() -> void:
 	assert_eq(reg.get_good("food").food_type, "forage", "Forager food is forage")
 	assert_eq(reg.get_good("crops").food_type, "crops", "Farm food is crops")
 	assert_eq(reg.get_good("fish").food_type, "fish")
-	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 1.5})
-	assert_eq(reg.get_building("farm").recipe.outputs, {"crops": 2.0})
+	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 8.0})
+	assert_eq(reg.get_building("farm").recipe.outputs, {"crops": 4.0})
 
 
 # AC2: each assigned worker brings one gold a day; paused or unstaffed Markets pay nothing.

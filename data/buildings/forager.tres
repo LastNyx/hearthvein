@@ -7,7 +7,7 @@
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
 inputs = {}
-outputs = {"food": 1.5}
+outputs = {"food": 8.0}
 
 [sub_resource type="Resource" id="Tier2"]
 script = ExtResource("3")

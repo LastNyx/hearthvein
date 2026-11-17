@@ -278,7 +278,7 @@ func test_every_village_building_can_be_built() -> void:
 		if d.era == "village":
 			village.append(d)
 	village.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
-	assert_eq(village.size(), 10, "the Village set of design section 16")
+	assert_eq(village.size(), 9, "the Village set of design section 16")
 
 	for d in village:
 		var spot := _village_spot(s, d.id)

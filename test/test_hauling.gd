@@ -44,20 +44,20 @@ func _food() -> float:
 
 func test_numbers_come_from_data() -> void:
 	assert_eq(reg.logistics.door_buffer_cap, 20.0)
-	assert_eq(reg.logistics.haul_load, 5.0)
+	assert_eq(reg.logistics.haul_load, 10.0)
 	assert_eq(reg.logistics.input_buffer_days, 2.0)
 	assert_eq(reg.get_building("hearth").hauler_slots, 2)
 	assert_eq(reg.get_building("storehouse").hauler_slots, 2)
 
 
-func test_forager_two_workers_add_about_3_food_per_day() -> void:
+func test_forager_two_workers_add_about_15_food_per_day() -> void:
 	var f := _put("forager", 4)
 	_put("storehouse", 6)
 	s.step_days(2)
 	var before := _food()
 	s.step_days(5)
 	var per_day := (_food() - before) / 5.0
-	assert_between(per_day, 2.5, 3.3, "food per day into storage was %f" % per_day)
+	assert_between(per_day, 13.0, 16.5, "food per day into storage was %f" % per_day)
 	assert_not_null(f.door_buffer)
 
 
@@ -214,7 +214,7 @@ func test_consumer_inputs_are_not_starved_by_a_busy_door_buffer() -> void:
 	fg.door_buffer.add("food", 15.0)
 	var served := false
 	for i in 2:
-		var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+		var t: HaulingSystem.Trip = hs._plan(s, ws, -1 - i)  # the two ids take opposite turns
 		assert_not_null(t)
 		if t != null and t.dst == saw.id:
 			served = true
