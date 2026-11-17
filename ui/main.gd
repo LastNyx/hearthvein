@@ -16,6 +16,7 @@ var registry: DataRegistry
 var slots: SaveSlots
 var menu: SaveMenu
 var menu_model: SaveMenuModel
+var end_screen: EndScreen
 var _world: Array[Node] = []
 var driver: SimDriver
 var map_view: MapView
@@ -40,6 +41,11 @@ func _ready() -> void:
 	menu.load_requested.connect(func(s: Settlement) -> void:
 		menu.close()
 		swap_settlement(s))
+	end_screen = EndScreen.new()
+	end_screen.name = "EndScreen"
+	add_child(end_screen)
+	end_screen.setup(menu, slots, func() -> Settlement: return settlement)
+	menu.load_requested.connect(func(_s: Settlement) -> void: end_screen.close())
 	_build_world(Settlement.new_game(game_seed if game_seed >= 0 else randi(), registry))
 	slots.attach(settlement)
 
@@ -71,6 +77,10 @@ func _build_world(s: Settlement) -> void:
 	for kind in ["island_raised", "island_removed"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _refresh_sky())
 	_refresh_sky()
+	# End screens: once per outcome, on the event only (a loaded save with an outcome already set stays closed).
+	for kind in ["campaign_won", "campaign_no_win", "campaign_lost"]:
+		s.events.subscribe(kind, func(_e: Dictionary) -> void:
+			end_screen.show_outcome(kind.trim_prefix("campaign_"), s))
 	# Dimming: darken the world (CanvasModulate does not touch the CanvasLayer HUD).
 	var dim := CanvasModulate.new()
 	dim.name = "DimmingTint"
