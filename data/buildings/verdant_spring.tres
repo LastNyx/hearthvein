@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "verdant_spring"
+display_name = "Verdant Spring"
+era = "ascendant"
+category = "civic"
+size = Vector2i(2, 2)
+cost = {"materials": 250, "gold": 150, "cut_stone": 50, "lumen_cells": 30}
+worker_slots = 2
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 4.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+health_per_day = 0.08
+heal_blight_radius = 10
+heal_blight_per_day = 1
+upgradable = false

@@ -154,6 +154,11 @@ static func _start_points(s: Settlement) -> PackedFloat32Array:
 	return out
 
 
+## Set one tile's fertility to an exact point value, quarter points included (the Verdant Spring writes 100).
+func set_points(map: MapState, i: int, v: float) -> void:
+	_write_points(map, i, v)
+
+
 ## Split an exact point value back into the byte and its quarter points (0..3).
 func _write_points(map: MapState, i: int, v: float) -> void:
 	var whole := int(v)

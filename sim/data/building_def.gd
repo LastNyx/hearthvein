@@ -71,6 +71,14 @@ const GOLD := "gold"
 @export var dimming_vein_factor: float = 0.0
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
+## Healers (design.md section 17, Ascendant), measured like clean_radius (Euclidean from the closest footprint tile),
+## once a day while the building works. Verdant Spring: each day heal_blight_per_day blighted tiles within
+## heal_blight_radius are cleared and turned into fertility-100 soil. 0 = no soil healing.
+@export var heal_blight_radius: int = 0
+@export var heal_blight_per_day: int = 0
+## Rewilding Grove: each day rewild_per_day grass or stump tiles within rewild_radius turn into forest. 0 = none.
+@export var rewild_radius: int = 0
+@export var rewild_per_day: int = 0
 ## True for a Farm (design.md section 9): output is multiplied by the mean fertility of the footprint / 100.
 @export var fertility_output: bool = false
 ## Multiplier applied when the tile under the origin started as fertile soil (Farm: 1.5). 1.0 = no bonus.
