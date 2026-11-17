@@ -165,3 +165,18 @@ Ben wants an Oxygen Not Included-like long game. Reverses D7's 45-60 min target.
   start toggle move to the title screen; Milestones is reachable from both.
 - D61. v1 gets sound (Ben, 2026-11-17); scope settled in the next round.
 - D62. Map pan moves from middle-drag to right-drag (Ben, 2026-11-17); right-click cancel is reconciled next round.
+- D63. Right mouse: a drag of a few pixels or more pans, a plain click (on release) still cancels/deselects;
+  middle-drag keeps panning too.
+- D64. Sound v1 = effects (UI click, place, demolish, construction done, era reached, milestone, Dimming forecast) and
+  ambience (day loop of wind/birds, a low hum during a Dimming) from CC0 packs (Kenney first), listed in a credits
+  file. No music in v1.
+- D65. Sound settings: master, effects and ambience volume; mute when the window is in the background.
+- D66. Guided goals: 1 move the camera, 2 road from the Hearth, 3 two Tents, 4 Forager (haulers explained),
+  5 Woodcutter, 6 Lumen Tap on a vein (blight overlay V, the trade-off), 7 Market (gold for the Village gate),
+  8 reach 12 citizens (growth bar, beds, Spirit), 9 stock Lumen and food when the first Dimming is forecast,
+  10 survive it; a closing card points at the Meeting Hall and the Village gate.
+- D67. Tutorial on + blank seed = one fixed, checked seed (forest, vein and river near the Hearth).
+- D68. Era intro cards: on reaching an era, one card (what's new, new pressure, next gate); pauses the game; part of
+  the hints layer (hints off hides them).
+- D69. Saves from before onboarding load with the tutorial done and hints on; seen hints live in user settings, not
+  per save, so they don't repeat across runs.
