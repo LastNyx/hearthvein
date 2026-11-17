@@ -16,7 +16,7 @@ func _init() -> void:
 	root.add_child(main)
 	await process_frame
 	main.start_new_game(42)
-	main.settings.seen_hints = []
+	main.settings.seen_hints.clear()
 	main.settings.hints_enabled = true
 	var s: Settlement = main.settlement
 	var hud: Hud = main.get_node("Hud")
