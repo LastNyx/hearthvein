@@ -11,6 +11,7 @@ outputs = {"fruit": 3.0}
 [resource]
 script = ExtResource("1")
 id = "bloom_orchard"
+description = "Workers tend trees on healthy soil and pick fruit, a food that adds variety."
 display_name = "Bloom Orchard"
 era = "ascendant"
 category = "food"

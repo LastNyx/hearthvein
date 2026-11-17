@@ -11,6 +11,7 @@ outputs = {"materials": 3.0}
 [resource]
 script = ExtResource("1")
 id = "workshop"
+description = "Turns Lumen into raw materials, so a settlement can build without wood or stone."
 display_name = "Workshop"
 era = "town"
 category = "refining"

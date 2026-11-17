@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "cloud_cistern"
+description = "Collects rain on a sky island and keeps nearby homes and plants watered."
 display_name = "Cloud Cistern"
 era = "skyborne"
 category = "water"

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "lumen_pylon"
+description = "Passes Lumen along the grid to buildings around it and to other pylons."
 display_name = "Lumen Pylon"
 era = "conflux"
 category = "logistics"

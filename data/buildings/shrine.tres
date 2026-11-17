@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "shrine"
+description = "A quiet shrine that lifts the spirits of the homes around it."
 display_name = "Shrine"
 era = "village"
 category = "civic"

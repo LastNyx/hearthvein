@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "market"
+description = "Workers trade for gold, and homes nearby eat a wider variety of food."
 display_name = "Market"
 era = "camp"
 category = "gold"

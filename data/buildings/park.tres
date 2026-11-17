@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "park"
+description = "A green space that cheers nearby homes and keeps blight off its own ground."
 display_name = "Park"
 era = "city"
 category = "civic"

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "handcart_shed"
+description = "Gives haulers handcarts, so they carry more and move faster on paved roads."
 display_name = "Handcart Shed"
 era = "town"
 category = "logistics"

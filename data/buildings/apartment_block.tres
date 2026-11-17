@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "apartment_block"
+description = "Tall housing that fits many citizens on a small patch of ground."
 display_name = "Apartment Block"
 era = "city"
 category = "housing"

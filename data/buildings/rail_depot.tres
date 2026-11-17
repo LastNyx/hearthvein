@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "rail_depot"
+description = "A cargo station. Join depots with rail track to move goods between regions."
 display_name = "Rail Depot"
 era = "conflux"
 category = "logistics"

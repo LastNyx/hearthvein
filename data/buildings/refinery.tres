@@ -11,6 +11,7 @@ outputs = {"lumen_cells": 2.0}
 [resource]
 script = ExtResource("1")
 id = "refinery"
+description = "Turns Lumen into Lumen cells, which power the finest buildings."
 display_name = "Refinery"
 era = "town"
 category = "refining"

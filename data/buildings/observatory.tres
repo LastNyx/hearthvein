@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "observatory"
+description = "Workers watch the sky and warn you earlier about a coming Dimming. Homes nearby feel safer."
 display_name = "Observatory"
 era = "skyborne"
 category = "civic"

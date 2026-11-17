@@ -14,6 +14,7 @@ display_name = "Lumen Arcology III"
 [resource]
 script = ExtResource("1")
 id = "lumen_arcology"
+description = "A huge tower home for many citizens, built for the very end of the climb."
 display_name = "Lumen Arcology"
 era = "ascendant"
 category = "housing"

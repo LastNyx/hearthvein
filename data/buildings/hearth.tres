@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1")
 id = "hearth"
+description = "The heart of your camp. It stores goods, houses a few citizens and sends out haulers and builders."
 display_name = "Hearth"
 era = "camp"
 category = "civic"

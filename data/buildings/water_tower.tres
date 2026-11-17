@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "water_tower"
+description = "Waters homes across a wide area and wets the ground around it."
 display_name = "Water Tower"
 era = "conflux"
 category = "water"

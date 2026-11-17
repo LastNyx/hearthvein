@@ -26,6 +26,7 @@ cost = {"tools": 4, "lumen_cells": 2, "cut_stone": 5}
 [resource]
 script = ExtResource("1")
 id = "fishing_dock"
+description = "Workers fish the water for food. Build it on the shore."
 display_name = "Fishing Dock"
 era = "village"
 category = "food"

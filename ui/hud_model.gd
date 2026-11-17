@@ -276,6 +276,18 @@ func _goods_line(label: String, inv: Inventory, skip_empty: bool = false) -> Str
 	return "%s: %s" % [label, ", ".join(parts)]
 
 
+## "Halted: waiting for input" for a halted building, "" when it works.
+func halt_text(b: Building) -> String:
+	match b.halt:
+		"door_full": return "Halted: output buffer full"
+		"no_input": return "Halted: waiting for input"
+		"no_forest": return "Halted: no forest in range"
+		"island_still": return "Halted: the island is still"
+		"planet_too_sick": return "Halted: planet health below %d%%" % int(b.def.min_planet_health)
+		"dry": return "Halted: no water in reach"
+	return ""
+
+
 ## Panel data of the selected building or {} : title, lines (strings), halt text, priority, paused, site progress.
 func selection() -> Dictionary:
 	var b := selected()
@@ -308,13 +320,7 @@ func selection() -> Dictionary:
 			lines.append(_goods_line("Stored", b.inventory))
 		if not b.connected:
 			warn = "Not connected to the Hearth by road"
-	var halt_text := ""
-	match b.halt:
-		"door_full": halt_text = "Halted: output buffer full"
-		"no_input": halt_text = "Halted: waiting for input"
-		"no_forest": halt_text = "Halted: no forest in range"
-		"island_still": halt_text = "Halted: the island is still"
-		"planet_too_sick": halt_text = "Halted: planet health below %d%%" % int(b.def.min_planet_health)
+	var halt_text := halt_text(b)
 	var bl := _blight_near(b)
 	if bl > 0:
 		lines.append("Blight: %d tiles" % bl)
@@ -410,6 +416,123 @@ func toggle_pause() -> bool:
 	if b == null:
 		return false
 	return s.set_building_priority(b.id, "normal" if b.paused else "paused")
+
+
+# ---------------------------------------------------------------- tooltips
+
+## "4.5" or "8": whole numbers without a decimal point.
+static func num_text(v: float) -> String:
+	return "%d" % roundi(v) if is_equal_approx(v, roundf(v)) else ("%.1f" % v).rstrip("0").rstrip(".")
+
+
+func _good_name(g: String) -> String:
+	var gd := s.registry.get_good(g)
+	return gd.display_name if gd != null else g
+
+
+## "6 Materials, 2 Lumen" from a recipe side (good id -> float, per worker per day).
+func _amounts_text(d: Dictionary) -> String:
+	var parts: Array[String] = []
+	for g in d:
+		parts.append("%s %s" % [num_text(float(d[g])), _good_name(g)])
+	return ", ".join(parts)
+
+
+## The data lines of a def (cost, jobs, recipe, upkeep, reach, beds, storage). `b` (or null) scales slots and beds by tier.
+func _def_tooltip_lines(def: BuildingDef, b: Building) -> Array[String]:
+	var lines: Array[String] = []
+	if b == null or b.site:
+		var cost := goods_cost_text(def.entry_cost())
+		lines.append("Cost: %s" % (cost if cost != "" else "free"))
+	var workers := b.effective_worker_slots(s.registry) if b != null else def.worker_slots
+	var jobs: Array[String] = []
+	if workers > 0 and b == null:
+		jobs.append("Workers %d" % workers)
+	if def.hauler_slots > 0:
+		jobs.append("Haulers %d" % def.hauler_slots)
+	if def.builder_slots > 0:
+		jobs.append("Builders %d" % def.builder_slots)
+	if not jobs.is_empty():
+		lines.append(", ".join(jobs))
+	var r := def.recipe
+	if r != null:
+		var ins := _amounts_text(r.inputs)
+		if r.any_input_count > 0:
+			var any := "%s each of any %d foods" % [num_text(r.any_input_amount), r.any_input_count]
+			ins = any if ins == "" else "%s, %s" % [ins, any]
+		var outs := _amounts_text(r.outputs)
+		if b != null:
+			outs = _amounts_text(_scaled(r.outputs, b.output_factor(s.registry)))
+		lines.append(("Per worker per day: %s -> %s" % [ins, outs]) if ins != "" else "Per worker per day: %s" % outs)
+	if def.gold_per_worker_day > 0.0:
+		lines.append("Earns %s Gold per worker per day" % num_text(def.gold_per_worker_day))
+	if def.gold_per_citizen_day > 0.0:
+		lines.append("Earns %s Gold per citizen per day" % num_text(def.gold_per_citizen_day))
+	if def.upkeep_lumen > 0.0:
+		lines.append("Upkeep: %s Lumen per day" % num_text(def.upkeep_lumen))
+	for pair in [[def.coverage_radius, "Cheers homes within %d tiles"], [def.water_radius, "Waters homes within %d tiles"],
+			[def.market_reach, "Serves homes within %d tiles"], [def.clean_radius, "Cleans blight within %d tiles"],
+			[def.blight_block_radius, "Keeps new blight off within %d tiles"],
+			[def.grid_feed_radius, "Feeds Lumen to buildings within %d tiles"],
+			[def.heal_blight_radius, "Heals land within %d tiles"], [def.rewild_radius, "Regrows forest within %d tiles"],
+			[def.drain_radius, "Eases extractor damage within %d tiles"]]:
+		if int(pair[0]) > 0:
+			lines.append(str(pair[1]) % int(pair[0]))
+	if def.placement_radius > 0 and (def.fells_forest or def.plants_forest or def.placement_rule.begins_with("near_")):
+		lines.append("Works within %d tiles" % def.placement_radius)
+	var beds := b.effective_beds(s.registry) if b != null else def.housing_beds
+	if beds > 0:
+		lines.append("Beds %d" % beds)
+	match def.storage_mode:
+		"total": lines.append("Stores %d goods in all" % def.storage_cap)
+		"per_good": lines.append("Stores %d of each good" % def.storage_cap)
+	if def.battery_capacity > 0.0:
+		lines.append("Holds %s Lumen" % num_text(def.battery_capacity))
+	return lines
+
+
+func _scaled(d: Dictionary, f: float) -> Dictionary:
+	var out := {}
+	for g in d:
+		out[g] = float(d[g]) * f
+	return out
+
+
+func _tooltip(title: String, def: BuildingDef, status: Array[String], lines: Array[String]) -> Dictionary:
+	var parts: Array[String] = [title, def.description]
+	parts.append_array(status)
+	parts.append_array(lines)
+	var clean: Array[String] = []
+	for p in parts:
+		if p != "":
+			clean.append(p)
+	return {"title": title, "description": def.description, "status": status, "lines": lines, "text": "\n".join(clean)}
+
+
+## Tooltip of a build button: {title, description, status (empty), lines, text}. {} for an unknown id.
+func tooltip_for(def_id: String) -> Dictionary:
+	var def := s.registry.get_building(def_id)
+	if def == null:
+		return {}
+	return _tooltip(def.display_name, def, [] as Array[String], _def_tooltip_lines(def, null))
+
+
+## Tooltip of a placed building: the same, plus its status (tier, site progress, workers filled n/m, halt reason).
+func tooltip_for_building(b: Building) -> Dictionary:
+	var status: Array[String] = []
+	if b.def.upgradable and not b.site:
+		status.append("Tier %d" % b.tier)
+	if b.site:
+		status.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
+	else:
+		if b.effective_worker_slots(s.registry) > 0:
+			status.append("Workers %d/%d" % [_workers(b), b.effective_worker_slots(s.registry)])
+		var halt := halt_text(b)
+		if halt != "":
+			status.append(halt)
+		if not b.connected:
+			status.append("Not connected to the Hearth by road")
+	return _tooltip(b.display_name(s.registry), b.def, status, _def_tooltip_lines(b.def, b))
 
 
 # ---------------------------------------------------------------- build bar

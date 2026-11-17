@@ -11,6 +11,7 @@ outputs = {"greenhouse": 4.0}
 [resource]
 script = ExtResource("1")
 id = "hydroponic_hall"
+description = "Workers grow food indoors in water trays. It needs a water source close by."
 display_name = "Hydroponic Hall"
 era = "conflux"
 category = "food"

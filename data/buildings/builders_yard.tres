@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "builders_yard"
+description = "Adds builders who raise new buildings faster, and haulers to carry their materials."
 display_name = "Builder's Yard"
 era = "village"
 category = "logistics"

@@ -11,6 +11,7 @@ outputs = {"lumen": 16.0}
 [resource]
 script = ExtResource("1")
 id = "vein_bore"
+description = "Workers bore deep into a vein for a great deal of Lumen. This wears down planet health."
 display_name = "Vein Bore"
 era = "conflux"
 category = "lumen"

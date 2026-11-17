@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "rewilding_grove"
+description = "Workers turn bare ground back into forest around the grove."
 display_name = "Rewilding Grove"
 era = "ascendant"
 category = "civic"

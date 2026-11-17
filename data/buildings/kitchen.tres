@@ -14,6 +14,7 @@ any_input_amount = 1.3333334
 [resource]
 script = ExtResource("1")
 id = "kitchen"
+description = "Cooks two kinds of food into meals that feed more people and improve food variety."
 display_name = "Kitchen"
 era = "town"
 category = "refining"

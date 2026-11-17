@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "hall_of_seasons"
+description = "Workers keep the seasons gentle, so nearby homes suffer less in a Dimming."
 display_name = "Hall of Seasons"
 era = "ascendant"
 category = "civic"

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "grand_bazaar"
+description = "A great market hall that earns gold from its workers and counts as one more kind of food."
 display_name = "Grand Bazaar"
 era = "city"
 category = "gold"

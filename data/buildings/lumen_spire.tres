@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "lumen_spire"
+description = "A landmark tower that anchors your Lumen supply. Building it opens the City era."
 display_name = "Lumen Spire"
 era = "town"
 category = "landmark"

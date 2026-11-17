@@ -26,6 +26,7 @@ cost = {"tools": 5, "lumen_cells": 3, "cut_stone": 6}
 [resource]
 script = ExtResource("1")
 id = "quarry"
+description = "Workers cut raw materials from rock. Place it on rock."
 display_name = "Quarry"
 era = "village"
 category = "materials"

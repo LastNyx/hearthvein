@@ -11,6 +11,7 @@ outputs = {"tools": 1.5}
 [resource]
 script = ExtResource("1")
 id = "toolsmith"
+description = "Turns Lumen cells and planks into tools."
 display_name = "Toolsmith"
 era = "city"
 category = "refining"

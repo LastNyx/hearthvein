@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "cleanser"
+description = "Workers scrub blighted ground clean, one tile at a time, within a short reach."
 display_name = "Cleanser"
 era = "town"
 category = "civic"

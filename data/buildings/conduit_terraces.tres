@@ -18,6 +18,7 @@ extra_worker_slots = 2
 [resource]
 script = ExtResource("1")
 id = "conduit_terraces"
+description = "Terraced homes for many citizens on the sky islands. They need a well nearby."
 display_name = "Conduit Terraces"
 era = "conflux"
 category = "housing"

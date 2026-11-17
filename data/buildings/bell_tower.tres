@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "bell_tower"
+description = "A landmark whose bell marks your settlement as a real town. Building it opens the Town era."
 display_name = "Bell Tower"
 era = "village"
 category = "landmark"
