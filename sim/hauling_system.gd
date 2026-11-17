@@ -123,8 +123,11 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_walk_version = -1
 	_ids.clear()
 	_storages.clear()
+	_blds.clear()
+	_door_blds.clear()
 	_layout_version = -1
 	_layout_count = -1
+	_layout_completion = -1
 
 
 func on_seconds(s: Settlement, seconds: float) -> void:
@@ -189,18 +192,28 @@ var _ids: Array = []
 var _storages: Array[Building] = []
 var _layout_version: int = -1
 var _layout_count: int = -1
+var _layout_completion: int = -1
+var _blds: Array[Building] = []  # every building in id order
+var _door_blds: Array[Building] = []  # ... those with a door buffer (producers)
 
 
 func _layout(s: Settlement) -> void:
-	if _layout_version == s.grid_version and _layout_count == s.buildings.size():
+	if _layout_version == s.grid_version and _layout_count == s.buildings.size() \
+			and _layout_completion == s.completion_version:
 		return
 	_layout_version = s.grid_version
 	_layout_count = s.buildings.size()
+	_layout_completion = s.completion_version
 	_ids = s.buildings.keys()
 	_ids.sort()
 	_storages.clear()
+	_blds.clear()
+	_door_blds.clear()
 	for id in _ids:
 		var b: Building = s.buildings[id]
+		_blds.append(b)
+		if b.door_buffer != null:
+			_door_blds.append(b)
 		if b.inventory != null:
 			_storages.append(b)
 
@@ -275,14 +288,10 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	var lg := s.registry.logistics
 	var load_cap := _haul_load(s, cid)
 	_layout(s)
-	var ids: Array = _ids
 	# 1. door buffers: fullest pickup first.
 	var best: Trip = null
 	var best_avail := 0.0
-	for id in ids:
-		var b: Building = s.buildings[id]
-		if b.door_buffer == null:
-			continue
+	for b in _door_blds:
 		for g in b.door_buffer.goods():
 			var avail: float = b.door_buffer.amount_of(g) - _res("d", b.id, g)
 			if avail < lg.min_pickup - Inventory.EPS or avail <= best_avail:
@@ -298,16 +307,30 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	if best != null:
 		return best
 	# 2. storage -> consumer input buffers and in-place upgrade buffers.
-	for id in ids:
-		var b: Building = s.buildings[id]
-		var t := _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
-		if t != null:
-			return t
+	for b in _blds:
+		if b.input_buffer != null:
+			var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
+			if t != null:
+				return t
 		if b.upgrading():
-			t = _plan_for_need(s, ws, b, b.upgrade_buffer, upgrade_need(b), true, load_cap)
+			var t := _plan_for_need(s, ws, b, b.upgrade_buffer, upgrade_need(b), true, load_cap)
 			if t != null:
 				return t
 	return null
+
+
+var _def_need: Dictionary = {}  # BuildingDef -> input_need (a def's need never changes while the game runs)
+
+
+## need_of, with the per-def result of input_need kept: planning asks it for every building on every call.
+func _need_cached(s: Settlement, b: Building) -> Dictionary:
+	if b.site:
+		return need_of(s.registry, b)
+	var n = _def_need.get(b.def)
+	if n == null:
+		n = input_need(s.registry, b.def)
+		_def_need[b.def] = n
+	return n
 
 
 ## One trip toward a buffer's deficit of `need`, or null. Upgrade deliveries reserve under their own kind "u", so a
