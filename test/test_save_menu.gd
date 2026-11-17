@@ -241,9 +241,8 @@ func test_pause_menu_buttons_and_slot_lists() -> void:
 	var menu: SaveMenu = main.menu
 	main.slots.autosave(main.settlement)
 	menu.open()
-	for id in ["Resume", "Save", "Load", "Settings", "Milestones", "MainMenu", "Quit"]:
+	for id in ["Resume", "Save", "Load", "Settings", "Help", "Milestones", "MainMenu", "Quit"]:
 		assert_true((menu.find_child(id, true, false) as Button).is_visible_in_tree(), id)
-	assert_false((menu.find_child("Help", true, false) as Button).visible, "Help hidden until ticket 85 connects it")
 	# Save: manual slots only, no Load buttons
 	_press(menu, "Save")
 	assert_eq(_slot_buttons(menu, "Save").size(), 8)

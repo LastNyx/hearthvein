@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "planet_health"
+order = 9
+title = "Planet health"
+body = "Planet health is shown in the top bar as a percent with its change over a year. It starts at {planet.start}%.
+
+It falls a little every day: for each blighted tile ({planet.per_blight_tile}), and for each working extractor: Lumen Tap {building.lumen_tap.health_per_day}, Pump {building.lumen_pump.health_per_day}, Reactor {building.lumen_reactor.health_per_day}, Vein Bore {building.vein_bore.health_per_day}.
+
+It rises a little every day: for each forest tile ({planet.per_forest_tile}), and for each cleaning building: Cleanser {building.cleanser.health_per_day}, Park {building.park.health_per_day}, Purifier Tower {building.purifier_tower.health_per_day}, Verdant Spring {building.verdant_spring.health_per_day}.
+
+A sick planet hurts you: Dimmings last longer, veins give less Lumen, forest dies back below {planet.dieback_below}% and Spirit falls below {spirit.grief_below}%.
+
+To win, planet health must be at least {planet.win_health}% at the end."

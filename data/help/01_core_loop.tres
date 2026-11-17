@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "core_loop"
+order = 1
+title = "Core loop"
+body = "You never move citizens yourself. You place buildings and roads, and citizens find their own work.
+
+1. Build a road out from the Hearth and put buildings beside it. A building with no road to the Hearth gets no workers.
+2. Foragers and farms make food. Woodcutters fell trees and make Materials. Lumen Taps make Lumen. Markets earn gold for each worker in them.
+3. Haulers carry goods from the buildings to Storehouses.
+4. Food left over after everyone has eaten fills the growth bar. When it is full and a bed is free, a new citizen arrives.
+5. Enough citizens and gold, plus the landmark building, open the next era.
+
+Every winter a Dimming comes. Store Lumen and food before it.
+
+Taking Lumen blights land and makes the planet sick. A sick planet makes later Dimmings longer. To win, planet health must be {planet.win_health}% or more at the very end.
+
+Press F1 any time to read this help. Esc opens the pause menu."

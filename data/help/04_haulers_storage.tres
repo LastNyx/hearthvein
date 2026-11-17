@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "haulers_storage"
+order = 4
+title = "Haulers and storage"
+body = "A building puts what it makes in a small buffer at its door. The buffer holds {logistics.door_buffer_cap} units. When it is full the building stops and shows a warning.
+
+Haulers carry goods from those doors to Storehouses, and from Storehouses to where goods are needed, such as building sites. Hauler is a job citizens take on their own. The Hearth has {building.hearth.hauler_slots} hauler jobs and each Storehouse has {building.storehouse.hauler_slots}. On foot a hauler carries {logistics.haul_load} units at a time.
+
+The Hearth is placed for you. It holds {building.hearth.storage_cap} of each good. A Storehouse holds {building.storehouse.storage_cap} units in all, any mix. Put Storehouses beside a road near your producers.
+
+Citizens fetch their own food and light from the nearest Storehouse, so a home far from any Storehouse means a long walk.
+
+Lumen left in store loses 1% a day."

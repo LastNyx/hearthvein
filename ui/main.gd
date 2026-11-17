@@ -32,6 +32,7 @@ var slots: SaveSlots
 var menu: SaveMenu
 var menu_model: SaveMenuModel
 var end_screen: EndScreen
+var help: HelpScreen
 var title_screen: TitleScreen
 var new_game_panel: NewGamePanel
 var _world: Array[Node] = []
@@ -65,6 +66,10 @@ func _ready() -> void:
 	menu.load_requested.connect(func(s: Settlement) -> void:
 		menu.close()
 		swap_settlement(s))
+	help = HelpScreen.new()
+	add_child(help)
+	help.setup(registry, func() -> SimDriver: return driver if state == State.GAME else null)
+	menu.help_requested.connect(func() -> void: help.open_page(help.current_page()))
 	end_screen = EndScreen.new()
 	end_screen.name = "EndScreen"
 	add_child(end_screen)
@@ -153,6 +158,7 @@ func _free_world() -> void:
 	trains = null
 	airships = null
 	overlay = null
+	help.close()
 	hud = null
 	hud_model = null
 	camera = null
@@ -284,6 +290,7 @@ func _build_world(s: Settlement) -> void:
 	_add(hud)
 	hud.setup(hud_model, build, camera, driver)
 	hud.add_cards(settings)
+	hud.hint_cards.help_page_requested.connect(help.open_page)
 
 
 ## Repaint the islands on the sky layer from the sim (raised and removed islands).
@@ -304,7 +311,10 @@ func _add(n: Node) -> void:
 ## Esc opens the menu unless it still has something to cancel (build tool, selection, flyout) or the menu is open.
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_ESCAPE:
-		if menu.is_open():
+		if help.is_open():
+			help.close()
+			get_viewport().set_input_as_handled()
+		elif menu.is_open():
 			menu.close()
 			get_viewport().set_input_as_handled()
 		elif new_game_panel != null:

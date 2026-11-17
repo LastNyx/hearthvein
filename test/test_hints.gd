@@ -102,11 +102,11 @@ func test_one_at_a_time_queue_click_and_timeout_close() -> void:
 	assert_eq(cards.current_id(), "", "closes after 20 s")
 
 
-func test_more_button_asks_for_the_help_page_and_hides_until_wired() -> void:
+func test_more_button_asks_for_the_help_page() -> void:
 	var main: Node = await _game()
 	var cards := _cards(main)
 	_halt(main)
-	assert_false(cards.more_button().visible, "nothing connected yet")
+	assert_true(cards.more_button().visible, "Main wires the help screen (ticket 85)")
 	cards.close()
 	var asked: Array[String] = []
 	cards.help_page_requested.connect(func(p: String) -> void: asked.append(p))

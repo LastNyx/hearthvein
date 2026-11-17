@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "building_roads"
+order = 2
+title = "Building and roads"
+body = "Open a category on the bottom bar (or press B), pick a building and click the map to place it. It starts as a building site: haulers bring what it costs, then builders build it. Builders take a few days.
+
+The Hearth gives {building.hearth.builder_slots} builder jobs. Each Builder's Yard adds {building.builders_yard.builder_slots} more.
+
+Roads: press R, then click or drag. Dirt roads are free. Paved roads need the Town era and cost Materials and Cut stone. Citizens walk at {road.dirt.walk_speed} tiles a second on dirt, {road.paved.walk_speed} on paved, and slower on bare ground.
+
+Workers walk from home to work, so keep homes, jobs and Storehouses close together. A building with no road to the Hearth gets no workers.
+
+Click a building to select it. U upgrades it. X is the demolish tool and gives back {logistics.demolish_refund%}% of the cost. Right click or Esc cancels a tool."

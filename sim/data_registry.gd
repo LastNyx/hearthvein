@@ -23,6 +23,7 @@ var tiers: TierRuleDef = null       # the single data/tiers/tiers.tres (upgrade 
 var milestones: Dictionary = {}  # id -> MilestoneDef
 var tutorial_goals: Dictionary = {}  # id -> TutorialDef
 var hints: Dictionary = {}  # id -> HintDef
+var help_pages: Dictionary = {}  # id -> HelpPageDef
 var errors: Array[String] = []
 
 
@@ -35,6 +36,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	milestones.clear()
 	tutorial_goals.clear()
 	hints.clear()
+	help_pages.clear()
 	terrain.clear()
 	roads.clear()
 	logistics = null
@@ -111,6 +113,15 @@ func hints_in_order() -> Array[HintDef]:
 	return out
 
 
+## Help pages in order.
+func help_pages_in_order() -> Array[HelpPageDef]:
+	var out: Array[HelpPageDef] = []
+	for h in help_pages.values():
+		out.append(h)
+	out.sort_custom(func(a: HelpPageDef, b: HelpPageDef) -> bool: return a.order < b.order)
+	return out
+
+
 ## Eras sorted by order.
 func eras_in_order() -> Array[EraDef]:
 	var out: Array[EraDef] = []
@@ -163,6 +174,8 @@ func _index(path: String) -> void:
 		_add(milestones, res.id, res, path, "milestone")
 	elif res is HintDef:
 		_add(hints, res.id, res, path, "hint")
+	elif res is HelpPageDef:
+		_add(help_pages, res.id, res, path, "help page")
 	elif res is TutorialDef:
 		_add(tutorial_goals, res.id, res, path, "tutorial goal")
 	elif res is TerrainDef:
@@ -240,6 +253,9 @@ func _validate() -> void:
 			errors.append("hint '%s': unknown help page '%s'" % [h.id, h.help_page])
 		if not HintDef.CHECKS.has(h.check):
 			errors.append("hint '%s': unknown check '%s'" % [h.id, h.check])
+	for hp: HelpPageDef in help_pages.values():
+		if hp.title == "" or hp.body == "":
+			errors.append("help page '%s': empty title or body" % hp.id)
 	for g: GoodDef in goods.values():
 		if g.kind != GoodDef.KIND_BASE and g.kind != GoodDef.KIND_REFINED:
 			errors.append("good '%s': unknown kind '%s'" % [g.id, g.kind])

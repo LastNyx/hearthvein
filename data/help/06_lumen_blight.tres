@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "lumen_blight"
+order = 6
+title = "Lumen and blight"
+body = "Lumen is the power of this world. It comes from veins (the glowing cyan crystals): Lumen Taps, Pumps, Reactors and Vein Bores are built on them. Lumen runs buildings that have upkeep, and it lights your homes during a Dimming. Haulers carry it to Storehouses.
+
+Every one of those extractors blights land. Every few days the nearest clean tile in its radius turns blighted:
+Lumen Tap: radius {building.lumen_tap.blight_radius}, every {building.lumen_tap.blight_period_days} days.
+Lumen Pump: radius {building.lumen_pump.blight_radius}, every {building.lumen_pump.blight_period_days} days.
+Lumen Reactor: radius {building.lumen_reactor.blight_radius}, every {building.lumen_reactor.blight_period_days} days.
+Vein Bore: radius {building.vein_bore.blight_radius}, every {building.vein_bore.blight_period_days} day.
+
+Blighted land farms worse, trees do not regrow on it, and homes next to it lose Spirit. Press V to see the blight. Taking down an extractor stops new blight, but the old blight stays. Cleanser, Purifier Tower and Verdant Spring clear it, and a Park keeps its own ground clean.
+
+Blight never ends the game, but it costs food, Spirit and planet health."

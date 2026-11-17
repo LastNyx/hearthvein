@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "spirit"
+order = 5
+title = "Spirit"
+body = "Spirit is the mood of your people, from 0 to 100. It starts at {spirit.start} and moves {spirit.step_per_day} points a day toward a target. The target starts at {spirit.base}.
+
+It goes up with: each kind of food beyond the first (+{spirit.food_type_bonus} each, up to +{spirit.food_type_max}); most homes near a Shrine, Park or Hall of Seasons (+{spirit.coverage_bonus}).
+
+It goes down with: hunger (-{spirit.hunger_penalty}); homeless citizens (-{spirit.homeless_penalty}); blight near homes (up to -{spirit.blight_max}); homes without drinking water (up to -{spirit.water_max}); darkness in a Dimming (-{spirit.darkness_penalty}); a Tax Office (-{spirit.tax_office_penalty}); a sick planet, when health is below {spirit.grief_below}% (up to -{spirit.grief_max}).
+
+At {spirit.high_at} or more, people work {spirit.work_high%}% faster and the camp grows {spirit.growth_high%}% faster. At {spirit.low_at} or less, work is {spirit.work_low%}% slower and nobody new arrives.
+
+If Spirit stays below {spirit.leave_below} for {spirit.leave_after_days} days in a row, a citizen leaves every {spirit.leave_every_days} days."
