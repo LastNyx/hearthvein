@@ -90,6 +90,7 @@ func reset_tutorial() -> void:
 
 func _commit() -> void:
 	settings.apply(get_window() if is_inside_tree() else null)
+	settings.changed.emit()
 	if settings.save() != OK:
 		_status.text = "Could not save settings."
 

@@ -3,6 +3,9 @@ extends RefCounted
 ## User settings (ticket 76, D58/D65/D69), stored in user://settings.cfg. Missing file, bad file or bad values fall
 ## back to the defaults. Volumes are only stored here; the sound ticket creates the buses and applies them.
 
+## Emitted by the Settings panel after a change (the sound player applies the volumes).
+signal changed
+
 const SECTION := "settings"
 const SCALES: Array[float] = [1.0, 1.25, 1.5]
 

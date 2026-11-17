@@ -23,6 +23,8 @@ var milestones_path: String = "user://milestones.json"
 ## User settings (ticket 76); tests set a temp path before add_child. Loaded and applied in _ready, before the world.
 var settings_path: String = "user://settings.cfg"
 var settings: GameSettings
+## Sound (ticket 86): outlives swaps, re-bound to each Settlement.
+var sound: SoundPlayer
 ## What quit_game() ends the program with; tests swap it so the test run survives.
 var quit_fn: Callable = func() -> void: get_tree().quit()
 var settlement: Settlement
@@ -54,6 +56,10 @@ func _ready() -> void:
 	settings.path = settings_path
 	settings.load_file()
 	settings.apply(get_window())
+	sound = SoundPlayer.new()
+	sound.name = "SoundPlayer"
+	add_child(sound)  # first, so every button built below clicks
+	sound.setup(settings)
 	registry = DataRegistry.new()
 	registry.load_all()
 	MilestoneSystem.lifetime_path = milestones_path
@@ -167,6 +173,7 @@ func _free_world() -> void:
 
 func _build_title() -> void:
 	state = State.TITLE
+	sound.set_title()
 	map_view = MapView.new()
 	map_view.name = "MapView"
 	_add_title(map_view)
@@ -218,6 +225,7 @@ func _free_title() -> void:
 
 func _build_world(s: Settlement) -> void:
 	settlement = s
+	sound.bind(s)
 	driver = SimDriver.new()
 	driver.settlement = s
 	map_view = MapView.new()
