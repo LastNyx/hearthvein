@@ -55,6 +55,12 @@ var site: bool = false:
 		if v != site:
 			site = v
 			layout_rev += 1
+## Staged landmark (BuildingDef.stages): index of the stage being built, 0 = the first. stages.size() = all done.
+## While below that the building stays a site (site = true) with the current stage's cost.
+var stage: int = 0
+## Gold of the current stage still unpaid. A new stage's gold is taken from the treasury as soon as it holds enough
+## (Settlement.pay_stage_gold); until then the stage's work does not start.
+var gold_due: int = 0
 ## Builder-days of work done so far and needed (build days x crew), see ConstructionSystem.
 var build_work: float = 0.0
 var build_work_needed: float = 0.0
@@ -161,13 +167,19 @@ func build_progress() -> float:
 
 ## What this building cost to place: the def's cost, or nothing for a free one (cost_free).
 func effective_cost() -> Dictionary:
-	return {} if cost_free else def.cost
+	if cost_free:
+		return {}
+	if site and not def.stages.is_empty():
+		return def.stages[clampi(stage, 0, def.stages.size() - 1)].get("cost", {})
+	return def.cost
 
 
 ## True when every non-gold good of the cost is in the site's buffer (gold is paid on placement).
 func site_delivered() -> bool:
 	if not site:
 		return true
+	if gold_due > 0:
+		return false
 	var cost := effective_cost()
 	for g in cost:
 		if g != BuildingDef.GOLD and (input_buffer == null or input_buffer.amount_of(g) < float(cost[g]) - Inventory.EPS):
@@ -213,6 +225,8 @@ func to_dict() -> Dictionary:
 		"door_buffer": door_buffer.to_dict() if door_buffer != null else null,
 		"input_buffer": input_buffer.to_dict() if input_buffer != null else null,
 		"site": site,
+		"stage": stage,
+		"gold_due": gold_due,
 		"build_work": build_work,
 		"build_work_needed": build_work_needed,
 		"upgrade_tier": upgrade_tier,
@@ -246,6 +260,8 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Building:
 	if d["input_buffer"] != null:
 		b.input_buffer = Inventory.from_dict(d["input_buffer"])
 	b.site = bool(d["site"])
+	b.stage = int(d.get("stage", 0))
+	b.gold_due = int(d.get("gold_due", 0))
 	b.build_work = float(d["build_work"])
 	b.build_work_needed = float(d["build_work_needed"])
 	b.upgrade_tier = int(d.get("upgrade_tier", 0))

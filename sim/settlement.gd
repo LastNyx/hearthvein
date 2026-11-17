@@ -131,6 +131,7 @@ func add_default_systems() -> void:
 	add_system(UpkeepSystem.new())  # spends the day's Lumen before Production and Market gold read the flag
 	add_system(HaulingSystem.new())
 	add_system(ConstructionSystem.new())
+	add_system(SkyheartSystem.new())  # stage gold and the finished Skyheart's reservoir fill (ticket 45); after the grid
 	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
 	add_system(GrowthSystem.new())
 	add_system(BlightSystem.new())  # blight first, so the day's health sees it
@@ -406,6 +407,10 @@ func can_place(def_id: String, origin: Vector2i, ignore_era: bool = false, layer
 		return {"ok": false, "reason": "era_locked"}
 	if def_id == "hearth" and hearth != null:
 		return {"ok": false, "reason": "unique"}
+	if def.unique:
+		for other: Building in buildings.values():
+			if other.def.id == def_id:
+				return {"ok": false, "reason": "unique"}  # sites count
 	if layer != Building.LAYER_GROUND and layer != Building.LAYER_SKY:
 		return {"ok": false, "reason": "wrong_layer"}
 	if (layer == Building.LAYER_SKY and def.layers == "ground") or (layer == Building.LAYER_GROUND and def.layers == "island"):
@@ -502,7 +507,7 @@ func cost_for(def_id: String) -> Dictionary:
 		return {}
 	if _free_anchor_available(def):
 		return {}
-	return def.cost
+	return def.entry_cost()
 
 
 func _free_anchor_available(def: BuildingDef) -> bool:
@@ -559,7 +564,17 @@ func build_days(def: BuildingDef) -> float:
 func complete_site(b: Building) -> void:
 	if not b.site:
 		return
+	if not b.def.stages.is_empty():
+		var done_stage := b.stage
+		b.stage += 1
+		events.emit("skyheart_stage", {"id": b.id, "stage": done_stage + 1,
+				"name": str(b.def.stages[done_stage].get("name", ""))})
+		if b.stage < b.def.stages.size():
+			_open_stage(b)  # the next stage's site opens on the same building, no command
+			return
+		events.emit("skyheart_finished", {"id": b.id})
 	b.site = false
+	b.gold_due = 0
 	b.input_buffer = null
 	_init_buffers(b)
 	completion_version += 1
@@ -571,6 +586,31 @@ func complete_site(b: Building) -> void:
 		_recompute_connections()
 	events.emit("building_completed", {"id": b.id, "def": b.def.id, "origin": b.origin})
 	refresh_population()
+
+
+## Opens the current stage of a staged building as a fresh site: empty buffer sized for the stage's goods, no work done,
+## the stage's gold owed (paid at once when the treasury has it).
+func _open_stage(b: Building) -> void:
+	var cost := b.effective_cost()
+	var cap := 0.0
+	for g in cost:
+		if g != BuildingDef.GOLD:
+			cap = maxf(cap, float(cost[g]))
+	b.input_buffer = Inventory.new("per_good", cap)
+	b.build_work = 0.0
+	b.build_work_needed = build_days(b.def) * float(registry.logistics.builder_crew)
+	b.gold_due = int(cost.get(BuildingDef.GOLD, 0))
+	pay_stage_gold(b)
+	completion_version += 1
+	grid_version += 1
+
+
+## Takes the gold a stage still owes from the treasury when it is all there. Stage gold is not paid on placement
+## (only the first stage is), so the stage waits for it like it waits for hauled goods.
+func pay_stage_gold(b: Building) -> void:
+	if b.gold_due > 0 and gold >= float(b.gold_due) - Inventory.EPS:
+		gold -= float(b.gold_due)
+		b.gold_due = 0
 
 
 func _init_buffers(b: Building) -> void:
@@ -618,6 +658,7 @@ func _insert_building(def: BuildingDef, origin: Vector2i, as_site: bool = false,
 		b.build_work_needed = build_days(def) * float(registry.logistics.builder_crew)
 	else:
 		_init_buffers(b)
+		b.stage = def.stages.size()  # a staged building placed finished is past every stage
 	buildings[b.id] = b
 	grid_version += 1
 	structure_version += 1
@@ -680,6 +721,8 @@ func _refund_for(b: Building) -> Dictionary:
 		var have := float(cost[g])
 		if b.site and g != BuildingDef.GOLD:
 			have = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
+		elif b.site and b.gold_due > 0:
+			have = 0.0  # a staged site's gold not yet paid
 		if have * share > Inventory.EPS:
 			out[g] = have * share
 	# An in-place upgrade in flight: goods already delivered for it come back at the same share (like a site's).

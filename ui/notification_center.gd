@@ -26,7 +26,7 @@ var _active: Dictionary = {}  # cause key -> true while the cause stands
 func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
-			"era_changed", "island_still", "island_resumed"]:
+			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -90,6 +90,10 @@ func _on_event(e: Dictionary) -> void:
 					"Island over region %d is still: %s" % [int(d["region"]), ISLAND_TEXT.get(d["why"], str(d["why"]))])
 		"island_resumed":
 			_clear_island(int(d["island"]))
+		"skyheart_stage":
+			raise("skyheart:%d" % d["stage"], "milestone", "Skyheart stage %d done: %s" % [d["stage"], d["name"]])
+		"skyheart_finished":
+			raise("skyheart:finished", "milestone", "The Skyheart is finished")
 		"building_demolished":
 			_clear_building(d["id"])
 		"era_changed":

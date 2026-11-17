@@ -286,6 +286,8 @@ func selection() -> Dictionary:
 		lines.append("Upgrading to Tier %d: %d%%" % [b.upgrade_tier, roundi(b.upgrade_progress() * 100.0)])
 		lines.append(_goods_line("Delivered", b.upgrade_buffer))
 	if b.site:
+		if not b.def.stages.is_empty():
+			lines.append("Stage %d of %d: %s" % [b.stage + 1, b.def.stages.size(), skyheart_stage_name(b)])
 		lines.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
 		lines.append(_goods_line("Delivered", b.input_buffer))
 	else:
@@ -293,6 +295,8 @@ func selection() -> Dictionary:
 			lines.append("Workers %d/%d" % [_workers(b), b.effective_worker_slots(s.registry)])
 		if b.effective_beds(s.registry) > 0:
 			lines.append("Beds %d" % b.effective_beds(s.registry))
+		if b.def.reservoir_capacity > 0.0:
+			lines.append(reservoir_text(b))
 		lines.append(_goods_line("Input", b.input_buffer))
 		var made := _makes_line(b)
 		lines.append(made)
@@ -319,6 +323,22 @@ func selection() -> Dictionary:
 			"priority": b.priority, "paused": b.paused, "site": b.site, "progress": b.build_progress()}
 	out.merge(upgrade_info(b))
 	return out
+
+
+## Name of the stage a staged building is on ("" for an ordinary one or a finished one).
+func skyheart_stage_name(b: Building) -> String:
+	if b.def.stages.is_empty() or b.stage >= b.def.stages.size():
+		return ""
+	return str(b.def.stages[b.stage].get("name", ""))
+
+
+## "Reservoir 120 / 3000 L" for a finished building with a reservoir (ticket 45), "" otherwise.
+func reservoir_text(b: Building) -> String:
+	if b.site or b.def.reservoir_capacity <= 0.0:
+		return ""
+	var sys := s.get_system(SkyheartSystem) as SkyheartSystem
+	var held := sys.reservoir_charge(b.id) if sys != null else 0.0
+	return "Reservoir %d / %d L" % [floori(held), roundi(b.def.reservoir_capacity)]
 
 
 const UPGRADE_REASONS := {"unknown_building": "No building", "site": "Still under construction",
@@ -405,7 +425,7 @@ func build_bar() -> Array[Dictionary]:
 		if not by_cat.has(def.category):
 			by_cat[def.category] = []
 		by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
-				"cost": goods_cost_text(def.cost), "size": "%dx%d" % [def.size.x, def.size.y],
+				"cost": goods_cost_text(def.entry_cost()), "size": "%dx%d" % [def.size.x, def.size.y],
 				"reason": layer_block_reason(def), "enabled": layer_block_reason(def) == ""})
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:

@@ -183,8 +183,23 @@ const GOLD := "gold"
 ## Id of a building that, once finished, makes the first placement of this def free (Lift Anchor: "sky_foundry").
 ## "" = never free. Settlement.cost_for answers with the effective cost.
 @export var free_first_with: String = ""
+## True when only one building of this def may exist at a time, sites counting (Placement reason "unique").
+@export var unique: bool = false
+## Staged landmark (Skyheart, design.md section 18, ticket 45): [{"name": String, "cost": {good: int}}] in order. A
+## def with stages is built one stage after another on the same building (Building.stage); `cost` is then unused and
+## the placement cost is the first stage's. Empty = an ordinary one-step building.
+@export var stages: Array[Dictionary] = []
+## Skyheart reservoir (ticket 45): Lumen it can hold once finished, and the most it takes from its grid per hour.
+## 0 = no reservoir. SkyheartSystem owns the charge.
+@export var reservoir_capacity: float = 0.0
+@export var reservoir_fill_per_hour: float = 0.0
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false
 ## Tier II then tier III. Empty unless upgradable.
 @export var tiers: Array[TierDef] = []
+
+
+## What placing this def costs: the first stage's cost for a staged building, else `cost`.
+func entry_cost() -> Dictionary:
+	return (stages[0].get("cost", {}) as Dictionary) if not stages.is_empty() else cost

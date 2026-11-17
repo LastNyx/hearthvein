@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "skyheart"
+display_name = "Skyheart"
+era = "ascendant"
+category = "landmark"
+size = Vector2i(4, 4)
+cost = {}
+worker_slots = 0
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+upgradable = false
+layers = "ground"
+unique = true
+stages = Array[Dictionary]([{"name": "Foundation", "cost": {"materials": 800, "cut_stone": 300}}, {"name": "Lattice", "cost": {"planks": 300, "tools": 200}}, {"name": "Core", "cost": {"lumen_cells": 400, "lumen": 1000}}, {"name": "Crown", "cost": {"gold": 1500, "tools": 200, "lumen_cells": 200}}])
+reservoir_capacity = 3000.0
+reservoir_fill_per_hour = 40.0
