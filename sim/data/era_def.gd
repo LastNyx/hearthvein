@@ -13,3 +13,5 @@ extends Resource
 @export var gate_landmark: String = ""
 ## Base length in days of the Dimming in this era.
 @export var dimming_base_days: int = 2
+## One plain line for the era card: what gets harder from this era on (design.md sections 14-17).
+@export var new_pressure: String = ""

@@ -11,3 +11,4 @@ gate_pop = 200
 gate_gold = 1200
 gate_landmark = "lumen_nexus"
 dimming_base_days = 6
+new_pressure = "The Dimming lasts at least 6 days. Regions need goods and Lumen moved between them: use the Lumen grid, cargo rail and airships. Vein Bores blight fast and drain the planet."

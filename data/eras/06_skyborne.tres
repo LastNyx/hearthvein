@@ -11,3 +11,4 @@ gate_pop = 320
 gate_gold = 2500
 gate_landmark = "sky_foundry"
 dimming_base_days = 7
+new_pressure = "The Dimming lasts at least 7 days. Each sky island needs 20 Lumen a day from the grid, or it goes still."

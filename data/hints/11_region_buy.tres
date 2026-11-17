@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "region_buy"
+order = 11
+trigger = "day_started"
+filter_key = ""
+filter_value = ""
+check = "region_buy"
+title = "A region you can buy"
+body = "You have enough gold for a region next to your land. Press M to open the region map. More land means more room, veins and forest."
+help_page = "core_loop"

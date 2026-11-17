@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "homeless"
+order = 8
+trigger = "day_started"
+filter_key = ""
+filter_value = ""
+check = "homeless"
+title = "Homeless citizens"
+body = "Some citizens have no bed. Homeless citizens lower Spirit and stop growth. Build more homes."
+help_page = "citizens_food"

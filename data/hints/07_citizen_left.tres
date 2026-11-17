@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "citizen_left"
+order = 7
+trigger = "citizen_left_unhappy"
+filter_key = ""
+filter_value = ""
+check = ""
+title = "A citizen left"
+body = "Spirit stayed very low for days, so a citizen left. Raise Spirit: feed people well, give them beds, clear blight near homes."
+help_page = "spirit"

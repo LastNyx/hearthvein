@@ -283,6 +283,7 @@ func _build_world(s: Settlement) -> void:
 	hud.name = "Hud"
 	_add(hud)
 	hud.setup(hud_model, build, camera, driver)
+	hud.add_cards(settings)
 
 
 ## Repaint the islands on the sky layer from the sim (raised and removed islands).

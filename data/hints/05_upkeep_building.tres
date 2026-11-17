@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "upkeep_building"
+order = 5
+trigger = "building_completed"
+filter_key = ""
+filter_value = ""
+check = "upkeep_building"
+title = "Lumen upkeep"
+body = "This building needs Lumen every day. Haulers bring it from a Storehouse. If its Lumen runs short, it works at half speed."
+help_page = "haulers_storage"

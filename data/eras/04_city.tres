@@ -11,3 +11,4 @@ gate_pop = 100
 gate_gold = 500
 gate_landmark = "lumen_spire"
 dimming_base_days = 5
+new_pressure = "Lumen Reactors make a lot of Lumen but blight land every 2 days in radius 6, and a sick planet makes Dimmings longer. The Dimming lasts at least 5 days."

@@ -60,6 +60,9 @@ var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _open_cat := ""
 var tutorial_panel: TutorialPanel
+var hint_cards: HintCards
+var era_card: EraCard
+var _right_col: VBoxContainer
 var _pulsed: Button
 var _pulse_t := 0.0
 var _acc := 0.0
@@ -112,6 +115,7 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(right)
+	_right_col = right
 	_build_overlay_menu(right)
 	_build_era_panel(right)
 	_build_notes(center)
@@ -134,6 +138,18 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 		_show_flyout()
 		refresh())
 	refresh()
+
+
+## The hint cards (right edge, under the era and tutorial panels) and the era card (centred); Main adds them once it has
+## the settings. Tests and shot scripts that build a Hud without settings simply have neither.
+func add_cards(settings: GameSettings) -> void:
+	hint_cards = HintCards.new()
+	_right_col.add_child(hint_cards)
+	hint_cards.setup(self, model.s, settings)
+	era_card = EraCard.new()
+	_float.add_child(era_card)
+	era_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	era_card.setup(self, model.s, driver)
 
 
 # ---------------------------------------------------------------- building blocks

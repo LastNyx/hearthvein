@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "darkness"
+order = 6
+trigger = "darkness_started"
+filter_key = ""
+filter_value = ""
+check = ""
+title = "Darkness"
+body = "There is not enough Lumen for everyone's light. Spirit falls and the camp stops growing until light is back. Keep more Lumen in store before the next Dimming."
+help_page = "dimming"
