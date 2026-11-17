@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = "camera_moved"
 order = 1
-text = "Drag with the right mouse button, scroll to zoom.\nGet a feel for the island before you build."
+text = "Drag with the right mouse button, scroll to zoom.\nGet a feel for the land before you build."
 kind = "camera_moved"
 def_id = ""
 amount = 0

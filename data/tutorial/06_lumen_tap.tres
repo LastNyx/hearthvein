@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = "lumen_tap"
 order = 6
-text = "Press V to show the veins, then build a Lumen Tap on one.\nLumen keeps the lights on in a Dimming. Tapping a vein spreads blight: the cost of light."
+text = "Build a Lumen Tap on a vein (the glowing cyan crystals).\nLumen keeps the lights on in a Dimming, but a tap spreads blight. Press V to see it."
 kind = "built"
 def_id = "lumen_tap"
 amount = 1

@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = "market"
 order = 7
-text = "Build a Market.\nIt turns the food people eat into gold, and gold buys the next gate, the Village."
+text = "Build a Market.\nIts workers earn gold, and gold is part of the gate to the next era, the Village."
 kind = "built"
 def_id = "market"
 amount = 1
