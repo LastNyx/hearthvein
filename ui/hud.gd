@@ -20,6 +20,7 @@ const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water",
 var model: HudModel
 var build: BuildController
 var camera: Camera2D
+var _right := RightDrag.new()
 var driver: SimDriver
 var _font: FontFile
 var _body_font: FontFile
@@ -552,6 +553,9 @@ func has_cancelable() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _right.feed(event) and (build == null or build.mode == BuildController.Mode.NONE) and model.selected_id >= 0:
+		model.clear_selection()  # right click (not a drag) deselects; with a build tool active it cancels that instead
+		refresh()
 	if event is InputEventKey and event.pressed and not event.echo:
 		match (event as InputEventKey).keycode:
 			KEY_V: _on_overlay("blight")

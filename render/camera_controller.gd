@@ -9,6 +9,7 @@ const PAN_SPEED := 900.0  # screen pixels per second
 var bounds: Rect2 = Rect2(0, 0, 4096, 3072)
 var zoom_step: int = START_STEP
 var _dragging := false
+var _right := RightDrag.new()
 
 
 ## True at the farthest zoom step (D46: walkers and prop shadows are not drawn there).
@@ -76,7 +77,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			set_zoom_step(step_index(zoom_step, -1))
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			_dragging = mb.pressed
-	elif event is InputEventMouseMotion and _dragging:
+	_right.feed(event)
+	if event is InputEventMouseMotion and (_dragging or _right.dragged):
 		position = _clamped(panned(position, (event as InputEventMouseMotion).relative, zoom.x))
 
 
