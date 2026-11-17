@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("2")
+display_name = "Lumen Arcology II"
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("2")
+display_name = "Lumen Arcology III"
+
+[resource]
+script = ExtResource("1")
+id = "lumen_arcology"
+display_name = "Lumen Arcology"
+era = "ascendant"
+category = "housing"
+size = Vector2i(3, 3)
+cost = {"materials": 300, "gold": 120, "cut_stone": 60, "tools": 40, "lumen_cells": 20}
+worker_slots = 0
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 4.0
+housing_beds = 60
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+needs_water = true
+upgradable = true
+layers = "either"
+tiers = Array[ExtResource("2")]([SubResource("Tier2"), SubResource("Tier3")])

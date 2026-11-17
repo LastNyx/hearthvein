@@ -151,6 +151,9 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	if IslandSystem.is_still_building(s, b):
 		_set_halt(s, b, "island_still")
 		return
+	if b.def.min_planet_health > 0.0 and s.planet_health() < b.def.min_planet_health:
+		_set_halt(s, b, "planet_too_sick")
+		return
 	var dry := WaterSystem.dry_halt(s, b)
 	if dry != "":
 		_set_halt(s, b, dry)

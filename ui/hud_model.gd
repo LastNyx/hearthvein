@@ -307,6 +307,7 @@ func selection() -> Dictionary:
 		"no_input": halt_text = "Halted: waiting for input"
 		"no_forest": halt_text = "Halted: no forest in range"
 		"island_still": halt_text = "Halted: the island is still"
+		"planet_too_sick": halt_text = "Halted: planet health below %d%%" % int(b.def.min_planet_health)
 	var bl := _blight_near(b)
 	if bl > 0:
 		lines.append("Blight: %d tiles" % bl)

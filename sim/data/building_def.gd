@@ -73,6 +73,9 @@ const GOLD := "gold"
 @export var dimming_vein_factor: float = 0.0
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
+## Heartroot Tap (design.md section 17): the building only works while Settlement.planet_health() is at least this
+## much; below it ProductionSystem halts it with "planet_too_sick" and it resumes once health is back. 0 = no gate.
+@export var min_planet_health: float = 0.0
 ## Healers (design.md section 17, Ascendant), measured like clean_radius (Euclidean from the closest footprint tile),
 ## once a day while the building works. Verdant Spring: each day heal_blight_per_day blighted tiles within
 ## heal_blight_radius are cleared and turned into fertility-100 soil. 0 = no soil healing.
