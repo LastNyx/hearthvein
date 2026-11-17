@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "lumen_tap"
+order = 6
+text = "Press V to show the veins, then build a Lumen Tap on one.\nLumen keeps the lights on in a Dimming. Tapping a vein spreads blight: the cost of light."
+kind = "built"
+def_id = "lumen_tap"
+amount = 1
+highlight = "lumen_tap"
+covers_hints = Array[String](["first_blight"])

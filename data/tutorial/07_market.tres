@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "market"
+order = 7
+text = "Build a Market.\nIt turns the food people eat into gold, and gold buys the next gate, the Village."
+kind = "built"
+def_id = "market"
+amount = 1
+highlight = "market"
+covers_hints = Array[String]([])

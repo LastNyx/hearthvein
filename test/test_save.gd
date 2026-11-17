@@ -404,7 +404,7 @@ func test_save_file_is_compressed_and_carries_a_version() -> void:
 	f.close()
 	assert_eq(typeof(payload), TYPE_DICTIONARY)
 	assert_eq(int((payload as Dictionary)["version"]), SaveGame.CURRENT_VERSION)
-	assert_eq(SaveGame.CURRENT_VERSION, 2)
+	assert_eq(SaveGame.CURRENT_VERSION, 3)
 	assert_true((payload as Dictionary).has("state"))
 	# The data on disk is smaller than the payload it decodes to, and the file does not start with the raw Variant
 	# bytes: it is a compressed container around them (a plain FileAccess.get_var cannot parse it).

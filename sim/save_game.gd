@@ -7,16 +7,17 @@ extends RefCounted
 ## A file older than CURRENT_VERSION is upgraded by MIGRATIONS, one step per version and in order (see
 ## migrate_chain). A file from a newer build, or one that fails _validate, is refused: load returns null.
 
-const CURRENT_VERSION := 2
+const CURRENT_VERSION := 3
 
 ## Migration steps: source version -> Callable(state: Dictionary) -> Dictionary of the next version.
 ## The chain is run by version number, so the dictionary order does not matter. To add a version: write the step,
 ## register it under CURRENT_VERSION, and bump CURRENT_VERSION, e.g. when going to 2:
 ##     const CURRENT_VERSION := 2
-##     static var MIGRATIONS := {0: migrate_v0_to_v1, 1: migrate_v1_to_v2}
+##     static var MIGRATIONS := {0: migrate_v0_to_v1, 1: migrate_v1_to_v2}  (now at 3, see below)
 static var MIGRATIONS: Dictionary = {
 	0: migrate_v0_to_v1,
 	1: migrate_v1_to_v2,
+	2: migrate_v2_to_v3,
 }
 
 ## Keys Settlement.from_dict reads from a state dictionary.
@@ -164,6 +165,21 @@ static func migrate_v1_to_v2(state: Variant) -> Variant:
 		var ch := PackedByteArray()
 		ch.resize(MapState.WIDTH * MapState.HEIGHT)
 		d["channels"] = ch
+	return d
+
+
+## v2 -> v3: the tutorial (ticket 82) joined the settlement state. A save from before it loads with the tutorial
+## finished (D69): the player has already learned the game.
+static func migrate_v2_to_v3(state: Variant) -> Variant:
+	if typeof(state) != TYPE_DICTIONARY:
+		push_error("SaveGame migration 2 -> 3: state is not a dictionary")
+		return null
+	var d: Dictionary = state
+	var systems: Dictionary = d.get("systems", {})
+	if not systems.has("tutorial"):
+		systems["tutorial"] = {"active": false, "finished": true, "index": 0, "done": [], "camera_moved": false,
+				"ended_seen": false}
+	d["systems"] = systems
 	return d
 
 

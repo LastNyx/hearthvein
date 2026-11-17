@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "camera_moved"
+order = 1
+text = "Drag with the right mouse button, scroll to zoom.\nGet a feel for the island before you build."
+kind = "camera_moved"
+def_id = ""
+amount = 0
+highlight = ""
+covers_hints = Array[String]([])

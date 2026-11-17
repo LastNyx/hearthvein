@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dimming_ended"
+order = 10
+text = "Keep everyone fed and lit until the Dimming ends.\nA day without light makes people unhappy and stops growth."
+kind = "dimming_ended"
+def_id = ""
+amount = 0
+highlight = ""
+covers_hints = Array[String]([])
