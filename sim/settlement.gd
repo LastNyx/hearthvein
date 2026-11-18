@@ -322,6 +322,28 @@ func _advance_hour() -> void:
 		_run_deferred(true)
 
 
+var _kind_ids: Dictionary = {}  # job kind -> citizen ids in id order, see citizen_ids_of_kind
+var _kind_key := Vector2i(-1, -1)
+
+
+## Citizen ids whose job_kind is `kind`, in id order, kept until a job kind changes (Citizen.job_epoch) or the number of
+## citizens does. Per-frame systems used to sort and scan every citizen each frame. A citizen swapped for another with no
+## job change in between can leave a stale id: callers check the citizen they get, as they did before.
+func citizen_ids_of_kind(kind: String) -> Array:
+	var key := Vector2i(Citizen.job_epoch, citizens.size())
+	if key != _kind_key:
+		_kind_key = key
+		_kind_ids.clear()
+	if not _kind_ids.has(kind):
+		var out: Array = []
+		for cid in citizens:
+			if (citizens[cid] as Citizen).job_kind == kind:
+				out.append(cid)
+		out.sort()
+		_kind_ids[kind] = out
+	return _kind_ids[kind]
+
+
 ## The registered system of a class, or null.
 func get_system(script: GDScript) -> SimSystem:
 	if _system_cache_size != systems.size():  # added or erased since the cache was filled

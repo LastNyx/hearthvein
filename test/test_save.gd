@@ -29,6 +29,12 @@ const SKIP := {
 	"Settlement._deferred_head": "pending day hooks; SaveGame.save flushes them",
 	"Settlement._frame_step": "only meaningful inside a step_seconds call",
 	"Settlement._held": "frame steps waiting for the pending hour-end hooks; a save flushes them, the wait is not state",
+	"Settlement._kind_ids": "citizen ids per job kind, a cache refilled on demand",
+	"Settlement._kind_key": "key of the per-job-kind id cache, refilled on demand",
+	# WalkerSystem (band lists are rebuilt from the walkers; save_state pays every band first, so nothing is owed)
+	"WalkerSystem._bands": "walker lists per movement band, rebuilt from the walkers",
+	"WalkerSystem._bands_count": "key of the band lists, rebuilt",
+	"WalkerSystem._band_owed": "game seconds owed per band; save_state pays them, so a save holds none",
 	# MapState
 	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
 	"MapState.foul_version": "counter of fouling changes, not saved; a load rebuilds the fouling mask and caches",

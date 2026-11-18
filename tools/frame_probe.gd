@@ -69,6 +69,60 @@ func _frames(s: Settlement, speed: int, days: int, label: String) -> void:
 			label, speed, frames, sum / frames, _pct(ms, 0.99), ms[ms.size() - 1], BUDGET_MS, over, _load()])
 
 
+## Per-system cost of on_seconds per frame (ticket 89b): the step_seconds chunk loop replicated with each system timed.
+## Hour ends are flushed untimed, so this is the pure every-frame cost. Prints mean, p99 and worst ms per system.
+func _per_system(s: Settlement, speed: int, days: int, label: String) -> void:
+	var frames := int(days * GameClock.REAL_SECONDS_PER_DAY * FPS / speed)
+	var step := speed / FPS
+	s.flush_deferred()
+	var per := {}
+	var total: Array = []
+	for i in frames:
+		var left := step
+		var frame_us := 0
+		while left > 0.0:
+			var chunk := minf(left, GameClock.REAL_SECONDS_PER_HOUR - s._hour_acc)
+			for sys in s.systems:
+				var a := Time.get_ticks_usec()
+				sys.on_seconds(s, chunk)
+				var d := Time.get_ticks_usec() - a
+				frame_us += d
+				var n: String = sys.get_script().get_global_name()
+				if not per.has(n):
+					per[n] = []
+				var arr: Array = per[n]
+				if arr.size() <= i:
+					arr.resize(i + 1)
+					arr[i] = 0
+				arr[i] += d
+			left -= chunk
+			s._hour_acc += chunk
+			if s._hour_acc >= GameClock.REAL_SECONDS_PER_HOUR - 0.000001:
+				s._hour_acc = 0.0
+				s._frame_step = true
+				s._advance_hour()
+				s.flush_deferred()
+		total.append(frame_us / 1000.0)
+	var rows: Array = []
+	for n in per:
+		var arr: Array = per[n]
+		var sum := 0.0
+		for v in arr:
+			sum += v
+		var sorted: Array = arr.map(func(v: int) -> float: return v / 1000.0)
+		sorted.sort()
+		rows.append([sum / frames / 1000.0, n, _pct(sorted, 0.99), sorted[sorted.size() - 1]])
+	rows.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+	var tsum := 0.0
+	for v: float in total:
+		tsum += v
+	total.sort()
+	print("PROBE %s %dx on_seconds per frame: all systems mean %.3f p99 %.3f worst %.3f ms (load %s)" % [
+			label, speed, tsum / frames, _pct(total, 0.99), total[total.size() - 1], _load()])
+	for r in rows.slice(0, 7):
+		print("PROBE   %-24s mean %6.3f ms  p99 %6.3f  worst %6.3f" % [r[1], r[0], r[2], r[3]])
+
+
 ## Per-system cost of the hour-end hooks over `hours` hours, each system timed alone (the order the sim runs them).
 func _hour_end(s: Settlement, label: String, hours: int) -> void:
 	s.flush_deferred()
@@ -129,7 +183,10 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var seed_arg := int(args[0]) if args.size() > 0 and args[0].is_valid_int() else 42
 	var days := int(args[1]) if args.size() > 1 and args[1].is_valid_int() else 2
+	var only := args[2] if args.size() > 2 else ""  # optional: run one layout (conflux, skyborne or town600)
 	for era in ["conflux", "skyborne", "town600"]:
+		if only != "" and only != era:
+			continue
 		var main: Node = null
 		var s: Settlement
 		if era == "town600":  # the 600-citizen fixture of test_perf, no scene: a heavy sim without the render listeners
@@ -147,6 +204,8 @@ func _init() -> void:
 				(s.get_system(WalkerSystem) as WalkerSystem).walkers.size()])
 		for speed in [1, 2, 3]:
 			_frames(s, speed, days, era)
+		if era == "town600":
+			_per_system(s, 1, days, era)
 		_hour_end(s, era, 200)
 		if main != null:
 			main.queue_free()

@@ -642,3 +642,34 @@ func test_spread_hour_ends_match_unspread_frame_steps() -> void:
 	assert_gt(logs[0].size(), 0, "events were logged")
 	assert_eq(logs[1], logs[0], "events arrive in the same order, at the same hour")
 	assert_eq(hash(var_to_str(spread.to_dict())), hash(var_to_str(flushed.to_dict())), "same settlement state")
+
+
+## Ticket 89b: a big town moves its walkers in bands (a third of them per frame step, each with the time it was owed), so
+## over three frames every walker on the road has moved, and a save pays what is owed.
+func test_big_town_walkers_all_move_within_three_frame_steps() -> void:
+	var w := PerfFixture.build(reg, SEED, 600)
+	var ws := w.get_system(WalkerSystem) as WalkerSystem
+	var guard := 0
+	var moving := 0
+	while moving < 50 and guard < 3000:  # into the morning commute
+		w.step_seconds(CHUNK)
+		w.flush_deferred()
+		guard += 1
+		moving = 0
+		for wk: Walker in ws.walkers.values():
+			moving += 0 if wk.path.is_empty() else 1
+	assert_gte(moving, 50, "a commute got going")
+	assert_gte(ws.walkers.size(), WalkerSystem.BAND_MIN_WALKERS, "the town is big enough to band")
+	var before := {}
+	for id in ws.walkers:
+		var wk: Walker = ws.walkers[id]
+		if not wk.path.is_empty():
+			before[id] = [wk.tile, wk.progress, wk.path.size()]
+	for i in WalkerSystem.BAND_COUNT:
+		w.step_seconds(CHUNK)
+	var still := 0
+	for id in before:
+		var wk: Walker = ws.walkers[id]
+		if not wk.path.is_empty() and [wk.tile, wk.progress, wk.path.size()] == before[id]:
+			still += 1
+	assert_eq(still, 0, "every walker that was on the road moved within %d steps" % WalkerSystem.BAND_COUNT)

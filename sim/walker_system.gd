@@ -54,6 +54,11 @@ const COARSE_STEP := 0.25
 const REPLAN_BUDGET := 12
 ## Departure bins per game second; the seeded offset is quantized to this so the queue sorts as plain ints.
 const DEPART_BINS := 300
+## Big towns (ticket 89b): from BAND_MIN_WALKERS walkers a frame-sized step advances one of BAND_COUNT bands of walkers
+## per call, each with the game time that passed since its last turn (a walker moves at 20 Hz instead of 60 Hz and
+## arrives at most BAND_COUNT - 1 frames late). Smaller settlements and coarse steps move everybody every call.
+const BAND_MIN_WALKERS := 300
+const BAND_COUNT := 3
 
 var walkers: Dictionary = {}  # citizen id -> Walker, in citizen id order of creation
 
@@ -100,9 +105,16 @@ var _from_save: bool = false
 var _handcart_zones: Dictionary = {}
 ## Cache key for _handcart_zones: Settlement (structure_version, completion_version) it was built at.
 var _zones_key := Vector2i(-1, -1)
+## Banded movement: walkers dealt into BAND_COUNT lists by citizen id, the game seconds each band is owed, whose turn it is.
+## Runtime only: save_state() pays every band first.
+var _bands: Array = []
+var _bands_count: int = -1  # walkers.size() the lists were built for (-1 = rebuild)
+var _band_owed := PackedFloat64Array()
+var _band_turn: int = 0
 
 
 func save_state() -> Dictionary:
+	_pay_bands()
 	var ws := []
 	for id in walkers:
 		ws.append([id, (walkers[id] as Walker).to_dict()])
@@ -132,6 +144,8 @@ func load_state(d: Dictionary, settlement: Settlement) -> void:
 	# and must be re-planned like the live settlement does on its next step. Only when the two agree can the restart
 	# skip _replan_all().
 	_from_save = int(d["grid_version"]) == settlement.grid_version
+	_bands_count = -1
+	_band_owed = PackedFloat64Array()
 
 
 # ---------------------------------------------------------------- hooks
@@ -146,16 +160,58 @@ func on_seconds(settlement: Settlement, seconds: float) -> void:
 		_sync()
 	_refresh_grid()
 	_drain_replans()
-	for id in walkers:
-		var w: Walker = walkers[id]
-		if not w.path.is_empty():
-			_advance(w, seconds)
+	_move(seconds)
 	_hour_elapsed += seconds
 	_dispatch_departures(seconds)
 
 
+## Moves the walkers `seconds` along, in bands for a big town and a frame-sized step (see BAND_MIN_WALKERS).
+func _move(seconds: float) -> void:
+	if walkers.size() < BAND_MIN_WALKERS or seconds >= COARSE_STEP:
+		_pay_bands()
+		for w: Walker in walkers.values():
+			if not w.path.is_empty():
+				_advance(w, seconds)
+		return
+	if _bands_count != walkers.size() or _band_owed.size() != BAND_COUNT:
+		_pay_bands()
+		_bands_count = walkers.size()
+		_bands = []
+		for b in BAND_COUNT:
+			_bands.append([])
+		for id in walkers:
+			(_bands[id % BAND_COUNT] as Array).append(walkers[id])
+		_band_owed.resize(BAND_COUNT)
+		_band_owed.fill(0.0)
+	for b in BAND_COUNT:
+		_band_owed[b] += seconds
+	var owed := _band_owed[_band_turn]
+	_band_owed[_band_turn] = 0.0
+	for w: Walker in _bands[_band_turn]:
+		if not w.path.is_empty():
+			_advance(w, owed)
+	_band_turn = (_band_turn + 1) % BAND_COUNT
+
+
+## Moves every band by the time it is owed (before anything that needs walkers exactly where the clock says: a coarse
+## step, a save, a settlement that shrank below the banding size).
+func _pay_bands() -> void:
+	if _bands_count < 0:
+		return
+	for b in mini(_band_owed.size(), _bands.size()):
+		var owed := _band_owed[b]
+		_band_owed[b] = 0.0
+		if owed > 0.0:
+			for w: Walker in _bands[b]:
+				if not w.path.is_empty():
+					_advance(w, owed)
+	_bands_count = -1
+	_band_turn = 0  # a save and its load both restart the rotation at band 0
+
+
 func on_hour(settlement: Settlement) -> void:
 	_s = settlement
+	_pay_bands()  # the band lists are rebuilt from the synced walkers next step
 	_sync()  # always: one citizen leaving and another arriving between two syncs keeps the count equal
 	_refresh_grid()
 	_hour_elapsed = 0.0
@@ -802,16 +858,24 @@ func _passable_or_door(t: Vector2i) -> bool:
 
 func _advance(w: Walker, seconds: float) -> void:
 	var budget := seconds
+	var h := MapState.HEIGHT
 	while not w.path.is_empty():
 		var nxt := w.path[0]
 		var sp: float
-		if MapState.layer_of(nxt) != MapState.layer_of(w.tile):
+		var sky := nxt.y >= h
+		if sky != (w.tile.y >= h):
 			sp = 1.0 / _ride_seconds(w.tile, nxt)  # a lift or dock crossing
 		else:
-			sp = _spd(nxt)
-			var nl := MapState.local_of(nxt)
-			if _s.roads_for_layer(MapState.layer_of(nxt))[MapState.idx(nl.x, nl.y)] == Settlement.ROAD_PAVED:
-				sp *= _paved_haul_factor(w.citizen_id)
+			# MapState.layer_of / local_of / idx / roads_for_layer inlined: this runs for every moving walker every frame.
+			var li := (nxt.y - h if sky else nxt.y) * MapState.WIDTH + nxt.x
+			if sky:
+				sp = _sky_speeds[li]
+				if _s.sky_roads[li] == Settlement.ROAD_PAVED:
+					sp *= _paved_haul_factor(w.citizen_id)
+			else:
+				sp = _speeds[li]
+				if _s.roads[li] == Settlement.ROAD_PAVED:
+					sp *= _paved_haul_factor(w.citizen_id)
 		var need := (1.0 - w.progress) / sp
 		if budget >= need:
 			budget -= need

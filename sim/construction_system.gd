@@ -84,12 +84,11 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var h := s.clock.hour()
 	var in_shift := h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
 	var builders: Array = []
-	for cid in s.citizens:
-		if (s.citizens[cid] as Citizen).job_kind == Citizen.JOB_BUILD:
+	for cid in s.citizen_ids_of_kind(Citizen.JOB_BUILD):
+		if s.citizens.has(cid) and (s.citizens[cid] as Citizen).job_kind == Citizen.JOB_BUILD:
 			builders.append(cid)
 	if builders.is_empty() and crews.is_empty():
 		return  # nobody builds and nobody is on a crew: nothing below would do anything
-	builders.sort()
 	var wanted := {}  # citizen id -> site
 	var sites: Array[Building] = []
 	if in_shift:
