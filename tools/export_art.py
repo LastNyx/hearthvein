@@ -1201,26 +1201,42 @@ def shadow_image(sp, bx, by):
 
 
 def fx_image(sp, bx, by):
-    """Lantern/crystal glows and chimney smoke exactly as the scene renderer composites them."""
+    """Lantern/crystal glows exactly as the scene renderer composites them (smoke is smoke_image, ticket 90)."""
     W, H = sp.img.size
-    if not sp.glows and not sp.smoke:
+    if not sp.glows:
         return None, None
     mg = max([r for _, _, r, _ in sp.glows] + [0]) + 34
     size = (W + 2 * mg, H + 2 * mg)
-    smoke = Image.new("RGBA", size)
+    glow = Image.new("RGBA", size)
+    for gx, gy, r, c in sp.glows:
+        glow.alpha_composite(M.glow_img(r, c), (mg + gx - r, mg + gy - r))
+    box = glow.getbbox()
+    if box is None:
+        return None, None
+    return glow.crop(box), (box[0] - mg - bx, box[1] - mg - by)
+
+
+SMOKE_PAD = (4, 14, 4, 2)  # left, top, right, bottom transparent margin: the shader shifts the column up and sways it
+
+
+def smoke_image(sp, bx, by):
+    """Chimney smoke puff columns (the same puffs the scene renderer draws), alone and padded, for the smoke shader."""
+    if not sp.smoke:
+        return None, None
+    W, H = sp.img.size
+    mg = 20
+    smoke = Image.new("RGBA", (W + 2 * mg, H + 2 * mg))
     sd = ImageDraw.Draw(smoke)
     for x, y in sp.smoke:
         for k in range(4):
             r = 2 + k
             cx, cy = mg + x + int(math.sin(k * 1.3) * 3) + k, mg + y - k * 6
             sd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(235, 235, 240, 150 - k * 32))
-    glow = Image.new("RGBA", size)
-    for gx, gy, r, c in sp.glows:
-        glow.alpha_composite(M.glow_img(r, c), (mg + gx - r, mg + gy - r))
-    smoke.alpha_composite(glow)
     box = smoke.getbbox()
     if box is None:
         return None, None
+    pl, pt, pr, pb = SMOKE_PAD
+    box = (box[0] - pl, box[1] - pt, box[2] + pr, box[3] + pb)
     return smoke.crop(box), (box[0] - mg - bx, box[1] - mg - by)
 
 
@@ -1239,6 +1255,11 @@ def export_sprite(sp, rel, extra=None):
         frel = rel.replace(".png", "_fx.png")
         save(fx, OUT / frel)
         e["fx"] = {"file": frel, "offset": list(foff)}
+    sm, soff = smoke_image(sp, bx, by)
+    if sm is not None:
+        srel = rel.replace(".png", "_smoke.png")
+        save(sm, OUT / srel)
+        e["smoke"] = {"file": srel, "offset": list(soff)}
     if extra:
         e.update(extra)
     return e

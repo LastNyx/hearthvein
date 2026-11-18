@@ -206,6 +206,20 @@ func _hour_end(s: Settlement, label: String, hours: int) -> void:
 		print("PROBE   %-28s mean %7.3f ms  worst %7.3f ms" % [r[1], r[0] / hours / 1000.0, worst[r[1]] / 1000.0])
 
 
+## Render-side cost of the chimney smoke check (ticket 90): PlacementView.refresh_smoke runs twice a second in the game,
+## so it is timed here per call (200 calls). Shaders are not measured: that needs a windowed run.
+func _smoke_cost(main: Node, label: String) -> void:
+	var pv: PlacementView = main.placement
+	var times: Array = []
+	for i in 200:
+		var t0 := Time.get_ticks_usec()
+		pv.refresh_smoke()
+		times.append((Time.get_ticks_usec() - t0) / 1000.0)
+	times.sort()
+	print("PROBE %s smoke check (2 Hz in game): %d chimneys, median %.3f ms, worst %.3f ms per call" % [
+			label, pv._smoke.size(), times[100], times[199]])
+
+
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var seed_arg := int(args[0]) if args.size() > 0 and args[0].is_valid_int() else 42
@@ -235,6 +249,7 @@ func _init() -> void:
 			_per_system(s, 3 if era != "town600" else 1, days, era)
 		_hour_end(s, era, 200)
 		if main != null:
+			_smoke_cost(main, era)
 			main.queue_free()
 			await process_frame
 	quit()
