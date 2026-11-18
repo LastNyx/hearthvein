@@ -40,6 +40,8 @@ const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0
 ## From City on, food producers pause above this many units per citizen (see _throttle).
 const FOOD_THROTTLE_CITY := 12.0
 const CITY_ORDER := 4
+## Materials stock above which the quarries may give way to unstaffed Markets (City on).
+const GOLD_HOLD_MATERIALS := 150.0
 ## From this era on a new workplace needs as many idle citizens (not promised to open sites) as it has slots (47h).
 const LABOUR_ERA := 3
 ## Share of a landmark's goods that must be in stock before its site is placed (City on).
@@ -819,6 +821,8 @@ func _throttle(pop: int) -> void:
 		var stock := float(_stock.get(good, 0.0))
 		if good == "materials" and _refined_short():
 			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the quarries until they have caught up
+		if good == "materials" and stock >= GOLD_HOLD_MATERIALS and _gold_unstaffed():
+			high = minf(high, stock - 1.0)  # Markets rank below the quarries: hold the quarries while the gate's gold waits for hands (47h)
 		var ids: Array = PRODUCERS.get(good, [])
 		if good == "food":
 			ids = ["forager", "farm", "fishing_dock", "greenhouse", "hydroponic_hall", "bloom_orchard"]
@@ -858,6 +862,20 @@ func _track_labour(pop: int) -> void:
 	_wanted_max = maxf(_wanted_max, float(wanted) / float(maxi(pop, 1)))
 	if wanted > pop:
 		_wanted_over += 1
+
+
+## True from City on while the gate's gold is not in the treasury and a Market or Bazaar has empty slots.
+func _gold_unstaffed() -> bool:
+	if s.registry.get_era(s.era_current).order < CITY_ORDER:
+		return false
+	var g := s.era_gate()
+	if g["next"] == "" or s.gold >= float(g.get("gold_need", 0)):
+		return false
+	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()
+	for b: Building in s.buildings.values():
+		if not b.site and not b.paused and PRODUCERS["gold"].has(b.def.id) and int(counts.get(b.id, 0)) < b.effective_worker_slots(s.registry):
+			return true
+	return false
 
 
 ## Producers of a refined good the era's landmark still lacks (and of the planks and cells a missing Tool eats) get high
