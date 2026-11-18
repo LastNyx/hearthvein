@@ -272,6 +272,7 @@ func _validate() -> void:
 		if r.era != "" and not eras.has(r.era):
 			errors.append("road '%s': unknown era '%s'" % [r.id, r.era])
 		_check_amounts(r.cost, "road '%s' cost" % r.id, false)
+		_check_amounts(r.bridge_cost, "road '%s' bridge_cost" % r.id, false)
 		if levels.has(r.level):
 			errors.append("road '%s': level %d already used by '%s'" % [r.id, r.level, levels[r.level]])
 		levels[r.level] = r.id
@@ -285,6 +286,8 @@ func _validate() -> void:
 			or logistics.demolish_refund < 0.0 or logistics.demolish_refund > 1.0 \
 			or logistics.unpaid_upkeep_factor <= 0.0 or logistics.unpaid_upkeep_factor > 1.0:
 		errors.append("logistics: every number must be positive")
+	elif logistics.track_bridge_multiplier < 1.0:
+		errors.append("logistics: track_bridge_multiplier must be at least 1")
 	elif logistics.island_width <= 0 or logistics.island_height <= 0 or logistics.island_max <= 0 \
 			or logistics.island_width > MapState.REGION_W or logistics.island_height > MapState.REGION_H:
 		errors.append("logistics: island size must fit a region and island_max must be positive")

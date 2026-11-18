@@ -58,6 +58,23 @@
    "sparkle_1"
   ]
  },
+ "bridges": {
+  "plank": {
+   "cols": 16,
+   "file": "bridges/plank.png",
+   "rows": 1
+  },
+  "stone": {
+   "cols": 16,
+   "file": "bridges/stone.png",
+   "rows": 1
+  },
+  "trestle": {
+   "cols": 16,
+   "file": "bridges/trestle.png",
+   "rows": 1
+  }
+ },
  "buildings": {
   "aether_collector": {
    "base": [

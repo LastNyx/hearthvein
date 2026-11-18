@@ -1162,10 +1162,48 @@ func can_place_road(tile: Vector2i, layer: int = Building.LAYER_GROUND) -> bool:
 		return false
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water" or (tdef != null and not tdef.buildable):
+	var water := tid == "water"  # a road on water is a bridge (ticket 91): allowed when the dirt bridge cost is in storage
+	if tdef != null and not tdef.buildable and not water:
 		return false
 	var i := MapState.idx(tile.x, tile.y)
+	if water and not _can_afford(bridge_cost(tile, ROAD_DIRT)):
+		return false
 	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE  # a track tile may take a road: a level crossing (ticket 67)
+
+
+## True when the tile is open water (river). A road here is a bridge, track here a rail bridge (ticket 91).
+func is_water_tile(tile: Vector2i) -> bool:
+	return MapState.in_bounds(tile.x, tile.y) and map.terrain_id_at(tile.x, tile.y) == "water"
+
+
+## True when a road or track tile stands on water: the bridge art is drawn there, the water underneath is unchanged.
+func is_bridge(tile: Vector2i) -> bool:
+	return is_water_tile(tile) and (road_at(tile) != ROAD_NONE or track_at(tile))
+
+
+## Extra cost of laying road `level` on this tile: RoadDef.bridge_cost on a water tile, {} on land.
+func bridge_cost(tile: Vector2i, level: int) -> Dictionary:
+	if not is_water_tile(tile):
+		return {}
+	var rd := registry.get_road_by_level(level)
+	return rd.bridge_cost if rd != null else {}
+
+
+func _can_afford(cost: Dictionary) -> bool:
+	var have := totals()
+	for g in cost:
+		if float(have.get(g, 0.0)) + Inventory.EPS < float(cost[g]):
+			return false
+	return true
+
+
+## Pays a whole cost from storage, all or nothing.
+func _spend_cost(cost: Dictionary) -> bool:
+	if not _can_afford(cost):
+		return false
+	for g in cost:
+		spend_good(g, float(cost[g]))
+	return true
 
 
 ## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
@@ -1181,6 +1219,8 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT, layer: int = Building.LA
 		_recompute_connections()
 		return true
 	if not can_place_road(tile) or roads[MapState.idx(tile.x, tile.y)] >= level:
+		return false
+	if not _spend_cost(bridge_cost(tile, level)):  # a bridge tile pays RoadDef.bridge_cost for the level laid
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = level
 	grid_version += 1
@@ -1240,7 +1280,8 @@ func _pave_stone_units(cost: Dictionary) -> int:
 ## tile or upgrades a dirt road. The cost is the paved RoadDef's `cost` (design.md section 6: 1 materials + 0.2 cut
 ## stone, Town). Cut stone is charged in whole units: each tile adds its 0.2 to a running debt and a whole unit is
 ## spent as the debt fills, so five tiles cost one stone and storage never holds a fraction of a good.
-## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, channel, already_paved, era_locked,
+## On a water tile the paved bridge cost (RoadDef.bridge_cost) is added to the paved cost (ticket 91).
+## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, already_paved, era_locked,
 ## materials, cut_stone.
 func can_pave_road(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
@@ -1249,9 +1290,7 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "locked_region"}
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water":
-		return {"ok": false, "reason": "water"}
-	if tdef != null and not tdef.buildable:
+	if tdef != null and not tdef.buildable and tid != "water":
 		return {"ok": false, "reason": "blocked_terrain"}
 	var i := MapState.idx(tile.x, tile.y)
 	if occupancy[i] >= 0:
@@ -1264,7 +1303,8 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "era_locked"}
 	var rd := registry.get_road_by_level(ROAD_PAVED)
 	var cost: Dictionary = rd.cost if rd != null else {}
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < float(cost.get("materials", 0.0)):
+	var bridge := bridge_cost(tile, ROAD_PAVED)  # a stone bridge tile pays the paved cost and the bridge cost again
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < float(cost.get("materials", 0.0)) + float(bridge.get("materials", 0.0)):
 		return {"ok": false, "reason": "materials"}
 	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < float(_pave_stone_units(cost)):
 		return {"ok": false, "reason": "cut_stone"}
@@ -1303,7 +1343,8 @@ func track_at(tile: Vector2i) -> bool:
 ## its own layer, placed like road: on owned, buildable land, never under a building. A track tile and a road tile are
 ## different overlays and cannot share a tile (reason "road"; the same goes for a channel). The cost is
 ## LogisticsDef.track_cost_materials + track_cost_cut_stone per tile (design.md section 8: 2 materials + 1 cut stone).
-## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, channel, track, materials, cut_stone.
+## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, track, materials, cut_stone.
+## Track on a water tile is a rail bridge at LogisticsDef.track_bridge_multiplier (3x) the track cost (ticket 91).
 ## A road tile takes track too (ticket 67, a level crossing): both layers stay set, and lifting one leaves the other.
 func can_place_track(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
@@ -1312,9 +1353,7 @@ func can_place_track(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "locked_region"}
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water":
-		return {"ok": false, "reason": "water"}
-	if tdef != null and not tdef.buildable:
+	if tdef != null and not tdef.buildable and tid != "water":
 		return {"ok": false, "reason": "blocked_terrain"}
 	var i := MapState.idx(tile.x, tile.y)
 	if occupancy[i] >= 0:
@@ -1324,9 +1363,10 @@ func can_place_track(tile: Vector2i) -> Dictionary:
 	if track[i] != 0:
 		return {"ok": false, "reason": "track"}
 	var lg := registry.logistics
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < lg.track_cost_materials:
+	var k := _track_factor(tile)
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < lg.track_cost_materials * k:
 		return {"ok": false, "reason": "materials"}
-	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < lg.track_cost_cut_stone:
+	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < lg.track_cost_cut_stone * k:
 		return {"ok": false, "reason": "cut_stone"}
 	return {"ok": true, "reason": ""}
 
@@ -1337,10 +1377,11 @@ func place_track(tile: Vector2i) -> bool:
 	if not can_place_track(tile)["ok"]:
 		return false
 	var lg := registry.logistics
-	if not spend_good("materials", lg.track_cost_materials):
+	var k := _track_factor(tile)
+	if not spend_good("materials", lg.track_cost_materials * k):
 		return false
-	if lg.track_cost_cut_stone > 0.0 and not spend_good("cut_stone", lg.track_cost_cut_stone):
-		_return_goods({"materials": lg.track_cost_materials}, tile)  # defensive: can_place_track checked both
+	if lg.track_cost_cut_stone > 0.0 and not spend_good("cut_stone", lg.track_cost_cut_stone * k):
+		_return_goods({"materials": lg.track_cost_materials * k}, tile)  # defensive: can_place_track checked both
 		return false
 	track[MapState.idx(tile.x, tile.y)] = 1
 	grid_version += 1
@@ -1349,6 +1390,11 @@ func place_track(tile: Vector2i) -> bool:
 	events.emit("track_changed", {"tile": tile, "laid": true})
 	_recompute_connections()
 	return true
+
+
+## Cost multiplier of a track tile: the rail bridge factor on water, 1 on land.
+func _track_factor(tile: Vector2i) -> float:
+	return registry.logistics.track_bridge_multiplier if is_water_tile(tile) else 1.0
 
 
 ## True from the Conflux era on: the build bar and the T key offer track only then (place_track itself does not
@@ -1371,8 +1417,9 @@ func remove_track(tile: Vector2i) -> bool:
 	var lg := registry.logistics
 	if lg != null:
 		var refund := {}
-		var m := lg.track_cost_materials * lg.demolish_refund
-		var c := lg.track_cost_cut_stone * lg.demolish_refund
+		var k := _track_factor(tile)
+		var m := lg.track_cost_materials * k * lg.demolish_refund
+		var c := lg.track_cost_cut_stone * k * lg.demolish_refund
 		if m > Inventory.EPS:
 			refund["materials"] = m
 		if c > Inventory.EPS:

@@ -13,3 +13,6 @@ cost = {
 "materials": 1.0,
 "cut_stone": 0.2
 }
+bridge_cost = {
+"materials": 5.0
+}

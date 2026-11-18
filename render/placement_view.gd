@@ -112,6 +112,7 @@ func _refresh_road(t: Vector2i) -> void:
 	var lv := _level(t)
 	if lv <= 0:
 		view.roads.erase_cell(t)
+		view.bridges.erase_cell(t)
 		# Props come back unless a building or track still covers the tile.
 		view.set_props_visible(t, settlement.building_at(t) == null and not settlement.track_at(t))
 		return
@@ -120,6 +121,11 @@ func _refresh_road(t: Vector2i) -> void:
 	for i in 4:
 		if _level(t + [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT][i]) > 0:
 			mask |= 1 << i
+	if settlement.is_water_tile(t):  # a bridge: the deck goes on its own layer and the water stays visible around it
+		view.roads.erase_cell(t)
+		view.bridges.set_cell(t, lv, Vector2i(mask, 0))
+		return
+	view.bridges.erase_cell(t)
 	view.roads.set_cell(t, lv, ArtLibrary.road_coords(mask, t.x, t.y))
 
 
@@ -138,7 +144,10 @@ func _refresh_track(t: Vector2i) -> void:
 	for i in 4:
 		if settlement.track_at(t + dirs[i]):
 			mask |= 1 << i
-	view.track.set_cell(t, 1 if _level(t) > 0 else 0, Vector2i(mask, 0))  # source 1: level crossing over a road
+	var src := 1 if _level(t) > 0 else 0  # source 1: level crossing over a road (a bridge deck, on water)
+	if src == 0 and settlement.is_water_tile(t):
+		src = ArtLibrary.BRIDGE_TRESTLE  # rail bridge with no road deck under it
+	view.track.set_cell(t, src, Vector2i(mask, 0))
 
 
 func _dug(t: Vector2i) -> bool:

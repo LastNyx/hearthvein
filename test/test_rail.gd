@@ -235,4 +235,4 @@ func test_crossing_keeps_road_connectivity_and_survives_save() -> void:
 func test_crossing_art_in_manifest() -> void:
 	var r: Dictionary = ArtLibrary.manifest()["rail"]
 	assert_true(r.has("crossing") and r.has("track"), "track and crossing atlases are exported")
-	assert_eq(ArtLibrary.track_tileset().get_source_count(), 2)
+	assert_eq(ArtLibrary.track_tileset().get_source_count(), 3, "plain track, crossing and the bridge trestle (ticket 91)")

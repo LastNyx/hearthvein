@@ -981,6 +981,91 @@ def ARMS_BIT(dx, dy):
     return 0
 
 
+# ------------------------------------------------------------------ bridges (ticket 91)
+def bridge_tile(kind, mask):
+    """A bridge deck over a water tile for a connection mask (N=1, E=2, S=4, W=8): plank (dirt road), stone (paved road)
+    or trestle (rail, with the plain track tile laid over its timber). Transparent outside the bridge and its
+    translucent shadow, so the shore and the water layer underneath stay visible. A tile with one or no neighbour is
+    drawn as a straight piece along its axis, like track."""
+    if mask in (0, 2, 8):
+        mask = 2 | 8
+    elif mask in (1, 4):
+        mask = 1 | 4
+    ix = np.floor(XS).astype(int)
+    iy = np.floor(YS).astype(int)
+
+    def dist(yoff):
+        rd = np.full((T, T), 99.0, dtype=np.float32)
+        for bit, (a, b) in ROAD_SEGS.items():
+            if mask & bit:
+                rd = np.minimum(rd, M.seg_dist(XS, YS - yoff, a, b))
+        return rd
+
+    rd = dist(0.0)
+    # Which way the nearest arm runs decides the plank direction: seams run across the travel direction.
+    near = np.full((T, T), 99.0, dtype=np.float32)
+    horiz = np.zeros((T, T), dtype=bool)
+    for bit, (a, b) in ROAD_SEGS.items():
+        if mask & bit:
+            d = M.seg_dist(XS, YS, a, b)
+            take = d < near
+            horiz = np.where(take, bit in (2, 8), horiz)
+            near = np.where(take, d, near)
+    axis = np.where(horiz, ix, iy)
+    half = {"plank": 8.0, "stone": 8.0, "trestle": 8.0}[kind]
+    outer = {"plank": 10.5, "stone": 11.0, "trestle": 10.5}[kind]
+    deck = rd < half
+    side = (rd >= half) & (rd < outer)
+    body = deck | side
+    depth = {"plank": 2, "stone": 3, "trestle": 4}[kind]
+    face = (dist(-float(depth)) < outer) & ~body  # the bridge's south-facing edge: thickness under the deck
+    shade = (dist(-float(depth + 4)) < outer + 1.0) & ~body & ~face
+    rgb = np.zeros((T, T, 3), dtype=np.uint8)
+    rgb[shade] = M.WATER[0][:3]
+    seam = (axis % 4 == 0)
+    if kind == "plank":
+        rgb[deck] = M.WOOD[2][:3]
+        rgb[deck & seam] = M.WOOD[1][:3]
+        rgb[deck & (BAY > 0.5) & ~seam] = M.WOOD[3][:3]
+        rgb[side] = M.WOOD[1][:3]
+        rgb[side & (rd < half + 1.2)] = M.WOOD[3][:3]
+        rgb[side & (axis % 8 < 2)] = M.WOOD[4][:3]  # posts
+        rgb[face] = M.WOOD[0][:3]
+    elif kind == "stone":
+        rgb[deck] = M.COBBLE[1][:3]
+        rgb[deck & seam] = M.COBBLE[0][:3]
+        rgb[deck & (BAY > 0.55) & ~seam] = M.COBBLE[2][:3]
+        vary = pfbm(1400, 17)
+        slab = deck & (vary < 0.3)
+        rgb[slab] = (rgb[slab].astype(np.int32) * 0.88).astype(np.uint8)
+        rgb[side] = M.STONE[2][:3]
+        rgb[side & (rd < half + 1.4)] = M.STONE[4][:3]  # lit parapet top
+        rgb[side & (rd >= outer - 1.2)] = M.STONE[1][:3]
+        rgb[face] = M.STONE[1][:3]
+        rgb[face & (axis % 8 < 4)] = M.STONE[0][:3]  # a dark arch run along the face
+    else:
+        rgb[deck] = M.WOOD[1][:3]
+        rgb[side] = M.WOOD[2][:3]
+        rgb[side & (rd < half + 1.2)] = M.WOOD[4][:3]
+        rgb[side & (axis % 8 < 2)] = M.WOOD[3][:3]
+        rgb[face] = M.WOOD[0][:3]
+        rgb[face & (axis % 8 < 2)] = M.WOOD[1][:3]  # trestle legs
+    alpha = np.where(body | face, 255, np.where(shade, 90, 0))
+    im = to_img(rgb, alpha)
+    if kind == "trestle":
+        im.alpha_composite(track_tile(mask))
+    return im
+
+
+def export_bridges(manifest):
+    manifest["bridges"] = {}
+    for kind in ("plank", "stone", "trestle"):
+        tiles = [bridge_tile(kind, m) for m in range(16)]
+        im, rows = pack_atlas(tiles, 16)
+        save(im, OUT / "bridges" / f"{kind}.png")
+        manifest["bridges"][kind] = {"file": f"bridges/{kind}.png", "cols": 16, "rows": rows}
+
+
 TRAIN_CELL = (32, 32)
 TRAIN_FOOT = (16, 20)  # the point of a cell that sits on the track-tile centre
 TRAIN_DIRS = ["e", "w", "s", "n"]
@@ -1475,6 +1560,7 @@ def main():
     export_roads(manifest)
     export_channels(manifest)
     export_rail(manifest)
+    export_bridges(manifest)
     export_airship(manifest)
     export_sites(manifest)
     export_props(manifest)

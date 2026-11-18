@@ -21,6 +21,8 @@ var map: MapState
 var roads: TileMapLayer
 var channels: TileMapLayer
 var track: TileMapLayer
+## Bridge decks (ticket 91): road tiles on water draw here, above Roads and the shore, with the water showing around them.
+var bridges: TileMapLayer
 var shadows: Node2D
 var flats: Node2D  # flat footprints (Park): on the ground, under every y-sorted object
 var objects: Node2D
@@ -119,6 +121,10 @@ func setup(m: MapState) -> void:
 	roads.name = "Roads"
 	roads.tile_set = ArtLibrary.road_tileset()
 	add_child(roads)
+	bridges = TileMapLayer.new()
+	bridges.name = "Bridges"
+	bridges.tile_set = ArtLibrary.bridge_tileset()
+	add_child(bridges)
 	channels = TileMapLayer.new()
 	channels.name = "Channels"
 	channels.tile_set = ArtLibrary.channel_tileset()

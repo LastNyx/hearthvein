@@ -173,6 +173,9 @@ static func _token(tok: String, reg: DataRegistry) -> String:
 			lines.append("%s: %d citizens, %d gold, and the %s built." % [e.display_name, e.gate_pop, e.gate_gold,
 					lm.display_name if lm != null else e.gate_landmark])
 		return "\n".join(lines)
+	if tok == "bridge_materials":  # Materials per water tile of a dirt bridge (RoadDef.bridge_cost, ticket 91)
+		var dirt := reg.get_road("dirt")
+		return _num(float(dirt.bridge_cost.get("materials", 0.0))) if dirt != null else "?"
 	if tok == "dimming_days":
 		var parts: Array[String] = []
 		for e in reg.eras_in_order():

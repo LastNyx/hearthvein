@@ -30,6 +30,8 @@ extends Resource
 ## Rail track (design.md section 8, ticket 37): cost of one track tile, paid at once from storage. Whole units.
 @export var track_cost_materials: float = 0.0
 @export var track_cost_cut_stone: float = 0.0
+## Track on a water tile is a rail bridge: the tile costs this many times the track cost (ticket 91).
+@export var track_bridge_multiplier: float = 1.0
 ## Cargo rail manifests (design.md section 8, ticket 37b). A region's target stock of a good is its daily demand times
 ## this many days; a depot's train moves at most train_capacity units out per day, at train_speed track tiles per hour.
 @export var manifest_cover_days: float = 0.0

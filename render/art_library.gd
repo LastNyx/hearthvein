@@ -343,6 +343,21 @@ static func road_coords(mask: int, x: int, y: int) -> Vector2i:
 	return Vector2i(mask, ((x * 31 + y * 17) >> 1) & 1)
 
 
+# ---------------------------------------------------------------- bridges (ticket 91)
+## Sources for the Bridges layer: road level 1 (dirt) is the plank deck, level 2 (paved) the stone deck; atlas coords are
+## (mask, 0) like roads. The rail trestle is source BRIDGE_TRESTLE of the track tileset.
+const BRIDGE_TRESTLE := 2
+
+
+static func bridge_tileset() -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	for pair in [[1, "plank"], [2, "stone"]]:
+		var r: Dictionary = manifest()["bridges"][pair[1]]
+		ts.add_source(_atlas(r["file"], int(r["cols"]), int(r["rows"])), pair[0])
+	return ts
+
+
 # ---------------------------------------------------------------- irrigation channels
 const CHANNEL_DRY := 0
 const CHANNEL_FLOWING := 1
@@ -367,6 +382,8 @@ static func track_tileset() -> TileSet:
 	ts.add_source(_atlas(r["file"], int(r["cols"]), int(r["rows"])), 0)
 	var c: Dictionary = manifest()["rail"]["crossing"]  # source 1: planks and rails over a road tile (ticket 67)
 	ts.add_source(_atlas(c["file"], int(c["cols"]), int(c["rows"])), 1)
+	var b: Dictionary = manifest()["bridges"]["trestle"]  # source 2: a rail bridge over water (ticket 91)
+	ts.add_source(_atlas(b["file"], int(b["cols"]), int(b["rows"])), BRIDGE_TRESTLE)
 	return ts
 
 
