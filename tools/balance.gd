@@ -47,7 +47,7 @@ const LANDMARKS := {
 ## Variety first: one of each food type (forager, farm, fishing dock) before anything else.
 ## Opening build order: [id, count wanted, minimum population].
 const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 0], ["woodcutter", 2, 0], ["lumen_tap", 1, 9], ["market", 1, 10],
-	["woodcutter", 3, 10], ["farm", 1, 0], ["fishing_dock", 1, 12], ["farm", 2, 14]]
+	["woodcutter", 3, 10], ["market", 2, 13], ["farm", 1, 0], ["fishing_dock", 1, 12], ["farm", 2, 14]]
 ## Ascendant healing buildings: id -> count wanted.
 const HEALERS := {"verdant_spring": 2, "rewilding_grove": 2, "vein_mender": 2, "clearwater_works": 1}
 const CLEANERS: Array[String] = ["purifier_tower", "cleanser"]
@@ -59,7 +59,7 @@ const LANDMARK_AT := 0.6
 const PREP_AT := 0.35
 const SAVE_AT := 0.55
 ## New storehouses stop when the hauler slots (hauling outranks producers: each takes a citizen) pass this share of the pop.
-const HAULER_SHARE_MAX := 0.25
+const HAULER_SHARE_MAX := 0.2
 ## Regions over 100 gold are bought only while this share of the next gate's gold is left over.
 const REGION_KEEP := 0.6
 
@@ -845,7 +845,7 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 			var def := s.registry.get_building(id)
 			if not s.is_unlocked(def):
 				continue
-			if _jobs_free() < 1 and not no_hands_needed:
+			if _jobs_free() < 1 and not no_hands_needed and not (good == "food" and float(_stock.get("food", 0.0)) < 1.5 * float(pop)):  # food outranks every other job: its new hands come from them
 				return false
 			if not _afford(id, {} if (good == "food" or good == "lumen" or good == "materials" or good == "gold" or _landmark_needs(good)) else reserve):
 				continue
