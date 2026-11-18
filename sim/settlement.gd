@@ -208,6 +208,7 @@ func add_system(system: SimSystem) -> void:
 ## likewise season_started / on_season.
 func step_hours(n: int) -> void:
 	_frame_step = false
+	_held.clear()  # a coarse step starts from a settled sim
 	_run_deferred(true)
 	for i in n:
 		var rest := GameClock.REAL_SECONDS_PER_HOUR - _hour_acc
@@ -219,34 +220,54 @@ func step_hours(n: int) -> void:
 
 ## Finer seam for movement: advance `seconds` of game time (1x seconds). on_seconds hooks see the time in pieces that
 ## never cross an hour boundary; every completed hour runs exactly the hooks step_hours(1) would.
+## A frame-sized step spreads an hour end (ticket 89, and the day and season hooks of 57c): the hour's hooks are queued
+## and run over the following steps, about SPREAD_BUDGET_USEC of them per step, while the clock holds at the boundary.
+## The steps that come meanwhile wait in _held and are played, piece by piece as they came, once the queue is empty, so
+## the hooks and movement see the same sequence as an unspread run. A coarse step runs everything at once.
 func step_seconds(seconds: float) -> void:
-	# Day and season hooks of a frame-sized step run one system per following step (ticket 57c), a coarse step runs
-	# them all at once.
 	_frame_step = seconds < DEFER_BELOW_SECONDS
-	_run_deferred(not _frame_step)
-	var left := seconds
-	while left > 0.0:
-		var chunk := minf(left, GameClock.REAL_SECONDS_PER_HOUR - _hour_acc)
-		for sys in systems:
-			sys.on_seconds(self, chunk)
-		left -= chunk
-		_hour_acc += chunk
-		if _hour_acc >= GameClock.REAL_SECONDS_PER_HOUR - 0.000001:
-			_hour_acc = 0.0
-			_advance_hour()
+	if _frame_step:
+		_run_deferred_budget()
+		if _deferred_head < _deferred.size():
+			_held.append(seconds)
+			return
+	else:
+		_run_deferred(true)
+	var pieces := _held
+	_held = []
+	pieces.append(seconds)
+	for p in pieces.size():
+		var left := pieces[p]
+		while left > 0.0:
+			var chunk := minf(left, GameClock.REAL_SECONDS_PER_HOUR - _hour_acc)
+			for sys in systems:
+				sys.on_seconds(self, chunk)
+			left -= chunk
+			_hour_acc += chunk
+			if _hour_acc >= GameClock.REAL_SECONDS_PER_HOUR - 0.000001:
+				_hour_acc = 0.0
+				_advance_hour()
+				if _deferred_head < _deferred.size():  # the hour end is queued: hold the rest of the time
+					if left > 0.0:
+						_held.append(left)
+					_held.append_array(pieces.slice(p + 1))
+					return
 
 
-## Steps shorter than this (game seconds, 0.25 s = a frame at 15 fps and 1x) spread the day hooks over several steps.
+## Steps shorter than this (game seconds, 0.25 s = a frame at 15 fps and 1x) spread the hour end over several steps.
 const DEFER_BELOW_SECONDS := GameClock.REAL_SECONDS_PER_HOUR / 10.0
+## Wall time one frame-sized step spends on pending hour-end work (at least one item runs).
+const SPREAD_BUDGET_USEC := 1000
 
-## Pending day/season work of the hour end that a frame-sized step spread out, in the order it runs (Callables).
-## Runtime only: ticket 19 calls flush_deferred() before saving so nothing is pending in a save file.
+## Pending hour-end work (hourly, day and season hooks, their events) that a frame-sized step spread out, in the order
+## it runs (Callables). Runtime only: ticket 19 calls flush_deferred() before saving so nothing is pending in a save file.
 var _deferred: Array[Callable] = []
 var _deferred_head: int = 0
-var _frame_step: bool = false  # inside a step_seconds call short enough to spread the day work
+var _frame_step: bool = false  # inside a step_seconds call short enough to spread the hour-end work
+var _held: Array[float] = []  # game seconds of the steps that came while the queue was not empty, in order; runtime only
 
 
-## Runs the next pending day/season item, or all of them.
+## Runs every pending item.
 func _run_deferred(all: bool) -> void:
 	while _deferred_head < _deferred.size():
 		var d: Callable = _deferred[_deferred_head]
@@ -254,33 +275,51 @@ func _run_deferred(all: bool) -> void:
 		d.call()
 		if not all:
 			break
+	_reset_deferred()
+
+
+## Runs pending items until the step's time budget is spent (at least one).
+func _run_deferred_budget() -> void:
+	var t0 := Time.get_ticks_usec()
+	while _deferred_head < _deferred.size():
+		var d: Callable = _deferred[_deferred_head]
+		_deferred_head += 1
+		d.call()
+		if Time.get_ticks_usec() - t0 >= SPREAD_BUDGET_USEC:
+			break
+	_reset_deferred()
+
+
+func _reset_deferred() -> void:
 	if _deferred_head >= _deferred.size():
 		_deferred.clear()
 		_deferred_head = 0
 
 
-## Runs every pending day and season hook now (a save, or code that reads the sim right after a day change).
+## Runs every pending hour, day and season hook now (a save, or code that reads the sim right after a change).
 func flush_deferred() -> void:
 	_run_deferred(true)
 
 
 func _advance_hour() -> void:
-	_run_deferred(true)  # a hook still pending from the last day must not run after this hour's
+	_run_deferred(true)  # work still pending from the last hour must not run after this hour's
 	clock.total_hours += 1
 	events.now_hours = clock.total_hours
 	for sys in systems:
-		sys.on_hour(self)
+		_deferred.append(sys.on_hour.bind(self))
 	if clock.is_day_start():
-		events.emit("day_started", {"day": clock.day(), "season": clock.season_name(), "year": clock.year()})
+		_deferred.append(func() -> void:
+			events.emit("day_started", {"day": clock.day(), "season": clock.season_name(), "year": clock.year()}))
 		for sys in systems:
 			_deferred.append(sys.on_day.bind(self))
 		if clock.is_season_start():
-			_deferred.append(func() -> void:
-				events.emit("season_started", {"season": clock.season_name(), "year": clock.year()}))
 			for sys in systems:
 				_deferred.append(sys.on_season.bind(self))
-		if not _frame_step:
-			_run_deferred(true)
+			# After the season hooks: the autosave on this event flushes whatever is pending, and by now that is nothing.
+			_deferred.append(func() -> void:
+				events.emit("season_started", {"season": clock.season_name(), "year": clock.year()}))
+	if not _frame_step:
+		_run_deferred(true)
 
 
 ## The registered system of a class, or null.

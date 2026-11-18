@@ -25,9 +25,10 @@ const SKIP := {
 	"Settlement._reached": "road BFS cache, rebuilt from roads on load",
 	"Settlement._sky_reached": "sky road BFS cache (from lifts and island docks), rebuilt from roads on load",
 	"Settlement._roads_dirty": "road BFS bookkeeping, set by load",
-	"Settlement._deferred": "pending day hooks; SaveGame.save flushes them, so a save never holds any",
+	"Settlement._deferred": "pending hour, day and season hooks; SaveGame.save flushes them, so a save never holds any",
 	"Settlement._deferred_head": "pending day hooks; SaveGame.save flushes them",
 	"Settlement._frame_step": "only meaningful inside a step_seconds call",
+	"Settlement._held": "frame steps waiting for the pending hour-end hooks; a save flushes them, the wait is not state",
 	# MapState
 	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
 	"MapState.foul_version": "counter of fouling changes, not saved; a load rebuilds the fouling mask and caches",
@@ -412,6 +413,25 @@ func test_save_file_is_compressed_and_carries_a_version() -> void:
 	assert_lt(on_disk.size(), uncompressed.size(),
 			"on disk %d bytes for a %d byte payload" % [on_disk.size(), uncompressed.size()])
 	assert_ne(on_disk.slice(0, 8), uncompressed.slice(0, 8), "the file is wrapped, not raw variant bytes")
+
+
+func test_save_mid_hour_end_queue_loads_to_the_same_state() -> void:
+	# A frame-sized step across an hour boundary leaves that hour's hooks queued (ticket 89); a save in that gap runs
+	# them first, and the file loads to the same settlement.
+	var s := Settlement.new_game(SEED, reg)
+	s.step_hours(7)
+	var start := s.clock.total_hours
+	var guard := 0
+	while s.clock.total_hours == start and guard < 100:
+		s.step_seconds(0.05)
+		guard += 1
+	assert_gt(s._deferred.size(), 0, "the frame that ends the hour leaves its hooks queued")
+	var path := _save_path()
+	assert_eq(SaveGame.save(s, path), OK)
+	assert_eq(s._deferred.size(), 0, "save ran the pending hooks")
+	var loaded := SaveGame.load(path, reg)
+	assert_not_null(loaded)
+	_assert_same(s, loaded, "a save taken between an hour end and its hooks does not round trip")
 
 
 func test_save_flushes_pending_day_hooks() -> void:
