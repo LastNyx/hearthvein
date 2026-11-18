@@ -34,7 +34,10 @@ const PRODUCERS := {
 }
 ## Pause a good's producers above (per citizen, flat) stock; resume below 60% of it.
 const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0],
-	"cut_stone": [0.0, 100.0]}
+	"cut_stone": [0.0, 100.0], "lumen_cells": [0.0, 60.0]}
+## From City on, food producers pause above this many units per citizen (see _throttle).
+const FOOD_THROTTLE_CITY := 12.0
+const CITY_ORDER := 4
 ## Stock above which a good stops being built for.
 const STOCK_CAP := {"materials": 2500.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
@@ -52,6 +55,9 @@ const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 
 const HEALERS := {"verdant_spring": 2, "rewilding_grove": 2, "vein_mender": 2, "clearwater_works": 1}
 const CLEANERS: Array[String] = ["purifier_tower", "cleanser"]
 const TAX_OFFICES_MAX := 3
+## Tax Offices are built below this many times the next gate's gold and pulled down above TAX_DROP_AT times it.
+const TAX_BUILD_BELOW := 1.5
+const TAX_DROP_AT := 2.0
 const SEARCH_RADIUS := 26
 ## Landmark saving starts at this share of the gate population.
 const LANDMARK_AT := 0.6
@@ -78,6 +84,7 @@ var _great_end: String = ""
 var _verbose: bool = false
 var _map_day: int = 150  # verbose runs print an ASCII map of the town on this day (argument map=<day>)
 var _made_acc := 0.0
+var _g_acc := {}
 var _food_prev := 0.0
 var _gold_before := 0.0
 var _placed_day := {}  # building id -> day it was placed (verbose build-time lines)
@@ -112,6 +119,7 @@ func _init() -> void:
 		if _verbose and s.clock.total_days() % 12 == 11:
 			s.step_hours(10)
 			_dbg_builders()
+			print("     chain (hour 10): ", _chain_state())
 			s.step_hours(GameClock.HOURS_PER_DAY - 10)
 		else:
 			s.step_hours(GameClock.HOURS_PER_DAY)
@@ -123,13 +131,19 @@ func _init() -> void:
 			var now := 0.0
 			for g in GrowthSystem.food_goods(s.registry):
 				now += float(tt.get(g, 0.0))
+			var ld := (s.get_system(GrowthSystem) as GrowthSystem).last_day
+			_g_acc["surplus_days"] = int(_g_acc.get("surplus_days", 0)) + (1 if float(ld.get("surplus", 0.0)) > 0.0 else 0)
+			_g_acc["grown"] = int(_g_acc.get("grown", 0)) + int(ld.get("grown", 0))
+			_g_acc["immigrated"] = int(_g_acc.get("immigrated", 0)) + int(ld.get("immigrated", 0))
+			_g_acc["spirit_low"] = int(_g_acc.get("spirit_low", 0)) + (1 if s.spirit() < 50.0 else 0)
+			_g_acc["nobed"] = int(_g_acc.get("nobed", 0)) + (1 if s.beds_total() <= s.citizens.size() else 0)
 			_made_acc += now - _food_prev + float((s.get_system(GrowthSystem) as GrowthSystem).last_day.get("eaten", 0.0))
 			_food_prev = now
 		if _verbose and day % 4 == 0:
 			var tot := s.totals()
 			print("   d%d pop %d beds %d idle %d gold %d food %d mat %d lumen %d sites %d bld %d" % [day, s.citizens.size(), s.beds_total(),
 				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0) + tot.get("crops", 0) + tot.get("fish", 0)), int(tot.get("materials", 0)), int(tot.get("lumen", 0)),
-				_open_sites(), s.buildings.size()] + _lm_short())
+				_open_sites(), s.buildings.size()] + " | pl %d st %d cell %d tool %d" % [int(tot.get("planks", 0)), int(tot.get("cut_stone", 0)), int(tot.get("lumen_cells", 0)), int(tot.get("tools", 0))] + _lm_short())
 		if _verbose and day % 12 == 0:
 			var gr := s.get_system(GrowthSystem) as GrowthSystem
 			var wc := {}
@@ -167,6 +181,29 @@ func _init() -> void:
 				if b.door_buffer != null:
 					doormat += b.door_buffer.amount_of("materials")
 			print("     door materials %.0f" % doormat)
+			var slots := {}
+			var fill := {}
+			for b: Building in s.buildings.values():
+				if b.site or b.paused:
+					continue
+				slots[b.def.category] = int(slots.get(b.def.category, 0)) + b.def.worker_slots
+				fill[b.def.category] = int(fill.get(b.def.category, 0)) + int(wc.get(b.id, 0))
+			print("     spirit ", (s.get_system(SpiritSystem) as SpiritSystem).breakdown(s)["factors"])
+			print("     growth 12d ", _g_acc)
+			_g_acc = {}
+			print("     growth ", gr.last_day, " bar ", snappedf(gr.bar, 0.1), " homeless ", s.homeless_count(), " beds ", s.beds_total(), " lumen need ", snappedf(float(s.citizens.size()) * 0.5, 0.1))
+			var ln := 0
+			var lfull := 0
+			var ldoor := 0.0
+			var lwork := 0
+			for b: Building in s.buildings.values():
+				if not b.site and b.def.category == "lumen" and b.door_buffer != null:
+					ln += 1
+					lfull += 1 if b.halt == "door_full" else 0
+					ldoor += b.door_buffer.amount_of("lumen")
+					lwork += int(wc.get(b.id, 0))
+			print("     lumen producers %d staffed %d door_full %d door lumen %d stock %d" % [ln, lwork, lfull, int(ldoor), int(_stock.get("lumen", 0.0))])
+			print("     slots/filled by category ", slots, fill, " hauler slots ", _hauler_slots(), " pop ", s.citizens.size())
 			print("     doorfood %.0f; spirit %.0f haulers %d other %d bar %.1f/%.1f | %s" % [doorfood, s.spirit(), haul, buildn, gr.bar, gr.bar_size_now(s), " ".join(rows)])
 		if _verbose and day == _map_day:
 			_dump_map()
@@ -201,6 +238,21 @@ func _init() -> void:
 			break
 	_report(stalled, (Time.get_ticks_msec() - t0) / 1000.0)
 	quit(0)
+
+
+## Verbose: each Sawmill / Refinery / Toolsmith with its workers at work, halt reason and input buffer (47g).
+func _chain_state() -> String:
+	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()
+	var rows: Array[String] = []
+	for b: Building in s.buildings.values():
+		if b.site or not ["sawmill", "refinery", "toolsmith"].has(b.def.id):
+			continue
+		var inp := ""
+		if b.input_buffer != null:
+			for g in b.def.recipe.inputs:
+				inp += " %s%d" % [str(g).substr(0, 2), int(b.input_buffer.amount_of(g))]
+		rows.append("%s#%d w%d%s%s [%s ] out %d" % [b.def.id.substr(0, 4), b.id, int(counts.get(b.id, 0)), ("P" if b.paused else ""), (":" + b.halt if b.halt != "" else ""), inp, int(b.door_buffer.total())])
+	return " ".join(rows)
 
 
 ## What the era's landmark still lacks (verbose lines).
@@ -657,6 +709,7 @@ func _act() -> void:
 	var far_n := _far_sites()
 	var site_cap := maxi(1, 3 + pop / 40 - mini(far_n, 3))
 	_throttle(pop)
+	_chain_priority()
 	_relocate_woodcutters()
 	_cancel_stale_yards()
 	_yards(pop, s.registry.get_era(s.era_current).order)
@@ -706,9 +759,15 @@ func _act() -> void:
 func _throttle(pop: int) -> void:
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
+		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
+			high = FOOD_THROTTLE_CITY * float(pop) + float(THROTTLE[good][1])  # growth needs a rising stock: pausing the fields stops it (47g)
 		var lm := _landmark_id()
 		if lm != "" and _count(lm) == 0:
-			high = maxf(high, 1.3 * float(s.registry.get_building(lm).entry_cost().get(good, 0)) + 20.0)  # what the landmark needs stays wanted
+			var lcost := s.registry.get_building(lm).entry_cost()
+			var want_n := float(lcost.get(good, 0))
+			if good == "lumen_cells":
+				want_n += float(lcost.get("tools", 0))  # every Tool eats a cell
+			high = maxf(high, 1.3 * want_n + 20.0)  # what the landmark needs stays wanted
 		var stock := float(_stock.get(good, 0.0))
 		if good == "materials" and _refined_short():
 			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the quarries until they have caught up
@@ -722,6 +781,26 @@ func _throttle(pop: int) -> void:
 				s.set_building_priority(b.id, "paused")
 			elif stock < high * 0.6 and b.paused:
 				s.set_building_priority(b.id, "normal")
+
+
+## Producers of a refined good the era's landmark still lacks (and of the planks and cells a missing Tool eats) get high
+## priority: they rank behind food, Lumen, hauling, builders and materials, so a busy town leaves them empty (47g).
+func _chain_priority() -> void:
+	var lm := _landmark_id()
+	var cost := {} if lm == "" or _count(lm) > 0 else s.registry.get_building(lm).entry_cost()
+	var short := {}
+	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
+		short[g] = cost.has(g) and float(_stock.get(g, 0.0)) < float(cost[g])
+	if short["tools"]:
+		short["planks"] = true
+		short["lumen_cells"] = true
+	for g in short:
+		for b: Building in s.buildings.values():
+			if b.site or b.paused or not PRODUCERS[g].has(b.def.id):
+				continue
+			var want := "high" if short[g] else "normal"
+			if b.priority != want:
+				s.set_building_priority(b.id, want)
 
 
 ## True while the era's landmark waits for a refined good (planks, cut stone) and the materials for it are in stock.
@@ -955,7 +1034,13 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	if era >= 2 and _count("forester") < _count("woodcutter") / 3 and _afford("forester", res) and _jobs_free() >= 1:
 		_place("forester", _hearth_near(), SEARCH_RADIUS)
 	# tax offices
-	if era >= 3 and _count("tax_office") < mini(TAX_OFFICES_MAX, 1 + pop / 60) and _afford("tax_office") and _jobs_free() >= 1:
+	# (a Tax Office costs 5 Spirit while one stands, and Spirit below 50 stops immigration: only while gold is short, 47g)
+	var gold_need := float(s.era_gate().get("gold_need", 0))
+	if _count("tax_office") > 0 and s.gold >= TAX_DROP_AT * gold_need:
+		for b: Building in s.buildings.values().duplicate():
+			if b.def.id == "tax_office" and not b.site:
+				s.demolish(b.id)
+	if era >= 3 and s.gold < TAX_BUILD_BELOW * gold_need and _count("tax_office") < mini(TAX_OFFICES_MAX, 1 + pop / 60) and _afford("tax_office") and _jobs_free() >= 1:
 		_place("tax_office", _hearth_near(), 14)
 	# Spirit coverage
 	if era >= 2:
@@ -967,6 +1052,7 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	if era >= 3 and _count("rowhouse") + _count("apartment_block") + _count("conduit_terraces") > 0:
 		if _count("well") < 1 + pop / 40 and _afford("well", res):
 			_place("well", _hearth_near(), 14)
+		_wells_for_homes(res)
 		if era >= 5 and _count("water_tower") < pop / 120 and _afford("water_tower", res):
 			_place("water_tower", _hearth_near(), 14)
 	# kitchen for food variety
@@ -992,6 +1078,27 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	# Lumen cells and tools matter for the big landmarks: keep one refinery and toolsmith early
 	if era >= 5 and _count("lumen_pylon") < 0:
 		pass
+
+
+## A Well beside a home that has no drinking water (Rowhouse and up): each home without water costs Spirit, and Spirit
+## under 50 stops immigration. The nearest home to the Hearth first; a well is within water_radius of the spot it is put.
+func _wells_for_homes(res: Dictionary) -> void:
+	if not _afford("well", res) or _count("well") >= 4 + s.citizens.size() / 12:
+		return
+	var cs := s.get_system(CoverageSystem) as CoverageSystem
+	var best: Building = null
+	var best_d := 1.0e9
+	for b: Building in s.buildings.values():
+		if b.site or not b.def.needs_water or cs.home_has_water(s, b.id) or int(_bad_tiles.get(b.origin, -1)) > s.clock.total_days():
+			continue
+		var d := float((b.origin - s.hearth.origin).length_squared())
+		if d < best_d:
+			best_d = d
+			best = b
+	if best == null:
+		return
+	if _place("well", best.origin, 7) == null:
+		_bad_tiles[best.origin] = s.clock.total_days() + 20  # no wet ground within reach of that home: try another later
 
 
 ## A storehouse in every region that has homes, so people can eat where they live.
