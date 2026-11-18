@@ -101,7 +101,7 @@ func test_data_matches_the_town_table() -> void:
 	assert_eq([pump.worker_slots, pump.upkeep_lumen], [3, 0.0])
 	assert_eq(pump.placement_rule, "on_vein")
 	assert_eq(pump.recipe.inputs, {})
-	assert_eq(pump.recipe.outputs, {"lumen": 7.0})
+	assert_eq(pump.recipe.outputs, {"lumen": 12.0})
 	assert_eq([pump.blight_radius, pump.blight_period_days], [4, 3])
 	assert_true(pump.vein_extractor and pump.health_per_day < 0.0, "section 13: a vein extractor")
 

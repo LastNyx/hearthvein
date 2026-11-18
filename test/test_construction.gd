@@ -82,15 +82,15 @@ func test_build_time_follows_size_and_era() -> void:
 	var tent := reg.get_building("tent")
 	var store := reg.get_building("storehouse")
 	var hall := reg.get_building("meeting_hall")
-	assert_eq(s.build_days(tent), 1.0, "1 tile is clamped up to the 1 day minimum")
-	assert_almost_eq(s.build_days(store), 1.5, 0.001)
-	assert_almost_eq(s.build_days(hall), 3.0, 0.001)
+	assert_eq(s.build_days(tent), 0.5, "1 tile is clamped up to the half day minimum")
+	assert_almost_eq(s.build_days(store), 0.8, 0.001)
+	assert_almost_eq(s.build_days(hall), 1.6, 0.001)
 	var huge := tent.duplicate() as BuildingDef
 	huge.size = Vector2i(10, 10)
 	assert_eq(s.build_days(huge), 6.0, "clamped to 6 days")
 	var late := tent.duplicate() as BuildingDef
 	late.era = "city"
-	assert_almost_eq(s.build_days(late), 2.25, 0.001, "era adds days")
+	assert_almost_eq(s.build_days(late), 1.15, 0.001, "era adds days")
 	# Played out: a tent is done long before a meeting hall (same delivery, a full crew).
 	s.hearth.inventory.add("materials", 100.0)
 	s.hearth.inventory.add("lumen", 10.0)

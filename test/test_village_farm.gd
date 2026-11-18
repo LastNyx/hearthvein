@@ -92,7 +92,7 @@ func test_farm_output_follows_footprint_fertility() -> void:
 	s.systems.erase(s.get_system(HaulingSystem))  # read the door buffers as filled, nobody empties them
 	var farm := reg.get_building("farm")
 	assert_eq([farm.size, farm.cost, farm.worker_slots], [Vector2i(2, 2), {"materials": 30}, 3])
-	assert_eq(farm.recipe.outputs, {"crops": 4.0})
+	assert_eq(farm.recipe.outputs, {"crops": 6.0})
 	var rich := _farm(-1, "grass", [100, 100, 100, 100])
 	var mixed := _farm(1, "grass", [100, 100, 0, 0])  # mean 50, half of the rich farm
 	s.step_days(1)  # let both crews walk to work

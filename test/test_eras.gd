@@ -464,6 +464,8 @@ func test_every_city_building_can_be_built() -> void:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
+	for i in 24:
+		s.add_citizen()  # eight storehouses open 24 hauler slots, which rank above the builders: enough hands for both
 	_stock(s, "materials", 1000.0)
 	_stock(s, "planks", 60.0)
 	_stock(s, "lumen", 1200.0)  # the whole cost plus the upkeep of the finished buildings while the sites go up
@@ -575,6 +577,8 @@ func test_every_conflux_building_can_be_built() -> void:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
+	for i in 24:
+		s.add_citizen()  # eight storehouses open 24 hauler slots, which rank above the builders: enough hands for both
 
 	var real := DataRegistry.new()
 	real.load_all()

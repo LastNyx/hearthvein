@@ -18,7 +18,7 @@ const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
-	"food": 0.36, "materials": 0.24, "lumen": 0.07, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
+	"food": 0.4, "materials": 0.14, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
 	"lumen_cells": 0.03, "tools": 0.03,
 }
 ## Producer buildings per good, best first. The bot takes the first one that is unlocked, affordable and has room.
@@ -33,7 +33,7 @@ const PRODUCERS := {
 	"tools": ["toolsmith"],
 }
 ## Pause a good's producers above (per citizen, flat) stock; resume below 60% of it.
-const THROTTLE := {"food": [6.0, 60.0], "lumen": [4.0, 150.0], "planks": [0.0, 50.0]}
+const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0]}
 ## Stock above which a good stops being built for.
 const STOCK_CAP := {"materials": 2500.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
@@ -45,8 +45,8 @@ const LANDMARKS := {
 }
 ## Variety first: one of each food type (forager, farm, fishing dock) before anything else.
 ## Opening build order: [id, count wanted, minimum population].
-const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 0], ["woodcutter", 2, 0], ["farm", 1, 0], ["lumen_tap", 1, 12],
-	 ["fishing_dock", 1, 12], ["farm", 2, 14]]
+const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 0], ["woodcutter", 2, 0], ["lumen_tap", 1, 9], ["market", 1, 10],
+	["woodcutter", 3, 10], ["farm", 1, 0], ["fishing_dock", 1, 12], ["farm", 2, 14]]
 ## Ascendant healing buildings: id -> count wanted.
 const HEALERS := {"verdant_spring": 2, "rewilding_grove": 2, "vein_mender": 2, "clearwater_works": 1}
 const CLEANERS: Array[String] = ["purifier_tower", "cleanser"]
@@ -58,6 +58,7 @@ const SAVE_AT := 0.55
 
 var s: Settlement
 var _offsets: Array[Vector2i] = []
+var _bad_tiles := {}  # tiles where a building was taken back (see _place)
 var _cooldown := {}  # id -> day until which placement is not retried
 var _blocked_today: bool = false
 var _stock := {}
@@ -68,6 +69,8 @@ var _last_progress_day: int = 0
 var _skyheart_done_day: int = -1
 var _great_end: String = ""
 var _verbose: bool = false
+var _made_acc := 0.0
+var _food_prev := 0.0
 
 
 func _init() -> void:
@@ -87,19 +90,67 @@ func _init() -> void:
 	var t0 := Time.get_ticks_msec()
 	for d in days:
 		_act()
-		s.step_hours(GameClock.HOURS_PER_DAY)
+		if _verbose and s.clock.total_days() % 12 == 11:
+			s.step_hours(10)
+			_dbg_builders()
+			s.step_hours(GameClock.HOURS_PER_DAY - 10)
+		else:
+			s.step_hours(GameClock.HOURS_PER_DAY)
 		var day := s.clock.total_days()
+		if _verbose:
+			var fs := float(_stock.get("food", 0.0))
+			var tt := s.totals()
+			var now := 0.0
+			for g in GrowthSystem.food_goods(s.registry):
+				now += float(tt.get(g, 0.0))
+			_made_acc += now - _food_prev + float((s.get_system(GrowthSystem) as GrowthSystem).last_day.get("eaten", 0.0))
+			_food_prev = now
 		if _verbose and day % 4 == 0:
 			var tot := s.totals()
 			print("   d%d pop %d beds %d idle %d gold %d food %d mat %d lumen %d sites %d bld %d" % [day, s.citizens.size(), s.beds_total(),
-				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0)), int(tot.get("materials", 0)), int(tot.get("lumen", 0)),
+				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0) + tot.get("crops", 0) + tot.get("fish", 0)), int(tot.get("materials", 0)), int(tot.get("lumen", 0)),
 				_open_sites(), s.buildings.size()])
+		if _verbose and day % 12 == 0:
+			var gr := s.get_system(GrowthSystem) as GrowthSystem
+			var wc := {}
+			var haul := 0
+			var doorfood := 0.0
+			for b: Building in s.buildings.values():
+				if b.door_buffer != null:
+					for g in ["food", "crops", "fish"]:
+						doorfood += b.door_buffer.amount_of(g)
+			var buildn := 0
+			for c: Citizen in s.citizens.values():
+				if c.job_kind == Citizen.JOB_WORK:
+					wc[c.job_id] = int(wc.get(c.job_id, 0)) + 1
+				elif c.job_kind == Citizen.JOB_HAUL:
+					haul += 1
+				elif not c.is_idle():
+					buildn += 1
+			var rows: Array[String] = []
+			for b: Building in s.buildings.values():
+				if b.def.worker_slots > 0 and not b.site:
+					rows.append("%s%d/%d%s%s" % [b.def.id.substr(0, 4), int(wc.get(b.id, 0)), b.def.worker_slots, ("P" if b.paused else ""), (":" + b.halt if b.halt != "" else "")] + (" x%.2f" % (s.get_system(ProductionSystem) as ProductionSystem).multiplier(s, b) if b.def.category == "food" else ""))
+			var sh := []
+			for good in SHARES:
+				sh.append("%s %d/%.0f" % [good, _slots_for(good), float(SHARES[good]) * (float(s.citizens.size()) * 1.15 + 10.0)])
+			var sp := []
+			for b: Building in s.buildings.values():
+				if b.site:
+					sp.append("%s#%d %.2f%s" % [b.def.id, b.id, b.build_progress(), ("" if b.site_delivered() else "(wait)")])
+			print("     sites: ", " ".join(sp), " builders ", buildn)
+
+			print("     food made/day %.1f; shares " % (_made_acc / 12.0), " ".join(sh))
+			_made_acc = 0.0
+			print("     doorfood %.0f; spirit %.0f haulers %d other %d bar %.1f/%.1f | %s" % [doorfood, s.spirit(), haul, buildn, gr.bar, gr.bar_size_now(s), " ".join(rows)])
 		if _verbose and day % 40 == 0:
 			for b: Building in s.buildings.values():
 				if b.site:
 					var got := {}
 					for g in b.effective_cost():
 						got[g] = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
+					var wsd := s.get_system(WalkerSystem) as WalkerSystem
+					print("     reach ", wsd.find_path(wsd.door_tile(s.hearth), wsd.door_tile(b)).size())
 					print("     site ", b.def.id, b.origin, " delivered ", b.site_delivered(), " got ", got, " need ", b.effective_cost(), " progress ", b.build_progress())
 		if day % GameClock.DAYS_PER_YEAR == 0:
 			print("  year %2d end: planet health %.1f%%, pop %d, gold %d, buildings %d, era %s" % [
@@ -119,6 +170,18 @@ func _init() -> void:
 			break
 	_report(stalled, (Time.get_ticks_msec() - t0) / 1000.0)
 	quit(0)
+
+
+func _dbg_builders() -> void:
+	var wsx := s.get_system(WalkerSystem) as WalkerSystem
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var rows := []
+	for c: Citizen in s.citizens.values():
+		if c.job_kind == Citizen.JOB_BUILD:
+			var w := wsx.walker_of(c.id)
+			rows.append("b%d %s path %d at %d ctrl %s crew %d" % [c.id, str(w.tile), w.path.size(), w.at_building, str(w.controlled), int(cs.crews.get(c.id, -1))])
+	var rw := ConstructionSystem.ready_works(s).map(func(b: Building) -> String: return "%s#%d" % [b.def.id, b.id])
+	print("       DBG hour ", s.clock.hour(), " ready ", rw, " ", rows)
 
 
 func _progress() -> void:
@@ -166,6 +229,9 @@ func _report(stalled: bool, secs: float) -> void:
 		print("  ", e)
 	if stalled:
 		var g := s.era_gate()
+		_refresh_stock()
+		var lm := _landmark_id()
+		print("  landmark ", lm, " cost ", s.registry.get_building(lm).entry_cost(), " stock ", _stock, " count ", _count(lm), " reserve ", _reserve())
 		print("STALL: no progress for ", STALL_YEARS, " years at ", _stamp(), ", era ", s.era_id())
 		if g["next"] == "":
 			print("  last era: the Skyheart is not finished (", _skyheart_state(), ")")
@@ -263,13 +329,50 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 			scored.append([float(_forest_around(near + off, 4)) - 0.4 * float(off.length()), off])
 		scored.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
 		order = scored.map(func(row: Array) -> Vector2i: return row[1])
+	elif def.fertility_output:
+		# the richest soil in range first (a mile of walking costs less than a farm at half output)
+		var scored: Array = []
+		for off in _offsets:
+			if off.length_squared() > r2:
+				break
+			scored.append([12.0 * _mean_fertility(near + off, def.size) - 0.3 * float(off.length()), off])
+		scored.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+		order = scored.map(func(row: Array) -> Vector2i: return row[1])
+	if def.placement_rule == "on_vein":
+		# veins anywhere in the bought regions, the ones nearest the Hearth first (a map reaches past the search radius)
+		var veins: Array[Vector2i] = []
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				if s.map.terrain_id_at(x, y) == "lumen_vein" and s.map.is_region_owned(s.map.get_region(x, y)):
+					veins.append(Vector2i(x, y))
+		veins.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - near).length_squared() < (b - near).length_squared())
+		var looked := 0
+		for t in veins:
+			if int(_bad_tiles.get(t, -1)) > s.clock.total_days() or not s.can_place(id, t)["ok"]:
+				continue
+			looked += 1
+			if looked > 12:
+				break
+			if L._path(s, Rect2i(t, def.size)).is_empty():
+				_bad_tiles[t] = s.clock.total_days() + 30  # no road reaches it now; look again in a month
+				continue
+			pick = t
+			break
+		order = []
+	var checks := 0
 	for off: Vector2i in order:
-		if not def.fells_forest and off.length_squared() > r2:
+		if not def.fells_forest and not def.fertility_output and off.length_squared() > r2:
 			break
 		var t := near + off
-		if not s.can_place(id, t)["ok"]:
+		if int(_bad_tiles.get(t, -1)) > s.clock.total_days() or not s.can_place(id, t)["ok"]:
 			continue
+		if def.fertility_output and _mean_fertility(t, def.size) < 0.55:
+			continue  # a farm on forest or stumps makes next to nothing: a player picks soil
+		checks += 1
+		if checks > 250:
+			break  # a road search that fails floods the map: do not run it for hundreds of spots
 		if L._path(s, Rect2i(t, def.size)).is_empty():
+			_bad_tiles[t] = s.clock.total_days() + 20
 			continue
 		pick = t
 		break
@@ -285,6 +388,14 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 	_cooldown[id] = s.clock.total_days() + 3
 	_blocked_today = true
 	return null
+
+
+func _mean_fertility(origin: Vector2i, size: Vector2i) -> float:
+	var sum := 0.0
+	for y in size.y:
+		for x in size.x:
+			sum += float(s.map.get_fertility(origin.x + x, origin.y + y))
+	return sum / (100.0 * float(size.x * size.y))
 
 
 func _forest_around(c: Vector2i, r: int) -> int:
@@ -331,6 +442,11 @@ func _hearth_near() -> Vector2i:
 ## Goods in storage minus what open sites still need (so the bot never promises the same materials twice).
 func _refresh_stock() -> void:
 	_stock = s.totals()
+	# "food" in the bot's eyes is every food good (crops and fish too), not only the forager's plain food
+	var eat := 0.0
+	for g in GrowthSystem.food_goods(s.registry):
+		eat += float(_stock.get(g, 0.0))
+	_stock["food"] = eat
 	for b: Building in s.buildings.values():
 		if not b.site:
 			continue
@@ -366,13 +482,19 @@ func _act() -> void:
 		# also whatever refined good the landmark needs and the settlement does not make yet
 		var lcost := s.registry.get_building(_landmark_id()).entry_cost()
 		for good in lcost:
-			if SHARES.has(good) and good != "gold" and float(_stock.get(good, 0.0)) < float(lcost[good]) and _slots_for(good) < 2:
-				_produce(float(pop) * 1.15 + 10.0, pop, good)
-		return
+			var short: float = float(lcost[good]) - float(_stock.get(good, 0.0))
+			# the more a good is short, the more producers it gets (Lumen is eaten by upkeep and Dimmings while saved)
+			if SHARES.has(good) and good != "gold" and short > 0.0 and _slots_for(good) < 2 + int(short / 15.0):
+				# a landmark good nobody makes yet gets its producer even with every hand busy (the quarries give way)
+				_produce(float(pop) * 1.15 + 10.0, pop, good, _slots_for(good) == 0)
+		if float(_stock.get("food", 0.0)) < 2.0 * float(pop) + 40.0:
+			_produce(float(pop) * 1.15 + 10.0, pop, "food")
 	# 4. production by share
 	var goal := float(pop) * 1.15 + 10.0
 	var tries := 0
-	while _open_sites() < site_cap and tries < 3:
+	# a falling food stock is not held back by the site limit (housing and support sites can sit waiting for goods)
+	var food_low := float(_stock.get("food", 0.0)) < 2.0 * float(pop) + 40.0
+	while _open_sites() < site_cap + (4 if food_low else 0) and tries < 3:
 		tries += 1
 		if not _produce(goal, pop):
 			break
@@ -390,6 +512,8 @@ func _throttle(pop: int) -> void:
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
 		var stock := float(_stock.get(good, 0.0))
+		if good == "materials" and _refined_short():
+			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the quarries until they have caught up
 		var ids: Array = PRODUCERS.get(good, [])
 		if good == "food":
 			ids = ["forager", "farm", "fishing_dock", "greenhouse", "hydroponic_hall", "bloom_orchard"]
@@ -400,6 +524,20 @@ func _throttle(pop: int) -> void:
 				s.set_building_priority(b.id, "paused")
 			elif stock < high * 0.6 and b.paused:
 				s.set_building_priority(b.id, "normal")
+
+
+## True while the era's landmark waits for a refined good (planks, cut stone) and the materials for it are in stock.
+func _refined_short() -> bool:
+	var lm := _landmark_id()
+	if lm == "" or _count(lm) > 0:
+		return false
+	var cost := s.registry.get_building(lm).entry_cost()
+	if float(_stock.get("materials", 0.0)) < float(cost.get("materials", 0)) + 100.0:
+		return false
+	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
+		if cost.has(g) and float(_stock.get(g, 0.0)) < float(cost[g]):
+			return true
+	return false
 
 
 ## Places the era's landmark when it can; returns true while the bot is saving for it.
@@ -459,7 +597,13 @@ func _opening(pop: int) -> bool:
 
 
 func _storehouses_wanted(pop: int) -> int:
-	return (1 + pop / 20) if pop >= 9 else 0
+	if pop < 9:
+		return 0
+	# one more when the stock fills the rooms: a full store takes no food and the producers' doors jam (a starving town)
+	var held := 0.0
+	for g in _stock:
+		held += maxf(float(_stock[g]), 0.0)
+	return maxi(1 + pop / 20, ceili(held / 300.0))
 
 
 func _jobs_free() -> int:
@@ -468,7 +612,7 @@ func _jobs_free() -> int:
 
 ## Builds one producer for the good furthest below its share (next best if that one cannot be placed). Returns false
 ## when nothing was placed.
-func _produce(goal: float, pop: int, only: String = "") -> bool:
+func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = false) -> bool:
 	var scored: Array = []
 	for good in SHARES:
 		if only != "" and good != only:
@@ -496,7 +640,7 @@ func _produce(goal: float, pop: int, only: String = "") -> bool:
 			var def := s.registry.get_building(id)
 			if not s.is_unlocked(def):
 				continue
-			if _jobs_free() < 1:
+			if _jobs_free() < 1 and not no_hands_needed:
 				return false
 			if not _afford(id, {} if (good == "food" or good == "lumen" or good == "materials" or good == "gold") else reserve):
 				continue
@@ -509,9 +653,9 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	var era := s.registry.get_era(s.era_current).order
 	var res := reserve
 	# builders and haulers
-	if era >= 2 and _count("builders_yard") < pop / 60 and _afford("builders_yard", res):
+	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard", res):
 		_place("builders_yard", _hearth_near(), 14)
-	if era >= 3 and _count("handcart_shed") < 1 + pop / 150 and _afford("handcart_shed", res):
+	if era >= 3 and _count("handcart_shed") < 1 + pop / 50 and _afford("handcart_shed", res):
 		_place("handcart_shed", _hearth_near(), 14)
 	# forester keeps the woodcutters going
 	if era >= 2 and _count("forester") < _count("woodcutter") / 3 and _afford("forester", res) and _jobs_free() >= 1:
