@@ -9,6 +9,8 @@ All notable changes to Hearthvein. Newest first.
   the tab is collapsed), Demolish, Upgrade, Region map and Help.
 - Bridges. Drag a road across the river to build a bridge (5 Materials per water tile); pave it for a stone
   bridge. Track can cross water too, at three times the track cost.
+- Moving water and chimney smoke: rivers and lakes shimmer, and chimneys puff smoke while the building is
+  working.
 
 ### Changed
 - Faster early game: producers make more, construction is quicker, the growth bar fills sooner and immigrants
