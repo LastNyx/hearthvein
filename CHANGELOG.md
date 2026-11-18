@@ -16,12 +16,16 @@ All notable changes to Hearthvein. Newest first.
 
 ### Changed
 - Faster early game: producers make more, construction is quicker, the growth bar fills sooner and immigrants
-  arrive from Spirit 50. Markets pay more gold per worker.
+  arrive from Spirit 50.
+- Markets pay 2 gold per worker a day (was 4), so gold matters again.
 - Smoother play in big settlements: a 600-citizen town now costs about a fifth of the frame time it did, the work
   at the end of each in-game hour is spread over several frames, and the autosave at each season start is written
   in the background.
 
 ### Fixed
+- Hauling no longer starves: a fifth of the citizens always haul, so food and goods leave full doors.
+- Builders live at their builders' yard and take the nearest site; a site no yard can reach in a work day says
+  "too far from a builders' yard".
 - There was no way to cross the river, so half the map was out of reach on foot.
 
 ## 1.1.1 - 2026-11-18
