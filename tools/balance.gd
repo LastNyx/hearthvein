@@ -46,7 +46,7 @@ const LANDMARKS := {
 }
 ## Variety first: one of each food type (forager, farm, fishing dock) before anything else.
 ## Opening build order: [id, count wanted, minimum population].
-const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 0], ["woodcutter", 2, 0], ["lumen_tap", 1, 9], ["market", 1, 10],
+const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 0], ["woodcutter", 2, 0], ["market", 1, 9], ["lumen_tap", 1, 9],
 	["woodcutter", 3, 10], ["market", 2, 13], ["farm", 1, 0], ["fishing_dock", 1, 12], ["farm", 2, 14]]
 ## Ascendant healing buildings: id -> count wanted.
 const HEALERS := {"verdant_spring": 2, "rewilding_grove": 2, "vein_mender": 2, "clearwater_works": 1}
