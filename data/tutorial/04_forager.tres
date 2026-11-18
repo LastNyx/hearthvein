@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "forager"
+order = 4
+text = "Build a Forager beside the road.\nIt gathers food. Haulers carry the food from it to your stores, so it must touch the road."
+kind = "built_connected"
+def_id = "forager"
+amount = 1
+highlight = "forager"
+covers_hints = Array[String]([])

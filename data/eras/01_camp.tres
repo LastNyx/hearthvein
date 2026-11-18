@@ -11,3 +11,4 @@ gate_pop = 0
 gate_gold = 0
 gate_landmark = ""
 dimming_base_days = 2
+new_pressure = "A Dimming comes every winter and lasts at least 2 days. Keep some Lumen and food in store."

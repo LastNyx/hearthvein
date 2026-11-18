@@ -1963,6 +1963,15 @@
   "pop": "ui/icon_pop.png",
   "spirit": "ui/icon_spirit.png"
  },
+ "logo": {
+  "chunk": 4,
+  "file": "ui/logo.png",
+  "file_2x": "ui/logo@2x.png",
+  "size": [
+   648,
+   216
+  ]
+ },
  "overlay_cols": 8,
  "overlay_index": [
   -1,

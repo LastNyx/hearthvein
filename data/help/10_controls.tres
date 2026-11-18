@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "controls"
+order = 10
+title = "Controls"
+body = "Mouse
+Left click: place a building or select one.
+Right click (let go without dragging): cancel the tool or deselect.
+Right drag, middle drag or W A S D: move the view.
+Mouse wheel: zoom.
+
+Time
+Space: pause.
+1, 2, 3: speed.
+
+Building
+B: open the build bar.
+R: road.
+C: channel (from the Village era).
+P: paved road (from the Town era).
+J: rail track (from the Conflux era).
+X: demolish.
+U: upgrade the selected building.
+
+Views
+V: blight.
+G: roads.
+T: water.
+H: coverage.
+L: Lumen grid.
+M: region map.
+Tab: switch between ground and sky.
+
+Menus
+Esc: cancel the tool or selection; if there is none, the pause menu.
+F1: this help."
+keys = PackedStringArray("SPACE", "1", "2", "3", "B", "R", "C", "P", "J", "X", "U", "TAB", "M", "V", "G", "T", "H", "L", "W", "A", "S", "D", "ESCAPE", "F1")

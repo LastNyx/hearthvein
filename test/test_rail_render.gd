@@ -12,6 +12,7 @@ func test_track_tiles_autotile_and_clear() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = 42
 	add_child_autofree(main)
+	main.start_new_game()
 	await get_tree().process_frame
 	var s: Settlement = main.settlement
 	s.era_override = "conflux"

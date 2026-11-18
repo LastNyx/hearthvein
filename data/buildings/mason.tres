@@ -11,6 +11,7 @@ outputs = {"cut_stone": 2.0}
 [resource]
 script = ExtResource("1")
 id = "mason"
+description = "Cuts raw materials into cut stone for finer buildings."
 display_name = "Mason"
 era = "town"
 category = "refining"

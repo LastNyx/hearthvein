@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "skyspire"
+description = "A tall home on the sky islands for many citizens."
 display_name = "Skyspire"
 era = "skyborne"
 category = "housing"

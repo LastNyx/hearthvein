@@ -11,3 +11,4 @@ gate_pop = 450
 gate_gold = 4000
 gate_landmark = "dawn_beacon"
 dimming_base_days = 8
+new_pressure = "The Dimming lasts at least 8 days. Heal the planet you drained. When the Skyheart is finished, the 16 day Great Dimming follows."

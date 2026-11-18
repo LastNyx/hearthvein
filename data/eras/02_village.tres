@@ -11,3 +11,4 @@ gate_pop = 15
 gate_gold = 30
 gate_landmark = "meeting_hall"
 dimming_base_days = 3
+new_pressure = "The Dimming now lasts at least 3 days. During a Dimming every citizen needs 0.5 Lumen a day for light, so a bigger village must store more Lumen and food."

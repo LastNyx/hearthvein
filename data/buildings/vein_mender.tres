@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "vein_mender"
+description = "Workers ease the damage that nearby Lumen extractors do to planet health."
 display_name = "Vein Mender"
 era = "ascendant"
 category = "civic"

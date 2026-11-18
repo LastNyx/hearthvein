@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "buffer_full"
+order = 2
+trigger = "production_halted"
+filter_key = "why"
+filter_value = "door_full"
+check = ""
+title = "Output buffer full"
+body = "A building stopped because its output buffer is full. Haulers carry goods to a Storehouse. Build a Storehouse near it, join it with a road, and keep hauler jobs filled."
+help_page = "haulers_storage"

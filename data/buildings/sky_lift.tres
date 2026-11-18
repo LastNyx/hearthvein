@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "sky_lift"
+description = "Carries citizens and haulers between the ground and a floating island above it."
 display_name = "Sky Lift"
 era = "skyborne"
 category = "sky"

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "eras_gates"
+order = 8
+title = "Eras and gates"
+body = "The settlement grows through seven eras. To reach the next one you need enough citizens, enough gold and the landmark building of the era you are in.
+
+{gates}
+
+Reaching an era unlocks its buildings. A card tells you what is new and what gets harder. The top right panel shows the era and what the next gate still needs.
+
+The last landmark is the Skyheart. There is no era after Ascendant."

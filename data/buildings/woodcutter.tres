@@ -26,6 +26,7 @@ cost = {"tools": 2, "lumen_cells": 1, "cut_stone": 3}
 [resource]
 script = ExtResource("1")
 id = "woodcutter"
+description = "Workers fell trees for raw materials. The forest around it thins out."
 display_name = "Woodcutter"
 era = "camp"
 category = "materials"

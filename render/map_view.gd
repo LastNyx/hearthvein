@@ -55,6 +55,12 @@ var _shade: Sprite2D
 var _shade_image: Image
 var _shade_dirty := false
 var _overlay: RegionOverlay
+## False hides the region tint, borders and reward markers (the title backdrop); set before or after setup().
+var show_regions := true:
+	set(v):
+		show_regions = v
+		if _overlay != null:
+			_overlay.visible = v
 ## Optional Callable(tile) -> bool: true where roads or a building cover the tile (PlacementView sets it), so props
 ## re-added by refresh_tile stay hidden there.
 var prop_blocked: Callable = Callable()
@@ -145,6 +151,7 @@ func setup(m: MapState) -> void:
 	_shade.texture = ImageTexture.create_from_image(_shade_image)
 	_overlay = RegionOverlay.new()
 	_overlay.map = map
+	_overlay.visible = show_regions
 	add_child(_overlay)
 
 

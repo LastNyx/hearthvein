@@ -11,6 +11,7 @@ outputs = {"tools": 3.0}
 [resource]
 script = ExtResource("1")
 id = "skyforge"
+description = "Turns Lumen cells and planks into tools, high above the ground."
 display_name = "Skyforge"
 era = "skyborne"
 category = "refining"

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "well"
+description = "Gives drinking water to homes nearby. Build it on wet ground."
 display_name = "Well"
 era = "town"
 category = "water"

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "two_tents"
+order = 3
+text = "Build two Tents beside the road.\nA Tent is a bed. Citizens without a bed do not settle."
+kind = "built"
+def_id = "tent"
+amount = 2
+highlight = "tent"
+covers_hints = Array[String]([])

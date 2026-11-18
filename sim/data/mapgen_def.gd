@@ -32,3 +32,7 @@ extends Resource
 @export var pond_river_gap: float = 0.0
 ## How uneven lake and pond shores are, 0 = round, 0.3 = strongly lobed.
 @export var shore_wobble: float = 0.0
+
+## Seed of the guided tutorial's map (ticket 79): forest, a vein and the river near the Hearth, grass for the first
+## buildings. Picked with tools/find_tutorial_seed.gd; test_new_game_panel.gd re-checks it. Used for a tutorial game with a blank seed.
+@export var tutorial_seed: int = 0

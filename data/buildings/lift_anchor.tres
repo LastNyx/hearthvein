@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "lift_anchor"
+description = "Staffed, it raises a floating island over its region so you can build in the sky."
 display_name = "Lift Anchor"
 era = "skyborne"
 category = "sky"

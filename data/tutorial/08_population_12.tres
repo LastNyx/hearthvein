@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "population_12"
+order = 8
+text = "Grow to 12 citizens.\nPeople arrive when there is a free bed, enough food and good Spirit. Watch the growth bar."
+kind = "population"
+def_id = ""
+amount = 12
+highlight = ""
+covers_hints = Array[String]([])

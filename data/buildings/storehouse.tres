@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1")
 id = "storehouse"
+description = "Stores goods away from the Hearth and sends out haulers to fetch them."
 display_name = "Storehouse"
 era = "camp"
 category = "logistics"

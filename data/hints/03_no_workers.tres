@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "no_workers"
+order = 3
+trigger = "day_started"
+filter_key = ""
+filter_value = ""
+check = "no_workers"
+title = "No workers"
+body = "A building has nobody working in it, so it makes nothing. Workers come from citizens with no job: grow your camp, or pause a workplace you do not need."
+help_page = "citizens_food"

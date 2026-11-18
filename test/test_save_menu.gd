@@ -136,6 +136,7 @@ func _main(save_dir: String) -> Node:
 	main.game_seed = SEED
 	main.saves_dir = save_dir
 	add_child_autofree(main)
+	main.start_new_game()
 	return main
 
 
@@ -209,3 +210,103 @@ func test_menu_pauses_the_tree_and_load_swaps_through_main() -> void:
 	assert_false(get_tree().paused)
 	assert_eq(main.settlement.clock.total_hours, other.clock.total_hours)
 	assert_same(main.hud_model.s, main.settlement)
+
+
+# ---------------------------------------------------------------- ticket 80: the pause menu
+
+func _press(menu: SaveMenu, id: String) -> void:
+	var b := menu.find_child(id, true, false) as Button
+	assert_not_null(b, id)
+	assert_true(b.is_visible_in_tree(), id + " visible")
+	b.pressed.emit()
+
+
+func _slot_buttons(menu: SaveMenu, text: String) -> Array:
+	return menu.find_children("*", "Button", true, false).filter(
+			func(b: Button) -> bool: return b.text == text and b.name.begins_with("@"))
+
+
+func test_rows_in_save_mode_skip_autosaves() -> void:
+	slots.autosave(s)
+	assert_eq(m.rows("save").size(), 8)
+	assert_eq(m.rows("load").size(), 9)
+	assert_eq(m.rows("load")[0]["kind"], "auto")
+	assert_eq(m.rows("save")[0]["kind"], "manual")
+
+
+func test_pause_menu_buttons_and_slot_lists() -> void:
+	var main := _main(dir)
+	main.settings_path = dir + ".cfg"
+	await wait_process_frames(2)
+	var menu: SaveMenu = main.menu
+	main.slots.autosave(main.settlement)
+	menu.open()
+	for id in ["Resume", "Save", "Load", "Settings", "Help", "Milestones", "MainMenu", "Quit"]:
+		assert_true((menu.find_child(id, true, false) as Button).is_visible_in_tree(), id)
+	# Save: manual slots only, no Load buttons
+	_press(menu, "Save")
+	assert_eq(_slot_buttons(menu, "Save").size(), 8)
+	assert_eq(_slot_buttons(menu, "Load").size(), 0)
+	_slot_buttons(menu, "Save")[2].pressed.emit()
+	assert_true(FileAccess.file_exists(dir.path_join("slot_2.dat")), "Save writes the slot")
+	# Back returns to the button column; Load: autosave + 8 slots
+	menu.hide_slots()
+	_press(menu, "Load")
+	assert_eq(_slot_buttons(menu, "Load").size(), 9)
+	assert_eq(_slot_buttons(menu, "Save").size(), 0)
+	menu.hide_slots()
+	_press(menu, "Milestones")
+	assert_true(menu.find_child("Count", true, false).is_visible_in_tree())
+	menu.hide_milestones()
+	_press(menu, "Settings")
+	assert_true(menu.settings_panel.is_visible_in_tree())
+	menu.hide_settings()
+	_press(menu, "Resume")
+	assert_false(menu.is_open())
+	assert_false(get_tree().paused)
+
+
+func test_help_button_shows_once_connected_and_emits() -> void:
+	var main := _main(dir)
+	await wait_process_frames(2)
+	var got := [0]
+	main.menu.help_requested.connect(func() -> void: got[0] += 1)
+	main.menu.open()
+	_press(main.menu, "Help")
+	assert_eq(got[0], 1)
+
+
+func test_main_menu_button_autosaves_and_returns_to_title() -> void:
+	var main := _main(dir)
+	await wait_process_frames(2)
+	main.menu.open()
+	_press(main.menu, "MainMenu")
+	await wait_process_frames(2)
+	assert_eq(main.state, main.State.TITLE)
+	assert_false(main.menu.is_open())
+	assert_false(get_tree().paused)
+	assert_eq(SaveSlots.new(dir).latest_auto(), 0, "an autosave was written")
+
+
+func test_quit_button_autosaves_then_quits() -> void:
+	var main := _main(dir)
+	await wait_process_frames(2)
+	var quit := [0]
+	main.quit_fn = func() -> void: quit[0] += 1
+	main.menu.open()
+	_press(main.menu, "Quit")
+	assert_eq(quit[0], 1)
+	assert_eq(SaveSlots.new(dir).latest_auto(), 0, "an autosave was written")
+
+
+func test_title_load_view_lists_autosaves_and_back_closes() -> void:
+	var main := _main(dir)
+	await wait_process_frames(2)
+	main.return_to_title()  # autosaves
+	await wait_process_frames(2)
+	main.menu.open_view("load")
+	assert_true(main.menu.is_open())
+	assert_false(get_tree().paused)
+	assert_eq(_slot_buttons(main.menu, "Load").size(), 9, "the autosave and 8 slots")
+	main.menu.hide_slots()
+	assert_false(main.menu.is_open())

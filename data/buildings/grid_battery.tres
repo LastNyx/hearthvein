@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "grid_battery"
+description = "Stores spare Lumen from the grid and gives it back when supply runs short."
 display_name = "Grid Battery"
 era = "conflux"
 category = "logistics"

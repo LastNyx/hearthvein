@@ -20,6 +20,7 @@ const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water",
 var model: HudModel
 var build: BuildController
 var camera: Camera2D
+var _right := RightDrag.new()
 var driver: SimDriver
 var _font: FontFile
 var _body_font: FontFile
@@ -58,7 +59,24 @@ var _cat_buttons: Dictionary = {}
 var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _open_cat := ""
+var tutorial_panel: TutorialPanel
+var hint_cards: HintCards
+var era_card: EraCard
+var _right_col: VBoxContainer
+var _pulsed: Button
+var _pulse_t := 0.0
 var _acc := 0.0
+## Hover tooltips (ticket 81): a build button or a placed building under the mouse, shown after TIP_DELAY seconds.
+const TIP_DELAY := 0.4
+const TIP_WIDTH := 320.0
+const NO_TILE := Vector2i(-99999, -99999)
+var _tip_panel: PanelContainer
+var _tip_box: VBoxContainer
+var _tip_btn: Button
+var _tip_key := ""
+var _tip_text := ""
+var _tip_t := 0.0
+var _mid_down := false
 
 
 func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void:
@@ -97,6 +115,7 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(right)
+	_right_col = right
 	_build_overlay_menu(right)
 	_build_era_panel(right)
 	_build_notes(center)
@@ -110,11 +129,27 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	_region_map.setup(self, model)
 	_region_map.resized.connect(_center_region_map)
 	_build_bar(col)
+	_build_tooltip()
+	tutorial_panel = TutorialPanel.new()
+	right.add_child(tutorial_panel)
+	tutorial_panel.setup(self, model.s, _float)
 	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
 	model.layer_changed.connect(func(_l: int) -> void:
 		_show_flyout()
 		refresh())
 	refresh()
+
+
+## The hint cards (right edge, under the era and tutorial panels) and the era card (centred); Main adds them once it has
+## the settings. Tests and shot scripts that build a Hud without settings simply have neither.
+func add_cards(settings: GameSettings) -> void:
+	hint_cards = HintCards.new()
+	_right_col.add_child(hint_cards)
+	hint_cards.setup(self, model.s, settings)
+	era_card = EraCard.new()
+	_float.add_child(era_card)
+	era_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	era_card.setup(self, model.s, driver)
 
 
 # ---------------------------------------------------------------- building blocks
@@ -470,10 +505,25 @@ func _show_flyout() -> void:
 				text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
 			var b := _button(_fly_box, text, 14)
 			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
+			if e["kind"] != "building":
+				b.name = "Tool_" + str(e["id"])
+			if e["kind"] == "building":
+				b.name = "Build_" + str(e["id"])
+				b.set_meta("def_id", e["id"])
+				b.set_meta("reason", str(e.get("reason", "")))
+				b.mouse_entered.connect(func() -> void: _tip_btn = b)
+				b.mouse_exited.connect(func() -> void:
+					if _tip_btn == b:
+						_tip_btn = null)
 			if e.get("enabled", true) == false:
 				b.disabled = true
 				b.modulate = Color(1, 1, 1, 0.5)
-				b.tooltip_text = str(e["reason"])
+
+
+## The flyout button that builds `def_id` (the open category's), or null. Buttons are named "Build_<def id>" and carry
+## the meta "def_id", so a tutorial highlight (ticket 83) can find them.
+func build_button(def_id: String) -> Button:
+	return _fly_box.find_child("Build_" + def_id, true, false) as Button
 
 
 func _pick(kind: String, id: String) -> void:
@@ -517,6 +567,8 @@ func refresh() -> void:
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
+	tutorial_panel.refresh()
+	update_highlight()
 
 
 func _refresh_layer_tag() -> void:
@@ -536,6 +588,9 @@ func _center_region_map() -> void:
 
 
 func _process(delta: float) -> void:
+	hover_tick(delta)
+	_pulse_t += delta
+	update_highlight(_pulse_t)
 	if _sel_panel.visible:
 		_place_selection_panel()
 	if _region_map.visible:
@@ -552,6 +607,11 @@ func has_cancelable() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_MIDDLE:
+		_mid_down = (event as InputEventMouseButton).pressed
+	if _right.feed(event) and (build == null or build.mode == BuildController.Mode.NONE) and model.selected_id >= 0:
+		model.clear_selection()  # right click (not a drag) deselects; with a build tool active it cancels that instead
+		refresh()
 	if event is InputEventKey and event.pressed and not event.echo:
 		match (event as InputEventKey).keycode:
 			KEY_V: _on_overlay("blight")
@@ -579,3 +639,151 @@ func _unhandled_input(event: InputEvent) -> void:
 			var p := camera.get_global_mouse_position()
 			model.select_at(Vector2i(floori(p.x / ArtLibrary.TILE), floori(p.y / ArtLibrary.TILE)))
 			refresh()
+
+
+# ---------------------------------------------------------------- tutorial highlight (ticket 83)
+
+## The button the current tutorial goal points at, or null: the goal's build button when its category flyout is open,
+## else that category's button; the Roads category / road tool for the road goal; an overlay's button (its toggle
+## while the overlay menu is closed) for an overlay goal. Null when the tutorial is not active.
+func highlight_button() -> Button:
+	var g := (model.s.get_system(TutorialSystem) as TutorialSystem).current_goal()
+	if g == null or g.highlight == "":
+		return null
+	if _overlay_buttons.has(g.highlight):
+		return _overlay_buttons[g.highlight] if _overlay_panel.visible else _overlay_toggle
+	var cat := ""
+	var entry := ""
+	if g.highlight == "road":
+		cat = "roads"
+		entry = "Tool_road"
+	else:
+		var def := model.s.registry.get_building(g.highlight)
+		if def == null:
+			return null
+		cat = def.category
+		entry = "Build_" + g.highlight
+	if _open_cat == cat:
+		return _fly_box.find_child(entry, true, false) as Button
+	return _cat_buttons.get(cat) as Button
+
+
+## Pulses the highlighted button (self_modulate, so a disabled button's fade is kept) and clears the previous one.
+func update_highlight(t: float = 0.0) -> void:
+	var target := highlight_button()
+	if _pulsed != null and is_instance_valid(_pulsed) and _pulsed != target:
+		_pulsed.self_modulate = Color.WHITE
+	_pulsed = target
+	if target != null:
+		target.self_modulate = Color.WHITE.lerp(GOLD * 1.4, 0.5 + 0.5 * sin(t * 6.0))
+
+
+# ---------------------------------------------------------------- tooltips
+
+func _build_tooltip() -> void:
+	_tip_panel = PanelContainer.new()
+	_tip_panel.add_theme_stylebox_override("panel", _style())
+	_tip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_panel.z_index = 10
+	_tip_panel.visible = false
+	_tip_box = VBoxContainer.new()
+	_tip_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_panel.add_child(_tip_box)
+	add_child(_tip_panel)
+
+
+func tooltip_visible() -> bool:
+	return _tip_panel.visible
+
+
+## What the open tooltip says (all its lines), "" when hidden.
+func tooltip_text() -> String:
+	return _tip_text if _tip_panel.visible else ""
+
+
+func _hide_tip() -> void:
+	_tip_panel.visible = false
+	_tip_key = ""
+	_tip_text = ""
+	_tip_t = 0.0
+
+
+## Advance the hover timer. A hovered build button wins; else the building under the mouse (or `tile`, for tests) when
+## no build tool is active, no region map is open, the camera is not being dragged and no HUD panel is under the mouse.
+func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
+	var key := ""
+	var data := {}
+	var at_button := false
+	if _tip_btn != null and not is_instance_valid(_tip_btn):
+		_tip_btn = null
+	if _tip_btn != null and _tip_btn.is_visible_in_tree():
+		key = "def:" + str(_tip_btn.get_meta("def_id"))
+		data = model.tooltip_for(str(_tip_btn.get_meta("def_id")))
+		var why := str(_tip_btn.get_meta("reason", ""))
+		if why != "" and not data.is_empty():
+			(data["lines"] as Array[String]).append(why)
+			data["text"] = str(data["text"]) + "\n" + why
+		at_button = true
+	elif camera != null and (build == null or build.mode == BuildController.Mode.NONE) and not _right.down \
+			and not _mid_down and not _region_map.visible and (tile != NO_TILE or get_viewport().gui_get_hovered_control() == null):
+		var t := tile
+		if t == NO_TILE:
+			var p := camera.get_global_mouse_position()
+			t = Vector2i(floori(p.x / ArtLibrary.TILE), floori(p.y / ArtLibrary.TILE))
+		var b := model.s.building_at(t, model.active_layer)
+		if b != null:
+			key = "b:%d" % b.id
+			data = model.tooltip_for_building(b)
+	if key == "" or data.is_empty():
+		if _tip_panel.visible or _tip_key != "":
+			_hide_tip()
+		return
+	if key != _tip_key:
+		_tip_key = key
+		_tip_t = 0.0
+		_tip_panel.visible = false
+	_tip_t += delta
+	if _tip_t < TIP_DELAY:
+		return
+	if not _tip_panel.visible or str(data["text"]) != _tip_text:
+		_fill_tip(data)
+	_tip_panel.visible = true
+	_place_tip(at_button)
+
+
+func _fill_tip(d: Dictionary) -> void:
+	_tip_text = str(d["text"])
+	for c in _tip_box.get_children():
+		_tip_box.remove_child(c)
+		c.queue_free()
+	var title := _label(_tip_box, 18, GOLD)
+	title.text = d["title"]
+	var rows: Array = []
+	rows.append([d["description"], INK])
+	for l in d["status"]:
+		rows.append([l, Color("e8a33a") if str(l).begins_with("Halted") else CYAN])
+	for l in d["lines"]:
+		rows.append([l, DIM])
+	for row in rows:
+		if row[0] == "":
+			continue
+		var l := _label(_tip_box, 14, row[1])
+		l.text = row[0]
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(TIP_WIDTH, 0)
+	_tip_panel.reset_size()
+
+
+## Above the hovered button (below it if there is no room), or beside the mouse for the map; clamped to the screen.
+func _place_tip(at_button: bool) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var sz := _tip_panel.get_combined_minimum_size()
+	_tip_panel.size = sz
+	var pos := get_viewport().get_mouse_position() + Vector2(18, 18)
+	if at_button and _tip_btn != null:
+		var r := _tip_btn.get_global_rect()
+		pos = Vector2(r.position.x, r.position.y - sz.y - 6.0)
+		if pos.y < 6.0:
+			pos.y = r.end.y + 6.0
+	_tip_panel.position = Vector2(clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0)),
+			clampf(pos.y, 6.0, maxf(6.0, vp.y - sz.y - 6.0)))

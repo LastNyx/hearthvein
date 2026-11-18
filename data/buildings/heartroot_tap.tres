@@ -11,6 +11,7 @@ outputs = {"lumen": 12.0}
 [resource]
 script = ExtResource("1")
 id = "heartroot_tap"
+description = "Workers draw rich Lumen from deep roots, but only while the planet is healthy enough."
 display_name = "Heartroot Tap"
 era = "ascendant"
 category = "lumen"

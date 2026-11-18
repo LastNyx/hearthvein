@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "first_blight"
+order = 4
+trigger = "blight_changed"
+filter_key = "blighted"
+filter_value = "true"
+check = ""
+title = "Blight"
+body = "A Lumen extractor has blighted a tile. Blighted land grows less food and trees do not regrow on it. Press V to see blight. Blight never ends the game, but it adds up."
+help_page = "lumen_blight"

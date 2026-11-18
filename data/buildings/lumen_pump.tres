@@ -24,6 +24,7 @@ extra_worker_slots = 2
 [resource]
 script = ExtResource("1")
 id = "lumen_pump"
+description = "Workers pump Lumen out of a vein in the ground. This wears down planet health."
 display_name = "Lumen Pump"
 era = "town"
 category = "lumen"

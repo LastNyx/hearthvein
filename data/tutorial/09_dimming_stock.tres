@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TutorialDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/tutorial_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dimming_stock"
+order = 9
+text = "A Dimming is coming: the veins weaken and citizens need Lumen each day.\nStore enough Lumen and food for everyone to last the whole Dimming."
+kind = "dimming_stock"
+def_id = ""
+amount = 0
+highlight = ""
+covers_hints = Array[String](["dimming_forecast"])

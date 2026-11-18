@@ -19,6 +19,7 @@ func _init() -> void:
 	main.saves_dir = "/tmp/hv_finale_saves"
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	var s: Settlement = main.settlement
 	var h := s.map.hearth_spot
 	for x in range(h.x + 2, h.x + 12):

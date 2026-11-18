@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "clearwater_works"
+description = "Built on the river, it filters the water so fouling does not flow downstream."
 display_name = "Clearwater Works"
 era = "ascendant"
 category = "civic"

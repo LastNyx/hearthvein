@@ -16,6 +16,7 @@ func _init() -> void:
 	main.game_seed = int(args[0]) if args.size() > 0 else 42
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	var s: Settlement = main.settlement
 	var hud := main.get_node("Hud") as Hud
 	s.era_override = "village"

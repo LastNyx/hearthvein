@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "purifier_tower"
+description = "Workers clean blight from a wide area and keep new blight away from nearby tiles."
 display_name = "Purifier Tower"
 era = "city"
 category = "civic"

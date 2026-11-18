@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "island_still"
+order = 9
+trigger = "island_still"
+filter_key = ""
+filter_value = ""
+check = ""
+title = "An island went still"
+body = "Every sky island needs 20 Lumen a day from the grid, and its Lift Anchor needs workers. Until then its buildings stop. Nothing falls."
+help_page = "lumen_blight"

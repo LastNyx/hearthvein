@@ -295,6 +295,7 @@ func test_hud_overlay_keys_and_menu_buttons() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED
 	add_child_autofree(main)
+	main.start_new_game()
 	await get_tree().process_frame
 	var hud: Hud = main.get_node("Hud")
 	var model: HudModel = main.hud_model
@@ -594,6 +595,7 @@ func test_region_map_survey_button_states() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED
 	add_child_autofree(main)
+	main.start_new_game()
 	await get_tree().process_frame
 	var hud: Hud = main.get_node("Hud")
 	var st: Settlement = main.settlement
@@ -630,6 +632,7 @@ func test_region_map_survey_on_buyable_with_buy_beside_it() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED
 	add_child_autofree(main)
+	main.start_new_game()
 	await get_tree().process_frame
 	var hud: Hud = main.get_node("Hud")
 	var st: Settlement = main.settlement

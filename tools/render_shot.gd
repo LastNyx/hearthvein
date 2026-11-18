@@ -6,6 +6,7 @@ func _init() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	var cam: CameraController = main.get_node("Camera")
 	for i in CameraController.ZOOM_STEPS.size():
 		cam.set_zoom_step(i)

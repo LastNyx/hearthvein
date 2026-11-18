@@ -11,6 +11,7 @@ outputs = {"lumen": 6.0}
 [resource]
 script = ExtResource("1")
 id = "aether_collector"
+description = "Gathers clean Lumen straight from the sky, with no harm to the land."
 display_name = "Aether Collector"
 era = "skyborne"
 category = "lumen"

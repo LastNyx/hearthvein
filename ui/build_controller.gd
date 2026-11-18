@@ -11,6 +11,7 @@ var model: HudModel
 var ghost: GhostView
 var mode: Mode = Mode.NONE
 var def_id: String = ""
+var _right := RightDrag.new()
 var _painting := false
 var _last_tile := Vector2i(-1, -1)
 var _hint: Label
@@ -126,6 +127,8 @@ func _process(_d: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _right.feed(event) and mode != Mode.NONE:  # a right click cancels on release; a right drag pans (camera) and keeps the mode
+		cancel()
 	if event is InputEventKey and event.pressed and not event.echo:
 		match (event as InputEventKey).keycode:
 			KEY_R: set_mode(Mode.ROAD)
@@ -142,9 +145,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_ESCAPE: cancel()
 	elif event is InputEventMouseButton and mode != Mode.NONE:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
-			cancel()
-		elif mb.button_index == MOUSE_BUTTON_LEFT:
+		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				_click(_mouse_tile())
 			else:

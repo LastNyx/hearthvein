@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "lumen_nexus"
+description = "A landmark that links your Lumen into one grid. Building it opens the Conflux era."
 display_name = "Lumen Nexus"
 era = "city"
 category = "landmark"

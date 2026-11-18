@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "great_dimming"
+order = 10
+trigger = "great_dimming_forecast"
+filter_key = ""
+filter_value = ""
+check = ""
+title = "The Great Dimming is coming"
+body = "It lasts 16 days. Veins make a tenth of their Lumen, farms half, and light costs more. Planet health falls each day. Stockpile Lumen and food now."
+help_page = "dimming"

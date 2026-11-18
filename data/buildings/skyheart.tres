@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "skyheart"
+description = "The final landmark, raised in four stages. Finish it to complete the game."
 display_name = "Skyheart"
 era = "ascendant"
 category = "landmark"

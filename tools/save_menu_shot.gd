@@ -23,6 +23,7 @@ func _init() -> void:
 	main.saves_dir = DIR
 	root.add_child(main)
 	await process_frame
+	main.start_new_game()
 	var s: Settlement = main.settlement
 	var slots: SaveSlots = main.slots
 	slots.autosave(s)

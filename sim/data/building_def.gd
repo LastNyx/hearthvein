@@ -28,6 +28,8 @@ const GOLD := "gold"
 
 @export var id: String = ""
 @export var display_name: String = ""
+## One plain line for a first-time player: what it makes from what, or what it does. No numbers (tooltips add those from data).
+@export var description: String = ""
 @export var era: String = ""
 @export var category: String = "civic"
 @export var size: Vector2i = Vector2i(1, 1)

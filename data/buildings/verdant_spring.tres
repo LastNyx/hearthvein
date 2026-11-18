@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "verdant_spring"
+description = "Workers clear blight nearby and turn the ground into rich soil."
 display_name = "Verdant Spring"
 era = "ascendant"
 category = "civic"

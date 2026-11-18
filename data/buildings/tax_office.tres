@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "tax_office"
+description = "A worker here collects a little gold from every citizen each day."
 display_name = "Tax Office"
 era = "town"
 category = "gold"

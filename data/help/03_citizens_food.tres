@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "citizens_food"
+order = 3
+title = "Citizens and food"
+body = "Each citizen eats {growth.food_per_citizen} food a day. Food made beyond that fills the growth bar. When the bar is full and a bed is free, a new citizen arrives at the Hearth.
+
+Beds come from homes. The Hearth houses {building.hearth.housing_beds}, a Tent {building.tent.housing_beds}, a Cottage {building.cottage.housing_beds}. A citizen without a bed is homeless: Spirit falls and growth stops.
+
+If Spirit is {growth.immigration_spirit} or more and a bed is free, a newcomer also arrives every {growth.immigration_days} days.
+
+If food runs out, {growth.leave_per_day} citizen leaves each day until the food balances.
+
+Citizens with no job take free job slots on their own, in this order: food, water, Lumen, hauling, building, Materials, refined goods, gold, then the rest. You can set one building to high, normal or low priority, or pause it. You never choose people.
+
+Eating more than one kind of food raises Spirit."

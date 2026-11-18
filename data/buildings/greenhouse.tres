@@ -25,6 +25,7 @@ ignores_blight = true
 [resource]
 script = ExtResource("1")
 id = "greenhouse"
+description = "Workers grow food under glass. Blight nearby weakens the harvest."
 display_name = "Greenhouse"
 era = "town"
 category = "food"

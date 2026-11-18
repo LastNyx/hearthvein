@@ -19,6 +19,7 @@ extra_worker_slots = 2
 [resource]
 script = ExtResource("1")
 id = "cottage"
+description = "A sturdy home for a few citizens. Upgrade it for more beds."
 display_name = "Cottage"
 era = "village"
 category = "housing"

@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1")
 id = "meeting_hall"
+description = "The first landmark: a place for the camp to gather. Building it opens the Village era."
 display_name = "Meeting Hall"
 era = "camp"
 category = "landmark"

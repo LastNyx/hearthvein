@@ -1,25 +1,40 @@
 class_name SaveMenu
 extends CanvasLayer
-## The Esc pause menu (ticket 19d): Resume, Continue (latest autosave), then the autosaves and 8 manual slots with
-## Save / Load / Delete. Styled like the HUD (same pixel fonts and panel look). Opening pauses the scene tree (this
+## The Esc pause menu (tickets 19d, 80): a column of Resume, Save, Load, Settings, Help, Milestones, Main menu, Quit.
+## Save opens the 8 manual slots, Load the autosaves and slots. Styled like the HUD (same pixel fonts and panel look). Opening pauses the scene tree (this
 ## layer keeps running); the logic lives in SaveMenuModel. Loading emits `load_requested` and ui/main.gd swaps.
 
 signal load_requested(settlement: Settlement)
+## Pause menu buttons that leave the menu; ui/main.gd decides what they do. Help stays hidden until something
+## is connected to help_requested (ticket 85's HelpScreen).
+signal help_requested
+signal main_menu_requested
+signal quit_requested
 
 var model: SaveMenuModel
+## "save" or "load": which slot list show_slots() / refresh() draw.
+var slots_mode: String = "load"
+var _slots_view: VBoxContainer
+var _help: Button
 var _font: FontFile
 var _body_font: FontFile
 var _dim: ColorRect
 var _list: VBoxContainer
 var _status: Label
-var _continue: Button
 var _main_view: VBoxContainer
 var _ms_view: VBoxContainer
 var _ms_body: HBoxContainer
-var _new_row: HBoxContainer
+var _settings_view: VBoxContainer
+## Built by setup() when a GameSettings is given (Main passes its own); the Settings button opens it.
+var settings_panel: SettingsPanel
+## Title screen mode (ticket 77): opened from the title, so no pause, no Save buttons, no Continue.
+## The three views (load list, Milestones, Settings) are opened one at a time with open_view(); Back closes the menu.
+var title_mode: bool = false
+var _view: String = ""
+var _heading: Label
 
 
-func setup(m: SaveMenuModel) -> void:
+func setup(m: SaveMenuModel, settings: GameSettings = null) -> void:
 	model = m
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -48,24 +63,52 @@ func setup(m: SaveMenuModel) -> void:
 	_ms_view.add_theme_constant_override("separation", 8)
 	_ms_view.visible = false
 	col.add_child(_ms_view)
+	_settings_view = VBoxContainer.new()
+	_settings_view.visible = false
+	col.add_child(_settings_view)
 	_text(_main_view, "Paused", 22, Hud.GOLD)
-	var top := HBoxContainer.new()
+	var top := VBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
+	top.custom_minimum_size = Vector2(300, 0)
+	top.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_main_view.add_child(top)
-	_button(top, "Resume", 16).pressed.connect(close)
-	_continue = _button(top, "Continue (latest autosave)", 16)
-	_continue.pressed.connect(func() -> void: _emit_load(model.continue_latest()))
-	_button(top, "Milestones", 16).pressed.connect(show_milestones)
+	_menu_button(top, "Resume").pressed.connect(close)
+	_menu_button(top, "Save").pressed.connect(show_slots.bind("save"))
+	_menu_button(top, "Load").pressed.connect(show_slots.bind("load"))
+	if settings != null:
+		_menu_button(top, "Settings").pressed.connect(show_settings)
+		settings_panel = SettingsPanel.new()
+		settings_panel.name = "SettingsPanel"
+		_settings_view.add_child(settings_panel)
+		settings_panel.setup(settings)
+		settings_panel.back_requested.connect(hide_settings)
+	_help = _menu_button(top, "Help")
+	_help.pressed.connect(func() -> void: help_requested.emit())
+	_menu_button(top, "Milestones").pressed.connect(show_milestones)
+	_menu_button(top, "MainMenu", "Main menu").pressed.connect(func() -> void: main_menu_requested.emit())
+	_menu_button(top, "Quit").pressed.connect(func() -> void: quit_requested.emit())
+	_slots_view = VBoxContainer.new()
+	_slots_view.add_theme_constant_override("separation", 8)
+	_slots_view.visible = false
+	col.add_child(_slots_view)
+	_heading = _text(_slots_view, "Load game", 22, Hud.GOLD)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 4)
-	_main_view.add_child(_list)
-	_new_row = HBoxContainer.new()
-	_new_row.add_theme_constant_override("separation", 8)
-	_main_view.add_child(_new_row)
-	_status = _text(_main_view, "", 16, Hud.DIM)
+	_slots_view.add_child(_list)
+	_status = _text(_slots_view, "", 16, Hud.DIM)
+	var bar := HBoxContainer.new()
+	bar.alignment = BoxContainer.ALIGNMENT_END
+	_slots_view.add_child(bar)
+	_button(bar, "Back", 16).pressed.connect(hide_slots)
 	_build_milestone_view()
 	_dim.visible = false
 	visible = false
+
+
+func _menu_button(parent: Node, id: String, text: String = "") -> Button:
+	var b := _button(parent, text if text != "" else id, 18)
+	b.name = id
+	return b
 
 
 func is_open() -> bool:
@@ -77,15 +120,35 @@ func open() -> void:
 		return
 	visible = true
 	_dim.visible = true
-	get_tree().paused = true
+	_help.visible = help_requested.get_connections().size() > 0  # hidden until the HelpScreen is wired (ticket 85)
+	if not title_mode:
+		get_tree().paused = true
 	refresh()
+
+
+## Title screen: opens the menu in title mode on one view: "load" (the slot list), "milestones" or "settings".
+func open_view(view: String) -> void:
+	title_mode = true
+	_view = view
+	open()
+	_main_view.visible = false
+	if view == "load":
+		show_slots("load")
+	elif view == "milestones":
+		show_milestones()
+	elif view == "settings":
+		show_settings()
 
 
 func close() -> void:
 	if not visible:
 		return
 	model.pending = {}
+	title_mode = false
+	_view = ""
 	_ms_view.visible = false
+	_settings_view.visible = false
+	_slots_view.visible = false
 	_main_view.visible = true
 	visible = false
 	_dim.visible = false
@@ -93,11 +156,31 @@ func close() -> void:
 		get_tree().paused = false
 
 
+## The slot list: mode "save" (manual slots, Save buttons) or "load" (autosaves and slots, Load buttons).
+func show_slots(mode: String) -> void:
+	slots_mode = mode
+	_heading.text = "Save game" if mode == "save" else "Load game"
+	model.pending = {}
+	model.status = ""
+	_main_view.visible = false
+	_slots_view.visible = true
+	refresh()
+
+
+func hide_slots() -> void:
+	if title_mode and _view == "load":
+		close()
+		return
+	model.pending = {}
+	_slots_view.visible = false
+	_main_view.visible = true
+
+
 func refresh() -> void:
 	for c in _list.get_children():
 		_list.remove_child(c)
 		c.queue_free()
-	for r in model.rows():
+	for r in model.rows(slots_mode):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_list.add_child(row)
@@ -111,57 +194,18 @@ func refresh() -> void:
 			_button(row, "Yes", 16).pressed.connect(func() -> void: model.confirm(); refresh())
 			_button(row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
 			continue
-		if r["can_save"]:
-			_button(row, "Save", 16).pressed.connect(func() -> void: model.request_save(slot); refresh())
-		var load_b := _button(row, "Load", 16)
-		load_b.disabled = not r["can_load"]
 		var kind: String = r["kind"]
-		load_b.pressed.connect(func() -> void: _emit_load(model.load_row(kind, slot)))
+		if slots_mode == "save":
+			_button(row, "Save", 16).pressed.connect(func() -> void: model.request_save(slot); refresh())
+		else:
+			var load_b := _button(row, "Load", 16)
+			load_b.disabled = not r["can_load"]
+			load_b.pressed.connect(func() -> void: _emit_load(model.load_row(kind, slot)))
 		if r["kind"] == "manual":
 			var del := _button(row, "Delete", 16)
 			del.disabled = not r["can_delete"]
 			del.pressed.connect(func() -> void: model.request_delete(slot); refresh())
-	_refresh_new_row()
-	_continue.disabled = not model.has_continue()
 	_status.text = model.status
-
-
-func _refresh_new_row() -> void:
-	for c in _new_row.get_children():
-		_new_row.remove_child(c)
-		c.queue_free()
-	_text(_new_row, "New game", 16, Hud.CYAN).custom_minimum_size = Vector2(110, 0)
-	var cb := CheckBox.new()
-	cb.text = "Endless start (no Great Dimming, no win)"
-	cb.focus_mode = Control.FOCUS_NONE
-	cb.button_pressed = model.endless_toggle
-	cb.add_theme_font_override("font", _body_font)
-	cb.add_theme_font_size_override("font_size", Hud._px_size(16))
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-		cb.add_theme_color_override(c, Hud.INK)
-	cb.name = "EndlessToggle"
-	cb.add_theme_constant_override("h_separation", 10)
-	for k in ["unchecked", "checked", "unchecked_disabled", "checked_disabled"]:
-		cb.add_theme_icon_override(k, _box_icon(k.begins_with("checked"), Hud.INK))
-	var hover_ink := Hud.INK.lightened(0.35)
-	cb.add_theme_icon_override("unchecked_mirrored", _box_icon(false, Hud.INK))
-	cb.add_theme_icon_override("checked_mirrored", _box_icon(true, Hud.INK))
-	cb.add_theme_color_override("font_hover_color", hover_ink)
-	cb.add_theme_color_override("font_hover_pressed_color", hover_ink)
-	cb.toggled.connect(func(on: bool) -> void: model.endless_toggle = on)
-	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_new_row.add_child(cb)
-	if not model.pending.is_empty() and model.pending["action"] == "new_game":
-		_text(_new_row, "Unsaved progress will be lost", 16, Hud.GOLD)
-		_button(_new_row, "Yes", 16).pressed.connect(func() -> void:
-			var s := model.confirm()
-			if s != null:
-				load_requested.emit(s)
-			else:
-				refresh())
-		_button(_new_row, "No", 16).pressed.connect(func() -> void: model.cancel(); refresh())
-	else:
-		_button(_new_row, "Start", 16).pressed.connect(func() -> void: model.request_new_game(); refresh())
 
 
 ## The Milestones panel (ticket 46c): "This run" and "Lifetime" side by side, Back returns to the menu.
@@ -171,7 +215,25 @@ func show_milestones() -> void:
 	refresh_milestones()
 
 
+func show_settings() -> void:
+	if settings_panel == null:
+		return
+	_main_view.visible = false
+	_settings_view.visible = true
+
+
+func hide_settings() -> void:
+	if title_mode and _view == "settings":
+		close()
+		return
+	_settings_view.visible = false
+	_main_view.visible = true
+
+
 func hide_milestones() -> void:
+	if title_mode and _view == "milestones":
+		close()
+		return
 	_ms_view.visible = false
 	_main_view.visible = true
 
@@ -219,7 +281,7 @@ func refresh_milestones() -> void:
 
 
 ## A 20 px box drawn in code: 2 px light border on the dark panel; checked adds a filled square inside.
-func _box_icon(checked: bool, ink: Color) -> ImageTexture:
+static func _box_icon(checked: bool, ink: Color) -> ImageTexture:
 	var n := 20
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -243,7 +305,7 @@ func _emit_load(s: Settlement) -> void:
 
 # ---------------------------------------------------------------- look (same as ui/hud.gd)
 
-func _style(bg: Color, edge: Color, radius: int = 5, border: int = 2, margin: int = 12) -> StyleBoxFlat:
+static func _style(bg: Color, edge: Color, radius: int = 5, border: int = 2, margin: int = 12) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = edge

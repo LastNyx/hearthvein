@@ -21,6 +21,9 @@ var regions: RegionsDef = null  # the single data/regions/regions.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var tiers: TierRuleDef = null       # the single data/tiers/tiers.tres (upgrade tier default rule)
 var milestones: Dictionary = {}  # id -> MilestoneDef
+var tutorial_goals: Dictionary = {}  # id -> TutorialDef
+var hints: Dictionary = {}  # id -> HintDef
+var help_pages: Dictionary = {}  # id -> HelpPageDef
 var errors: Array[String] = []
 
 
@@ -31,6 +34,9 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	buildings.clear()
 	eras.clear()
 	milestones.clear()
+	tutorial_goals.clear()
+	hints.clear()
+	help_pages.clear()
 	terrain.clear()
 	roads.clear()
 	logistics = null
@@ -89,6 +95,33 @@ func milestones_in_order() -> Array[MilestoneDef]:
 	return out
 
 
+## Tutorial goals sorted by order.
+func tutorial_goals_in_order() -> Array[TutorialDef]:
+	var out: Array[TutorialDef] = []
+	for g in tutorial_goals.values():
+		out.append(g)
+	out.sort_custom(func(a: TutorialDef, b: TutorialDef) -> bool: return a.order < b.order)
+	return out
+
+
+## Hint rows in order.
+func hints_in_order() -> Array[HintDef]:
+	var out: Array[HintDef] = []
+	for h in hints.values():
+		out.append(h)
+	out.sort_custom(func(a: HintDef, b: HintDef) -> bool: return a.order < b.order)
+	return out
+
+
+## Help pages in order.
+func help_pages_in_order() -> Array[HelpPageDef]:
+	var out: Array[HelpPageDef] = []
+	for h in help_pages.values():
+		out.append(h)
+	out.sort_custom(func(a: HelpPageDef, b: HelpPageDef) -> bool: return a.order < b.order)
+	return out
+
+
 ## Eras sorted by order.
 func eras_in_order() -> Array[EraDef]:
 	var out: Array[EraDef] = []
@@ -139,6 +172,12 @@ func _index(path: String) -> void:
 		_add(eras, res.id, res, path, "era")
 	elif res is MilestoneDef:
 		_add(milestones, res.id, res, path, "milestone")
+	elif res is HintDef:
+		_add(hints, res.id, res, path, "hint")
+	elif res is HelpPageDef:
+		_add(help_pages, res.id, res, path, "help page")
+	elif res is TutorialDef:
+		_add(tutorial_goals, res.id, res, path, "tutorial goal")
 	elif res is TerrainDef:
 		_add(terrain, res.id, res, path, "terrain")
 	elif res is LogisticsDef:
@@ -202,6 +241,21 @@ func _validate() -> void:
 			errors.append("milestone '%s': unknown kind '%s'" % [m.id, m.kind])
 		elif m.kind == "era" and not eras.has(m.text):
 			errors.append("milestone '%s': unknown era '%s'" % [m.id, m.text])
+	for tg: TutorialDef in tutorial_goals.values():
+		if not TutorialDef.KINDS.has(tg.kind):
+			errors.append("tutorial goal '%s': unknown kind '%s'" % [tg.id, tg.kind])
+		elif tg.kind in ["built", "built_connected"] and not buildings.has(tg.def_id):
+			errors.append("tutorial goal '%s': unknown building '%s'" % [tg.id, tg.def_id])
+	for h: HintDef in hints.values():
+		if h.trigger == "":
+			errors.append("hint '%s': no trigger" % h.id)
+		if not HintDef.HELP_PAGES.has(h.help_page):
+			errors.append("hint '%s': unknown help page '%s'" % [h.id, h.help_page])
+		if not HintDef.CHECKS.has(h.check):
+			errors.append("hint '%s': unknown check '%s'" % [h.id, h.check])
+	for hp: HelpPageDef in help_pages.values():
+		if hp.title == "" or hp.body == "":
+			errors.append("help page '%s': empty title or body" % hp.id)
 	for g: GoodDef in goods.values():
 		if g.kind != GoodDef.KIND_BASE and g.kind != GoodDef.KIND_REFINED:
 			errors.append("good '%s': unknown kind '%s'" % [g.id, g.kind])

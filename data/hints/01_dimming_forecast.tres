@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dimming_forecast"
+order = 1
+trigger = "dimming_forecast"
+filter_key = ""
+filter_value = ""
+check = ""
+title = "A Dimming is coming"
+body = "Veins make much less Lumen during a Dimming, and every citizen needs Lumen for light. Store enough Lumen and food to last it."
+help_page = "dimming"

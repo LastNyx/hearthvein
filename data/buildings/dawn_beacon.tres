@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "dawn_beacon"
+description = "A landmark light that eases the dark of a Dimming, so citizens need less Lumen."
 display_name = "Dawn Beacon"
 era = "skyborne"
 category = "landmark"

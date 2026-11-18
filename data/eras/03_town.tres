@@ -11,3 +11,4 @@ gate_pop = 40
 gate_gold = 150
 gate_landmark = "bell_tower"
 dimming_base_days = 4
+new_pressure = "Buildings with upkeep now need Lumen every day, and run at half speed without it. The Dimming lasts at least 4 days."

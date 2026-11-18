@@ -29,6 +29,7 @@ cost = {"tools": 6, "lumen_cells": 3, "cut_stone": 8}
 [resource]
 script = ExtResource("1")
 id = "farm"
+description = "Workers grow crops. Good soil and water make the harvest bigger."
 display_name = "Farm"
 era = "village"
 category = "food"

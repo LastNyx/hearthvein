@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "sky_foundry"
+description = "A landmark forge that opens the Skyborne era and makes your first Lift Anchor free."
 display_name = "Sky Foundry"
 era = "conflux"
 category = "landmark"

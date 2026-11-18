@@ -10,8 +10,6 @@ var current: Callable
 var status: String = ""
 ## Row waiting for a Yes/No: {"action": "overwrite" | "delete", "slot": int}, or empty.
 var pending: Dictionary = {}
-## New game option (ticket 46c): no Great Dimming, no win.
-var endless_toggle: bool = false
 
 
 func _init(save_slots: SaveSlots, reg: DataRegistry, current_settlement: Callable) -> void:
@@ -21,8 +19,9 @@ func _init(save_slots: SaveSlots, reg: DataRegistry, current_settlement: Callabl
 
 
 ## Existing autosaves (newest first), then the 8 manual slots, empty ones included:
-## {kind, slot, title, empty, detail, can_save, can_load, can_delete}.
-func rows() -> Array[Dictionary]:
+## {kind, slot, title, empty, detail, can_save, can_load, can_delete}. mode "save" lists the manual slots only
+## (autosaves are not written by hand); "load" and the default list both.
+func rows(mode: String = "all") -> Array[Dictionary]:
 	var listed := slots.list()
 	var autos: Array[Dictionary] = []
 	var manual := {}
@@ -33,7 +32,7 @@ func rows() -> Array[Dictionary]:
 			manual[e["slot"]] = e
 	autos.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["saved_at"] > b["saved_at"])
 	var out: Array[Dictionary] = []
-	for n in autos.size():
+	for n in (0 if mode == "save" else autos.size()):
 		var e: Dictionary = autos[n]
 		out.append({"kind": "auto", "slot": e["slot"], "title": "Autosave %d" % (n + 1), "empty": false,
 				"detail": detail_text(e), "can_save": false, "can_load": true, "can_delete": false, "confirm": ""})
@@ -93,31 +92,16 @@ func request_delete(slot: int) -> void:
 	status = "Delete Slot %d?" % (slot + 1)
 
 
-## New game Start button: asks first (the unsaved progress is lost).
-func request_new_game() -> void:
-	pending = {"action": "new_game", "slot": -1}
-	status = "Unsaved progress will be lost. Start a new game?"
-
-
-## A fresh Settlement (random seed unless given), endless per the toggle; ui/main.gd swaps it in.
-func new_game(seed: int = -1) -> Settlement:
-	return Settlement.new_game(seed if seed >= 0 else randi(), registry, endless_toggle)
-
-
-## Yes: run the pending action. Returns the new Settlement for a new game, else null.
-func confirm() -> Settlement:
+## Yes: run the pending overwrite or delete.
+func confirm() -> void:
 	var p := pending
 	pending = {}
 	if p.is_empty():
-		return null
-	if p["action"] == "new_game":
-		status = ""
-		return new_game()
+		return
 	if p["action"] == "overwrite":
 		save_to(p["slot"])
 	else:
 		delete_slot(p["slot"])
-	return null
 
 
 ## No: drop the pending action.
@@ -140,6 +124,27 @@ func load_row(kind: String, slot: int) -> Settlement:
 	else:
 		status = "Loaded"
 	return s
+
+
+## The newest save of any kind (autosave or manual slot) as a slots.list() entry, or empty when there is none.
+func newest_save() -> Dictionary:
+	var best := {}
+	var auto := slots.latest_auto()
+	for e in slots.list():
+		if e["kind"] == "auto" and e["slot"] != auto:
+			continue
+		if best.is_empty() or int(e["saved_at"]) > int(best["saved_at"]):
+			best = e
+	return best
+
+
+## Title screen Continue: loads the newest save of any kind. Null (status says why) when there is none.
+func continue_newest() -> Settlement:
+	var e := newest_save()
+	if e.is_empty():
+		status = "No save yet"
+		return null
+	return load_row(e["kind"], e["slot"])
 
 
 func continue_latest() -> Settlement:

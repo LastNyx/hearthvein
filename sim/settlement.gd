@@ -71,7 +71,7 @@ var _roads_dirty := true
 var _hour_acc: float = 0.0
 
 
-static func new_game(seed: int, reg: DataRegistry, endless_start: bool = false) -> Settlement:
+static func new_game(seed: int, reg: DataRegistry, endless_start: bool = false, tutorial: bool = false) -> Settlement:
 	var s := Settlement.new()
 	s.registry = reg
 	s.map = MapGen.generate(seed, reg)
@@ -92,8 +92,28 @@ static func new_game(seed: int, reg: DataRegistry, endless_start: bool = false) 
 	s.add_default_systems()
 	if endless_start:
 		(s.get_system(CampaignSystem) as CampaignSystem).set_endless_start(true)
+	if tutorial:
+		(s.get_system(TutorialSystem) as TutorialSystem).start(s)
 	WaterSystem.recompute(s)  # the map starts dry; a new game's first day should not wait for the day hook
 	return s
+
+
+## The UI moved the camera (tutorial goal 1, ticket 83 calls this once the player pans, zooms or rotates).
+func report_camera_moved() -> void:
+	(get_system(TutorialSystem) as TutorialSystem).report_camera_moved(self)
+
+
+## Ends the tutorial at once (the goal panel's skip button).
+func skip_tutorial() -> void:
+	(get_system(TutorialSystem) as TutorialSystem).skip(self)
+
+
+## Road tiles joined to the Hearth (ground layer). Brings the road BFS up to date first, so a road_changed handler
+## sees the road that was just placed.
+func connected_road_count() -> int:
+	if _roads_dirty:
+		_recompute_connections()
+	return _reached.size()
 
 
 func _init_sky_grids() -> void:
@@ -151,6 +171,12 @@ func add_default_systems() -> void:
 	add_system(CoverageSystem.new())  # caches covered homes (Shrine r6); Spirit reads it for the coverage factor
 	add_system(RegionSystem.new())  # region rewards: modifier hooks, the spring wet pass and the one-time ruins claim
 	add_system(SpiritSystem.new())  # after Growth: reads its hunger report; after Planet: grief
+	var tut := TutorialSystem.new()  # guided goals (ticket 82): off unless new_game(tutorial); last, so it sees the hour's results
+	tut.setup(registry.tutorial_goals_in_order())
+	add_system(tut)
+	for kind in ["building_completed", "road_changed", "building_connection_changed", "citizen_added",
+			"citizen_born", "citizen_immigrated", "dimming_forecast", "dimming_ended"]:
+		events.subscribe(kind, tut.on_event.bind(self))
 	var prod := get_system(ProductionSystem) as ProductionSystem
 	prod.modifiers.append(FertilitySystem.output_modifier)
 	prod.modifiers.append(SpiritSystem.work_modifier)

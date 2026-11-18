@@ -11,6 +11,7 @@ outputs = {"sky_produce": 3.5}
 [resource]
 script = ExtResource("1")
 id = "sky_garden"
+description = "Workers grow food on a sky island. It needs wet ground under it."
 display_name = "Sky Garden"
 era = "skyborne"
 category = "food"

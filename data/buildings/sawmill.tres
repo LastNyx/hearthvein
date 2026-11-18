@@ -11,6 +11,7 @@ outputs = {"planks": 3.0}
 [resource]
 script = ExtResource("1")
 id = "sawmill"
+description = "Turns raw materials into planks for sturdier buildings."
 display_name = "Sawmill"
 era = "village"
 category = "refining"

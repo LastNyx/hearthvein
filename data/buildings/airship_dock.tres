@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "airship_dock"
+description = "A staffed dock that sends airships to survey far regions and carry goods between docks."
 display_name = "Airship Dock"
 era = "conflux"
 category = "logistics"

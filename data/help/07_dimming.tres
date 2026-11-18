@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="HelpPageDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/help_page_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dimming"
+order = 7
+title = "The Dimming"
+body = "Once a year, on the first day of winter, a Dimming begins. You get a forecast a season ahead that tells you how many days it lasts.
+
+Length: the base days for your era, made longer by a sick planet. Base days: {dimming_days}. At half planet health a Dimming lasts 1.5 times as long.
+
+During a Dimming Lumen Taps and Pumps make only {planet.dimming_vein_factor} of their Lumen (Reactors {building.lumen_reactor.dimming_vein_factor}, Vein Bores {building.vein_bore.dimming_vein_factor}). Foragers and plain farms make {building.forager.dimming_factor} as much food. Greenhouses, Hydroponic Halls, Sky Gardens and Fishing Docks are not affected.
+
+Light: only during a Dimming, every citizen needs {planet.light_per_citizen} Lumen a day, taken from a Storehouse. A Lumen cell counts as {planet.lumen_per_cell} Lumen. If anyone goes without, it is darkness: Spirit falls by {spirit.darkness_penalty} and nobody new arrives until it ends.
+
+So before winter, store at least citizens x {planet.light_per_citizen} x days of Lumen, and enough food to last it.
+
+After the Skyheart is finished, one last Great Dimming comes. It lasts {planet.great_dimming_days} days."
