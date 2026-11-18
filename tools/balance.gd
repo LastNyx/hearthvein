@@ -13,14 +13,16 @@ extends SceneTree
 const L := preload("res://tools/shot_layout.gd")
 
 const MAX_YEARS := 20
-const STALL_YEARS := 4
+const STALL_YEARS_DEFAULT := 4
 const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
 	"food": 0.4, "materials": 0.2, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
-	"lumen_cells": 0.03, "tools": 0.03,
+	"lumen_cells": 0.05, "tools": 0.03,
 }
+## From City on these replace the share above (the Nexus and everything after it eat Lumen: light, cells, upkeep, 47g).
+const CITY_SHARES := {"lumen": 0.18}
 ## Producer buildings per good, best first. The bot takes the first one that is unlocked, affordable and has room.
 const PRODUCERS := {
 	"food": ["bloom_orchard", "hydroponic_hall", "greenhouse", "farm", "fishing_dock", "forager"],
@@ -34,10 +36,14 @@ const PRODUCERS := {
 }
 ## Pause a good's producers above (per citizen, flat) stock; resume below 60% of it.
 const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0],
-	"cut_stone": [0.0, 100.0], "lumen_cells": [0.0, 60.0]}
+	"cut_stone": [0.0, 100.0], "lumen_cells": [0.0, 60.0], "tools": [0.0, 50.0]}
 ## From City on, food producers pause above this many units per citizen (see _throttle).
 const FOOD_THROTTLE_CITY := 12.0
 const CITY_ORDER := 4
+## Share of a landmark's goods that must be in stock before its site is placed (City on).
+const NEAR_READY := 0.8
+## From City on, materials producers are held while a landmark good is short and the materials stock is over this share of its cost.
+const REFINED_HOLD_CITY := 0.5
 ## Stock above which a good stops being built for.
 const STOCK_CAP := {"materials": 2500.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
@@ -56,8 +62,8 @@ const HEALERS := {"verdant_spring": 2, "rewilding_grove": 2, "vein_mender": 2, "
 const CLEANERS: Array[String] = ["purifier_tower", "cleanser"]
 const TAX_OFFICES_MAX := 3
 ## Tax Offices are built below this many times the next gate's gold and pulled down above TAX_DROP_AT times it.
-const TAX_BUILD_BELOW := 1.5
-const TAX_DROP_AT := 2.0
+const TAX_BUILD_BELOW := 0.9
+const TAX_DROP_AT := 1.25
 const SEARCH_RADIUS := 26
 ## Landmark saving starts at this share of the gate population.
 const LANDMARK_AT := 0.6
@@ -82,6 +88,7 @@ var _last_progress_day: int = 0
 var _skyheart_done_day: int = -1
 var _great_end: String = ""
 var _verbose: bool = false
+var _stall_years: int = STALL_YEARS_DEFAULT  # argument stall=<years>: a run with no era change for this long stops
 var _map_day: int = 150  # verbose runs print an ASCII map of the town on this day (argument map=<day>)
 var _made_acc := 0.0
 var _g_acc := {}
@@ -100,6 +107,8 @@ func _init() -> void:
 	for a in args:
 		if a.begins_with("map="):
 			_map_day = int(a.substr(4))
+		if a.begins_with("stall="):
+			_stall_years = int(a.substr(6))
 	var reg := DataRegistry.new()
 	reg.load_all()
 	s = Settlement.new_game(seed_value, reg)
@@ -108,7 +117,7 @@ func _init() -> void:
 	s.events.subscribe("dimming_ended", _on_dimming_ended)
 	s.events.subscribe("building_completed", _on_built)
 	s.events.subscribe("great_dimming_ended", _on_great_end)
-	print("balance: seed ", seed_value, ", cap ", MAX_YEARS, " years, stall ", STALL_YEARS, " years")
+	print("balance: seed ", seed_value, ", cap ", MAX_YEARS, " years, stall ", _stall_years, " years")
 	var stalled := false
 	var days := MAX_YEARS * GameClock.DAYS_PER_YEAR
 	var t0 := Time.get_ticks_msec()
@@ -167,7 +176,7 @@ func _init() -> void:
 					rows.append("%s%d/%d%s%s" % [b.def.id.substr(0, 4), int(wc.get(b.id, 0)), b.def.worker_slots, ("P" if b.paused else ""), (":" + b.halt if b.halt != "" else "")] + (" x%.2f" % (s.get_system(ProductionSystem) as ProductionSystem).multiplier(s, b) if b.def.category == "food" else ""))
 			var sh := []
 			for good in SHARES:
-				sh.append("%s %d/%.0f" % [good, _slots_for(good), float(SHARES[good]) * (float(s.citizens.size()) * 1.15 + 10.0)])
+				sh.append("%s %d/%.0f" % [good, _slots_for(good), _share(good) * (float(s.citizens.size()) * 1.15 + 10.0)])
 			var sp := []
 			for b: Building in s.buildings.values():
 				if b.site:
@@ -227,7 +236,7 @@ func _init() -> void:
 			_skyheart_done_day = day
 			_progress()
 			print("Skyheart finished: ", _stamp())
-		if day - _last_progress_day >= STALL_YEARS * GameClock.DAYS_PER_YEAR:
+		if day - _last_progress_day >= _stall_years * GameClock.DAYS_PER_YEAR:
 			stalled = true
 			break
 		if _great_end != "":
@@ -258,7 +267,7 @@ func _chain_state() -> String:
 ## What the era's landmark still lacks (verbose lines).
 func _lm_short() -> String:
 	var lm := _landmark_id()
-	if lm == "" or _count(lm) > 0:
+	if lm == "" or not _lm_open():
 		return ""
 	var cost := s.registry.get_building(lm).entry_cost()
 	var out: Array[String] = []
@@ -417,7 +426,7 @@ func _report(stalled: bool, secs: float) -> void:
 		_refresh_stock()
 		var lm := _landmark_id()
 		print("  landmark ", lm, " cost ", s.registry.get_building(lm).entry_cost(), " stock ", _stock, " count ", _count(lm), " reserve ", _reserve())
-		print("STALL: no progress for ", STALL_YEARS, " years at ", _stamp(), ", era ", s.era_id())
+		print("STALL: no progress for ", _stall_years, " years at ", _stamp(), ", era ", s.era_id())
 		if g["next"] == "":
 			print("  last era: the Skyheart is not finished (", _skyheart_state(), ")")
 		else:
@@ -477,6 +486,21 @@ func _pending_slots() -> int:
 		if b.site:
 			n += b.def.worker_slots
 	return n
+
+
+func _free_veins() -> int:
+	var n := 0
+	for y in MapState.HEIGHT:
+		for x in MapState.WIDTH:
+			if s.map.terrain_id_at(x, y) == "lumen_vein" and s.map.is_region_owned(s.map.get_region(x, y)) and s.can_place("lumen_tap", Vector2i(x, y))["ok"]:
+				n += 1
+	return n
+
+
+func _share(good: String) -> float:
+	if CITY_SHARES.has(good) and s.registry.get_era(s.era_current).order >= CITY_ORDER:
+		return float(CITY_SHARES[good])
+	return float(SHARES[good])
 
 
 func _slots_for(good: String) -> int:
@@ -672,6 +696,12 @@ func _reserve() -> Dictionary:
 	return out
 
 
+## True until the era's landmark is placed (a placed site is paid for from the stock; the bot stops saving then).
+func _lm_open() -> bool:
+	var lm := _landmark_id()
+	return lm != "" and _count(lm) == 0
+
+
 func _landmark_id() -> String:
 	return str(LANDMARKS.get(s.era_current, ""))
 
@@ -730,9 +760,11 @@ func _act() -> void:
 		for good in lcost:
 			var short: float = float(lcost[good]) - float(_stock.get(good, 0.0))
 			# the more a good is short, the more producers it gets (Lumen is eaten by upkeep and Dimmings while saved)
+			if good == "lumen" and short > 0.0 and s.clock.total_days() % 6 == 0 and _free_veins() < 3:
+				_buy_region(true)  # the Lumen the landmark lacks needs veins to stand on (47g)
 			if SHARES.has(good) and good != "gold" and short > 0.0 and _slots_for(good) < 2 + int(short / 15.0):
 				# a landmark good nobody makes yet gets its producer even with every hand busy (the quarries give way)
-				_produce(float(pop) * 1.15 + 10.0, pop, good, _slots_for(good) == 0)
+				_produce(float(pop) * 1.15 + 10.0, pop, good, _slots_for(good) == 0 or good == "lumen")
 		if float(_stock.get("food", 0.0)) < 2.0 * float(pop) + 40.0:
 			_produce(float(pop) * 1.15 + 10.0, pop, "food")
 	# 4. production by share
@@ -762,7 +794,7 @@ func _throttle(pop: int) -> void:
 		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
 			high = FOOD_THROTTLE_CITY * float(pop) + float(THROTTLE[good][1])  # growth needs a rising stock: pausing the fields stops it (47g)
 		var lm := _landmark_id()
-		if lm != "" and _count(lm) == 0:
+		if lm != "" and _lm_open():
 			var lcost := s.registry.get_building(lm).entry_cost()
 			var want_n := float(lcost.get(good, 0))
 			if good == "lumen_cells":
@@ -787,7 +819,7 @@ func _throttle(pop: int) -> void:
 ## priority: they rank behind food, Lumen, hauling, builders and materials, so a busy town leaves them empty (47g).
 func _chain_priority() -> void:
 	var lm := _landmark_id()
-	var cost := {} if lm == "" or _count(lm) > 0 else s.registry.get_building(lm).entry_cost()
+	var cost := {} if lm == "" or not _lm_open() else s.registry.get_building(lm).entry_cost()
 	var short := {}
 	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
 		short[g] = cost.has(g) and float(_stock.get(g, 0.0)) < float(cost[g])
@@ -806,10 +838,13 @@ func _chain_priority() -> void:
 ## True while the era's landmark waits for a refined good (planks, cut stone) and the materials for it are in stock.
 func _refined_short() -> bool:
 	var lm := _landmark_id()
-	if lm == "" or _count(lm) > 0:
+	if lm == "" or not _lm_open():
 		return false
 	var cost := s.registry.get_building(lm).entry_cost()
-	if float(_stock.get("materials", 0.0)) < float(cost.get("materials", 0)) + 100.0:
+	var hold := float(cost.get("materials", 0)) + 100.0
+	if s.registry.get_era(s.era_current).order >= CITY_ORDER:
+		hold = REFINED_HOLD_CITY * float(cost.get("materials", 0))  # the refiners are what the Nexus waits for: free their hands early (47g)
+	if float(_stock.get("materials", 0.0)) < hold:
 		return false
 	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
 		if cost.has(g) and float(_stock.get(g, 0.0)) < float(cost[g]):
@@ -820,13 +855,24 @@ func _refined_short() -> bool:
 ## Places the era's landmark when it can; returns true while the bot is saving for it.
 func _landmark() -> bool:
 	var lm := _landmark_id()
-	if lm == "" or _count(lm) > 0:
+	if lm == "" or not _lm_open():
 		return false
 	var g := s.era_gate()
 	var gate_pop: int = int(g.get("pop_need", 0)) if g["next"] != "" else 450
 	if float(s.citizens.size()) < LANDMARK_AT * float(gate_pop):
 		return float(s.citizens.size()) >= PREP_AT * float(gate_pop)  # not placed yet, but the refined goods are prepared
-	if _afford(lm) and _place(lm, _hearth_near(), 20) != null:
+	# From City on the site goes down once every good is within NEAR_READY of its cost: haulers fill the rest, and what the
+	# site holds is safe from the Dimmings' light draw and the upkeep (a stock of Lumen kept for the whole cost is eaten
+	# away while the rest is gathered, 47g).
+	var ready := _afford(lm)
+	if not ready and s.registry.get_era(s.era_current).order >= CITY_ORDER:
+		ready = true
+		var cost := s.cost_for(lm)
+		for good in cost:
+			var have: float = s.gold if good == "gold" else float(_stock.get(good, 0.0))
+			if have + 0.0001 < float(cost[good]) * (1.0 if good == "gold" else NEAR_READY):
+				ready = false
+	if ready and _place(lm, _hearth_near(), 20) != null:
 		_gate_seen["lm_placed"] = [s.clock.total_days(), int(s.gold)]
 		return false
 	return true
@@ -900,7 +946,7 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 	for good in SHARES:
 		if only != "" and good != only:
 			continue
-		var want: float = float(SHARES[good]) * goal
+		var want: float = _share(good) * goal
 		var have := float(_slots_for(good))
 		var stock := float(_stock.get(good, 0.0))
 		if good == "food" and stock < 2.0 * float(pop):
@@ -1121,9 +1167,10 @@ func _regional_storehouses() -> void:
 			return
 
 
-func _buy_region() -> void:
+## `any`: take the best region even when it has no veins and lies far (a plain buy needs a score over -1).
+func _buy_region(any: bool = false) -> void:
 	var best := -1
-	var best_score := -1.0
+	var best_score := -1.0e9 if any else -1.0
 	for r in MapState.REGION_COUNT:
 		if not s.can_buy_region(r)["ok"]:
 			continue
