@@ -19,7 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Third-party assets keep their own licences: the fonts in assets/ui (SIL Open Font
-License 1.1, see the *-OFL.txt files), the sounds in assets/audio (see
-assets/audio/CREDITS.md) and the GUT test addon in addons/gut (see its LICENSE.md).
