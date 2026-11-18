@@ -11,6 +11,8 @@ All notable changes to Hearthvein. Newest first.
   bridge. Track can cross water too, at three times the track cost.
 - Moving water and chimney smoke: rivers and lakes shimmer, and chimneys puff smoke while the building is
   working.
+- What's new on the title screen: this list in the game, opened once by itself after an update. The
+  version number shows in the corner of the title screen.
 
 ### Changed
 - Faster early game: producers make more, construction is quicker, the growth bar fills sooner and immigrants
