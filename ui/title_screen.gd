@@ -7,13 +7,15 @@ signal continue_pressed
 signal new_game_pressed
 signal load_pressed
 signal milestones_pressed
+signal whats_new_pressed
 signal settings_pressed
 signal quit_pressed
 
 var continue_button: Button
 
 
-func setup(has_save: bool) -> void:
+## `version` is shown small in the bottom-right corner (empty: no label).
+func setup(has_save: bool, version: String = "") -> void:
 	layer = 20
 	var shade := ColorRect.new()
 	shade.color = Color(0, 0, 0, 0.2)
@@ -51,8 +53,19 @@ func setup(has_save: bool) -> void:
 	_button(col, font, "New game", "NewGame", new_game_pressed)
 	_button(col, font, "Load", "Load", load_pressed)
 	_button(col, font, "Milestones", "Milestones", milestones_pressed)
+	_button(col, font, "What's new", "WhatsNew", whats_new_pressed)
 	_button(col, font, "Settings", "Settings", settings_pressed)
 	_button(col, font, "Quit", "Quit", quit_pressed)
+	if version != "":
+		var v := Label.new()
+		v.name = "VersionLabel"
+		v.text = "v" + version
+		v.add_theme_font_override("font", Hud._pixel_font(Hud.BODY_FONT_PATH))
+		v.add_theme_font_size_override("font_size", Hud._px_size(16))
+		v.add_theme_color_override("font_color", Hud.DIM)
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(v)
+		v.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
 
 
 ## A soft dark ellipse behind the logo and buttons so they do not sit on busy forest.
