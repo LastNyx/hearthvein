@@ -653,10 +653,13 @@ func _act() -> void:
 	var pop := s.citizens.size()
 	var reserve := _reserve()
 	var placed := 0
-	var site_cap := 3 + pop / 40
+	# sites too far from every yard hold builders for nothing (4 per ready site, walking all day): no new ones pile on
+	var far_n := _far_sites()
+	var site_cap := maxi(1, 3 + pop / 40 - mini(far_n, 3))
 	_throttle(pop)
 	_relocate_woodcutters()
 	_cancel_stale_yards()
+	_yards(pop, s.registry.get_era(s.era_current).order)
 	# 1. landmark; while the bot saves for it, only housing and gold are bought
 	var saving := _landmark()
 	# 2. housing
@@ -686,7 +689,7 @@ func _act() -> void:
 	var food_low := float(_stock.get("food", 0.0)) < 2.0 * float(pop) + 40.0
 	# so is a materials or Lumen stock that cannot pay for the sites already open (their producers are what unblocks them)
 	var low_stock := food_low or float(_stock.get("materials", 0.0)) < 0.8 * float(pop) + 40.0 or float(_stock.get("lumen", 0.0)) < 0.5 * float(pop)
-	while _open_sites() < site_cap + (4 if low_stock else 0) and tries < 3:
+	while _open_sites() < site_cap + (4 if (food_low or (low_stock and far_n < 2)) else 0) and tries < 3:
 		tries += 1
 		if not _produce(goal, pop):
 			break
@@ -914,6 +917,14 @@ func _cancel_stale_yards() -> void:
 			s.demolish(b.id)
 
 
+func _far_sites() -> int:
+	var n := 0
+	for b: Building in s.buildings.values():
+		if b.site and b.halt == "too_far" and b.def.id != "builders_yard":
+			n += 1
+	return n
+
+
 func _yard_site_open() -> bool:
 	for b: Building in s.buildings.values():
 		if b.site and b.def.id == "builders_yard":
@@ -921,9 +932,8 @@ func _yard_site_open() -> bool:
 	return false
 
 
-func _support(pop: int, reserve: Dictionary) -> void:
-	var era := s.registry.get_era(s.era_current).order
-	var res := reserve
+## Builders' yards: one for a site too far from every yard (its halt status), and one per 25 citizens.
+func _yards(pop: int, era: int) -> void:
 	# a site too far from every builders' yard (its halt status): a yard next to it
 	var yard_def := s.registry.get_building("builders_yard")
 	# (one at a time: sites close together share it, and a yard site waiting for its builders still shows the far status)
@@ -932,9 +942,13 @@ func _support(pop: int, reserve: Dictionary) -> void:
 			if b.site and b.halt == "too_far" and b.def.id != "builders_yard":
 				if _place_yard_for(b) != null:
 					break
-	# builders and haulers
 	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard") and not _yard_site_open():
 		_place("builders_yard", _hearth_near(), 14)
+
+
+func _support(pop: int, reserve: Dictionary) -> void:
+	var era := s.registry.get_era(s.era_current).order
+	var res := reserve
 	if era >= 3 and _count("handcart_shed") < 1 + pop / 50 and _afford("handcart_shed", res):
 		_place("handcart_shed", _hearth_near(), 14)
 	# forester keeps the woodcutters going
