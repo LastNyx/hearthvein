@@ -217,10 +217,8 @@ func on_hour(s: Settlement) -> void:
 				_set_halt(s, b, "")
 			continue
 		var far := true
-		var to := ws.door_tile(b)
 		for y in yards:
-			var p := ws.find_path(ws.door_tile(y), to)
-			if not p.is_empty() and 2.0 * ws.path_seconds(p) <= shift:
+			if 2.0 * _trip_seconds(s, ws, y, b) <= shift:  # INF (no path) never fits
 				far = false
 				break
 		if far and b.halt == "":

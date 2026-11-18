@@ -116,6 +116,8 @@ const SKIP := {
 	"JobSystem._lc_works": "layout cache: sites and upgrading buildings, rebuilt lazily",
 	# HaulingSystem
 	"HaulingSystem._walk_cache": "door walking time cache, rebuilt on a grid change",
+	"ConstructionSystem._trip_cache": "yard -> site walking time cache, rebuilt on a grid change",
+	"ConstructionSystem._trip_version": "grid version of _trip_cache",
 	"HaulingSystem._walk_version": "walk cache version",
 	"HaulingSystem._layout_version": "layout cache version",
 	"HaulingSystem._layout_count": "layout cache version",

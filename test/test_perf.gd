@@ -206,6 +206,8 @@ func test_departures_are_staggered_over_the_first_game_hour() -> void:
 	var qualify := {}
 	for id in at_home:
 		var c: Citizen = world.citizens[id]
+		if c.job_kind == Citizen.JOB_HAUL or c.job_kind == Citizen.JOB_BUILD:
+			continue  # haulers and builders leave their base on trips during the shift (47e hauler reserve)
 		var p := ws.find_path(ws.door_tile(world.buildings[c.home_id]), ws.door_tile(world.buildings[c.job_id]))
 		if p.is_empty():
 			continue
