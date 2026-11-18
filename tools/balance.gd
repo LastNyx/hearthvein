@@ -27,7 +27,7 @@ const CITY_SHARES := {"lumen": 0.18}
 const PRODUCERS := {
 	"food": ["bloom_orchard", "hydroponic_hall", "greenhouse", "farm", "fishing_dock", "forager"],
 	"materials": ["quarry", "woodcutter"],
-	"lumen": ["heartroot_tap", "lumen_reactor", "lumen_pump", "lumen_tap"],
+	"lumen": ["heartroot_tap", "lumen_pump", "lumen_reactor", "lumen_tap"],
 	"gold": ["grand_bazaar", "market"],
 	"planks": ["sawmill"],
 	"cut_stone": ["mason"],
@@ -40,6 +40,8 @@ const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0
 ## From City on, food producers pause above this many units per citizen (see _throttle).
 const FOOD_THROTTLE_CITY := 12.0
 const CITY_ORDER := 4
+## From this era on a new workplace needs as many idle citizens (not promised to open sites) as it has slots (47h).
+const LABOUR_ERA := 3
 ## Share of a landmark's goods that must be in stock before its site is placed (City on).
 const NEAR_READY := 0.8
 ## From City on, materials producers are held while a landmark good is short and the materials stock is over this share of its cost.
@@ -97,6 +99,10 @@ var _gold_before := 0.0
 var _placed_day := {}  # building id -> day it was placed (verbose build-time lines)
 var _inc_today := 0.0
 var _inc := {}  # gold income by source in the current era (an estimate from the day's staffing), and the rest spent
+var _wanted_max := 0.0  # highest wanted slots / citizens seen since the last era change (47h)
+var _wanted_over := 0  # days the wanted slots were above the population since the last era change
+var _placed_capped := 0  # workplaces placed for the producers' shares since the last era change: within the idle hands
+var _placed_exempt := 0  # ... and let through the cap (food running out, a landmark good nobody makes yet)
 var _gate_seen := {}  # gate part -> [day, gold] when it was first met in the current era
 
 
@@ -212,6 +218,7 @@ func _init() -> void:
 					ldoor += b.door_buffer.amount_of("lumen")
 					lwork += int(wc.get(b.id, 0))
 			print("     lumen producers %d staffed %d door_full %d door lumen %d stock %d" % [ln, lwork, lfull, int(ldoor), int(_stock.get("lumen", 0.0))])
+			print("     labour wanted %d pop %d food %d" % [_wanted_slots(), s.citizens.size(), int(_stock.get("food", 0.0))])
 			print("     slots/filled by category ", slots, fill, " hauler slots ", _hauler_slots(), " pop ", s.citizens.size())
 			print("     doorfood %.0f; spirit %.0f haulers %d other %d bar %.1f/%.1f | %s" % [doorfood, s.spirit(), haul, buildn, gr.bar, gr.bar_size_now(s), " ".join(rows)])
 		if _verbose and day == _map_day:
@@ -362,6 +369,11 @@ func _on_era(entry: Dictionary) -> void:
 		if not _gate_seen.has(k):
 			_gate_seen[k] = [s.clock.total_days(), int(s.gold)]  # met within the day the era changed
 	print(_gate_report(str(data["from"])))
+	print("  labour: wanted slots / citizens at most %.2f (days over %d); producers placed %d within idle hands, %d let through (food short, landmark goods)" % [_wanted_max, _wanted_over, _placed_capped, _placed_exempt])
+	_wanted_max = 0.0
+	_wanted_over = 0
+	_placed_capped = 0
+	_placed_exempt = 0
 	_gate_seen.clear()
 	_inc.clear()
 
@@ -436,6 +448,7 @@ func _report(stalled: bool, secs: float) -> void:
 	var counts := {}
 	for b: Building in s.buildings.values():
 		counts[b.def.id] = int(counts.get(b.def.id, 0)) + 1
+	print("Labour: wanted slots / citizens at most %.2f since the last era (days over %d); producers placed %d within idle hands, %d let through" % [_wanted_max, _wanted_over, _placed_capped, _placed_exempt])
 	print("Buildings at the end: ", counts)
 	print("Skyheart finished: ", ("day %d" % _skyheart_done_day) if _skyheart_done_day >= 0 else "no")
 	print("Great Dimming: ", _great_end if _great_end != "" else "not over")
@@ -739,6 +752,7 @@ func _act() -> void:
 	var far_n := _far_sites()
 	var site_cap := maxi(1, 3 + pop / 40 - mini(far_n, 3))
 	_throttle(pop)
+	_track_labour(pop)
 	_chain_priority()
 	_relocate_woodcutters()
 	_cancel_stale_yards()
@@ -798,8 +812,10 @@ func _throttle(pop: int) -> void:
 			var lcost := s.registry.get_building(lm).entry_cost()
 			var want_n := float(lcost.get(good, 0))
 			if good == "lumen_cells":
-				want_n += float(lcost.get("tools", 0))  # every Tool eats a cell
-			high = maxf(high, 1.3 * want_n + 20.0)  # what the landmark needs stays wanted
+				want_n += maxf(float(lcost.get("tools", 0)) - float(_stock.get("tools", 0.0)), 0.0)  # every Tool still to make eats a cell
+				high = want_n + 10.0  # cells cost 6 Lumen each: no more than the landmark needs (47h)
+			else:
+				high = maxf(high, 1.3 * want_n + 20.0)  # what the landmark needs stays wanted
 		var stock := float(_stock.get(good, 0.0))
 		if good == "materials" and _refined_short():
 			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the quarries until they have caught up
@@ -813,6 +829,35 @@ func _throttle(pop: int) -> void:
 				s.set_building_priority(b.id, "paused")
 			elif stock < high * 0.6 and b.paused:
 				s.set_building_priority(b.id, "normal")
+
+
+## Slots the settlement asks citizens for: workplaces not paused (sites count for the slots they will open), hauler slots, and
+## the builder crews the open sites can use. JobSystem fills them by category rank, so a town that wants more than its
+## citizens leaves the low ranks (refining, gold) empty (47g).
+func _wanted_slots() -> int:
+	var n := 0
+	var yard := 0
+	var sites := 0
+	for b: Building in s.buildings.values():
+		if b.paused:
+			continue
+		if b.site:
+			n += b.def.worker_slots
+			sites += 1
+			continue
+		n += b.effective_worker_slots(s.registry) + b.def.hauler_slots
+		yard += b.def.builder_slots
+	return n + mini(yard, sites * 4)
+
+
+## Records the day's wanted slots against the population (the log line of the labour cap, printed at every era change).
+func _track_labour(pop: int) -> void:
+	if s.registry.get_era(s.era_current).order < LABOUR_ERA:
+		return
+	var wanted := _wanted_slots()
+	_wanted_max = maxf(_wanted_max, float(wanted) / float(maxi(pop, 1)))
+	if wanted > pop:
+		_wanted_over += 1
 
 
 ## Producers of a refined good the era's landmark still lacks (and of the planks and cells a missing Tool eats) get high
@@ -846,9 +891,15 @@ func _refined_short() -> bool:
 		hold = REFINED_HOLD_CITY * float(cost.get("materials", 0))  # the refiners are what the Nexus waits for: free their hands early (47g)
 	if float(_stock.get("materials", 0.0)) < hold:
 		return false
+	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()
 	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
-		if cost.has(g) and float(_stock.get(g, 0.0)) < float(cost[g]):
-			return true
+		if not cost.has(g) or float(_stock.get(g, 0.0)) >= float(cost[g]):
+			continue
+		# the quarries give way only while a producer of the short good has empty slots (47h: with every refiner staffed the
+		# hold only kept the materials stock under the landmark's cost)
+		for b: Building in s.buildings.values():
+			if not b.site and not b.paused and PRODUCERS[g].has(b.def.id) and int(counts.get(b.id, 0)) < b.effective_worker_slots(s.registry):
+				return true
 	return false
 
 
@@ -975,11 +1026,28 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 				continue
 			if _jobs_free() < 1 and not no_hands_needed and not (good == "food" and float(_stock.get("food", 0.0)) < 1.5 * float(pop)):  # food outranks every other job: its new hands come from them
 				return false
+			if _over_cap(def, good, pop, no_hands_needed):
+				continue
 			if not _afford(id, {} if (good == "food" or good == "lumen" or good == "materials" or good == "gold" or _landmark_needs(good)) else reserve):
 				continue
+			var through := _jobs_free() < def.worker_slots
 			if _place(id, _hearth_near(), SEARCH_RADIUS) != null:
+				if through:
+					_placed_exempt += 1
+				else:
+					_placed_capped += 1
 				return true
 	return false
+
+
+## True when a new workplace would push the slots the bot wants above the population (47h). Food in need, the landmark's
+## missing goods and the opening are let through.
+func _over_cap(def: BuildingDef, good: String, pop: int, no_hands_needed: bool) -> bool:
+	if s.registry.get_era(s.era_current).order < LABOUR_ERA or no_hands_needed:
+		return false
+	if good == "food" and float(_stock.get("food", 0.0)) < 1.5 * float(pop):
+		return false
+	return _jobs_free() < def.worker_slots
 
 
 ## Hauler slots over every storehouse, yard and the Hearth: hauling outranks every producer, so each slot takes a citizen.
