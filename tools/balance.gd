@@ -353,7 +353,7 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 			looked += 1
 			if looked > 12:
 				break
-			if L._path(s, Rect2i(t, def.size)).is_empty():
+			if not _road_affordable(Rect2i(t, def.size)):
 				_bad_tiles[t] = s.clock.total_days() + 30  # no road reaches it now; look again in a month
 				continue
 			pick = t
@@ -371,7 +371,7 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 		checks += 1
 		if checks > 250:
 			break  # a road search that fails floods the map: do not run it for hundreds of spots
-		if L._path(s, Rect2i(t, def.size)).is_empty():
+		if not _road_affordable(Rect2i(t, def.size)):
 			_bad_tiles[t] = s.clock.total_days() + 20
 			continue
 		pick = t
@@ -383,11 +383,60 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 			return null
 		var b: Building = s.buildings[bid]
 		L.connect_road(s, b)
+		if not _hearth_exits_joined() or not _reachable(b):
+			# the building (or the road for it) shut a road tile at the Hearth in, so walkers cannot get through
+			s.demolish(b.id)
+			_bad_tiles[t] = s.clock.total_days() + 30
+			_cooldown[id] = s.clock.total_days() + 1
+			return null
 		_refresh_stock()
 		return b
 	_cooldown[id] = s.clock.total_days() + 3
 	_blocked_today = true
 	return null
+
+
+## Every road tile touching the Hearth can be walked to from every other one. A road tile boxed in by buildings next to
+## the Hearth door is a dead end: the Hearth's door (first road-touching tile) leads nowhere and nobody can walk out
+## (seed 3, 47e: builders stood at the Hearth, the sites never got built).
+func _hearth_exits_joined() -> bool:
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var exits: Array[Vector2i] = []
+	var r := s.hearth.footprint()
+	for x in range(r.position.x - 1, r.end.x + 1):
+		for y in range(r.position.y - 1, r.end.y + 1):
+			var t := Vector2i(x, y)
+			if not r.has_point(t) and (x >= r.position.x and x < r.end.x or y >= r.position.y and y < r.end.y) \
+					and s.road_at(t) != Settlement.ROAD_NONE:
+				exits.append(t)
+	for i in range(1, exits.size()):
+		if ws.find_path(exits[0], exits[i]).is_empty():
+			return false
+	return true
+
+
+func _reachable(b: Building) -> bool:
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	return not ws.find_path(ws.door_tile(s.hearth), ws.door_tile(b)).is_empty()
+
+
+## A road to `fp` exists and its bridge tiles (water) can be paid now. A road laid only up to an unaffordable bridge
+## leaves a site nobody can reach, and its woodcutter was the materials source (seed 3 never left Camp, 47e).
+func _road_affordable(fp: Rect2i) -> bool:
+	var path := L._path(s, fp)
+	if path.is_empty():
+		return false
+	var need := {}
+	for t in path:
+		var cost := s.bridge_cost(t, Settlement.ROAD_DIRT)
+		for g in cost:
+			need[g] = float(need.get(g, 0.0)) + float(cost[g])
+	var have := s.totals()
+	for g in need:
+		var got: float = s.gold if g == BuildingDef.GOLD else float(have.get(g, 0.0))
+		if got < float(need[g]):
+			return false
+	return true
 
 
 func _mean_fertility(origin: Vector2i, size: Vector2i) -> float:
