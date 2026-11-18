@@ -33,7 +33,8 @@ const PRODUCERS := {
 	"tools": ["toolsmith"],
 }
 ## Pause a good's producers above (per citizen, flat) stock; resume below 60% of it.
-const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0]}
+const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0],
+	"cut_stone": [0.0, 100.0]}
 ## Stock above which a good stops being built for.
 const STOCK_CAP := {"materials": 2500.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
@@ -59,8 +60,8 @@ const PREP_AT := 0.35
 const SAVE_AT := 0.55
 ## New storehouses stop when the hauler slots (hauling outranks producers: each takes a citizen) pass this share of the pop.
 const HAULER_SHARE_MAX := 0.25
-## A new builders' yard for a far site goes this many tiles from the nearest yard at most.
-const YARD_STEP := 12
+## Regions over 100 gold are bought only while this share of the next gate's gold is left over.
+const REGION_KEEP := 0.6
 
 var s: Settlement
 var _offsets: Array[Vector2i] = []
@@ -158,6 +159,8 @@ func _init() -> void:
 			print("     food made/day %.1f; shares " % (_made_acc / 12.0), " ".join(sh))
 			_made_acc = 0.0
 			print("     doorfood %.0f; spirit %.0f haulers %d other %d bar %.1f/%.1f | %s" % [doorfood, s.spirit(), haul, buildn, gr.bar, gr.bar_size_now(s), " ".join(rows)])
+		if _verbose and day == 150:
+			_dump_map()
 		if _verbose and day % 40 == 0:
 			for b: Building in s.buildings.values():
 				if b.site:
@@ -165,7 +168,11 @@ func _init() -> void:
 					for g in b.effective_cost():
 						got[g] = b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
 					var wsd := s.get_system(WalkerSystem) as WalkerSystem
-					print("     reach ", wsd.find_path(wsd.door_tile(s.hearth), wsd.door_tile(b)).size())
+					print("     reach ", wsd.find_path(wsd.door_tile(s.hearth), wsd.door_tile(b)).size(), " hearth door ", wsd.door_tile(s.hearth), " site door ", wsd.door_tile(b), " path ", wsd.find_path(wsd.door_tile(s.hearth), wsd.door_tile(b)))
+					var csd := s.get_system(ConstructionSystem) as ConstructionSystem
+					for y: Building in s.buildings.values():
+						if y.def.builder_slots > 0 and not y.site:
+							print("       yard ", y.id, y.origin, " round trip s ", 2.0 * csd._trip_seconds(s, wsd, y, b))
 					print("     site ", b.def.id, b.origin, " delivered ", b.site_delivered(), " got ", got, " need ", b.effective_cost(), " progress ", b.build_progress())
 		if day % GameClock.DAYS_PER_YEAR == 0:
 			print("  year %2d end: planet health %.1f%%, pop %d, gold %d, buildings %d, era %s" % [
@@ -248,8 +255,8 @@ func _gate_report(from_era: String) -> String:
 	for k in _inc:
 		if not k.begins_with("_"):
 			inc.append("%s %d" % [k, int(_inc[k])])
-	return "    gate parts met in %s: %s; last %s; gold income {%s} total %d, spent %d" % [from_era, ", ".join(rows), last,
-		", ".join(inc), int(_inc.get("_total", 0.0)), int(_inc.get("_spent", 0.0))]
+	return "    gate parts met in %s: %s; last %s; gold income {%s} total %d, spent %d (regions %d)" % [from_era, ", ".join(rows), last,
+		", ".join(inc), int(_inc.get("_total", 0.0)), int(_inc.get("_spent", 0.0)), int(_inc.get("_regions", 0.0))]
 
 
 func _dbg_builders() -> void:
@@ -287,6 +294,28 @@ func _on_era(entry: Dictionary) -> void:
 	print(_gate_report(str(data["from"])))
 	_gate_seen.clear()
 	_inc.clear()
+
+
+func _dump_map() -> void:
+	var h := s.hearth.origin
+	var grid := {}
+	for b: Building in s.buildings.values():
+		var r := b.footprint()
+		for x in range(r.position.x, r.end.x):
+			for y in range(r.position.y, r.end.y):
+				grid[Vector2i(x, y)] = b.def.id.substr(0, 1).to_upper() if b.site == false else b.def.id.substr(0, 1)
+	for y in range(h.y - 18, h.y + 18):
+		var line := ""
+		for x in range(h.x - 30, h.x + 34):
+			var tt := Vector2i(x, y)
+			if grid.has(tt):
+				line += grid[tt]
+			elif s.road_at(tt) != Settlement.ROAD_NONE:
+				line += "+"
+			else:
+				var id := s.map.terrain_id_at(x, y)
+				line += "~" if id == "water" else ("f" if id == "forest" else ".")
+		print("MAP ", line)
 
 
 func _on_built(entry: Dictionary) -> void:
@@ -646,7 +675,9 @@ func _act() -> void:
 	var tries := 0
 	# a falling food stock is not held back by the site limit (housing and support sites can sit waiting for goods)
 	var food_low := float(_stock.get("food", 0.0)) < 2.0 * float(pop) + 40.0
-	while _open_sites() < site_cap + (4 if food_low else 0) and tries < 3:
+	# so is a materials or Lumen stock that cannot pay for the sites already open (their producers are what unblocks them)
+	var low_stock := food_low or float(_stock.get("materials", 0.0)) < 0.8 * float(pop) + 40.0 or float(_stock.get("lumen", 0.0)) < 0.5 * float(pop)
+	while _open_sites() < site_cap + (4 if low_stock else 0) and tries < 3:
 		tries += 1
 		if not _produce(goal, pop):
 			break
@@ -663,6 +694,9 @@ func _act() -> void:
 func _throttle(pop: int) -> void:
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
+		var lm := _landmark_id()
+		if lm != "" and _count(lm) == 0:
+			high = maxf(high, 1.3 * float(s.registry.get_building(lm).entry_cost().get(good, 0)) + 20.0)  # what the landmark needs stays wanted
 		var stock := float(_stock.get(good, 0.0))
 		if good == "materials" and _refined_short():
 			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the quarries until they have caught up
@@ -777,9 +811,11 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 			continue
 		var want: float = float(SHARES[good]) * goal
 		var have := float(_slots_for(good))
+		var stock := float(_stock.get(good, 0.0))
+		if good == "food" and stock < 2.0 * float(pop):
+			want *= 1.4  # the town is eating its last food: more fields than the share says
 		if have >= want:
 			continue
-		var stock := float(_stock.get(good, 0.0))
 		if STOCK_CAP.has(good) and stock > float(STOCK_CAP[good]):
 			continue
 		if THROTTLE.has(good) and stock > 0.8 * (float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])):
@@ -789,6 +825,8 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 			var tgt: float = (goal * 3.0 if good == "food" else goal * 2.0 + 60.0)
 			if stock < tgt:
 				score *= 1.5
+		if good == "materials" and stock < 0.8 * float(pop) + 40.0:
+			score *= 1.5  # sites and refiners wait for it
 		scored.append([score, good])
 	scored.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
 	var reserve := _reserve()
@@ -823,9 +861,9 @@ func _hauler_slots() -> int:
 	return n
 
 
-## Where a yard for a site that is too far from every yard goes: next to it, or when it is far off, a step (12 tiles)
-## towards it from the nearest yard, so the yard itself is within builders' reach and the chain of yards grows outwards.
-func _yard_spot_for(site: Building) -> Vector2i:
+## A builders' yard for a site that is too far from every yard: tried from next to the site back towards the nearest yard,
+## the first spot builders can reach (a yard nobody can walk to is never built, and its far site waits for it for ever).
+func _place_yard_for(site: Building) -> Building:
 	var best: Building = null
 	var best_d := 100000
 	for b: Building in s.buildings.values():
@@ -834,10 +872,30 @@ func _yard_spot_for(site: Building) -> Vector2i:
 			if d < best_d:
 				best_d = d
 				best = b
-	if best == null or best_d <= YARD_STEP + 2:
-		return site.origin
-	var f := float(YARD_STEP) / float(best_d)
-	return best.origin + Vector2i(Vector2(site.origin - best.origin) * f)
+	if best == null:
+		return null
+	for f in [1.0, 0.8, 0.6, 0.4, 0.25]:
+		var spot: Vector2i = best.origin + Vector2i(Vector2(site.origin - best.origin) * float(f))
+		_cooldown.erase("builders_yard")
+		var yard := _place("builders_yard", spot, 5)
+		if yard == null:
+			continue
+		if _yard_reachable(yard):
+			return yard
+		s.demolish(yard.id)
+		_bad_tiles[yard.origin] = s.clock.total_days() + 30
+	return null
+
+
+## True when a finished yard (the Hearth counts) is within the work day's round trip of the site (the too_far test).
+func _yard_reachable(site: Building) -> bool:
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
+	for y: Building in s.buildings.values():
+		if y.def.builder_slots > 0 and not y.site and 2.0 * cs._trip_seconds(s, ws, y, site) <= shift:
+			return true
+	return false
 
 
 ## A yard site that is itself too far to build is taken back after a while, so the bot can try a closer spot.
@@ -863,7 +921,7 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	if s.is_unlocked(yard_def) and _afford("builders_yard", res) and not _yard_site_open():
 		for b: Building in s.buildings.values():
 			if b.site and b.halt == "too_far" and b.def.id != "builders_yard":
-				if _place("builders_yard", _yard_spot_for(b), 6) != null:
+				if _place_yard_for(b) != null:
 					break
 	# builders and haulers
 	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard", res) and not _yard_site_open():
@@ -874,7 +932,7 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	if era >= 2 and _count("forester") < _count("woodcutter") / 3 and _afford("forester", res) and _jobs_free() >= 1:
 		_place("forester", _hearth_near(), SEARCH_RADIUS)
 	# tax offices
-	if era >= 3 and _count("tax_office") < mini(TAX_OFFICES_MAX, 1 + pop / 60) and _afford("tax_office", res) and _jobs_free() >= 1:
+	if era >= 3 and _count("tax_office") < mini(TAX_OFFICES_MAX, 1 + pop / 60) and _afford("tax_office") and _jobs_free() >= 1:
 		_place("tax_office", _hearth_near(), 14)
 	# Spirit coverage
 	if era >= 2:
@@ -927,7 +985,7 @@ func _regional_storehouses() -> void:
 		if b.def.id == "storehouse" or b.def.id == "hearth":
 			stores[r] = true
 	for r in homes:
-		if not stores.has(r) and _afford("storehouse"):
+		if not stores.has(r) and _afford("storehouse") and _hauler_slots() < HAULER_SHARE_MAX * float(s.citizens.size()) + 6.0:
 			var home: Building = homes[r]
 			_place("storehouse", home.origin, 10)
 			return
@@ -954,5 +1012,12 @@ func _buy_region() -> void:
 			best_score = score
 			best = r
 	if best >= 0:
-		s.buy_region(best)
+		var price := s.next_region_price()
+		var need := float(s.era_gate().get("gold_need", 0))
+		if price > 100 and s.gold - float(price) < REGION_KEEP * need:
+			return  # the gate's gold is not spent on land (a player saves for it too)
+		if s.buy_region(best):
+			_inc["_regions"] = float(_inc.get("_regions", 0.0)) + float(price)
+			if _verbose:
+				print("   d%d bought region %d for %d" % [s.clock.total_days(), best, price])
 		_cooldown.clear()
