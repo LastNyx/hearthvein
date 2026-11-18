@@ -92,6 +92,7 @@ func setup(m: MapState) -> void:
 	_base.name = "Base"
 	_base.tile_set = ArtLibrary.terrain_tileset()
 	_base.rendering_quadrant_size = 16
+	_base.material = ArtLibrary.water_material()  # ticket 90: shimmers the water-coloured pixels only
 	add_child(_base)
 	var ground: PackedStringArray = PackedStringArray()
 	for id in map.terrain_ids:
@@ -107,6 +108,7 @@ func setup(m: MapState) -> void:
 	_rock_edge = _autotile_layer("RockEdge", "rock")
 	_fouled = _state_layer("Fouled", "fouled")  # under the shore line so the bank stays crisp over the murk
 	_shore = _autotile_layer("Shore", "water")
+	_shore.material = ArtLibrary.water_material()
 	_shade = Sprite2D.new()  # tonal patches over the ground blends but under the vein and sky edges
 	_shade.name = "Shade"
 	_shade.centered = false

@@ -476,6 +476,36 @@ static func fx_sprite(e: Dictionary) -> Sprite2D:
 	return _sprite(e["fx"]["file"], Vector2(e["fx"]["offset"][0], e["fx"]["offset"][1]))
 
 
+## Chimney smoke (null when the entry has none): the static puff column on the smoke shader (ticket 90), which
+## makes it rise and fade. Kept apart from the glows so only smoke moves.
+static func smoke_sprite(e: Dictionary) -> Sprite2D:
+	if not e.has("smoke"):
+		return null
+	var s := _sprite(e["smoke"]["file"], Vector2(e["smoke"]["offset"][0], e["smoke"]["offset"][1]))
+	s.material = smoke_material()
+	return s
+
+
+static var _smoke_mat: ShaderMaterial
+static var _water_mat: ShaderMaterial
+
+
+## One shared material for every smoke sprite (keeps them batched); the phase comes from each sprite's position.
+static func smoke_material() -> ShaderMaterial:
+	if _smoke_mat == null:
+		_smoke_mat = ShaderMaterial.new()
+		_smoke_mat.shader = load("res://assets/shaders/smoke.gdshader")
+	return _smoke_mat
+
+
+## Time-driven shimmer for the water (Base and Shore tile layers); only water-coloured pixels change.
+static func water_material() -> ShaderMaterial:
+	if _water_mat == null:
+		_water_mat = ShaderMaterial.new()
+		_water_mat.shader = load("res://assets/shaders/water.gdshader")
+	return _water_mat
+
+
 static func has_building(id: String) -> bool:
 	return manifest()["buildings"].has(id)
 
