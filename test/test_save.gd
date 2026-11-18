@@ -35,6 +35,12 @@ const SKIP := {
 	"WalkerSystem._bands": "walker lists per movement band, rebuilt from the walkers",
 	"WalkerSystem._bands_count": "key of the band lists, rebuilt",
 	"WalkerSystem._band_owed": "game seconds owed per band; save_state pays them, so a save holds none",
+	"WalkerSystem._seen_occ": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_roads": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_terrain": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_sky_occ": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_sky_roads": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_sky_terrain": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
 	# MapState
 	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
 	"MapState.foul_version": "counter of fouling changes, not saved; a load rebuilds the fouling mask and caches",

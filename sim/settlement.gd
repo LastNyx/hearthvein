@@ -226,6 +226,11 @@ func step_hours(n: int) -> void:
 ## the hooks and movement see the same sequence as an unspread run. A coarse step runs everything at once.
 func step_seconds(seconds: float) -> void:
 	_frame_step = seconds < DEFER_BELOW_SECONDS
+	_step_seconds(seconds)
+	_frame_step = false  # is_spreading() is only true while a frame step runs
+
+
+func _step_seconds(seconds: float) -> void:
 	if _frame_step:
 		_run_deferred_budget()
 		if _deferred_head < _deferred.size():
@@ -296,9 +301,23 @@ func _reset_deferred() -> void:
 		_deferred_head = 0
 
 
+## Queues one more piece of work behind the pending hour-end items. It runs in a later frame step with the clock held
+## (so the sim does not change in between), or at once when the queue is flushed.
+func defer_work(work: Callable) -> void:
+	_deferred.append(work)
+
+
+## True inside a frame-sized step (the queue is being spread over frames), false for coarse steps and flushes.
+func is_spreading() -> bool:
+	return _frame_step
+
+
 ## Runs every pending hour, day and season hook now (a save, or code that reads the sim right after a change).
 func flush_deferred() -> void:
+	var was := _frame_step
+	_frame_step = false  # a flush is a coarse run: work the items queue for later (the autosave) happens right here
 	_run_deferred(true)
+	_frame_step = was
 
 
 func _advance_hour() -> void:
@@ -368,50 +387,81 @@ func step_days(n: int) -> void:
 # loaded settlement iterates in the same order as the one that was saved (dictionary order is part of determinism).
 
 func to_dict() -> Dictionary:
-	var bl := []
-	for id in buildings:
-		bl.append([id, (buildings[id] as Building).to_dict()])
-	var cl := []
-	for id in citizens:
-		cl.append([id, (citizens[id] as Citizen).to_dict()])
-	var sys_state := {}
+	var out := {}
+	for step in to_dict_steps(out, false):
+		step.call()
+	return out
+
+
+## to_dict as a list of steps that fill `out` (a Dictionary the caller owns) piece by piece, each about a millisecond:
+## the autosave runs them one per frame while the clock is held (ticket 89b). The keys are laid out in to_dict's order up
+## front. `isolate` copies the containers that live objects keep and later change (map arrays, system state), so a thread
+## may read the finished dictionary while the sim runs on; to_dict() itself skips that, its caller owns the result at once.
+func to_dict_steps(out: Dictionary, isolate: bool) -> Array[Callable]:
+	for key in ["map", "occupancy", "roads", "sky_map", "sky_occupancy", "sky_roads", "free_anchor_used", "channels",
+			"track", "buildings", "citizens", "hearth", "gold", "next_building_id", "next_citizen_id", "grid_version",
+			"pave_stone_debt", "structure_version", "forest_gain_version", "terrain_dirty", "hour_acc", "clock", "events",
+			"era_current", "era_override", "planet_health_override", "spirit_override", "systems"]:
+		out[key] = null
+	var steps: Array[Callable] = []
+	steps.append(func() -> void:
+		var dirty := []
+		for t in terrain_dirty:
+			dirty.append(t)
+		out["map"] = map.to_dict().duplicate(true) if isolate else map.to_dict()
+		out["occupancy"] = occupancy.duplicate() if isolate else occupancy
+		out["roads"] = roads.duplicate() if isolate else roads
+		out["sky_map"] = sky_map.to_dict().duplicate(true) if isolate else sky_map.to_dict()
+		out["sky_occupancy"] = sky_occupancy.duplicate() if isolate else sky_occupancy
+		out["sky_roads"] = sky_roads.duplicate() if isolate else sky_roads
+		out["free_anchor_used"] = free_anchor_used
+		out["channels"] = channels.duplicate() if isolate else channels
+		out["track"] = track.duplicate() if isolate else track
+		out["hearth"] = hearth.id if hearth != null else -1
+		out["gold"] = gold
+		out["next_building_id"] = _next_building_id
+		out["next_citizen_id"] = _next_citizen_id
+		out["grid_version"] = grid_version
+		out["pave_stone_debt"] = _pave_stone_debt
+		out["structure_version"] = structure_version
+		out["forest_gain_version"] = forest_gain_version
+		out["terrain_dirty"] = dirty
+		out["hour_acc"] = _hour_acc
+		out["clock"] = clock.to_dict()
+		out["events"] = events.to_dict()
+		out["era_current"] = era_current
+		out["era_override"] = era_override
+		out["planet_health_override"] = planet_health_override
+		out["spirit_override"] = spirit_override
+		out["buildings"] = []
+		out["citizens"] = []
+		out["systems"] = {})
+	var building_ids: Array = buildings.keys()
+	for from in range(0, building_ids.size(), SAVE_CHUNK_BUILDINGS):
+		steps.append(func() -> void:
+			var bl: Array = out["buildings"]
+			for k in range(from, mini(from + SAVE_CHUNK_BUILDINGS, building_ids.size())):
+				var id: int = building_ids[k]
+				bl.append([id, (buildings[id] as Building).to_dict()]))
+	var citizen_ids: Array = citizens.keys()
+	for from in range(0, citizen_ids.size(), SAVE_CHUNK_CITIZENS):
+		steps.append(func() -> void:
+			var cl: Array = out["citizens"]
+			for k in range(from, mini(from + SAVE_CHUNK_CITIZENS, citizen_ids.size())):
+				var id: int = citizen_ids[k]
+				cl.append([id, (citizens[id] as Citizen).to_dict()]))
 	for sys in systems:
 		var key := SimSystem.save_key_of(sys)
 		if key != "":
-			sys_state[key] = sys.save_state()
-	var dirty := []
-	for t in terrain_dirty:
-		dirty.append(t)
-	return {
-		"map": map.to_dict(),
-		"occupancy": occupancy,
-		"roads": roads,
-		"sky_map": sky_map.to_dict(),
-		"sky_occupancy": sky_occupancy,
-		"sky_roads": sky_roads,
-		"free_anchor_used": free_anchor_used,
-		"channels": channels,
-		"track": track,
-		"buildings": bl,
-		"citizens": cl,
-		"hearth": hearth.id if hearth != null else -1,
-		"gold": gold,
-		"next_building_id": _next_building_id,
-		"next_citizen_id": _next_citizen_id,
-		"grid_version": grid_version,
-		"pave_stone_debt": _pave_stone_debt,
-		"structure_version": structure_version,
-		"forest_gain_version": forest_gain_version,
-		"terrain_dirty": dirty,
-		"hour_acc": _hour_acc,
-		"clock": clock.to_dict(),
-		"events": events.to_dict(),
-		"era_current": era_current,
-		"era_override": era_override,
-		"planet_health_override": planet_health_override,
-		"spirit_override": spirit_override,
-		"systems": sys_state,
-	}
+			steps.append(func() -> void:
+				var st := sys.save_state()
+				(out["systems"] as Dictionary)[key] = st.duplicate(true) if isolate else st)
+	return steps
+
+
+## Buildings and citizens per to_dict step (a building is about 5 microseconds, a citizen far less).
+const SAVE_CHUNK_BUILDINGS := 150
+const SAVE_CHUNK_CITIZENS := 500
 
 
 ## Builds a settlement from to_dict() data. Null when the data names a def the registry does not know.

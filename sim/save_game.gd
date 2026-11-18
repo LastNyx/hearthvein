@@ -55,7 +55,12 @@ const SIZED_MAP_ARRAYS := {
 ## OK, so a crash or a full disk mid-write cannot destroy the previous save. Returns OK or the FileAccess error.
 static func save(s: Settlement, path: String) -> Error:
 	s.flush_deferred()
-	var payload := {"version": CURRENT_VERSION, "state": s.to_dict()}
+	return write_payload({"version": CURRENT_VERSION, "state": s.to_dict()}, path)
+
+
+## The file half of save(): check (debug builds), compress and write `payload` atomically. Plain data in, so the autosave
+## runs it on a thread (SaveSlots, ticket 89b); push_error and the file calls are safe off the main thread.
+static func write_payload(payload: Dictionary, path: String) -> Error:
 	if OS.is_debug_build():
 		_check_plain(payload, "save")
 	var tmp := path + ".tmp"

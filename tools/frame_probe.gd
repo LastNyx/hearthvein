@@ -38,6 +38,18 @@ func _build(main: Node, era: String) -> Settlement:
 	return s
 
 
+## The newest logged events that are not walker arrivals, to guess what rebuilt the layout.
+func _last_event(s: Settlement) -> String:
+	var kinds: Array = []
+	var i := s.events.log.size() - 1
+	while i >= 0 and kinds.size() < 3:
+		var k := str(s.events.log[i].get("kind", "?"))
+		if k != "walker_arrived":
+			kinds.append(k)
+		i -= 1
+	return ", ".join(kinds)
+
+
 func _pct(sorted: Array, p: float) -> float:
 	return sorted[mini(int(ceil(p * sorted.size())) - 1, sorted.size() - 1)]
 
@@ -47,24 +59,39 @@ func _frames(s: Settlement, speed: int, days: int, label: String) -> void:
 	var step := speed / FPS
 	var ms: Array = []
 	var shown := 0
+	var window := 0  # frames left in the 90 frames that follow a season start
+	var seasons := 0
+	var was_ss := false
+	var season_worst := 0.0
 	s.flush_deferred()
 	for i in frames:
 		var h0 := s.clock.total_hours
+		var sv0 := s.structure_version
 		var t0 := Time.get_ticks_usec()
 		s.step_seconds(step)
 		var d := (Time.get_ticks_usec() - t0) / 1000.0
 		ms.append(d)
+		var ss := s.clock.is_season_start()
+		if ss and not was_ss:
+			window = 90
+			seasons += 1
+		was_ss = ss
+		if window > 0:
+			window -= 1
+			season_worst = maxf(season_worst, d)
 		if d > BUDGET_MS:
 			shown += 1
 		if d > BUDGET_MS and shown <= 6:  # the first few, so a heavy layout does not flood the output
 			print("PROBE   slow frame %d: %.2f ms, game hour %d (day hour %d)%s" % [i, d, s.clock.total_hours, s.clock.hour(),
-					", an hour ended" if s.clock.total_hours != h0 else ""])
+					(", an hour ended" if s.clock.total_hours != h0 else "") + (", structure changed (%s)" % _last_event(s) if s.structure_version != sv0 else "")])
 	var sum := 0.0
 	var over := 0
 	for v: float in ms:
 		sum += v
 		over += 1 if v > BUDGET_MS else 0
 	ms.sort()
+	if seasons > 0:
+		print("PROBE %-8s %dx  season start: worst frame %.3f ms in the 90 frames after it (%d season start(s))" % [label, speed, season_worst, seasons])
 	print("PROBE %-8s %dx  frames %5d  mean %6.3f ms  p99 %6.3f ms  worst %6.3f ms  over %.0f ms: %d  (load %s)" % [
 			label, speed, frames, sum / frames, _pct(ms, 0.99), ms[ms.size() - 1], BUDGET_MS, over, _load()])
 
@@ -204,8 +231,8 @@ func _init() -> void:
 				(s.get_system(WalkerSystem) as WalkerSystem).walkers.size()])
 		for speed in [1, 2, 3]:
 			_frames(s, speed, days, era)
-		if era == "town600":
-			_per_system(s, 1, days, era)
+		if era == "town600" or only != "":  # asked for one layout: its per-system frame cost too
+			_per_system(s, 3 if era != "town600" else 1, days, era)
 		_hour_end(s, era, 200)
 		if main != null:
 			main.queue_free()

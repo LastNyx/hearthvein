@@ -642,9 +642,7 @@ func _refresh_grid() -> void:
 	if force:
 		_solid.resize(n)
 	if force or _structure_version != _s.structure_version:
-		for y in MapState.HEIGHT:
-			for x in MapState.WIDTH:
-				_update_cell(x, y, terrain_speed, force)
+		_scan_ground(terrain_speed, force)
 	else:
 		for t in _s.terrain_dirty:
 			_update_cell(t.x, t.y, terrain_speed, false)
@@ -655,6 +653,52 @@ func _refresh_grid() -> void:
 		_from_save = false  # saved walkers already sit on the saved layout; keep their paths as they were
 		return
 	_replan_all()
+
+
+## Copies of the settlement's tile arrays as the last scan saw them (a Packed array assignment shares it, so duplicate()).
+## A structure change used to rewrite all 12k cells of each grid (about 12 ms each, a hitch at
+## every building or island change, ticket 89b); now only the tiles whose terrain, road or occupancy differ from this are
+## looked at, and nothing at all when the arrays are the same (an island going still or waking up changes no tile).
+var _seen_occ := PackedInt32Array()
+var _seen_roads := PackedByteArray()
+var _seen_terrain := PackedByteArray()
+var _seen_sky_occ := PackedInt32Array()
+var _seen_sky_roads := PackedByteArray()
+var _seen_sky_terrain := PackedByteArray()
+
+
+func _scan_ground(terrain_speed: Array[float], force: bool) -> void:
+	var occ := _s.occupancy
+	var rds := _s.roads
+	var ter := _s.map.terrain
+	if force or _seen_occ.size() != occ.size():
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				_update_cell(x, y, terrain_speed, force)
+	elif occ != _seen_occ or rds != _seen_roads or ter != _seen_terrain:
+		for i in occ.size():
+			if occ[i] != _seen_occ[i] or rds[i] != _seen_roads[i] or ter[i] != _seen_terrain[i]:
+				_update_cell(i % MapState.WIDTH, i / MapState.WIDTH, terrain_speed, false)
+	_seen_occ = occ.duplicate()
+	_seen_roads = rds.duplicate()
+	_seen_terrain = ter.duplicate()
+
+
+func _scan_sky(stone_speed: float, force: bool) -> void:
+	var occ := _s.sky_occupancy
+	var rds := _s.sky_roads
+	var ter := _s.sky_map.terrain
+	if force or _seen_sky_occ.size() != occ.size():
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				_update_sky_cell(x, y, stone_speed, force)
+	elif occ != _seen_sky_occ or rds != _seen_sky_roads or ter != _seen_sky_terrain:
+		for i in occ.size():
+			if occ[i] != _seen_sky_occ[i] or rds[i] != _seen_sky_roads[i] or ter[i] != _seen_sky_terrain[i]:
+				_update_sky_cell(i % MapState.WIDTH, i / MapState.WIDTH, stone_speed, false)
+	_seen_sky_occ = occ.duplicate()
+	_seen_sky_roads = rds.duplicate()
+	_seen_sky_terrain = ter.duplicate()
 
 
 ## Sky grid: only touched while an island exists (or just stopped existing); void tiles and buildings are solid.
@@ -680,9 +724,7 @@ func _refresh_sky(first: bool) -> void:
 	if force or _sky_structure != _s.structure_version:
 		var stone := _s.registry.get_terrain(MapState.SKY_STONE)
 		var stone_speed := stone.walk_speed if stone != null else 1.0
-		for y in MapState.HEIGHT:
-			for x in MapState.WIDTH:
-				_update_sky_cell(x, y, stone_speed, force)
+		_scan_sky(stone_speed, force)
 	_sky_max = _max_speed
 	_sky_structure = _s.structure_version
 	_sky_content = active
