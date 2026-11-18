@@ -17,6 +17,9 @@ const PANEL_EDGE := Color(0.353, 0.314, 0.275)
 const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
 		["coverage", "Coverage", "H"], ["grid", "Grid", "L"]]  # id, label, key
 
+## The Help button of the tools tab (Main opens the help screen).
+signal help_requested
+
 var model: HudModel
 var build: BuildController
 var camera: Camera2D
@@ -60,6 +63,7 @@ var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _open_cat := ""
 var tutorial_panel: TutorialPanel
+var tools_tab: ToolsTab
 var hint_cards: HintCards
 var era_card: EraCard
 var _right_col: VBoxContainer
@@ -130,6 +134,9 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	_region_map.resized.connect(_center_region_map)
 	_build_bar(col)
 	_build_tooltip()
+	tools_tab = ToolsTab.new()
+	_float.add_child(tools_tab)
+	tools_tab.setup(self, driver)
 	tutorial_panel = TutorialPanel.new()
 	right.add_child(tutorial_panel)
 	tutorial_panel.setup(self, model.s, _float)
@@ -143,6 +150,7 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 ## The hint cards (right edge, under the era and tutorial panels) and the era card (centred); Main adds them once it has
 ## the settings. Tests and shot scripts that build a Hud without settings simply have neither.
 func add_cards(settings: GameSettings) -> void:
+	tools_tab.bind_settings(settings)
 	hint_cards = HintCards.new()
 	_right_col.add_child(hint_cards)
 	hint_cards.setup(self, model.s, settings)
@@ -564,6 +572,7 @@ func refresh() -> void:
 	_refresh_overlay_buttons()
 	model.sync_layer()
 	_refresh_layer_tag()
+	tools_tab.refresh()
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()

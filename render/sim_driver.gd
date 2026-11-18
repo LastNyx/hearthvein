@@ -3,6 +3,9 @@ extends Node
 ## Real-time driver: feeds real seconds x speed to Settlement.step_seconds.
 ## Space toggles pause, 1/2/3 set speed. Optional Label shows the clock.
 
+## Emitted whenever the speed changes, however it was set (keys, buttons, era card, help screen).
+signal speed_changed(speed: int)
+
 const SPEEDS: Array[int] = [0, 1, 2, 3]
 
 var settlement: Settlement
@@ -18,16 +21,16 @@ func advance(delta: float) -> void:
 
 
 func set_speed(s: int) -> void:
+	var old := speed
 	speed = clampi(s, 0, 3)
 	if speed > 0:
 		_last_speed = speed
+	if speed != old:
+		speed_changed.emit(speed)
 
 
 func toggle_pause() -> void:
-	if speed == 0:
-		speed = _last_speed
-	else:
-		speed = 0
+	set_speed(_last_speed if speed == 0 else 0)
 
 
 func status_text() -> String:
