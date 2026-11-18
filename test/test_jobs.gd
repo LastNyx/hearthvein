@@ -160,3 +160,28 @@ func test_demolish_frees_workers_and_homes() -> void:
 		if (s.citizens[id] as Citizen).is_homeless():
 			homeless += 1
 	assert_eq(homeless, 2)
+
+
+func _haulers(s: Settlement) -> int:
+	var n := 0
+	for id in s.citizens:
+		if (s.citizens[id] as Citizen).job_kind == Citizen.JOB_HAUL:
+			n += 1
+	return n
+
+
+func test_hauler_reserve_is_filled_before_food_slots() -> void:
+	var s := _new()
+	for i in 4:
+		assert_not_null(_put(s, "forager", true))
+	s.add_citizen()
+	s.add_citizen()
+	assert_eq(s.citizens.size(), 10)
+	s.refresh_population()
+	# Food slots (8) outrank hauling, but min_hauler_share 0.2 of 10 citizens keeps 2 hands on the carts.
+	assert_eq(_haulers(s), 2)
+	var fed := 0
+	for b: Building in s.buildings.values():
+		if b.def.id == "forager":
+			fed += _workers(s, b)
+	assert_eq(fed, 8)

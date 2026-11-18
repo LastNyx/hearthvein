@@ -199,7 +199,7 @@ func _stamp() -> String:
 func _on_era(entry: Dictionary) -> void:
 	var data: Dictionary = entry["data"]
 	_progress()
-	_eras.append("%s: %s" % [str(data["to"]).capitalize(), _stamp()])
+	_eras.append("%s: %s, gold %d, pop %d" % [str(data["to"]).capitalize(), _stamp(), int(s.gold), s.citizens.size()])
 	print("Era ", _eras[-1])
 
 

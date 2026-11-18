@@ -10,6 +10,9 @@ extends Resource
 @export var input_buffer_days: float = 0.0
 ## A hauler does not set out for less than this much.
 @export var min_pickup: float = 0.0
+## Share of all citizens kept as haulers before any producer slot is filled (floored, so tiny settlements keep
+## none). Without it food slots take every citizen and nothing is carried.
+@export var min_hauler_share: float = 0.0
 ## A woodcutter (BuildingDef.fells_forest) turns one forest tile into a stump per this many units produced.
 @export var units_per_felled_tile: float = 0.0
 
