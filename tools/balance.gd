@@ -18,7 +18,7 @@ const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
-	"food": 0.4, "materials": 0.14, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
+	"food": 0.4, "materials": 0.2, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
 	"lumen_cells": 0.03, "tools": 0.03,
 }
 ## Producer buildings per good, best first. The bot takes the first one that is unlocked, affordable and has room.
@@ -76,6 +76,7 @@ var _last_progress_day: int = 0
 var _skyheart_done_day: int = -1
 var _great_end: String = ""
 var _verbose: bool = false
+var _map_day: int = 150  # verbose runs print an ASCII map of the town on this day (argument map=<day>)
 var _made_acc := 0.0
 var _food_prev := 0.0
 var _gold_before := 0.0
@@ -89,6 +90,9 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var seed_value := int(args[0]) if args.size() > 0 and args[0].is_valid_int() else DEFAULT_SEED
 	_verbose = args.has("v")
+	for a in args:
+		if a.begins_with("map="):
+			_map_day = int(a.substr(4))
 	var reg := DataRegistry.new()
 	reg.load_all()
 	s = Settlement.new_game(seed_value, reg)
@@ -158,8 +162,13 @@ func _init() -> void:
 
 			print("     food made/day %.1f; shares " % (_made_acc / 12.0), " ".join(sh))
 			_made_acc = 0.0
+			var doormat := 0.0
+			for b: Building in s.buildings.values():
+				if b.door_buffer != null:
+					doormat += b.door_buffer.amount_of("materials")
+			print("     door materials %.0f" % doormat)
 			print("     doorfood %.0f; spirit %.0f haulers %d other %d bar %.1f/%.1f | %s" % [doorfood, s.spirit(), haul, buildn, gr.bar, gr.bar_size_now(s), " ".join(rows)])
-		if _verbose and day == 150:
+		if _verbose and day == _map_day:
 			_dump_map()
 		if _verbose and day % 40 == 0:
 			for b: Building in s.buildings.values():
@@ -918,13 +927,13 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	# a site too far from every builders' yard (its halt status): a yard next to it
 	var yard_def := s.registry.get_building("builders_yard")
 	# (one at a time: sites close together share it, and a yard site waiting for its builders still shows the far status)
-	if s.is_unlocked(yard_def) and _afford("builders_yard", res) and not _yard_site_open():
+	if s.is_unlocked(yard_def) and _afford("builders_yard") and not _yard_site_open():
 		for b: Building in s.buildings.values():
 			if b.site and b.halt == "too_far" and b.def.id != "builders_yard":
 				if _place_yard_for(b) != null:
 					break
 	# builders and haulers
-	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard", res) and not _yard_site_open():
+	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard") and not _yard_site_open():
 		_place("builders_yard", _hearth_near(), 14)
 	if era >= 3 and _count("handcart_shed") < 1 + pop / 50 and _afford("handcart_shed", res):
 		_place("handcart_shed", _hearth_near(), 14)
