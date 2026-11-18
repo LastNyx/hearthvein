@@ -134,8 +134,8 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 
 
 ## Builder -> work. Builders already on a crew keep their site while it is still ready and not full (no flip-flopping
-## between sites); the others take, within the best priority tier that still has room, the nearest work (Manhattan
-## distance from where the builder stands to the work's origin, ties to the lower id). `works` is in ready_works order.
+## between sites); the others take, within the best priority tier that still has room, the nearest work (walking time
+## from the builder's yard, ties to the lower id). `works` is in ready_works order.
 func _assign_crews(s: Settlement, builders: Array, works: Array[Building]) -> Dictionary:
 	var out := {}
 	if works.is_empty():
@@ -155,10 +155,10 @@ func _assign_crews(s: Settlement, builders: Array, works: Array[Building]) -> Di
 		else:
 			rest.append(cid)
 	for cid in rest:
-		var w := ws.walker_of(cid) if ws != null else null
-		var from: Vector2i = w.tile if w != null else s.hearth.origin
+		var c: Citizen = s.citizens[cid]
+		var yard: Building = s.buildings.get(c.job_id)
 		var best: Building = null
-		var best_d := 0
+		var best_d := 0.0
 		var tier := ""
 		for b in works:
 			if int(count.get(b.id, 0)) >= cap:
@@ -167,7 +167,7 @@ func _assign_crews(s: Settlement, builders: Array, works: Array[Building]) -> Di
 			if best != null and t != tier:
 				break  # the best tier with room is settled (works are sorted by tier)
 			tier = t
-			var d := absi(b.origin.x - from.x) + absi(b.origin.y - from.y)
+			var d := _trip_seconds(s, ws, yard, b)
 			if best == null or d < best_d:
 				best = b
 				best_d = d
@@ -177,25 +177,39 @@ func _assign_crews(s: Settlement, builders: Array, works: Array[Building]) -> Di
 	return out
 
 
-## Sites no builders' yard (the Hearth counts) is close enough to: builders walk from home every shift, so a round trip
-## longer than the work day leaves no time to build. Such a site shows the "too_far" halt until a yard is built
-## closer (Manhattan distance at the slowest road speed, a hint rather than a path search).
+var _trip_cache: Dictionary = {}  # yard id * 1000003 + work id -> seconds, dropped when the road layout changes
+var _trip_version: int = -1
+
+
+## Walking seconds from a builders' yard door to a work's door (INF without a path). Cached per road layout.
+func _trip_seconds(s: Settlement, ws: WalkerSystem, yard: Building, work: Building) -> float:
+	if ws == null or yard == null:
+		return 0.0
+	if _trip_version != s.grid_version:
+		_trip_cache.clear()
+		_trip_version = s.grid_version
+	var key := yard.id * 1000003 + work.id
+	if not _trip_cache.has(key):
+		var p := ws.find_path(ws.door_tile(yard), ws.door_tile(work))
+		_trip_cache[key] = ws.path_seconds(p) if not p.is_empty() else INF
+	return _trip_cache[key]
+
+
+## Sites no builders' yard (the Hearth counts) is close enough to: builders sleep at their yard and walk to the site
+## every shift, so a round trip longer than the work day leaves no time to build. Such a site shows the "too_far" halt
+## until a yard is built closer. Walking time of the real path (cached per road layout); no path counts as too far.
 func on_hour(s: Settlement) -> void:
 	if s.registry.logistics == null or s.hearth == null:
 		return
-	var speed := 0.0
-	for r: RoadDef in s.registry.roads.values():
-		if r.walk_speed > 0.0 and (speed == 0.0 or r.walk_speed < speed):
-			speed = r.walk_speed
-	if speed <= 0.0:
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	if ws == null:
 		return
 	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
-	var reach := shift * speed / 2.0  # tiles one way
-	var yards: Array[Vector2i] = []
+	var yards: Array[Building] = []
 	for id in s.buildings:
 		var y: Building = s.buildings[id]
 		if not y.site and y.def.builder_slots > 0:
-			yards.append(y.origin)
+			yards.append(y)
 	for id in s.buildings:
 		var b: Building = s.buildings[id]
 		if not b.site:
@@ -203,8 +217,10 @@ func on_hour(s: Settlement) -> void:
 				_set_halt(s, b, "")
 			continue
 		var far := true
-		for o in yards:
-			if absi(o.x - b.origin.x) + absi(o.y - b.origin.y) <= reach:
+		var to := ws.door_tile(b)
+		for y in yards:
+			var p := ws.find_path(ws.door_tile(y), to)
+			if not p.is_empty() and 2.0 * ws.path_seconds(p) <= shift:
 				far = false
 				break
 		if far and b.halt == "":
@@ -227,7 +243,7 @@ func _release(s: Settlement, ws: WalkerSystem, cid: int, _in_shift: bool) -> voi
 		return
 	w.controlled = false
 	var target := c.home_id if s.buildings.has(c.home_id) else (s.hearth.id if s.hearth != null else -1)
-	if _in_shift and c.job_id >= 0 and s.buildings.has(c.job_id) and c.job_kind == Citizen.JOB_BUILD:
-		target = c.job_id
+	if c.job_id >= 0 and s.buildings.has(c.job_id) and c.job_kind == Citizen.JOB_BUILD:
+		target = c.job_id  # back to the builders' yard (WalkerSystem keeps them there overnight)
 	if target >= 0:
 		ws.walk_to_building(cid, target)

@@ -285,6 +285,8 @@ func _dispatch_departures(seconds: float) -> void:
 
 ## Building id the schedule wants this citizen at, -1 for none.
 func _desired_building(c: Citizen, hour: int) -> int:
+	if c.job_kind == Citizen.JOB_BUILD and c.job_id >= 0 and _s.buildings.has(c.job_id):
+		return c.job_id  # builders sleep at their builders' yard, so its distance to the site is their walk (47e)
 	if c.job_id >= 0 and hour >= WORK_START_HOUR and hour < WORK_END_HOUR and _s.buildings.has(c.job_id):
 		return c.job_id
 	if c.home_id >= 0 and _s.buildings.has(c.home_id):

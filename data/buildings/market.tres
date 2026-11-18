@@ -18,5 +18,5 @@ upkeep_lumen = 0.0
 housing_beds = 0
 storage_mode = "none"
 storage_cap = 0
-gold_per_worker_day = 4.0
+gold_per_worker_day = 2.0
 market_reach = 12

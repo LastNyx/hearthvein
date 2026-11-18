@@ -400,6 +400,8 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 ## the Hearth door is a dead end: the Hearth's door (first road-touching tile) leads nowhere and nobody can walk out
 ## (seed 3, 47e: builders stood at the Hearth, the sites never got built).
 func _hearth_exits_joined() -> bool:
+	if s.clock.total_hours == 0:
+		return true  # the walkers have not met the settlement yet (nothing has been stepped)
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var exits: Array[Vector2i] = []
 	var r := s.hearth.footprint()
@@ -416,6 +418,8 @@ func _hearth_exits_joined() -> bool:
 
 
 func _reachable(b: Building) -> bool:
+	if s.clock.total_hours == 0:
+		return true
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	return not ws.find_path(ws.door_tile(s.hearth), ws.door_tile(b)).is_empty()
 
@@ -652,7 +656,12 @@ func _storehouses_wanted(pop: int) -> int:
 	var held := 0.0
 	for g in _stock:
 		held += maxf(float(_stock[g]), 0.0)
-	return maxi(1 + pop / 20, ceili(held / 300.0))
+	# and one per 60 units sitting in door buffers: more storehouses are more hauler slots (47e)
+	var doors := 0.0
+	for b: Building in s.buildings.values():
+		if b.door_buffer != null:
+			doors += b.door_buffer.total()
+	return maxi(1 + pop / 20, ceili(held / 300.0)) + int(doors / 60.0)
 
 
 func _jobs_free() -> int:
