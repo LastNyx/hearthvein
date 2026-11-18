@@ -90,15 +90,8 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	if builders.is_empty() and crews.is_empty():
 		return  # nobody builds and nobody is on a crew: nothing below would do anything
 	var wanted := {}  # citizen id -> site
-	var sites: Array[Building] = []
 	if in_shift:
-		sites = ready_works(s)
-	var i := 0
-	for site in sites:
-		for k in s.registry.logistics.builder_crew:
-			if i < builders.size():
-				wanted[builders[i]] = site
-				i += 1
+		wanted = _assign_crews(s, builders, ready_works(s))
 	for cid in crews.keys():
 		if not wanted.has(cid) or wanted[cid].id != crews[cid]:
 			_release(s, ws, cid, in_shift)
@@ -138,6 +131,91 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 		else:
 			b.build_work = b.build_work_needed
 			s.complete_site(b)
+
+
+## Builder -> work. Builders already on a crew keep their site while it is still ready and not full (no flip-flopping
+## between sites); the others take, within the best priority tier that still has room, the nearest work (Manhattan
+## distance from where the builder stands to the work's origin, ties to the lower id). `works` is in ready_works order.
+func _assign_crews(s: Settlement, builders: Array, works: Array[Building]) -> Dictionary:
+	var out := {}
+	if works.is_empty():
+		return out
+	var cap := s.registry.logistics.builder_crew
+	var count := {}  # work id -> builders on it
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var by_id := {}
+	for b in works:
+		by_id[b.id] = b
+	var rest: Array = []
+	for cid in builders:
+		var b: Building = by_id.get(crews.get(cid, -1))
+		if b != null and int(count.get(b.id, 0)) < cap:
+			out[cid] = b
+			count[b.id] = int(count.get(b.id, 0)) + 1
+		else:
+			rest.append(cid)
+	for cid in rest:
+		var w := ws.walker_of(cid) if ws != null else null
+		var from: Vector2i = w.tile if w != null else s.hearth.origin
+		var best: Building = null
+		var best_d := 0
+		var tier := ""
+		for b in works:
+			if int(count.get(b.id, 0)) >= cap:
+				continue
+			var t := "%s%s" % [b.priority, b.site]
+			if best != null and t != tier:
+				break  # the best tier with room is settled (works are sorted by tier)
+			tier = t
+			var d := absi(b.origin.x - from.x) + absi(b.origin.y - from.y)
+			if best == null or d < best_d:
+				best = b
+				best_d = d
+		if best != null:
+			out[cid] = best
+			count[best.id] = int(count.get(best.id, 0)) + 1
+	return out
+
+
+## Sites no builders' yard (the Hearth counts) is close enough to: builders walk from home every shift, so a round trip
+## longer than the work day leaves no time to build. Such a site shows the "too_far" halt until a yard is built
+## closer (Manhattan distance at the slowest road speed, a hint rather than a path search).
+func on_hour(s: Settlement) -> void:
+	if s.registry.logistics == null or s.hearth == null:
+		return
+	var speed := 0.0
+	for r: RoadDef in s.registry.roads.values():
+		if r.walk_speed > 0.0 and (speed == 0.0 or r.walk_speed < speed):
+			speed = r.walk_speed
+	if speed <= 0.0:
+		return
+	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
+	var reach := shift * speed / 2.0  # tiles one way
+	var yards: Array[Vector2i] = []
+	for id in s.buildings:
+		var y: Building = s.buildings[id]
+		if not y.site and y.def.builder_slots > 0:
+			yards.append(y.origin)
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if not b.site:
+			if b.halt == "too_far":
+				_set_halt(s, b, "")
+			continue
+		var far := true
+		for o in yards:
+			if absi(o.x - b.origin.x) + absi(o.y - b.origin.y) <= reach:
+				far = false
+				break
+		if far and b.halt == "":
+			_set_halt(s, b, "too_far")
+		elif not far and b.halt == "too_far":
+			_set_halt(s, b, "")
+
+
+func _set_halt(s: Settlement, b: Building, why: String) -> void:
+	b.halt = why
+	s.events.emit("production_halted" if why != "" else "production_resumed", {"id": b.id, "why": why})
 
 
 ## Hand the builder back to the schedule (walk home, or to the Hearth when homeless).

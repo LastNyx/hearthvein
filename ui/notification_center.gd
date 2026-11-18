@@ -8,6 +8,7 @@ const REASON_TEXT := {
 	"door_full": "%s: output buffer full, needs a hauler",
 	"no_forest": "%s: no forest left in range",
 	"no_workers": "%s: no workers",
+	"too_far": "%s: too far from a builders' yard, build a yard closer",
 }
 const ISLAND_TEXT := {
 	"no_grid": "no grid power",
@@ -86,12 +87,12 @@ func _on_event(e: Dictionary) -> void:
 			if REASON_TEXT.has(why):
 				var id: int = d["id"]
 				# a new halt reason replaces the old one's standing cause
-				for r in ["door_full", "no_forest"]:
+				for r in ["door_full", "no_forest", "too_far"]:
 					if r != why:
 						clear("%d:%s" % [id, r])
 				raise("%d:%s" % [id, why], "halt", REASON_TEXT[why] % _name_of(id))
 		"production_resumed":
-			for r in ["door_full", "no_forest"]:
+			for r in ["door_full", "no_forest", "too_far"]:
 				clear("%d:%s" % [d["id"], r])
 		"island_still":
 			_clear_island(int(d["island"]))

@@ -178,3 +178,41 @@ func test_demolished_site_refunds_half_of_what_was_delivered() -> void:
 	assert_almost_eq(_hearth_materials(), before + delivered * 0.5, 0.001)
 	s.step_days(2)  # haulers whose destination vanished put their load back, nothing crashes
 	assert_eq(s.events.log_of("building_demolished").size(), 1)
+
+
+func test_builders_take_the_nearest_ready_site_first() -> void:
+	var far := _site("tent", 14)  # lower id, but farther from the builders
+	var near := _site("tent", 4)
+	s.set_building_priority(far.id, "paused")
+	s.set_building_priority(near.id, "paused")
+	s.step_days(1)
+	assert_true(far.site_delivered() and near.site_delivered())
+	s.set_building_priority(far.id, "normal")
+	s.set_building_priority(near.id, "normal")
+	for i in 6 * 24:
+		s.step_hours(1)
+		if not near.site or not far.site:
+			break
+	assert_false(near.site, "the near site is built first")
+	assert_true(far.site)
+
+
+func test_site_too_far_from_every_builders_yard_shows_a_status() -> void:
+	var far_x := 40
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	for x in range(h.x + 16, h.x + far_x + 4):
+		for y in range(h.y - 3, h.y + 1):
+			s.set_terrain(Vector2i(x, y), "grass")
+		s.place_road(Vector2i(x, h.y))
+	var b := _site("tent", far_x)
+	var near := _site("tent", 4)
+	var model := HudModel.new(s)
+	s.step_hours(2)
+	assert_eq(b.halt, "too_far", "round trip from the Hearth is longer than the work day")
+	assert_eq(near.halt, "")
+	assert_eq(model.halt_text(b), "Halted: too far from a builders' yard")
+	var yard := s.place_building_instant("builders_yard", Vector2i(h.x + far_x - 4, h.y - 2))
+	assert_gt(yard, -1, "a yard near the site")
+	s.step_hours(2)
+	assert_eq(b.halt, "", "a closer builders' yard clears it")

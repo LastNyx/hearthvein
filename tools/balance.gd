@@ -652,6 +652,13 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 func _support(pop: int, reserve: Dictionary) -> void:
 	var era := s.registry.get_era(s.era_current).order
 	var res := reserve
+	# a site too far from every builders' yard (its halt status): a yard next to it
+	var yard_def := s.registry.get_building("builders_yard")
+	if s.is_unlocked(yard_def) and _afford("builders_yard", res):
+		for b: Building in s.buildings.values():
+			if b.site and b.halt == "too_far":
+				if _place("builders_yard", b.origin, 8) != null:
+					break
 	# builders and haulers
 	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard", res):
 		_place("builders_yard", _hearth_near(), 14)
