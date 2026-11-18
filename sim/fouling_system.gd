@@ -28,6 +28,12 @@ var _works: Array[Building] = []
 var _works_version: int = -1
 ## Flat index -> true for the river tiles under a working Clearwater Works this hour: fouling does not flow on from them.
 var _stops: Dictionary = {}
+## River tiles beside blight, kept per MapState.blight_version (the blight changes a few times a day, the pass runs hourly).
+var _sources_cache: Array[int] = []
+var _sources_version: int = -1
+## Set when a pass changed nothing and every fouled tile was fed: the next pass would change nothing either until the
+## blight, the fouling flags or the working Clearwater Works change (ticket 89b: the pass took 1.3 ms every hour).
+var _steady_key := ""
 
 ## Cache of "wet only from fouled water" per tile (ticket 29c), rebuilt when the map, channels or fouling change.
 var _only_foul := PackedByteArray()
@@ -58,20 +64,28 @@ func on_hour(s: Settlement) -> void:
 	if _tiles.is_empty():
 		_build_tiles(s)
 	_refresh_stops(s)
+	var key := "%d:%d:%d" % [s.map.blight_version, s.map.foul_version, _stops.hash()]
+	if key == _steady_key:
+		return
+	_steady_key = ""
 	var sources := _sources(s)
 	var supplied := _supplied(s, sources, maxi(1, def.foul_spread_tiles_per_hour))
 	var clear_hours := maxi(0, def.foul_clear_hours)
 	var next := {}
+	var steady := true
 	for i: int in _fouled:
 		if supplied.has(i):
 			next[i] = 0
+			steady = steady and int(_fouled[i]) == 0
 			continue
+		steady = false
 		var age: int = int(_fouled[i]) + 1
 		if age < clear_hours:
 			next[i] = age
 	for i: int in supplied:
 		if not next.has(i):
 			next[i] = 0
+			steady = false
 	# Push the difference into the map through the command, so foul_version moves and views hear about it.
 	for i: int in _fouled:
 		if not next.has(i):
@@ -80,6 +94,8 @@ func on_hour(s: Settlement) -> void:
 		if not _fouled.has(i):
 			s.set_fouled(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH), true)
 	_fouled = next
+	if steady:
+		_steady_key = "%d:%d:%d" % [s.map.blight_version, s.map.foul_version, _stops.hash()]
 
 
 ## Flat indices of every river tile, low to high.
@@ -93,6 +109,9 @@ func _build_tiles(s: Settlement) -> void:
 
 ## River tiles 4-adjacent to a blighted tile: this hour's sources.
 func _sources(s: Settlement) -> Array[int]:
+	if _sources_version == s.map.blight_version:
+		return _sources_cache
+	_sources_version = s.map.blight_version
 	var out: Array[int] = []
 	for i in _tiles:
 		var x := i % MapState.WIDTH
@@ -103,6 +122,7 @@ func _sources(s: Settlement) -> Array[int]:
 			if MapState.in_bounds(nx, ny) and s.map.is_blighted(nx, ny):
 				out.append(i)
 				break
+	_sources_cache = out
 	return out
 
 

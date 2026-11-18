@@ -983,6 +983,29 @@ func unlocked_buildings() -> Array[BuildingDef]:
 	return out
 
 
+var _landmark_key := Vector2i(-1, -1)
+var _landmarks: Dictionary = {}  # landmark def id -> the buildings of that def, kept per layout key (era_gate runs hourly)
+
+
+## True when a finished building of this def stands. The buildings of the def are cached until buildings are placed or
+## removed; whether each is still a site is read fresh.
+func _landmark_built(def_id: String) -> bool:
+	var key := Vector2i(buildings.size(), grid_version)
+	if key != _landmark_key:
+		_landmark_key = key
+		_landmarks.clear()
+	if not _landmarks.has(def_id):
+		var found: Array[Building] = []
+		for b: Building in buildings.values():
+			if b.def.id == def_id:
+				found.append(b)
+		_landmarks[def_id] = found
+	for b: Building in _landmarks[def_id]:
+		if not b.site:
+			return true
+	return false
+
+
 ## Gate state for the era after the current one (HUD, ticket 17): {next, pop, pop_need, gold, gold_need, landmark,
 ## landmark_built, met}. next is "" at the last era. Needs come from the EraDef row only.
 func era_gate() -> Dictionary:
@@ -993,11 +1016,7 @@ func era_gate() -> Dictionary:
 			nxt = e
 	if nxt == null:
 		return {"next": "", "met": false}
-	var built := false
-	for b: Building in buildings.values():
-		if not b.site and b.def.id == nxt.gate_landmark:
-			built = true
-			break
+	var built := _landmark_built(nxt.gate_landmark)
 	var pop := citizens.size()
 	return {"next": nxt.id, "pop": pop, "pop_need": nxt.gate_pop, "gold": gold, "gold_need": nxt.gate_gold,
 		"landmark": nxt.gate_landmark, "landmark_built": built,

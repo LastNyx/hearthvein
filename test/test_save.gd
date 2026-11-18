@@ -41,7 +41,17 @@ const SKIP := {
 	"WalkerSystem._seen_sky_occ": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
 	"WalkerSystem._seen_sky_roads": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
 	"WalkerSystem._seen_sky_terrain": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"Settlement._landmark_key": "key of the finished-landmark cache, refilled on demand",
+	"Settlement._landmarks": "finished-landmark cache for era_gate, refilled on demand",
+	# FoulingSystem caches
+	"FoulingSystem._sources_cache": "river tiles beside blight, rebuilt on the first pass after a load",
+	"FoulingSystem._sources_version": "version the source list was built for, rebuilt after a load",
+	"FoulingSystem._steady_key": "marks a pass that changed nothing; a load runs one full pass again",
+	# SkyheartSystem
+	"SkyheartSystem._cand": "staged-landmark and reservoir id list, rebuilt on demand",
+	"SkyheartSystem._cand_key": "key of that list, rebuilt on demand",
 	# MapState
+	"MapState.blight_version": "counter of blight changes, not saved; a load rebuilds the fouling source list",
 	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
 	"MapState.foul_version": "counter of fouling changes, not saved; a load rebuilds the fouling mask and caches",
 	# WaterSystem
