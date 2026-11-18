@@ -53,8 +53,14 @@ const CLEANERS: Array[String] = ["purifier_tower", "cleanser"]
 const TAX_OFFICES_MAX := 3
 const SEARCH_RADIUS := 26
 ## Landmark saving starts at this share of the gate population.
-const LANDMARK_AT := 0.8
+const LANDMARK_AT := 0.6
+## Producers of the landmark's refined goods (planks, cut stone, cells, tools) are built from this share on.
+const PREP_AT := 0.35
 const SAVE_AT := 0.55
+## New storehouses stop when the hauler slots (hauling outranks producers: each takes a citizen) pass this share of the pop.
+const HAULER_SHARE_MAX := 0.25
+## A new builders' yard for a far site goes this many tiles from the nearest yard at most.
+const YARD_STEP := 12
 
 var s: Settlement
 var _offsets: Array[Vector2i] = []
@@ -71,6 +77,11 @@ var _great_end: String = ""
 var _verbose: bool = false
 var _made_acc := 0.0
 var _food_prev := 0.0
+var _gold_before := 0.0
+var _placed_day := {}  # building id -> day it was placed (verbose build-time lines)
+var _inc_today := 0.0
+var _inc := {}  # gold income by source in the current era (an estimate from the day's staffing), and the rest spent
+var _gate_seen := {}  # gate part -> [day, gold] when it was first met in the current era
 
 
 func _init() -> void:
@@ -83,13 +94,16 @@ func _init() -> void:
 	_make_offsets()
 	s.events.subscribe("era_changed", _on_era)
 	s.events.subscribe("dimming_ended", _on_dimming_ended)
+	s.events.subscribe("building_completed", _on_built)
 	s.events.subscribe("great_dimming_ended", _on_great_end)
 	print("balance: seed ", seed_value, ", cap ", MAX_YEARS, " years, stall ", STALL_YEARS, " years")
 	var stalled := false
 	var days := MAX_YEARS * GameClock.DAYS_PER_YEAR
 	var t0 := Time.get_ticks_msec()
 	for d in days:
+		_gold_before = s.gold
 		_act()
+		_track_gold_start()
 		if _verbose and s.clock.total_days() % 12 == 11:
 			s.step_hours(10)
 			_dbg_builders()
@@ -97,6 +111,7 @@ func _init() -> void:
 		else:
 			s.step_hours(GameClock.HOURS_PER_DAY)
 		var day := s.clock.total_days()
+		_track_gold_end()
 		if _verbose:
 			var fs := float(_stock.get("food", 0.0))
 			var tt := s.totals()
@@ -109,7 +124,7 @@ func _init() -> void:
 			var tot := s.totals()
 			print("   d%d pop %d beds %d idle %d gold %d food %d mat %d lumen %d sites %d bld %d" % [day, s.citizens.size(), s.beds_total(),
 				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0) + tot.get("crops", 0) + tot.get("fish", 0)), int(tot.get("materials", 0)), int(tot.get("lumen", 0)),
-				_open_sites(), s.buildings.size()])
+				_open_sites(), s.buildings.size()] + _lm_short())
 		if _verbose and day % 12 == 0:
 			var gr := s.get_system(GrowthSystem) as GrowthSystem
 			var wc := {}
@@ -137,7 +152,7 @@ func _init() -> void:
 			var sp := []
 			for b: Building in s.buildings.values():
 				if b.site:
-					sp.append("%s#%d %.2f%s" % [b.def.id, b.id, b.build_progress(), ("" if b.site_delivered() else "(wait)")])
+					sp.append("%s#%d %.2f%s%s%s" % [b.def.id, b.id, b.build_progress(), ("" if b.site_delivered() else "(wait)"), (":" + b.halt if b.halt != "" else ""), ("" if b.connected else "(noroad)")])
 			print("     sites: ", " ".join(sp), " builders ", buildn)
 
 			print("     food made/day %.1f; shares " % (_made_acc / 12.0), " ".join(sh))
@@ -172,6 +187,71 @@ func _init() -> void:
 	quit(0)
 
 
+## What the era's landmark still lacks (verbose lines).
+func _lm_short() -> String:
+	var lm := _landmark_id()
+	if lm == "" or _count(lm) > 0:
+		return ""
+	var cost := s.registry.get_building(lm).entry_cost()
+	var out: Array[String] = []
+	for g in cost:
+		var have: float = s.gold if g == "gold" else float(_stock.get(g, 0.0))
+		if have < float(cost[g]):
+			out.append("%s %d/%d" % [g, int(have), int(cost[g])])
+	return " | lm short: " + ", ".join(out)
+
+
+## Gold diagnostics (47f): what each gold source paid in the era, what was spent, and the day each gate part was met.
+func _track_gold_start() -> void:
+	_inc_today = 0.0
+	var assigned := MarketSystem.assigned_workers(s)
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.paused:
+			continue
+		var n := int(assigned.get(bid, 0))
+		var made := b.def.gold_per_worker_day * float(n)
+		if b.def.gold_per_citizen_day > 0.0 and n > 0:
+			made += b.def.gold_per_citizen_day * float(s.citizens.size())
+		if made > 0.0:
+			_inc[b.def.id] = float(_inc.get(b.def.id, 0.0)) + made
+			_inc["_total"] = float(_inc.get("_total", 0.0)) + made
+			_inc_today += made
+
+
+func _track_gold_end() -> void:
+	_inc["_spent"] = float(_inc.get("_spent", 0.0)) + _gold_before + _inc_today - s.gold
+	var g := s.era_gate()
+	if g["next"] == "":
+		return
+	var parts := {"pop": g["pop"] >= g["pop_need"], "gold": g["gold"] >= g["gold_need"], "landmark": g["landmark_built"]}
+	for k in parts:
+		if parts[k] and not _gate_seen.has(k):
+			_gate_seen[k] = [s.clock.total_days(), int(s.gold)]
+
+
+func _gate_report(from_era: String) -> String:
+	var rows: Array[String] = []
+	for k in ["pop", "gold", "landmark"]:
+		rows.append("%s %s" % [k, ("d%d (gold %d)" % [_gate_seen[k][0], _gate_seen[k][1]]) if _gate_seen.has(k) else "never"])
+	var last := ""
+	var last_day := -1
+	if _gate_seen.has("lm_placed"):
+		rows.append("landmark placed d%d" % _gate_seen["lm_placed"][0])
+	for k in _gate_seen:
+		if k == "lm_placed":
+			continue
+		if _gate_seen[k][0] > last_day:
+			last_day = _gate_seen[k][0]
+			last = k
+	var inc := []
+	for k in _inc:
+		if not k.begins_with("_"):
+			inc.append("%s %d" % [k, int(_inc[k])])
+	return "    gate parts met in %s: %s; last %s; gold income {%s} total %d, spent %d" % [from_era, ", ".join(rows), last,
+		", ".join(inc), int(_inc.get("_total", 0.0)), int(_inc.get("_spent", 0.0))]
+
+
 func _dbg_builders() -> void:
 	var wsx := s.get_system(WalkerSystem) as WalkerSystem
 	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
@@ -201,6 +281,21 @@ func _on_era(entry: Dictionary) -> void:
 	_progress()
 	_eras.append("%s: %s, gold %d, pop %d" % [str(data["to"]).capitalize(), _stamp(), int(s.gold), s.citizens.size()])
 	print("Era ", _eras[-1])
+	for k in ["pop", "gold", "landmark"]:
+		if not _gate_seen.has(k):
+			_gate_seen[k] = [s.clock.total_days(), int(s.gold)]  # met within the day the era changed
+	print(_gate_report(str(data["from"])))
+	_gate_seen.clear()
+	_inc.clear()
+
+
+func _on_built(entry: Dictionary) -> void:
+	if not _verbose:
+		return
+	var data: Dictionary = entry["data"]
+	var id := int(data.get("id", -1))
+	if _placed_day.has(id) and s.buildings.has(id):
+		print("   d%d built %s after %d days" % [s.clock.total_days(), s.buildings[id].def.id, s.clock.total_days() - int(_placed_day[id])])
 
 
 func _on_dimming_ended(entry: Dictionary) -> void:
@@ -390,6 +485,9 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 			_cooldown[id] = s.clock.total_days() + 1
 			return null
 		_refresh_stock()
+		_placed_day[bid] = s.clock.total_days()
+		if _verbose:
+			print("   d%d place %s pop %d idle %d jobs_free %d" % [s.clock.total_days(), id, s.citizens.size(), s.idle_citizens().size(), _jobs_free()])
 		return b
 	_cooldown[id] = s.clock.total_days() + 3
 	_blocked_today = true
@@ -520,10 +618,11 @@ func _act() -> void:
 	var site_cap := 3 + pop / 40
 	_throttle(pop)
 	_relocate_woodcutters()
+	_cancel_stale_yards()
 	# 1. landmark; while the bot saves for it, only housing and gold are bought
 	var saving := _landmark()
 	# 2. housing
-	if _storehouses_wanted(pop) > _count("storehouse") and _afford("storehouse") and _jobs_free() >= 1:
+	if _storehouses_wanted(pop) > _count("storehouse") and _afford("storehouse") and _jobs_free() >= 1 and _hauler_slots() < HAULER_SHARE_MAX * float(pop) + 4.0:
 		_place("storehouse", _hearth_near(), 14)
 	if _opening(pop) and s.homeless_count() == 0:
 		return
@@ -601,8 +700,9 @@ func _landmark() -> bool:
 	var g := s.era_gate()
 	var gate_pop: int = int(g.get("pop_need", 0)) if g["next"] != "" else 450
 	if float(s.citizens.size()) < LANDMARK_AT * float(gate_pop):
-		return false
+		return float(s.citizens.size()) >= PREP_AT * float(gate_pop)  # not placed yet, but the refined goods are prepared
 	if _afford(lm) and _place(lm, _hearth_near(), 20) != null:
+		_gate_seen["lm_placed"] = [s.clock.total_days(), int(s.gold)]
 		return false
 	return true
 
@@ -700,10 +800,57 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 				continue
 			if _jobs_free() < 1 and not no_hands_needed:
 				return false
-			if not _afford(id, {} if (good == "food" or good == "lumen" or good == "materials" or good == "gold") else reserve):
+			if not _afford(id, {} if (good == "food" or good == "lumen" or good == "materials" or good == "gold" or _landmark_needs(good)) else reserve):
 				continue
 			if _place(id, _hearth_near(), SEARCH_RADIUS) != null:
 				return true
+	return false
+
+
+## Hauler slots over every storehouse, yard and the Hearth: hauling outranks every producer, so each slot takes a citizen.
+## True when the era's landmark (not placed yet) costs this good: its producer must not wait behind the landmark's own reserve.
+func _landmark_needs(good: String) -> bool:
+	var lm := _landmark_id()
+	if lm == "" or _count(lm) > 0:
+		return false
+	return s.registry.get_building(lm).entry_cost().has(good)
+
+
+func _hauler_slots() -> int:
+	var n := 0
+	for b: Building in s.buildings.values():
+		n += b.def.hauler_slots
+	return n
+
+
+## Where a yard for a site that is too far from every yard goes: next to it, or when it is far off, a step (12 tiles)
+## towards it from the nearest yard, so the yard itself is within builders' reach and the chain of yards grows outwards.
+func _yard_spot_for(site: Building) -> Vector2i:
+	var best: Building = null
+	var best_d := 100000
+	for b: Building in s.buildings.values():
+		if b.def.builder_slots > 0 and not b.site:
+			var d := maxi(absi(b.origin.x - site.origin.x), absi(b.origin.y - site.origin.y))
+			if d < best_d:
+				best_d = d
+				best = b
+	if best == null or best_d <= YARD_STEP + 2:
+		return site.origin
+	var f := float(YARD_STEP) / float(best_d)
+	return best.origin + Vector2i(Vector2(site.origin - best.origin) * f)
+
+
+## A yard site that is itself too far to build is taken back after a while, so the bot can try a closer spot.
+func _cancel_stale_yards() -> void:
+	for b: Building in s.buildings.values().duplicate():
+		if b.site and b.def.id == "builders_yard" and b.halt == "too_far" and s.clock.total_days() - int(_placed_day.get(b.id, s.clock.total_days())) > 25:
+			s.demolish(b.id)
+
+
+func _yard_site_open() -> bool:
+	for b: Building in s.buildings.values():
+		if b.site and b.def.id == "builders_yard":
+			return true
 	return false
 
 
@@ -712,13 +859,14 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	var res := reserve
 	# a site too far from every builders' yard (its halt status): a yard next to it
 	var yard_def := s.registry.get_building("builders_yard")
-	if s.is_unlocked(yard_def) and _afford("builders_yard", res):
+	# (one at a time: sites close together share it, and a yard site waiting for its builders still shows the far status)
+	if s.is_unlocked(yard_def) and _afford("builders_yard", res) and not _yard_site_open():
 		for b: Building in s.buildings.values():
-			if b.site and b.halt == "too_far":
-				if _place("builders_yard", b.origin, 8) != null:
+			if b.site and b.halt == "too_far" and b.def.id != "builders_yard":
+				if _place("builders_yard", _yard_spot_for(b), 6) != null:
 					break
 	# builders and haulers
-	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard", res):
+	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard", res) and not _yard_site_open():
 		_place("builders_yard", _hearth_near(), 14)
 	if era >= 3 and _count("handcart_shed") < 1 + pop / 50 and _afford("handcart_shed", res):
 		_place("handcart_shed", _hearth_near(), 14)
