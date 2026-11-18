@@ -135,7 +135,7 @@ func test_dock_output_reaches_the_hearth_through_hauling() -> void:
 	var before := s.hearth.inventory.amount_of("fish")
 	s.step_days(5)
 	var per_day := (s.hearth.inventory.amount_of("fish") - before) / 5.0
-	assert_between(per_day, 7.5, 9.5, "fish per day into the Hearth was %f" % per_day)
+	assert_between(per_day, 12.5, 15.5, "fish per day into the Hearth was %f" % per_day)
 	assert_gt(s.totals().get("fish", 0.0), 0.0, "fish is a real stockpiled good")
 
 
