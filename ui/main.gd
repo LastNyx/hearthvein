@@ -138,7 +138,7 @@ func open_whats_new() -> void:
 	whats_new_panel = WhatsNewPanel.new()
 	whats_new_panel.name = "WhatsNewPanel"
 	_add_title(whats_new_panel)
-	whats_new_panel.setup(ChangelogText.to_bbcode(md, hide))
+	whats_new_panel.setup(ChangelogText.to_bbcode(ChangelogText.drop_preamble(md), hide))
 	whats_new_panel.back_pressed.connect(close_whats_new)
 
 

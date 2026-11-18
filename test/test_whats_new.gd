@@ -48,6 +48,13 @@ func test_markdown_subset_renders_headings_bullets_and_continuation_lines() -> v
 	assert_false(out.contains("- First"), "no raw Markdown dash left")
 
 
+func test_panel_drops_the_file_title_and_intro() -> void:
+	var md := ChangelogText.drop_preamble(MD)
+	assert_true(md.begins_with("## Unreleased"))
+	assert_false(md.contains("Intro line one"))
+	assert_eq(ChangelogText.drop_preamble("## 1.0.0\n- x\n"), "## 1.0.0\n- x\n")
+
+
 func test_unreleased_section_hidden_only_in_exports_when_the_version_has_a_section() -> void:
 	assert_true(ChangelogText.hide_unreleased(MD, "1.1.0", false), "export, version in the file")
 	assert_false(ChangelogText.hide_unreleased(MD, "1.1.0", true), "editor build shows it")

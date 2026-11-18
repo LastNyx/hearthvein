@@ -63,6 +63,8 @@ func setup(has_save: bool, version: String = "") -> void:
 		v.add_theme_font_override("font", Hud._pixel_font(Hud.BODY_FONT_PATH))
 		v.add_theme_font_size_override("font_size", Hud._px_size(16))
 		v.add_theme_color_override("font_color", Hud.DIM)
+		v.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.9))
+		v.add_theme_constant_override("outline_size", 4)
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(v)
 		v.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 12)

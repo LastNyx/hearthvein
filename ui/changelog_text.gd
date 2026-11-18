@@ -22,6 +22,15 @@ static func has_section(md: String, version: String) -> bool:
 	return false
 
 
+## Drops everything before the first "## " section (the file's "# Changelog" title and intro): the panel has its own
+## "What's new" title.
+static func drop_preamble(md: String) -> String:
+	if md.begins_with("## "):
+		return md
+	var at := md.find("\n## ")
+	return md if at < 0 else md.substr(at + 1)
+
+
 static func to_bbcode(md: String, hide_unreleased_section: bool) -> String:
 	var out: Array[String] = []
 	var items: Array[String] = []  # the open bullet list
