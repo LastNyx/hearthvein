@@ -71,6 +71,10 @@ func _init() -> void:
 	await _shoot("/tmp/hv_95_build_lit.png")
 	bc.set_mode(BuildController.Mode.UPGRADE)
 	var cot := s.building_at(Vector2i(h.x + 4, h.y - 2))
+	cam.position = (Vector2(cot.origin) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
+	await process_frame
+	root.warp_mouse(root.get_visible_rect().size / 2.0)  # the controller follows the real pointer
+	await process_frame
 	bc.ghost.set_state(null, cot.origin, s.can_upgrade(cot.id)["ok"], true)
 	await _shoot("/tmp/hv_95_upgrade_lit.png")
 	hud.open_category("housing")
@@ -82,6 +86,9 @@ func _init() -> void:
 		for x in range(2, MapState.WIDTH - 2):
 			if absi(x - h.x) < 40 and absi(y - h.y) < 40 and s.map.get_terrain(x + 1, y) == water and s.can_place_channel(Vector2i(x, y))["ok"]:
 				cam.position = (Vector2(x, y) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
+				await process_frame
+				root.warp_mouse(root.get_visible_rect().size / 2.0)
+				await process_frame
 				bc.ghost.set_state(null, Vector2i(x, y), true, true)
 				bc.ghost.set_wet(WaterSystem.channel_preview(s, Vector2i(x, y)))
 				await _shoot("/tmp/hv_95_channel_preview.png")
