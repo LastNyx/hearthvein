@@ -76,14 +76,17 @@ func setup(has_save: bool, version: String = "") -> void:
 		v.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
 
 
-## Adds the "Update <version> available" button above Continue (ticket 94); a second call only changes the version.
+## Adds the "Update <version> available" button in the bottom-right corner above the version label (ticket 94; in the
+## column it pushed Quit off a 720 px screen); a second call only changes the version.
 func show_update(version: String) -> void:
 	if update_button == null:
-		update_button = _button(_col, _font, "", "Update", update_pressed)
+		update_button = _button(self, Hud._pixel_font(Hud.BODY_FONT_PATH), "", "Update", update_pressed)
+		update_button.add_theme_font_size_override("font_size", Hud._px_size(16))
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			update_button.add_theme_color_override(c, Hud.GOLD)
-		_col.move_child(update_button, continue_button.get_index())
 	update_button.text = "Update %s available" % version
+	update_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+	update_button.position.y -= 28.0  # clear of the version label below it
 
 
 func hide_update() -> void:
