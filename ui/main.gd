@@ -394,6 +394,11 @@ func _build_world(s: Settlement) -> void:
 	s.events.subscribe("blight_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	s.events.subscribe("fouled_changed", func(e: Dictionary) -> void: view.refresh_state(e["data"]["tile"]))
 	s.events.subscribe("terrain_changed", func(e: Dictionary) -> void: view.refresh_tile(e["data"]["tile"]))
+	# Regrowing stumps show a sapling from half way (ticket 111): render-only, redrawn when a season starts.
+	var forest := s.get_system(ForestSystem) as ForestSystem
+	view.stump_progress = func(t: Vector2i) -> float: return forest.regrow_progress(s, t)
+	s.events.subscribe("season_started", func(_e: Dictionary) -> void: view.refresh_stumps())
+	view.refresh_stumps()
 	for kind in ["island_raised", "island_removed"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _refresh_sky())
 	_refresh_sky()

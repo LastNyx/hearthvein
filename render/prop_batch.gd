@@ -95,8 +95,8 @@ static func _ground(map: MapState, x: int, y: int) -> String:
 
 ## Replace the props of one tile with the ones its terrain scatters now. Returns the scatter list, so the caller
 ## can build the matching shadow and glow sprites.
-func add_tile(terrain_id: String, tile: Vector2i, open: Vector2i) -> Array:
-	var props := ArtLibrary.scatter(terrain_id, tile.x, tile.y, open)
+func add_tile(terrain_id: String, tile: Vector2i, open: Vector2i, progress: float = 0.0) -> Array:
+	var props := ArtLibrary.scatter(terrain_id, tile.x, tile.y, open, progress)
 	clear_tile(tile)
 	if props.is_empty():
 		return props

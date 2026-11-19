@@ -1280,6 +1280,28 @@ def stump():
     return M.Sprite(im, shadow=(0.9, 4))
 
 
+def sapling():
+    """A young tree on the stump (ticket 111): the stump's base with a thin trunk and a small leaf crown."""
+    im = Image.new("RGBA", (18, 24))
+    d = ImageDraw.Draw(im)
+    p = M.LEAF["green"]
+    d.ellipse([1, 18, 16, 23], fill=M.BARK[1])
+    M.R(d, 3, 15, 14, 20, M.BARK[2])
+    M.R(d, 3, 15, 5, 20, M.BARK[3])
+    M.R(d, 12, 15, 14, 20, M.BARK[1])
+    d.ellipse([3, 13, 14, 17], fill=M.BARK[1])
+    M.R(d, 8, 8, 9, 15, M.BARK[2])
+    M.R(d, 8, 8, 8, 15, M.BARK[3])
+    d.line([(9, 12), (12, 10)], fill=M.BARK[2])
+    for bx, by, br in [(5, 7, 3), (12, 6, 3), (8, 4, 4), (9, 8, 3)]:
+        d.ellipse([bx - br, by - br + 1, bx + br, by + br + 1], fill=p[1])
+    for bx, by, br in [(5, 7, 3), (12, 6, 3), (8, 4, 4)]:
+        d.ellipse([bx - br + 1, by - br, bx + br - 1, by + br - 1], fill=p[2])
+    d.ellipse([6, 2, 9, 4], fill=p[3])
+    d.point((11, 5), fill=p[4])
+    return M.Sprite(im, shadow=(0.9, 4))
+
+
 PROPS = {
     "oak_green_0": lambda: M.oak(1011, 0.9), "oak_green_1": lambda: M.oak(1012, 1.0),
     "oak_green_2": lambda: M.oak(1013, 1.1), "oak_green_3": lambda: M.oak(1014, 1.0),
@@ -1293,7 +1315,7 @@ PROPS = {
     "crystal_0": lambda: M.crystal_cluster(1061), "crystal_1": lambda: M.crystal_cluster(1062),
     "crystal_2": lambda: M.crystal_cluster(1063),
     "mushrooms_0": lambda: M.mushrooms(1071, False), "mushrooms_1": lambda: M.mushrooms(1072, True),
-    "stump_0": stump,
+    "stump_0": stump, "sapling_0": sapling,
     "lily_0": lambda: lily_pad(1, False), "lily_1": lambda: lily_pad(2, False), "lily_2": lambda: lily_pad(3, True),
     "lily_3": lambda: lily_pad(4, False), "lily_4": lambda: lily_pad(5, True),
     "sparkle_0": lambda: sparkle(1, False), "sparkle_1": lambda: sparkle(2, True),
@@ -1310,7 +1332,8 @@ SCATTER = {
         ["boulder_5", 1.2], ["boulder_6", 0.5], ["boulder_7", 1.2]]},
     "lumen_vein": {"p_first": 0.7, "p_second": 0.0, "x": [12, 20], "y": [28, 31], "choices": [
         ["crystal_0", 1], ["crystal_1", 1], ["crystal_2", 1]]},
-    "stump": {"p_first": 1.0, "p_second": 0.0, "x": [14, 18], "y": [24, 28], "choices": [["stump_0", 1]]},
+    "stump": {"p_first": 1.0, "p_second": 0.0, "x": [14, 18], "y": [24, 28], "choices": [["stump_0", 1]],
+             "stages": [[0.5, "sapling_0"]]},  # ticket 111: from this regrow progress the stump draws the sapling
     "water": {"p_first": 0.2, "p_second": 0.4, "interior_only": True, "x": [9, 23], "y": [14, 24], "choices": [
         ["lily_0", 1], ["lily_1", 1], ["lily_2", 0.5], ["lily_3", 1], ["lily_4", 0.5]]},
     "grass": {"p_first": 0.012, "p_second": 0.0, "x": [6, 26], "y": [10, 30], "choices": [

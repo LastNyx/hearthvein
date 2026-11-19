@@ -66,6 +66,10 @@ var show_regions := true:
 ## Optional Callable(tile) -> bool: true where roads or a building cover the tile (PlacementView sets it), so props
 ## re-added by refresh_tile stay hidden there.
 var prop_blocked: Callable = Callable()
+## Optional Callable(tile) -> float: regrow progress 0..1 of a stump tile (Main sets it from ForestSystem), so a stump
+## that is growing back draws the sapling prop (ticket 111). Render only: the terrain stays "stump".
+var stump_progress: Callable = Callable()
+var _saplings: Dictionary = {}  # Vector2i -> true for stump tiles currently drawing the sapling
 var _sparkles: Dictionary = {}  # Vector2i -> Sprite2D
 ## Shadow and glow sprites of each tile's props (the prop sprites themselves are batched by PropBatch).
 var _props: Dictionary = {}  # Vector2i -> Array[Node]
@@ -539,9 +543,52 @@ func refresh_tile(tile: Vector2i) -> void:
 		set_props_visible(tile, false)
 
 
+## Redraw the props of the stump tiles whose stage changed (season_started): only those tiles, props only.
+func refresh_stumps() -> void:
+	if map == null:
+		return
+	var stump := map.terrain_index("stump")
+	var changed := false
+	var seen := {}
+	for i in map.terrain.size():
+		if map.terrain[i] != stump:
+			continue
+		var tile := Vector2i(i % MapState.WIDTH, i / MapState.WIDTH)
+		seen[tile] = true
+		if _saplings.has(tile) == _is_sapling(tile):
+			continue
+		for n in _props.get(tile, []):
+			(n as Node).queue_free()
+		_props.erase(tile)
+		_add_props("stump", tile.x, tile.y)
+		changed = true
+		if prop_blocked.is_valid() and prop_blocked.call(tile):
+			_prop_batch.flush()
+			set_props_visible(tile, false)
+	for tile in _saplings.keys():
+		if not seen.has(tile):
+			_saplings.erase(tile)  # grew into forest or was built over: refresh_tile redrew it
+	if changed:
+		_prop_batch.flush()
+
+
+func _stage(terrain_id: String, tile: Vector2i) -> float:
+	if terrain_id != "stump" or not stump_progress.is_valid():
+		return 0.0
+	return float(stump_progress.call(tile))
+
+
+func _is_sapling(tile: Vector2i) -> bool:
+	return _stage("stump", tile) >= 0.5
+
+
 func _add_props(terrain_id: String, x: int, y: int) -> void:
 	var tile := Vector2i(x, y)
-	for p in _prop_batch.add_tile(terrain_id, tile, _open_dir(x, y)):
+	if terrain_id == "stump" and _is_sapling(tile):
+		_saplings[tile] = true
+	else:
+		_saplings.erase(tile)
+	for p in _prop_batch.add_tile(terrain_id, tile, _open_dir(x, y), _stage(terrain_id, tile)):
 		var e := ArtLibrary.prop_entry(p["name"])
 		var list: Array = _props.get(tile, [])
 		var sh := ArtLibrary.shadow_sprite(e)

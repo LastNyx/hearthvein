@@ -3105,6 +3105,26 @@
    },
    "w": 35
   },
+  "sapling_0": {
+   "base": [
+    10,
+    25
+   ],
+   "file": "props/sapling_0.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 26,
+   "shadow": {
+    "file": "props/sapling_0_shadow.png",
+    "offset": [
+     -7,
+     -3
+    ]
+   },
+   "w": 20
+  },
   "sparkle_0": {
    "base": [
     2,
@@ -3380,6 +3400,12 @@
    ],
    "p_first": 1.0,
    "p_second": 0.0,
+   "stages": [
+    [
+     0.5,
+     "sapling_0"
+    ]
+   ],
    "x": [
     14,
     18

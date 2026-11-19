@@ -127,6 +127,17 @@ func regrow_info(s: Settlement, tile: Vector2i) -> Dictionary:
 	return {"state": "grows", "days": ceili(float(hours_left) / GameClock.HOURS_PER_DAY) + (ticks - 1) * GameClock.DAYS_PER_SEASON}
 
 
+## How far the stump at `tile` is on its way back to forest, 0..1: seasons stood over seasons needed (the same timer
+## regrow_info and on_season use). 0 for a tile that is not a stump, one built over, or a blighted one.
+func regrow_progress(s: Settlement, tile: Vector2i) -> float:
+	var state: String = regrow_info(s, tile)["state"]
+	if state == "none" or state == "covered" or state == "blighted":
+		return 0.0
+	var def := s.registry.forest
+	var need := _seasons_needed(s, def, tile, _staffed_foresters(s))
+	return clampf(float(_age.get(MapState.idx(tile.x, tile.y), 0)) / maxf(need, 0.000001), 0.0, 1.0)
+
+
 ## The seasonal regrowth pass: age every tracked stump once, regrow the ones that are done.
 func on_season(s: Settlement) -> void:
 	var def := s.registry.forest

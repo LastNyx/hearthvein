@@ -76,6 +76,22 @@ func test_blighted_stump_never_regrows() -> void:
 	assert_eq(s.map.terrain_id_at(t.x, t.y), "forest")
 
 
+# Ticket 111: regrow_progress is seasons stood over seasons needed, 0 when blighted or not a stump.
+func test_regrow_progress_reads_the_stump_timer() -> void:
+	var fs := s.get_system(ForestSystem) as ForestSystem
+	var t := _free_tile()
+	assert_eq(fs.regrow_progress(s, t), 0.0, "not a stump")
+	s.set_terrain(t, "stump")
+	assert_eq(fs.regrow_progress(s, t), 0.0, "a fresh stump")
+	s.step_days(GameClock.DAYS_PER_SEASON)
+	assert_eq(fs.regrow_progress(s, t), 0.5, "one of two seasons")
+	fs.regrow_factors.append(func(_s: Settlement, _t: Vector2i) -> float: return 0.25)
+	assert_eq(fs.regrow_progress(s, t), 1.0, "clamped at 1")
+	fs.regrow_factors.clear()
+	s.set_blighted(t, true)
+	assert_eq(fs.regrow_progress(s, t), 0.0, "blighted")
+
+
 ## The stump ages are real state: a save in the middle of regrowth resumes where it was.
 func test_stump_age_survives_a_save() -> void:
 	var t := _free_tile()

@@ -400,7 +400,9 @@ static func airship_entry() -> Dictionary:
 ## Props to stand on a terrain cell: [{name, pos}] with pos the sprite base point in world pixels.
 ## `open` is the direction of the nearest open (non-same-ground) neighbour tiles summed, for edge tiles of a stand:
 ## edge trees thin out and jitter toward the open side so a forest border is not a straight tile line.
-static func scatter(terrain_id: String, x: int, y: int, open: Vector2i = Vector2i.ZERO) -> Array:
+## `progress` is the regrow progress of a stump (0..1): a rule with "stages" [[from, prop]] swaps its pick for the
+## prop of the highest stage reached (ticket 111, the sapling); same position, so the stage change does not jump.
+static func scatter(terrain_id: String, x: int, y: int, open: Vector2i = Vector2i.ZERO, progress: float = 0.0) -> Array:
 	var rules: Dictionary = manifest()["scatter"]
 	var out: Array = []
 	if not rules.has(terrain_id):
@@ -430,6 +432,9 @@ static func scatter(terrain_id: String, x: int, y: int, open: Vector2i = Vector2
 			if roll <= 0.0:
 				pick = c[0]
 				break
+		for st in r.get("stages", []):
+			if progress + 0.000001 >= float(st[0]):
+				pick = st[1]
 		var px := rng.randi_range(int(r["x"][0]), int(r["x"][1]))
 		var py := rng.randi_range(int(r["y"][0]), int(r["y"][1]))
 		var pos := Vector2(x * TILE + px, y * TILE + py)
