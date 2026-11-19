@@ -7,7 +7,9 @@ extends RefCounted
 const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage", "grid"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "resources", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
-const RESOURCES: Array[String] = ["food", "wood", "stone", "lumen", "gold"]
+## Top bar order (ticket 112, build_menu.png): food, wood, stone, planks, cut stone, tools, lumen, cells, gold; people
+## follow in their own box.
+const RESOURCES: Array[String] = ["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"]
 const REWARD_LABELS := {"rich_vein": "Rich vein", "ruins": "Ruins", "fertile_valley": "Fertile valley",
 		"old_forest": "Old forest", "spring": "Spring"}
 const COST_ORDER: Array[String] = ["wood", "stone", "planks", "cut_stone", "tools", "lumen_cells"]
@@ -21,13 +23,15 @@ var overlays := {"blight": false, "roads": false, "water": false, "coverage": fa
 ## and the render (MapView.set_active_layer, via layer_changed) read. Tab toggles it; sky only while an island exists.
 var active_layer: int = Building.LAYER_GROUND
 signal layer_changed(layer: int)
-var _deltas := {"food": 0, "wood": 0, "stone": 0, "lumen": 0, "gold": 0}
+var _deltas: Dictionary = {}
 var _mark: Dictionary = {}
 
 
 func _init(settlement: Settlement) -> void:
 	s = settlement
 	notifications = NotificationCenter.new(s)
+	for k in RESOURCES:
+		_deltas[k] = 0
 	_mark = _stock()
 	s.events.subscribe("day_started", _on_day)
 
@@ -49,18 +53,23 @@ func _stock() -> Dictionary:
 	var gs := s.get_system(GridSystem) as GridSystem
 	if gs != null:
 		lumen += gs.total_charge()  # battery charge is Lumen the player owns, even though it is not in storage
-	return {"food": food, "wood": float(t.get("wood", 0.0)), "stone": float(t.get("stone", 0.0)), "lumen": lumen, "gold": s.gold}
+	return {"food": food, "wood": float(t.get("wood", 0.0)), "stone": float(t.get("stone", 0.0)),
+			"planks": float(t.get("planks", 0.0)), "cut_stone": float(t.get("cut_stone", 0.0)),
+			"tools": float(t.get("tools", 0.0)), "lumen": lumen, "cells": float(t.get("lumen_cells", 0.0)),
+			"gold": s.gold}
 
 
 # ---------------------------------------------------------------- top bar
 
-## [{id, icon, value, delta, text}] for food, wood, stone, lumen, gold. delta = change over the last full day.
+## [{id, icon, value, delta, value_text, delta_text, text}] for the goods in RESOURCES. delta = change over the last
+## full day; the top bar draws value and delta as two lines (ticket 112) and `text` keeps the old one-line form.
 func resources() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var now := _stock()
 	for k in RESOURCES:
 		var d: int = _deltas[k]
 		out.append({"id": k, "icon": k, "value": floori(now[k]), "delta": d,
+				"value_text": "%d" % floori(now[k]), "delta_text": delta_text(d),
 				"text": "%d %s" % [floori(now[k]), delta_text(d)]})
 	return out
 
@@ -622,6 +631,45 @@ func upgrade_reason_text(reason: String, next_tier: int = 0) -> String:
 		var e := s.registry.get_era(rule.era_for(next_tier)) if rule != null else null
 		return "Needs %s era" % e.display_name if e != null else "Needs a later era"
 	return UPGRADE_REASONS.get(reason, reason.capitalize().replace("_", " "))
+
+
+## The good id whose display name (any case) or id is `name`, "" when there is none. Used to find the goods in a HUD
+## line so the icon rows can draw before their numbers (ticket 112).
+func good_id(name: String) -> String:
+	var key := name.strip_edges().to_lower()
+	for g in s.registry.goods:
+		var gd := s.registry.goods[g] as GoodDef
+		if key == g or key == gd.display_name.to_lower():
+			return g
+	return ""
+
+
+## Splits a line that is all goods, like "Cost: 14 Wood, 21 Stone", "Waiting for materials: 0/10 lumen" or "Delivered:
+## 12 Wood", into [{text: "Cost: "}, {good: "wood", text: "14"}, {text: ", "}, ...] so the HUD can draw each good's icon
+## (ticket 112). [] when the line is not all goods (including "Cost: free" or a recipe's "6 Wood -> 3 Planks"): the HUD
+## then draws it as plain text.
+func line_segments(line: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var cut := line.find(": ")
+	if cut < 0:
+		return out
+	out.append({"text": line.substr(0, cut + 2)})
+	var items := line.substr(cut + 2).split(", ")
+	for i in items.size():
+		var it := (items[i] as String).strip_edges()
+		var sp := it.find(" ")
+		if sp <= 0:
+			return [] as Array[Dictionary]
+		var num := it.substr(0, sp)
+		if not num.replace("/", "").is_valid_int():
+			return [] as Array[Dictionary]
+		var g := good_id(it.substr(sp + 1))
+		if g == "":
+			return [] as Array[Dictionary]
+		if i > 0:
+			out.append({"text": ", "})
+		out.append({"good": g, "text": num})
+	return out
 
 
 ## "3 Planks, 2 Cut Stone": real good names, wood and stone first then by id.

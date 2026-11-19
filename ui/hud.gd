@@ -28,6 +28,8 @@ var driver: SimDriver
 var _font: FontFile
 var _body_font: FontFile
 var _res_labels: Dictionary = {}
+var _res_deltas: Dictionary = {}
+var _res_icons: Dictionary = {}
 var _pop_label: Label
 var _pop_box: HBoxContainer
 var _growth_bar: ProgressBar
@@ -53,10 +55,12 @@ var _notes_box: VBoxContainer
 var _notes_key := ""
 var _sel_panel: PanelContainer
 var _sel_title: Label
-var _sel_body: Label
+var _sel_body: VBoxContainer
+var _sel_body_key := ""
 var _sel_halt: Label
 var _sel_warn: Label
-var _sel_up_cost: Label
+var _sel_up_cost: HBoxContainer
+var _sel_up_key := ""
 var _sel_up_reason: Label
 var _sel_up_btn: Button
 var _prio_buttons: Dictionary = {}
@@ -233,6 +237,38 @@ func _icon(parent: Node, kind: String, px: int = 28) -> TextureRect:
 	return t
 
 
+## One HUD line. A line that is all goods ("Cost: 14 Wood, 21 Stone", "Waiting for materials: 0/10 lumen") draws the
+## good's icon before each number (ticket 112); anything else stays one label, wrapped to `wrap_width` when given.
+func _hud_line(parent: Node, text: String, color: Color, size: int = 14, wrap_width: float = 0.0) -> Control:
+	var segs := model.line_segments(text)
+	if segs.is_empty():
+		var l := _label(parent, size, color)
+		l.text = text
+		if wrap_width > 0.0:
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.custom_minimum_size = Vector2(wrap_width, 0)
+		return l
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(row)
+	for seg: Dictionary in segs:
+		if seg.has("good"):
+			_icon(row, str(seg["good"]), size + 6)
+		var l := _label(row, size, color)
+		l.text = str(seg["text"])
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return row
+
+
+## Rebuilds a container as one HUD line (used for lines that change while the panel stays open).
+func _set_hud_line(box: Container, text: String, color: Color, size: int = 14) -> void:
+	for c in box.get_children():
+		box.remove_child(c)
+		c.queue_free()
+	_hud_line(box, text, color, size)
+
+
 func _button(parent: Node, text: String, size: int = 15) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -258,14 +294,25 @@ func _style_button(b: Button, on: bool) -> void:
 func _build_top_bar(parent: Node) -> void:
 	var p := _panel(parent)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
+	row.add_theme_constant_override("separation", 14)
 	p.add_child(row)
+	# Nine goods plus people fit at 1280 (ticket 112): the 1.1.6 icons, value over delta in a narrow two-line box like
+	# the approved build_menu.png, not the old single "142 +6" line.
 	for k in HudModel.RESOURCES:
 		var box := HBoxContainer.new()
-		box.add_theme_constant_override("separation", 6)
+		box.add_theme_constant_override("separation", 4)
 		row.add_child(box)
-		_icon(box, k)
-		_res_labels[k] = _label(box, 17)
+		var ic := _icon(box, k, 24)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_res_icons[k] = ic
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 0)
+		col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		box.add_child(col)
+		_res_labels[k] = _label(col, 17)
+		_res_deltas[k] = _label(col, 12, DIM)
+		var gd := model.s.registry.get_good("lumen_cells" if k == "cells" else k)
+		box.tooltip_text = "%s stock and its change over the last day" % (gd.display_name if gd != null else k)
 	var pop := HBoxContainer.new()
 	pop.add_theme_constant_override("separation", 6)
 	pop.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -412,12 +459,16 @@ func _build_selection_panel(parent: Node) -> void:
 	var v := VBoxContainer.new()
 	_sel_panel.add_child(v)
 	_sel_title = _label(v, 18, CYAN)
-	_sel_body = _label(v, 14, INK)
+	_sel_body = VBoxContainer.new()
+	_sel_body.add_theme_constant_override("separation", 0)
+	v.add_child(_sel_body)
 	_sel_halt = _label(v, 14, PURPLE)
 	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sel_halt.custom_minimum_size = Vector2(270, 0)
 	_sel_warn = _label(v, 14, RED)
-	_sel_up_cost = _label(v, 14, GOLD)
+	_sel_up_cost = HBoxContainer.new()
+	_sel_up_cost.add_theme_constant_override("separation", 3)
+	v.add_child(_sel_up_cost)
 	_sel_up_btn = _button(v, "Upgrade (U)", 13)
 	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
 	_sel_up_reason = _label(v, 14, DIM)
@@ -443,7 +494,15 @@ func _refresh_selection() -> void:
 		return
 	_place_selection_panel()
 	_sel_title.text = sel["title"]
-	_sel_body.text = "\n".join(sel["lines"])
+	var body: Array = sel["lines"]
+	var body_key := "\n".join(body.map(func(l: String) -> String: return l))
+	if body_key != _sel_body_key:
+		_sel_body_key = body_key
+		for c in _sel_body.get_children():
+			_sel_body.remove_child(c)
+			c.queue_free()
+		for l: String in body:
+			_hud_line(_sel_body, l, INK, 14)
 	_sel_halt.text = sel["halt"] if sel["advice"] == "" else "%s\n%s" % [sel["halt"], sel["advice"]]
 	_sel_halt.visible = sel["halt"] != ""
 	_sel_prio_title.text = sel["priority_label"]
@@ -456,7 +515,10 @@ func _refresh_selection() -> void:
 	_sel_up_btn.visible = show_up
 	_sel_up_reason.visible = show_up and not sel["can_upgrade"]
 	if show_up:
-		_sel_up_cost.text = "Upgrade to %s: %s" % [sel["next_name"], sel["next_cost"]]
+		var up_text := "Upgrade to %s: %s" % [sel["next_name"], sel["next_cost"]]
+		if up_text != _sel_up_key:
+			_sel_up_key = up_text
+			_set_hud_line(_sel_up_cost, up_text, GOLD, 14)
 		_sel_up_btn.text = "Upgrade to %s (U)" % sel["next_name"]
 		_sel_up_btn.disabled = not sel["can_upgrade"]
 		_sel_up_reason.text = sel["upgrade_reason"]
@@ -597,7 +659,8 @@ func _pick(kind: String, id: String) -> void:
 
 func refresh() -> void:
 	for r in model.resources():
-		(_res_labels[r["id"]] as Label).text = r["text"]
+		(_res_labels[r["id"]] as Label).text = r["value_text"]
+		(_res_deltas[r["id"]] as Label).text = r["delta_text"]
 	var pop := model.population()
 	_pop_label.text = pop["text"]
 	_pop_box.tooltip_text = pop["tooltip"]
@@ -843,10 +906,7 @@ func _fill_tip(d: Dictionary) -> void:
 	for row in rows:
 		if row[0] == "":
 			continue
-		var l := _label(_tip_box, 14, row[1])
-		l.text = row[0]
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size = Vector2(TIP_WIDTH, 0)
+		_hud_line(_tip_box, row[0], row[1], 14, TIP_WIDTH)
 	_tip_panel.reset_size()
 
 

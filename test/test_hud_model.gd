@@ -54,7 +54,8 @@ func test_resources_show_values_and_daily_deltas() -> void:
 	assert_eq(r["text"], "47 +7")
 	var st := _res("stone")
 	assert_eq([st["value"], st["delta"], st["icon"]], [7, 7, "stone"])
-	assert_eq(m.resources().map(func(x: Dictionary) -> String: return x["id"]), ["food", "wood", "stone", "lumen", "gold"])
+	assert_eq(m.resources().map(func(x: Dictionary) -> String: return x["id"]),
+			["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"])
 	assert_eq(_res("food")["icon"], "food")
 	s.gold = 12.0
 	s.step_days(1)
@@ -63,6 +64,36 @@ func test_resources_show_values_and_daily_deltas() -> void:
 	s.step_days(1)
 	assert_eq(_res("gold")["text"], "10 -2")
 	assert_eq(HudModel.delta_text(0), "+0")
+
+
+## Ticket 112: the refined goods and lumen cells are in the bar too, with their own daily change.
+func test_refined_goods_and_cells_in_the_bar() -> void:
+	s.step_days(1)
+	for g in ["planks", "cut_stone", "tools", "lumen_cells"]:
+		s.hearth.inventory.add(g, 5.0)
+	s.step_days(1)
+	assert_eq([_res("planks")["value"], _res("planks")["delta"]], [5, 5])
+	assert_eq(_res("cut_stone")["value_text"], "5")
+	assert_eq(_res("tools")["delta_text"], "+5")
+	assert_eq(_res("cells")["value"], 5, "lumen cells stock")
+	assert_eq([_res("planks")["icon"], _res("cells")["icon"]], ["planks", "cells"])
+
+
+## Ticket 112: a goods line splits into text and good segments so the HUD can draw the icons; other lines stay plain.
+func test_line_segments_find_the_goods() -> void:
+	assert_eq(m.line_segments("Cost: 14 Wood, 21 Stone"),
+			[{"text": "Cost: "}, {"good": "wood", "text": "14"}, {"text": ", "}, {"good": "stone", "text": "21"}])
+	assert_eq(m.line_segments("Waiting for materials: 12/24 wood, 0/10 lumen"),
+			[{"text": "Waiting for materials: "}, {"good": "wood", "text": "12/24"}, {"text": ", "},
+					{"good": "lumen", "text": "0/10"}])
+	assert_eq(m.line_segments("Upgrade to Cottage: 3 Planks, 2 Cut stone"),
+			[{"text": "Upgrade to Cottage: "}, {"good": "planks", "text": "3"}, {"text": ", "},
+					{"good": "cut_stone", "text": "2"}])
+	assert_eq(m.line_segments("Delivered: 12 Wood"), [{"text": "Delivered: "}, {"good": "wood", "text": "12"}])
+	assert_eq(m.line_segments("Cost: free"), [], "not all goods: draw it as plain text")
+	assert_eq(m.line_segments("Per worker per day: 6 Wood -> 3 Planks"), [], "a recipe line is not a cost line")
+	assert_eq(m.line_segments("Workers 0/2"), [])
+	assert_eq(m.line_segments("Waiting for builders (1st in line)"), [])
 
 
 func test_population_beds_and_spirit_planet_numbers() -> void:

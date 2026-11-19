@@ -1506,8 +1506,16 @@ def export_walkers(manifest):
 
 
 def export_icons(manifest):
-    """12x12 HUD icons (outlined, drawn at 3x by the UI with nearest filtering) into assets/ui/."""
-    names = ["food", "wood", "stone", "lumen", "gold", "pop", "spirit", "moon"]
+    """12x12 HUD icons (outlined, drawn at 3x by the UI with nearest filtering) into assets/ui/.
+
+    Ticket 112: the goods, people and lumen cells use the approved 1.1.6 set (MV.icon_v2, D12); Spirit, the moon and
+    the planet keep the older drawings, which have no 1.1.6 version.
+    """
+    v2 = {"food": "food", "wood": "wood", "stone": "stone", "planks": "planks", "cut_stone": "cut_stone",
+          "tools": "tools", "lumen": "lumen", "cells": "cells", "gold": "gold", "pop": "people"}
+    for k, art in v2.items():
+        save(MV.icon_v2(art), OUT / "ui" / f"icon_{k}.png")
+    names = ["spirit", "moon"]
     for k in names:
         save(MV.icon(k), OUT / "ui" / f"icon_{k}.png")
     im = Image.new("RGBA", (12, 12))
@@ -1516,7 +1524,7 @@ def export_icons(manifest):
     d.polygon([(3, 3), (6, 2), (7, 5), (4, 7), (2, 6)], fill=MV.hexc("5fae4a"))
     d.polygon([(7, 7), (10, 6), (9, 9), (7, 10)], fill=MV.hexc("5fae4a"))
     save(MV.outline(im), OUT / "ui" / "icon_planet.png")
-    names.append("planet")
+    names = list(v2.keys()) + names + ["planet"]
     manifest["icons"] = {k: f"ui/icon_{k}.png" for k in names}
 
 

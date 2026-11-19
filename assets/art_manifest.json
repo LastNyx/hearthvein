@@ -2253,14 +2253,18 @@
   "sky"
  ],
  "icons": {
+  "cells": "ui/icon_cells.png",
+  "cut_stone": "ui/icon_cut_stone.png",
   "food": "ui/icon_food.png",
   "gold": "ui/icon_gold.png",
   "lumen": "ui/icon_lumen.png",
   "moon": "ui/icon_moon.png",
   "planet": "ui/icon_planet.png",
+  "planks": "ui/icon_planks.png",
   "pop": "ui/icon_pop.png",
   "spirit": "ui/icon_spirit.png",
   "stone": "ui/icon_stone.png",
+  "tools": "ui/icon_tools.png",
   "wood": "ui/icon_wood.png"
  },
  "logo": {
