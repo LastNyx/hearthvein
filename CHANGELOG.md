@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.5 - 2026-11-19
 
 ### Added
 - Wood and stone replace the single "materials" good. Woodcutters cut wood, Quarries and Workshops make stone, the
