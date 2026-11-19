@@ -29,6 +29,7 @@ var _font: FontFile
 var _body_font: FontFile
 var _res_labels: Dictionary = {}
 var _pop_label: Label
+var _pop_box: HBoxContainer
 var _growth_bar: ProgressBar
 var _float: Control
 var _spirit_bar: ProgressBar
@@ -56,6 +57,8 @@ var _sel_up_cost: Label
 var _sel_up_reason: Label
 var _sel_up_btn: Button
 var _prio_buttons: Dictionary = {}
+var _sel_prio_title: Label
+var _prio_row: HBoxContainer
 var _cat_box: GridContainer
 var _region_map: RegionMap
 var _cat_buttons: Dictionary = {}
@@ -262,7 +265,9 @@ func _build_top_bar(parent: Node) -> void:
 		_res_labels[k] = _label(box, 17)
 	var pop := HBoxContainer.new()
 	pop.add_theme_constant_override("separation", 6)
+	pop.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(pop)
+	_pop_box = pop
 	_icon(pop, "pop")
 	_pop_label = _label(pop, 17)
 	_growth_bar = ProgressBar.new()  # fills toward the next citizen
@@ -399,14 +404,18 @@ func _build_selection_panel(parent: Node) -> void:
 	_sel_title = _label(v, 18, CYAN)
 	_sel_body = _label(v, 14, INK)
 	_sel_halt = _label(v, 14, PURPLE)
+	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sel_halt.custom_minimum_size = Vector2(270, 0)
 	_sel_warn = _label(v, 14, RED)
 	_sel_up_cost = _label(v, 14, GOLD)
 	_sel_up_btn = _button(v, "Upgrade (U)", 13)
 	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
 	_sel_up_reason = _label(v, 14, DIM)
+	_sel_prio_title = _label(v, 14, DIM)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	v.add_child(row)
+	_prio_row = row
 	for p in ["low", "normal", "high"]:
 		var b := _button(row, HudModel.PRIORITY_LABELS[p], 13)
 		b.pressed.connect(func() -> void: model.set_priority(p))
@@ -425,8 +434,11 @@ func _refresh_selection() -> void:
 	_place_selection_panel()
 	_sel_title.text = sel["title"]
 	_sel_body.text = "\n".join(sel["lines"])
-	_sel_halt.text = sel["halt"]
+	_sel_halt.text = sel["halt"] if sel["advice"] == "" else "%s\n%s" % [sel["halt"], sel["advice"]]
 	_sel_halt.visible = sel["halt"] != ""
+	_sel_prio_title.text = sel["priority_label"]
+	_sel_prio_title.visible = sel["show_priority"]
+	_prio_row.visible = sel["show_priority"]
 	_sel_warn.text = sel["warn"]
 	_sel_warn.visible = sel["warn"] != ""
 	var show_up: bool = sel["show_upgrade"]
@@ -578,6 +590,7 @@ func refresh() -> void:
 		(_res_labels[r["id"]] as Label).text = r["text"]
 	var pop := model.population()
 	_pop_label.text = pop["text"]
+	_pop_box.tooltip_text = pop["tooltip"]
 	_pop_label.add_theme_color_override("font_color", RED if pop["homeless"] > 0 else INK)
 	_growth_bar.value = pop["growth"]
 	var sp := model.spirit()

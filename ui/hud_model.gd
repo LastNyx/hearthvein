@@ -75,6 +75,7 @@ func population() -> Dictionary:
 	var g := s.get_system(GrowthSystem) as GrowthSystem
 	var size := g.bar_size_now(s) if g != null else 0.0
 	return {"pop": pop, "beds": beds, "homeless": s.homeless_count(), "text": "%d / %d" % [pop, beds],
+			"tooltip": people_text(),
 			"growth": clampf(g.bar / size, 0.0, 1.0) if g != null and size > 0.0 else 0.0}
 
 
@@ -232,13 +233,98 @@ func selected() -> Building:
 	return s.buildings.get(selected_id)
 
 
-func _workers(b: Building) -> int:
+## Citizens whose job is a slot of building b, of one kind (Citizen.JOB_WORK / JOB_HAUL / JOB_BUILD).
+func _filled(b: Building, kind: String) -> int:
 	var n := 0
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
-		if c.job_id == b.id and c.job_kind == Citizen.JOB_WORK:
+		if c.job_id == b.id and c.job_kind == kind:
 			n += 1
 	return n
+
+
+## "Workers 1/2, Haulers 1/2, Builders 3/4": filled/slots of every job kind a finished building has ("" when none).
+func jobs_text(b: Building) -> String:
+	var parts: Array[String] = []
+	var w := b.effective_worker_slots(s.registry)
+	if w > 0:
+		parts.append("Workers %d/%d" % [_filled(b, Citizen.JOB_WORK), w])
+	if b.def.hauler_slots > 0:
+		parts.append("Haulers %d/%d" % [_filled(b, Citizen.JOB_HAUL), b.def.hauler_slots])
+	if b.def.builder_slots > 0:
+		parts.append("Builders %d/%d" % [_filled(b, Citizen.JOB_BUILD), b.def.builder_slots])
+	return ", ".join(parts)
+
+
+## Whether a finished building has a job of any kind (the work priority and Pause buttons only mean something then).
+func has_jobs(b: Building) -> bool:
+	return b.effective_worker_slots(s.registry) > 0 or b.def.hauler_slots > 0 or b.def.builder_slots > 0
+
+
+## The role of one citizen: "hauler", "builder", the lower-case name of the workplace ("woodcutter"), or "idle".
+func role_of(c: Citizen) -> String:
+	if c.job_id < 0 or not s.buildings.has(c.job_id):
+		return "idle"
+	match c.job_kind:
+		Citizen.JOB_HAUL: return "hauler"
+		Citizen.JOB_BUILD: return "builder"
+	return (s.buildings[c.job_id] as Building).def.display_name.to_lower()
+
+
+static func _plural(role: String, n: int) -> String:
+	if n == 1 or role == "idle":
+		return role
+	if role.ends_with("y") and not role.right(2).left(1) in ["a", "e", "i", "o", "u"]:
+		return role.left(role.length() - 1) + "ies"
+	return role + "s"
+
+
+## "1 hauler, 2 builders, 1 idle": counts per role, haulers and builders first, then workplaces by name, idle last.
+func roles_text(citizen_ids: Array) -> String:
+	var counts := {}
+	for cid in citizen_ids:
+		var r := role_of(s.citizens[cid])
+		counts[r] = int(counts.get(r, 0)) + 1
+	var order: Array = counts.keys()
+	order.sort_custom(func(a: String, c: String) -> bool:
+		var ra := 0 if a == "hauler" else (1 if a == "builder" else (3 if a == "idle" else 2))
+		var rc := 0 if c == "hauler" else (1 if c == "builder" else (3 if c == "idle" else 2))
+		return ra < rc if ra != rc else a < c)
+	var parts: Array[String] = []
+	for r in order:
+		parts.append("%d %s" % [counts[r], _plural(r, counts[r])])
+	return ", ".join(parts)
+
+
+## "8 people: 2 haulers, 3 builders, 2 foragers, 1 idle" (the top-bar people tooltip).
+func people_text() -> String:
+	var n := s.citizens.size()
+	if n == 0:
+		return "No people yet"
+	return "%d %s: %s" % [n, "person" if n == 1 else "people", roles_text(s.citizens.keys())]
+
+
+## Citizen ids whose home is building b.
+func residents_of(b: Building) -> Array:
+	var out: Array = []
+	for cid in s.citizens:
+		if (s.citizens[cid] as Citizen).home_id == b.id:
+			out.append(cid)
+	return out
+
+
+## "Residents 2/2" plus, when somebody lives there, one roles line ("1 hauler, 1 woodcutter" or "idle").
+func resident_lines(b: Building) -> Array[String]:
+	var out: Array[String] = []
+	var beds := b.effective_beds(s.registry)
+	if beds <= 0:
+		return out
+	var ids := residents_of(b)
+	out.append("Residents %d/%d" % [ids.size(), beds])
+	if not ids.is_empty():
+		var roles := roles_text(ids)
+		out.append("idle" if roles.ends_with(" idle") and not roles.contains(",") else roles)
+	return out
 
 
 func _blight_near(b: Building) -> int:
@@ -282,7 +368,7 @@ func _goods_line(label: String, inv: Inventory, skip_empty: bool = false) -> Str
 ## "Halted: waiting for input" for a halted building, "" when it works.
 func halt_text(b: Building) -> String:
 	match b.halt:
-		"door_full": return "Halted: output buffer full"
+		"door_full": return "Output full: no hauler has picked it up"
 		"no_input": return "Halted: waiting for input"
 		"no_forest": return "Halted: no forest in range"
 		"island_still": return "Halted: the island is still"
@@ -290,6 +376,33 @@ func halt_text(b: Building) -> String:
 		"dry": return "Halted: no water in reach"
 		"too_far": return "Halted: too far from a builders' yard"
 	return ""
+
+
+## One advice line for a building halted on a full door ("" for any other halt), chosen from the real state: no storage
+## building in reach, hauler slots not filled, else the haulers are simply busy.
+func halt_advice(b: Building) -> String:
+	if b.halt != "door_full":
+		return ""
+	var near := s.registry.logistics.storage_near_tiles if s.registry.logistics != null else 0
+	var has_storage := false
+	for id in s.buildings:
+		var o: Building = s.buildings[id]
+		if o != b and not o.site and o.def.storage_mode != "none" and Building.footprint_gap(b, o) <= near:
+			has_storage = true
+			break
+	if not has_storage:
+		var sh := s.registry.get_building("storehouse")
+		return "Build a Storehouse nearby (%d more haulers, shorter trips)" % (sh.hauler_slots if sh != null else 2)
+	var slots := 0
+	var filled := 0
+	for id in s.buildings:
+		var o: Building = s.buildings[id]
+		if o.def.hauler_slots > 0 and not o.site and not o.paused and o.connected:
+			slots += o.def.hauler_slots
+			filled += _filled(o, Citizen.JOB_HAUL)
+	if filled < slots:
+		return "Haulers short: %d of %d filled (people are busy elsewhere)" % [filled, slots]
+	return "Haulers are busy: add a Storehouse or a Handcart Shed"
 
 
 ## One line on why a construction site waits ("" when it is being built or is not a site): missing goods, builders (place
@@ -350,10 +463,8 @@ func selection() -> Dictionary:
 		lines.append(wait_text(b))
 		lines.append(_goods_line("Delivered", b.input_buffer))
 	else:
-		if b.effective_worker_slots(s.registry) > 0:
-			lines.append("Workers %d/%d" % [_workers(b), b.effective_worker_slots(s.registry)])
-		if b.effective_beds(s.registry) > 0:
-			lines.append("Beds %d" % b.effective_beds(s.registry))
+		lines.append(jobs_text(b))
+		lines.append_array(resident_lines(b))
 		if b.def.reservoir_capacity > 0.0:
 			lines.append(reservoir_text(b))
 		lines.append(_goods_line("Input", b.input_buffer))
@@ -373,7 +484,9 @@ func selection() -> Dictionary:
 		if l != "":
 			clean.append(l)
 	var out := {"id": b.id, "title": b.display_name(s.registry), "lines": clean, "halt": halt_text, "warn": warn,
-			"priority": b.priority, "paused": b.paused, "site": b.site, "progress": b.build_progress()}
+			"advice": halt_advice(b), "priority": b.priority, "paused": b.paused, "site": b.site,
+			"progress": b.build_progress(), "show_priority": b.site or has_jobs(b),
+			"priority_label": "Build priority" if b.site else "Work priority"}
 	out.merge(upgrade_info(b))
 	return out
 
@@ -488,14 +601,16 @@ func _def_tooltip_lines(def: BuildingDef, b: Building) -> Array[String]:
 	if b == null or b.site:
 		var cost := goods_cost_text(def.entry_cost())
 		lines.append("Cost: %s" % (cost if cost != "" else "free"))
-	var workers := b.effective_worker_slots(s.registry) if b != null else def.worker_slots
 	var jobs: Array[String] = []
-	if workers > 0 and b == null:
-		jobs.append("Workers %d" % workers)
-	if def.hauler_slots > 0:
-		jobs.append("Haulers %d" % def.hauler_slots)
-	if def.builder_slots > 0:
-		jobs.append("Builders %d" % def.builder_slots)
+	if b != null and not b.site:
+		pass  # a placed building shows filled/slots in its status (jobs_text)
+	else:
+		if def.worker_slots > 0 and b == null:
+			jobs.append("Workers %d" % def.worker_slots)
+		if def.hauler_slots > 0:
+			jobs.append("Haulers %d" % def.hauler_slots)
+		if def.builder_slots > 0:
+			jobs.append("Builders %d" % def.builder_slots)
 	if not jobs.is_empty():
 		lines.append(", ".join(jobs))
 	var r := def.recipe
@@ -572,11 +687,16 @@ func tooltip_for_building(b: Building) -> Dictionary:
 		if wait != "":
 			status.append(wait)
 	else:
-		if b.effective_worker_slots(s.registry) > 0:
-			status.append("Workers %d/%d" % [_workers(b), b.effective_worker_slots(s.registry)])
+		var jt := jobs_text(b)
+		if jt != "":
+			status.append(jt)
+		status.append_array(resident_lines(b))
 		var halt := halt_text(b)
 		if halt != "":
 			status.append(halt)
+			var adv := halt_advice(b)
+			if adv != "":
+				status.append(adv)
 		if not b.connected:
 			status.append("Not connected to the Hearth by road")
 	return _tooltip(b.display_name(s.registry), b.def, status, _def_tooltip_lines(b.def, b))

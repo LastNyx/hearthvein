@@ -119,7 +119,7 @@ func test_selected_building_panel_and_priority() -> void:
 	assert_true(m.toggle_pause())
 	assert_false(m.selection()["paused"])
 	s.buildings[id].halt = "door_full"
-	assert_string_contains(m.selection()["halt"], "buffer full")
+	assert_string_contains(m.selection()["halt"], "Output full")
 	s.demolish(id)
 	assert_eq(m.selection(), {})
 	assert_eq(m.selected_id, -1)
@@ -652,3 +652,101 @@ func test_region_map_survey_on_buyable_with_buy_beside_it() -> void:
 	assert_true(buy.visible and sv.visible, "Buy and Survey both shown")
 	assert_false(Rect2(buy.position, buy.size).intersects(Rect2(sv.position, sv.size)), "side by side")
 	assert_true(st.map.is_region_owned(st.map.start_region))
+
+
+# ---------------------------------------------------------------- who does what (ticket 103)
+
+func _set_job(cid: int, bid: int, kind: String) -> void:
+	var c: Citizen = s.citizens[cid]
+	c.job_id = bid
+	c.job_kind = kind
+
+
+func _idle_everyone() -> void:
+	for cid in s.citizens:
+		_set_job(cid, -1, Citizen.JOB_NONE)
+
+
+func test_placed_hearth_shows_filled_haulers_and_builders() -> void:
+	_idle_everyone()
+	var ids: Array = s.citizens.keys()
+	_set_job(ids[0], s.hearth.id, Citizen.JOB_HAUL)
+	for i in [1, 2, 3]:
+		_set_job(ids[i], s.hearth.id, Citizen.JOB_BUILD)
+	m.select(s.hearth.id)
+	assert_true("Haulers 1/2, Builders 3/4" in m.selection()["lines"], str(m.selection()["lines"]))
+	assert_string_contains(m.tooltip_for_building(s.hearth)["text"], "Haulers 1/2, Builders 3/4")
+	assert_string_contains(m.tooltip_for("storehouse")["text"], "Haulers 2")
+	assert_false((m.tooltip_for("storehouse")["text"] as String).contains("/"), "the build menu keeps plain slot counts")
+
+
+func test_house_shows_residents_and_their_roles() -> void:
+	_idle_everyone()
+	var tent := s.place_building_instant("tent", _site_free_spot())
+	var wc := s.place_building_instant("woodcutter", _site_free_spot())
+	assert_true(tent >= 0 and wc >= 0)
+	var ids: Array = s.citizens.keys()
+	for i in [0, 1]:
+		(s.citizens[ids[i]] as Citizen).home_id = tent
+	_set_job(ids[0], s.hearth.id, Citizen.JOB_HAUL)
+	_set_job(ids[1], wc, Citizen.JOB_WORK)
+	m.select(tent)
+	var lines: Array = m.selection()["lines"]
+	assert_true("Residents 2/2" in lines, str(lines))
+	assert_true("1 hauler, 1 woodcutter" in lines, str(lines))
+	_set_job(ids[0], -1, Citizen.JOB_NONE)
+	_set_job(ids[1], -1, Citizen.JOB_NONE)
+	assert_true("idle" in m.selection()["lines"])
+
+
+func test_people_tooltip_counts_add_up_to_the_population() -> void:
+	_idle_everyone()
+	var wc := s.place_building_instant("woodcutter", _site_free_spot())
+	assert_true(wc >= 0)
+	var ids: Array = s.citizens.keys()
+	for i in [0, 1]:
+		_set_job(ids[i], s.hearth.id, Citizen.JOB_HAUL)
+	for i in [2, 3, 4]:
+		_set_job(ids[i], s.hearth.id, Citizen.JOB_BUILD)
+	for i in [5, 6]:
+		_set_job(ids[i], wc, Citizen.JOB_WORK)
+	assert_eq(s.citizens.size(), 8)
+	assert_eq(m.population()["tooltip"], "8 people: 2 haulers, 3 builders, 2 woodcutters, 1 idle")
+
+
+func _far_producer() -> Building:
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	for y in range(MapState.HEIGHT):
+		for x in range(MapState.WIDTH):
+			var t := Vector2i(x, y)
+			if absi(x - h.x) > 30 or absi(y - h.y) > 30:
+				if s.map.terrain_id_at(x, y) == "forest":
+					s.set_terrain(t, "grass")
+				if s.can_place("woodcutter", t, true)["ok"]:
+					return s.buildings[s.place_building_instant("woodcutter", t)]
+	return null
+
+
+func test_output_full_advice_for_each_state() -> void:
+	var near := s.buildings[s.place_building_instant("woodcutter", _site_free_spot())] as Building
+	near.halt = "door_full"
+	m.select(near.id)
+	assert_eq(m.halt_text(near), "Output full: no hauler has picked it up")
+	# haulers short: nobody holds a hauler slot
+	_idle_everyone()
+	assert_eq(m.selection()["advice"], "Haulers short: 0 of 2 filled (people are busy elsewhere)")
+	# all hauler slots filled
+	var ids: Array = s.citizens.keys()
+	_set_job(ids[0], s.hearth.id, Citizen.JOB_HAUL)
+	_set_job(ids[1], s.hearth.id, Citizen.JOB_HAUL)
+	assert_eq(m.selection()["advice"], "Haulers are busy: add a Storehouse or a Handcart Shed")
+	# no storage within reach
+	var far := _far_producer()
+	assert_not_null(far, "a spot far from the Hearth")
+	far.halt = "door_full"
+	m.select(far.id)
+	assert_eq(m.selection()["advice"], "Build a Storehouse nearby (2 more haulers, shorter trips)")
+	assert_string_contains(m.tooltip_for_building(far)["text"], "Build a Storehouse nearby")
+	near.halt = ""
+	assert_eq(m.halt_advice(near), "")

@@ -6,6 +6,9 @@ extends Resource
 @export var door_buffer_cap: float = 0.0
 ## Units one hauler carries on foot.
 @export var haul_load: float = 0.0
+## A storage building (Storehouse, Hearth) within this many tiles of a producer counts as near for the "output full"
+## advice (footprint gap, like Market reach).
+@export var storage_near_tiles: int = 12
 ## A consumer's input buffer holds this many days of its recipe need (per good, at all worker slots).
 @export var input_buffer_days: float = 0.0
 ## A hauler does not set out for less than this much.

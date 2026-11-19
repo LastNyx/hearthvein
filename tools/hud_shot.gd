@@ -143,6 +143,25 @@ func _init() -> void:
 	cam.position = (Vector2(stump) + Vector2(3, 0)) * ArtLibrary.TILE
 	(main.get_node("Hud") as Hud).hover_tick(1.0, stump)
 	await _shoot("/tmp/hv_101_stump_tip.png")
+	# Ticket 103/104: Hearth panel with filled job slots and residents, a house with residents, an output-full panel with its
+	# advice line, a finished Tent panel without priority buttons.
+	m.select(s.hearth.id)
+	cam.position = (Vector2(s.hearth.origin) + Vector2(3, 1)) * ArtLibrary.TILE
+	await _shoot("/tmp/hv_103_hearth.png")
+	var home := s.building_at(Vector2i(h.x + 4, h.y - 2))
+	m.select(home.id)
+	cam.position = (Vector2(home.origin) + Vector2(3, 1)) * ArtLibrary.TILE
+	await _shoot("/tmp/hv_103_house.png")
+	s.buildings[wc].halt = "door_full"
+	m.select(wc)
+	cam.position = (Vector2(h) + Vector2(7, 1)) * ArtLibrary.TILE
+	await _shoot("/tmp/hv_103_output_full.png")
+	var tent_id := s.place_building_instant("tent", Vector2i(h.x + 2, h.y + 3))
+	if tent_id >= 0:
+		m.select(tent_id)
+		cam.position = (Vector2(h) + Vector2(5, 3)) * ArtLibrary.TILE
+		await _shoot("/tmp/hv_104_tent.png")
+	print("people: ", m.people_text())
 	print("forester ", forester_id, " stump tip: ", m.stump_tooltip(stump).get("text", ""))
 	print(s.clock.label(), " notices: ", m.notifications.items.map(func(i: Dictionary) -> String: return i["text"]))
 	quit()
