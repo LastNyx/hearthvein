@@ -5,6 +5,8 @@ extends Node2D
 ## building. Reads the sim and the view-model only; redraws when something it shows changes.
 
 const TILE := ArtLibrary.TILE
+const MARK_CLEAR := Color("f2a93a")
+const MARK_FAR := Color("e05a4a")
 
 var settlement: Settlement
 var model: HudModel
@@ -23,7 +25,7 @@ func setup(s: Settlement, m: HudModel) -> void:
 	model = m
 	z_index = 15
 	for kind in ["blight_changed", "building_connection_changed", "building_placed", "building_demolished",
-			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started"]:
+			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started", "clear_marks_changed"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _dirty = true)
 
 
@@ -84,11 +86,34 @@ func _draw() -> void:
 			var c := Color(0.25, 0.85, 0.35, 0.4) if b.connected else Color(0.9, 0.2, 0.2, 0.55)
 			draw_rect(r, c)
 			draw_rect(r, c.lightened(0.3), false, 2.0)
+	_draw_clear_marks()
 	var sb := model.selected()
 	if sb != null:
 		var r := Rect2(Vector2(sb.origin) * TILE, Vector2(sb.def.size) * TILE).grow(2.0)
 		draw_rect(r, Color(0.05, 0.03, 0.02, 0.9), false, 4.0)
 		draw_rect(r, Color("f2d27a"), false, 2.0)
+
+
+## The tiles marked with the Clear tool (ticket 100): an amber frame with a cross, red when no Builder's Yard reaches the
+## tile. Always on (not an overlay toggle). _draw_marker is the shared look of a tile mark; the Plant tool reuses it.
+func _draw_clear_marks() -> void:
+	var cs := settlement.get_system(ConstructionSystem) as ConstructionSystem
+	if cs == null:
+		return
+	for idx: int in cs.clear_marks:
+		_draw_marker(Vector2i(idx % MapState.WIDTH, idx / MapState.WIDTH), MARK_FAR if cs.clear_far.has(idx) else MARK_CLEAR, true)
+
+
+## A small tile marker: a thin dark-edged frame in `color`, with a cross when `cross` (clear) and without (plant).
+func _draw_marker(tile: Vector2i, color: Color, cross: bool) -> void:
+	var r := Rect2(Vector2(tile) * TILE, Vector2(TILE, TILE)).grow(-2.0)
+	draw_rect(r, Color(color, 0.18))
+	draw_rect(r.grow(1.0), Color(0.05, 0.03, 0.02, 0.8), false, 1.0)
+	draw_rect(r, color, false, 1.5)
+	if cross:
+		var m := r.grow(-3.0)
+		draw_line(m.position, m.end, color, 1.5)
+		draw_line(Vector2(m.end.x, m.position.y), Vector2(m.position.x, m.end.y), color, 1.5)
 
 
 ## Coverage overlay: Market reach in a muted teal (tint + outline), coverage sources (Shrine) in a soft gold tint over

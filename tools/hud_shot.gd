@@ -2,7 +2,8 @@ extends SceneTree
 ## Windowed HUD screenshots: godot --path . -s tools/hud_shot.gd
 ## Writes /tmp/hv_hud.png (building selected) and /tmp/hv_hud_overlay.png (blight + road overlays on), plus the tools
 ## tab (ticket 88): /tmp/hv_88_tools_open.png (1x), /tmp/hv_88_tools_closed.png (1x) and the same two paused
-## (/tmp/hv_88_tools_open_paused.png, /tmp/hv_88_tools_closed_paused.png).
+## (/tmp/hv_88_tools_open_paused.png, /tmp/hv_88_tools_closed_paused.png), and the Clear tool lit with marked tiles
+## (ticket 100): /tmp/hv_100_clear_lit.png.
 
 func _shoot(path: String) -> void:
 	for i in 4:
@@ -95,6 +96,28 @@ func _init() -> void:
 				break
 		if bc.ghost.wet_tiles.size() > 0:
 			break
+	bc.cancel()
+	# Ticket 100: the Clear tool lit with forest, stump and rock tiles marked (the farthest one out of every yard's reach).
+	s.set_terrain(Vector2i(h.x + 3, h.y + 6), "stump")
+	s.set_terrain(Vector2i(h.x + 4, h.y + 6), "rock")
+	var marks: Array[Vector2i] = [Vector2i(h.x + 3, h.y + 6), Vector2i(h.x + 4, h.y + 6)]
+	for dy in range(-10, 11):
+		for dx in range(-14, 15):
+			var ct := Vector2i(h.x + dx, h.y + dy)
+			if marks.size() < 9 and MapState.in_bounds(ct.x, ct.y) and s.map.terrain_id_at(ct.x, ct.y) == "forest" and s.can_mark_clear(ct)["ok"]:
+				marks.append(ct)
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	var far_x := h.x + 40 if h.x + 40 < MapState.WIDTH - 4 else h.x - 40
+	s.set_terrain(Vector2i(far_x, h.y + 6), "forest")
+	marks.append(Vector2i(far_x, h.y + 6))
+	for mt in marks:
+		s.mark_clear(mt)
+	s.step_hours(2)  # the far mark is flagged
+	bc.set_mode(BuildController.Mode.CLEAR)
+	cam.set_zoom_step(2)
+	cam.position = (Vector2(h) + Vector2(7, 3)) * ArtLibrary.TILE
+	await _shoot("/tmp/hv_100_clear_lit.png")
 	bc.cancel()
 	print(s.clock.label(), " notices: ", m.notifications.items.map(func(i: Dictionary) -> String: return i["text"]))
 	quit()

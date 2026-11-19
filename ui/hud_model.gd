@@ -582,6 +582,33 @@ func tooltip_for_building(b: Building) -> Dictionary:
 	return _tooltip(b.display_name(s.registry), b.def, status, _def_tooltip_lines(b.def, b))
 
 
+## Tooltip of a tile marked for clearing: {title, description, status, lines, text}, {} when the tile is not marked. Says
+## what it gives and how long it takes, and that no Builder's Yard reaches it when that is so (like a site's wait line).
+func clear_tooltip(tile: Vector2i) -> Dictionary:
+	if not s.is_clear_marked(tile):
+		return {}
+	var tdef := s.registry.get_terrain(s.map.terrain_id_at(tile.x, tile.y))
+	var gd := s.registry.get_good(tdef.clear_good) if tdef != null else null
+	var what := tdef.display_name if tdef != null else "Tile"
+	var desc := ""
+	if tdef != null:
+		desc = "Builders clear it in %d work hours and bring %d %s to storage." % [roundi(tdef.clear_hours),
+				roundi(tdef.clear_amount), (gd.display_name if gd != null else tdef.clear_good).to_lower()]
+		if tdef.id == "rock":
+			desc += " Cleared rock is no longer a quarry spot."
+	var status: Array[String] = []
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	if cs != null and cs.clear_far.has(MapState.idx(tile.x, tile.y)):
+		status.append("No Builder's Yard can reach it")
+	elif cs != null and tdef != null:
+		status.append("Cleared: %d%%" % roundi(float(cs.clear_marks.get(MapState.idx(tile.x, tile.y), 0.0)) / tdef.clear_hours * 100.0))
+	var title := "Marked for clearing: %s" % what
+	var lines: Array[String] = []
+	var parts: Array[String] = [title, desc]
+	parts.append_array(status)
+	return {"title": title, "description": desc, "status": status, "lines": lines, "text": "\n".join(parts)}
+
+
 # ---------------------------------------------------------------- build bar
 
 static func category_label(id: String) -> String:
@@ -706,6 +733,12 @@ static func paved_refusal_text(reason: String) -> String:
 			"already_paved": "Already paved", "locked_region": "Region not owned", "water": "Cannot pave water",
 			"out_of_bounds": "Off the map", "blocked_terrain": "Blocked", "overlap": "A building is here",
 			"channel": "A channel is here"}.get(reason, "Blocked")
+
+
+## Player-facing reason a tile cannot be marked for clearing.
+static func clear_refusal_text(reason: String) -> String:
+	return {"not_clearable": "only forest, stumps and rock can be cleared", "locked_region": "Region not owned",
+			"out_of_bounds": "Off the map", "overlap": "A building is here", "road": "A road is here"}.get(reason, "Blocked")
 
 
 ## Player-facing reason a channel cannot be dug on a tile ("" when it can).

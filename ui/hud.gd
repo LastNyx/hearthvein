@@ -771,6 +771,9 @@ func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
 		if b != null:
 			key = "b:%d" % b.id
 			data = model.tooltip_for_building(b)
+		elif model.active_layer == Building.LAYER_GROUND and model.s.is_clear_marked(t):
+			key = "clear:%d,%d" % [t.x, t.y]
+			data = model.clear_tooltip(t)
 	if key == "" or data.is_empty():
 		if _tip_panel.visible or _tip_key != "":
 			_hide_tip()

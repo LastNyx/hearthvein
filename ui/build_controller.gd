@@ -1,9 +1,9 @@
 class_name BuildController
 extends Node
-## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
+## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, K clear (click-drag forest, stump and rock to mark them for builders; click again or X unmarks), U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
 ## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
-enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK, UPGRADE }
+enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK, UPGRADE, CLEAR }
 
 ## The mode or the building being placed changed (the HUD lights the matching tool).
 signal mode_changed
@@ -69,6 +69,7 @@ func _refresh() -> void:
 		Mode.TRACK: _hint.text = "Rail track (%s a tile): click-drag (right click cancels)" % _track_cost()
 		Mode.DEMOLISH: _hint.text = "Demolish: click (right click cancels)"
 		Mode.UPGRADE: _hint.text = "Upgrade: click a building (right click cancels)"
+		Mode.CLEAR: _hint.text = "Clear: click-drag forest, stumps and rock to mark them for builders (right click cancels)"
 	if mode == Mode.NONE:
 		ghost.set_state(null, Vector2i.ZERO, false, false)
 
@@ -137,11 +138,16 @@ func _process(_d: float) -> void:
 			var u := _upgrade_check(t)
 			ghost.set_state(null, t, u["ok"], true)
 			_hint.text = u["text"]
+		Mode.CLEAR:
+			var cm := settlement.is_clear_marked(t)
+			var cc := settlement.can_mark_clear(t)
+			ghost.set_state(null, t, cc["ok"] or cm, true)
+			_hint.text = _clear_hint(t, cm, cc)
 		Mode.DEMOLISH:
 			var dl := _layer()
 			var b := settlement.building_at(t, dl)
 			ghost.set_state(null, t, (b != null and b != settlement.hearth) or _road_level(t, dl) != 0
-					or (dl == Building.LAYER_GROUND and (settlement.channel_at(t) or settlement.track_at(t))), true)
+					or (dl == Building.LAYER_GROUND and (settlement.channel_at(t) or settlement.track_at(t) or settlement.is_clear_marked(t))), true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -160,6 +166,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if settlement.track_unlocked():
 					set_mode(Mode.TRACK)
 			KEY_X: set_mode(Mode.DEMOLISH)
+			KEY_K: set_mode(Mode.CLEAR)
 			KEY_U: set_mode(Mode.UPGRADE)
 			KEY_ESCAPE: cancel()
 	elif event is InputEventMouseButton and mode != Mode.NONE:
@@ -169,7 +176,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_click(_mouse_tile())
 			else:
 				_painting = false
-	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED or mode == Mode.TRACK):
+	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED or mode == Mode.TRACK or mode == Mode.CLEAR):
 		_paint_to(_mouse_tile())
 
 
@@ -195,6 +202,12 @@ func _click(t: Vector2i) -> void:
 			_painting = true
 			_last_tile = t
 			settlement.place_track(t)
+		Mode.CLEAR:
+			if _layer() == Building.LAYER_GROUND:  # marks are on the ground map
+				_painting = true
+				_last_tile = t
+				if not settlement.unmark_clear(t):  # a click on a marked tile takes the mark off, on any other puts one on
+					settlement.mark_clear(t)
 		Mode.UPGRADE:
 			var u := _upgrade_check(t)
 			if u["ok"]:
@@ -211,6 +224,8 @@ func _click(t: Vector2i) -> void:
 				settlement.remove_track(t)
 			elif settlement.channel_at(t):
 				settlement.remove_channel(t)
+			elif settlement.is_clear_marked(t):
+				settlement.unmark_clear(t)
 			else:
 				settlement.remove_road(t)
 
@@ -228,6 +243,17 @@ func _upgrade_check(t: Vector2i) -> Dictionary:
 		return {"ok": false, "text": "%s: %s" % [nm, hm.upgrade_reason_text(str(can["reason"]), nxt)]}
 	var info := hm.upgrade_info(b)
 	return {"ok": true, "id": b.id, "name": nm, "text": "%s: click to upgrade to %s (%s)" % [nm, info["next_name"], info["next_cost"]]}
+
+
+## What the Clear tool says about tile t (cm: it is marked, c: can_mark_clear).
+func _clear_hint(t: Vector2i, cm: bool, c: Dictionary) -> String:
+	if cm:
+		var cs := settlement.get_system(ConstructionSystem) as ConstructionSystem
+		var far := cs != null and cs.clear_far.has(MapState.idx(t.x, t.y))
+		return "Clear: marked%s (click or X unmarks)" % (", no Builder's Yard can reach it" if far else "")
+	if c["ok"]:
+		return "Clear: click-drag to mark (right click cancels)"
+	return "Clear: %s" % HudModel.clear_refusal_text(str(c["reason"]))
 
 
 func _channel_hint(cost: String) -> String:
@@ -263,6 +289,8 @@ func _paint_to(t: Vector2i) -> void:
 			settlement.pave_road(cur)
 		elif mode == Mode.TRACK:
 			settlement.place_track(cur)
+		elif mode == Mode.CLEAR:
+			settlement.mark_clear(cur)  # a drag only marks, so a pass over a marked tile keeps its mark
 		else:
 			settlement.place_road(cur, Settlement.ROAD_DIRT, _layer())
 	_last_tile = t
