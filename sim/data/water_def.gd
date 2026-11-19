@@ -22,3 +22,11 @@ extends Resource
 @export var foul_dock_output_factor: float = 0.5
 ## Farm output multiplier when its wetness comes only from fouled water (design.md: irrigated farms x0.75).
 @export var foul_farm_output_factor: float = 0.75
+
+
+## One or two short lines on what an Irrigation Channel does, every number read from this resource (build tooltip,
+## build hint and the Controls help page).
+func channel_help() -> String:
+	return "Wets the ground within %d tile%s of it while it is connected to water. Farms with at least %d%% of their tiles wet grow %d%% more; higher farm tiers need wet ground." % [
+			wet_radius_channel, "" if wet_radius_channel == 1 else "s", roundi(farm_wet_fraction * 100.0),
+			roundi((farm_wet_bonus - 1.0) * 100.0)]

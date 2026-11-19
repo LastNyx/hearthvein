@@ -5,11 +5,14 @@ extends Node2D
 const TILE := ArtLibrary.TILE
 const VALID := Color(0.2, 0.9, 0.3, 0.45)
 const INVALID := Color(0.95, 0.2, 0.2, 0.5)
+const WET := Color(0.25, 0.55, 0.95, 0.35)
 
 var def: BuildingDef = null   # null with show_tile = true draws a single tile (road / demolish tool)
 var tile := Vector2i.ZERO
 var valid := false
 var show_tile := false
+## Tiles a channel placed here would wet (ticket 95), tinted blue under the tile.
+var wet_tiles: Array[Vector2i] = []
 
 
 static func color_for(is_valid: bool) -> Color:
@@ -21,13 +24,22 @@ func set_state(d: BuildingDef, t: Vector2i, is_valid: bool, visible_tile: bool) 
 	tile = t
 	valid = is_valid
 	show_tile = visible_tile
+	wet_tiles = []
 	visible = visible_tile
+	queue_redraw()
+
+
+## Set after set_state: the wet preview of a channel.
+func set_wet(tiles: Array[Vector2i]) -> void:
+	wet_tiles = tiles
 	queue_redraw()
 
 
 func _draw() -> void:
 	if not show_tile:
 		return
+	for w in wet_tiles:
+		draw_rect(Rect2(Vector2(w) * TILE, Vector2(TILE, TILE)), WET)
 	var size := def.size if def != null else Vector2i.ONE
 	var col := color_for(valid)
 	if def != null:

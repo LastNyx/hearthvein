@@ -56,5 +56,38 @@ func _init() -> void:
 	await _shoot("/tmp/hv_88_tools_closed_paused.png")
 	tab.set_open(true, false)
 	await _shoot("/tmp/hv_88_tools_open_paused.png")
+	# Ticket 95: active tool lit, Upgrade mode, channel tooltip and wet preview.
+	var hud: Hud = main.get_node("Hud")
+	var bc: BuildController = main.get_node("BuildController")
+	s.era_override = "village"
+	hud._rebuild_categories()
+	m.clear_selection()
+	hud.open_category("roads")
+	bc.set_mode(BuildController.Mode.DEMOLISH)
+	await _shoot("/tmp/hv_95_demolish_lit.png")
+	hud.open_category("roads")
+	hud.open_category("housing")
+	bc.set_build("cottage")
+	await _shoot("/tmp/hv_95_build_lit.png")
+	bc.set_mode(BuildController.Mode.UPGRADE)
+	var cot := s.building_at(Vector2i(h.x + 4, h.y - 2))
+	bc.ghost.set_state(null, cot.origin, s.can_upgrade(cot.id)["ok"], true)
+	await _shoot("/tmp/hv_95_upgrade_lit.png")
+	hud.open_category("housing")
+	hud.open_category("roads")
+	bc.set_mode(BuildController.Mode.CHANNEL)
+	await process_frame
+	var water := s.map.terrain_index("water")
+	for y in range(2, MapState.HEIGHT - 2):
+		for x in range(2, MapState.WIDTH - 2):
+			if absi(x - h.x) < 40 and absi(y - h.y) < 40 and s.map.get_terrain(x + 1, y) == water and s.can_place_channel(Vector2i(x, y))["ok"]:
+				cam.position = (Vector2(x, y) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
+				bc.ghost.set_state(null, Vector2i(x, y), true, true)
+				bc.ghost.set_wet(WaterSystem.channel_preview(s, Vector2i(x, y)))
+				await _shoot("/tmp/hv_95_channel_preview.png")
+				break
+		if bc.ghost.wet_tiles.size() > 0:
+			break
+	bc.cancel()
 	print(s.clock.label(), " notices: ", m.notifications.items.map(func(i: Dictionary) -> String: return i["text"]))
 	quit()

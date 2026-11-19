@@ -1,9 +1,12 @@
 class_name BuildController
 extends Node
-## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, right click / Esc cancel, left click places.
+## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
 ## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
-enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK }
+enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK, UPGRADE }
+
+## The mode or the building being placed changed (the HUD lights the matching tool).
+signal mode_changed
 
 var settlement: Settlement
 ## The HUD model whose active_layer placement targets (ticket 40d); null means the ground (tests, tools).
@@ -48,15 +51,22 @@ func cancel() -> void:
 	_refresh()
 
 
+## The hint line now on screen.
+func hint_text() -> String:
+	return _hint.text
+
+
 func _refresh() -> void:
+	mode_changed.emit()
 	_hint.visible = mode != Mode.NONE
 	match mode:
 		Mode.BUILD: _hint.text = "Placing %s (right click cancels)" % def_id
 		Mode.ROAD: _hint.text = "Road: click-drag (right click cancels)"
-		Mode.CHANNEL: _hint.text = "Channel (1 materials a tile): click-drag (right click cancels)"
+		Mode.CHANNEL: _hint.text = _channel_hint(_channel_cost())
 		Mode.PAVED: _hint.text = "Paved road (%s a tile): click-drag (right click cancels)" % _paved_cost()
 		Mode.TRACK: _hint.text = "Rail track (%s a tile): click-drag (right click cancels)" % _track_cost()
 		Mode.DEMOLISH: _hint.text = "Demolish: click (right click cancels)"
+		Mode.UPGRADE: _hint.text = "Upgrade: click a building (right click cancels)"
 	if mode == Mode.NONE:
 		ghost.set_state(null, Vector2i.ZERO, false, false)
 
@@ -98,7 +108,9 @@ func _process(_d: float) -> void:
 			var c := settlement.can_place_channel(t)
 			ghost.set_state(null, t, c["ok"] or settlement.channel_at(t), true)
 			if c["ok"]:
-				_hint.text = "Channel (%s a tile): click-drag (right click cancels)" % _channel_cost()
+				ghost.set_wet(WaterSystem.channel_preview(settlement, t))
+			if c["ok"]:
+				_hint.text = _channel_hint(_channel_cost())
 			elif settlement.channel_at(t):
 				_hint.text = "Channel: already dug (X removes it)"
 			else:
@@ -119,6 +131,10 @@ func _process(_d: float) -> void:
 				_hint.text = "Rail track: already laid (X lifts it)"
 			else:
 				_hint.text = "Rail track: %s" % HudModel.track_refusal_text(str(c["reason"]))
+		Mode.UPGRADE:
+			var u := _upgrade_check(t)
+			ghost.set_state(null, t, u["ok"], true)
+			_hint.text = u["text"]
 		Mode.DEMOLISH:
 			var dl := _layer()
 			var b := settlement.building_at(t, dl)
@@ -142,6 +158,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if settlement.track_unlocked():
 					set_mode(Mode.TRACK)
 			KEY_X: set_mode(Mode.DEMOLISH)
+			KEY_U: set_mode(Mode.UPGRADE)
 			KEY_ESCAPE: cancel()
 	elif event is InputEventMouseButton and mode != Mode.NONE:
 		var mb := event as InputEventMouseButton
@@ -176,6 +193,12 @@ func _click(t: Vector2i) -> void:
 			_painting = true
 			_last_tile = t
 			settlement.place_track(t)
+		Mode.UPGRADE:
+			var u := _upgrade_check(t)
+			if u["ok"]:
+				settlement.upgrade(int(u["id"]))
+				u = {"text": "Upgrade started: %s" % u["name"]}
+			_hint.text = u["text"]  # stays in upgrade mode; a refusal says why
 		Mode.DEMOLISH:
 			var b := settlement.building_at(t, _layer())
 			if b != null:
@@ -188,6 +211,26 @@ func _click(t: Vector2i) -> void:
 				settlement.remove_channel(t)
 			else:
 				settlement.remove_road(t)
+
+
+## What the upgrade tool says about the building on tile t: {ok, id, name, text}.
+func _upgrade_check(t: Vector2i) -> Dictionary:
+	var b := settlement.building_at(t, _layer())
+	if b == null:
+		return {"ok": false, "text": "Upgrade: point at a building (right click cancels)"}
+	var hm := model if model != null else HudModel.new(settlement)
+	var can := settlement.can_upgrade(b.id)
+	var nm := b.display_name(settlement.registry)
+	if not can["ok"]:
+		var nxt := b.tier + 1
+		return {"ok": false, "text": "%s: %s" % [nm, hm.upgrade_reason_text(str(can["reason"]), nxt)]}
+	var info := hm.upgrade_info(b)
+	return {"ok": true, "id": b.id, "name": nm, "text": "%s: click to upgrade to %s (%s)" % [nm, info["next_name"], info["next_cost"]]}
+
+
+func _channel_hint(cost: String) -> String:
+	var help := settlement.registry.water.channel_help() if settlement.registry.water != null else ""
+	return "Channel (%s a tile): click-drag (right click cancels)\n%s" % [cost, help]
 
 
 func _channel_cost() -> String:

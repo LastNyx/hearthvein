@@ -160,6 +160,38 @@ static func flowing_tiles(s: Settlement) -> Array[int]:
 	return out
 
 
+## The tiles a channel dug on `t` would wet: the Chebyshev square of WaterDef.wet_radius_channel around it, clipped to
+## the map, when the new channel would flow (a water tile or a flowing channel touches it on a side); else none.
+## Reads only; the build preview tints these tiles.
+static func channel_preview(s: Settlement, t: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var def := s.registry.water
+	var water := s.map.terrain_index("water")
+	if def == null or water < 0 or not MapState.in_bounds(t.x, t.y):
+		return out
+	var flows := false
+	var flowing: Array[int] = []
+	for d in Placement.DIRS:
+		var n: Vector2i = t + d
+		if MapState.in_bounds(n.x, n.y) and s.map.get_terrain(n.x, n.y) == water:
+			flows = true
+			break
+	if not flows:
+		flowing = flowing_tiles(s)
+		for d in Placement.DIRS:
+			var n: Vector2i = t + d
+			if MapState.in_bounds(n.x, n.y) and flowing.has(MapState.idx(n.x, n.y)):
+				flows = true
+				break
+	if not flows:
+		return out
+	var r := def.wet_radius_channel
+	for y in range(maxi(0, t.y - r), mini(MapState.HEIGHT, t.y + r + 1)):
+		for x in range(maxi(0, t.x - r), mini(MapState.WIDTH, t.x + r + 1)):
+			out.append(Vector2i(x, y))
+	return out
+
+
 ## A Farm's wet multiplier. A plain farm gets WaterDef.farm_wet_bonus when at least farm_wet_fraction of its
 ## footprint is wet (design.md section 9). A tier with needs_wet (the Irrigated Farm, design.md section 10) instead
 ## gets that tier's wet_bonus when wet -- the irrigation x1.5 replaces the plain x1.25, they do not stack -- and 0

@@ -176,6 +176,8 @@ static func _token(tok: String, reg: DataRegistry) -> String:
 	if tok == "bridge_materials":  # Materials per water tile of a dirt bridge (RoadDef.bridge_cost, ticket 91)
 		var dirt := reg.get_road("dirt")
 		return _num(float(dirt.bridge_cost.get("materials", 0.0))) if dirt != null else "?"
+	if tok == "channel_help":  # what an Irrigation Channel does, numbers from WaterDef (ticket 95)
+		return reg.water.channel_help() if reg.water != null else "?"
 	if tok == "dimming_days":
 		var parts: Array[String] = []
 		for e in reg.eras_in_order():

@@ -86,6 +86,8 @@ var _mid_down := false
 func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void:
 	model = m
 	build = b
+	if build != null:
+		build.mode_changed.connect(_refresh_active_tool)
 	camera = cam
 	driver = d
 	layer = 10
@@ -514,8 +516,11 @@ func _show_flyout() -> void:
 				text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
 			var b := _button(_fly_box, text, 14)
 			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
+			b.set_meta("kind", e["kind"])
+			b.set_meta("tool_id", e["id"])
 			if e["kind"] != "building":
 				b.name = "Tool_" + str(e["id"])
+				b.tooltip_text = str(e.get("tip", ""))
 			if e["kind"] == "building":
 				b.name = "Build_" + str(e["id"])
 				b.set_meta("def_id", e["id"])
@@ -527,6 +532,27 @@ func _show_flyout() -> void:
 			if e.get("enabled", true) == false:
 				b.disabled = true
 				b.modulate = Color(1, 1, 1, 0.5)
+	_refresh_active_tool()
+
+
+const TOOL_MODES := {"road": BuildController.Mode.ROAD, "channel": BuildController.Mode.CHANNEL,
+		"paved": BuildController.Mode.PAVED, "track": BuildController.Mode.TRACK, "demolish": BuildController.Mode.DEMOLISH}
+
+
+## Lights the tool in use: the flyout entry being placed (building or road/channel/paved/track/demolish) and the
+## Demolish / Upgrade buttons of the tools tab. Off again when the mode ends.
+func _refresh_active_tool() -> void:
+	if build == null:
+		return
+	if _fly_box != null:
+		for c in _fly_box.get_children():
+			if c is Button and c.has_meta("kind") and not c.is_queued_for_deletion():
+				var id := str(c.get_meta("tool_id"))
+				var on: bool = (build.mode == BuildController.Mode.BUILD and c.get_meta("kind") == "building" and id == build.def_id) \
+						or (c.get_meta("kind") != "building" and TOOL_MODES.get(id, -1) == build.mode)
+				_style_button(c, on)
+	if tools_tab != null:
+		tools_tab.refresh()
 
 
 ## The flyout button that builds `def_id` (the open category's), or null. Buttons are named "Build_<def id>" and carry
@@ -635,8 +661,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				refresh()
 				get_viewport().set_input_as_handled()
 			KEY_U:
-				if model.upgrade():
-					refresh()
+				pass  # BuildController: upgrade mode
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
 			KEY_ESCAPE:
 				_region_map.close()

@@ -561,7 +561,7 @@ func build_bar() -> Array[Dictionary]:
 					{"kind": "road", "id": "road", "label": "Dirt road (R)", "cost": "", "size": ""}]
 			if s.channels_unlocked():
 				road_entries.append({"kind": "channel", "id": "channel", "label": "Irrigation channel (C)",
-						"cost": channel_cost_text(), "size": ""})
+						"cost": channel_cost_text(), "size": "", "tip": channel_help_text()})
 			if s.paved_roads_unlocked():
 				road_entries.append({"kind": "paved", "id": "paved", "label": "Paved road (P)",
 						"cost": paved_cost_text(), "size": ""})
@@ -577,6 +577,11 @@ func build_bar() -> Array[Dictionary]:
 	for cat: String in rest:
 		out.append({"id": cat, "label": category_label(cat), "entries": by_cat[cat]})
 	return out
+
+
+## What an Irrigation Channel does, from WaterDef ("" without it).
+func channel_help_text() -> String:
+	return s.registry.water.channel_help() if s.registry.water != null else ""
 
 
 ## "1 Materials" per channel tile, from WaterDef.

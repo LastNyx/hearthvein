@@ -82,7 +82,6 @@ func test_demolish_upgrade_region_map_and_help_buttons_do_what_their_keys_do() -
 	var main: Node = await _game()
 	var tab := _tab(main)
 	var hud: Hud = main.get_node("Hud")
-	var s: Settlement = main.settlement
 	tab.set_open(true)
 	tab.button("demolish").pressed.emit()
 	assert_eq(main.get_node("BuildController").mode, BuildController.Mode.DEMOLISH)
@@ -92,17 +91,8 @@ func test_demolish_upgrade_region_map_and_help_buttons_do_what_their_keys_do() -
 	assert_true(region.visible)
 	tab.button("regionmap").pressed.emit()
 	assert_false(region.visible)
-	s.era_override = "town"
-	var id := -1
-	var h := s.map.hearth_spot
-	for dx in range(-12, 13):
-		for dy in range(-12, 13):
-			if id < 0:
-				id = s.place_building_instant("tent", h + Vector2i(dx, dy))
-	assert_true(id >= 0)
-	hud.model.select(id)
 	tab.button("upgrade").pressed.emit()
-	assert_true(hud.model.selection()["upgrading"])
+	assert_eq(main.get_node("BuildController").mode, BuildController.Mode.UPGRADE)
 	main.driver.set_speed(2)
 	tab.button("help").pressed.emit()
 	assert_true(main.help.is_open())

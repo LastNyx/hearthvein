@@ -21,10 +21,11 @@ Building
 B: open the build bar.
 R: road.
 C: channel (from the Village era).
+{channel_help}
 P: paved road (from the Town era).
 J: rail track (from the Conflux era).
 X: demolish.
-U: upgrade the selected building.
+U: upgrade mode: click buildings to upgrade them.
 
 Views
 V: blight.
