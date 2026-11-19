@@ -1,6 +1,6 @@
 extends SceneTree
 ## Windowed screenshots of a Storehouse construction site: godot --path . -s tools/site_shot.gd
-## Writes /tmp/hv_site.png (mid-build) and /tmp/hv_site_done.png (finished).
+## Writes /tmp/hv_site.png (mid-build), /tmp/hv_site_wait.png (site panel with the wait line) and /tmp/hv_site_done.png.
 
 func _shoot(path: String) -> void:
 	for i in 3:
@@ -24,6 +24,10 @@ func _init() -> void:
 		s.place_road(Vector2i(x, h.y))
 	var id := s.place_building("storehouse", Vector2i(h.x + 5, h.y - 1))
 	var b: Building = s.buildings[id]
+	var model: HudModel = main.hud_model
+	model.select(id)  # the site panel and tooltip show the wait line
+	print("site wait line: ", model.wait_text(b))
+	await _shoot("/tmp/hv_site_wait.png")
 	var cam: CameraController = main.get_node("Camera")
 	cam.set_zoom_step(4)
 	cam.position = (Vector2(h) + Vector2(5, 0)) * ArtLibrary.TILE

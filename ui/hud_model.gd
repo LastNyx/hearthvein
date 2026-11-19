@@ -289,6 +289,45 @@ func halt_text(b: Building) -> String:
 	return ""
 
 
+## One line on why a construction site waits ("" when it is being built or is not a site): missing goods, builders (place
+## in ready_works order), paused, no Builder's Yard in reach.
+func wait_text(b: Building) -> String:
+	if not b.site:
+		return ""
+	if b.paused:
+		return "Paused"
+	if b.halt == "too_far":
+		return "No Builder's Yard can reach it"
+	if not b.site_delivered():
+		var cost := b.effective_cost()
+		var parts: Array[String] = []
+		for g in cost:
+			if g == BuildingDef.GOLD:
+				continue
+			var have := b.input_buffer.amount_of(g) if b.input_buffer != null else 0.0
+			if have < float(cost[g]) - Inventory.EPS:
+				var gd := s.registry.get_good(g)
+				parts.append("%d/%d %s" % [floori(have), int(cost[g]), (gd.display_name if gd != null else g).to_lower()])
+		return "Waiting for materials: %s" % ", ".join(parts) if not parts.is_empty() else ""
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	if cs != null and cs.crews.values().has(b.id):
+		return ""  # a builder is on its way or at work
+	var place := ConstructionSystem.ready_works(s).find(b) + 1
+	if place <= 0:
+		return ""
+	return "Waiting for builders (%s in line)" % _ordinal(place)
+
+
+static func _ordinal(n: int) -> String:
+	var suffix := "th"
+	if n % 100 < 11 or n % 100 > 13:
+		match n % 10:
+			1: suffix = "st"
+			2: suffix = "nd"
+			3: suffix = "rd"
+	return "%d%s" % [n, suffix]
+
+
 ## Panel data of the selected building or {} : title, lines (strings), halt text, priority, paused, site progress.
 func selection() -> Dictionary:
 	var b := selected()
@@ -305,6 +344,7 @@ func selection() -> Dictionary:
 		if not b.def.stages.is_empty():
 			lines.append("Stage %d of %d: %s" % [b.stage + 1, b.def.stages.size(), skyheart_stage_name(b)])
 		lines.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
+		lines.append(wait_text(b))
 		lines.append(_goods_line("Delivered", b.input_buffer))
 	else:
 		if b.effective_worker_slots(s.registry) > 0:
@@ -525,6 +565,9 @@ func tooltip_for_building(b: Building) -> Dictionary:
 		status.append("Tier %d" % b.tier)
 	if b.site:
 		status.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
+		var wait := wait_text(b)
+		if wait != "":
+			status.append(wait)
 	else:
 		if b.effective_worker_slots(s.registry) > 0:
 			status.append("Workers %d/%d" % [_workers(b), b.effective_worker_slots(s.registry)])

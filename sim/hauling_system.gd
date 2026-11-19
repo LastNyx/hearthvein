@@ -3,7 +3,7 @@ extends SimSystem
 ## Haulers (design.md section 8, D39). Citizens with a haul job (JobSystem, Citizen.JOB_HAUL) carry goods:
 ##   1. producer door buffer -> nearest storage building with room (Storehouse or Hearth),
 ##   2. storage -> a consumer's input buffer, up to input_buffer_days of its need.
-## Door pickups come first. A trip moves one good, at most LogisticsDef.haul_load units (the Handcart Shed raises
+## Sites and upgrades are served before everything else (_works), then door pickups and inputs take turns. A trip moves one good, at most LogisticsDef.haul_load units (the Handcart Shed raises
 ## that for haulers in its region, see RegionSystem.handcart_zones), and is a walk to the
 ## source door, a pickup, a walk to the destination door and a drop. "Nearest" is walking time between doors.
 ##
@@ -328,12 +328,16 @@ func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 func _plan_trip(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	var load_cap := _haul_load(s, cid)
 	_layout(s)
-	# 0. construction sites first: a busy settlement's door buffers must not starve its builders.
-	for b in _site_blds:
-		if b.input_buffer != null:
-			var t := _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
-			if t != null:
-				return t
+	# 0. construction sites and upgrades first (priority, sites before upgrades, oldest first; paused get nothing):
+	# a busy settlement's door buffers and workshop inputs must not starve its builders.
+	for b in _works(s):
+		var t: Trip
+		if b.site:
+			t = _plan_for_need(s, ws, b, b.input_buffer, need_of(s.registry, b), false, load_cap)
+		else:
+			t = _plan_for_need(s, ws, b, b.upgrade_buffer, upgrade_need(b), true, load_cap)
+		if t != null:
+			return t
 	# 1. and 2. take turns going first (by clock hour and hauler id), so busy producers cannot starve consumers' input buffers.
 	if (int(s.clock.total_hours) + cid) % 2 == 0:
 		var d := _plan_door(s, ws, load_cap)
@@ -344,6 +348,29 @@ func _plan_trip(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	if i != null:
 		return i
 	return _plan_door(s, ws, load_cap)
+
+
+## Sites and in-place upgrades that still want goods, in serving order: priority high, normal, low, a site before an
+## upgrade of the same priority, then lowest id (the oldest). Paused ones are left out. Sorted per plan: priority and
+## pause change without a layout change, and the list is short.
+func _works(s: Settlement) -> Array[Building]:
+	var out: Array[Building] = []
+	for b in _site_blds:
+		if not b.paused and b.input_buffer != null:
+			out.append(b)
+	for b in _blds:
+		if not b.site and not b.paused and b.upgrading() and b.upgrade_buffer != null:
+			out.append(b)
+	if out.size() > 1:
+		out.sort_custom(func(a: Building, b: Building) -> bool:
+			var pa := JobSystem.PRIORITY_ORDER.find(a.priority)
+			var pb := JobSystem.PRIORITY_ORDER.find(b.priority)
+			if pa != pb:
+				return pa < pb
+			if a.site != b.site:
+				return a.site
+			return a.id < b.id)
+	return out
 
 
 ## Door buffers: the fullest pickup first.
@@ -370,15 +397,12 @@ func _plan_door(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 	return best
 
 
-## Storage -> consumer input buffers and in-place upgrade buffers.
+## Storage -> consumer input buffers. Sites and upgrade buffers are served first by _works, never here (a paused one
+## gets nothing).
 func _plan_inputs(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 	for b in _blds:
-		if b.input_buffer != null:
+		if b.input_buffer != null and not b.site:
 			var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
-			if t != null:
-				return t
-		if b.upgrading():
-			var t := _plan_for_need(s, ws, b, b.upgrade_buffer, upgrade_need(b), true, load_cap)
 			if t != null:
 				return t
 	return null

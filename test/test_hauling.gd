@@ -219,3 +219,43 @@ func test_consumer_inputs_are_not_starved_by_a_busy_door_buffer() -> void:
 		if t != null and t.dst == saw.id:
 			served = true
 	assert_true(served, "within two plans the sawmill's input is served though a door buffer waits")
+
+
+func _fill_store(store: Building) -> void:
+	for g in ["materials", "planks", "cut_stone", "tools", "lumen_cells", "lumen"]:
+		store.inventory.add(g, 100.0)
+
+
+func test_new_site_gets_materials_before_a_workshops_input_refill() -> void:
+	var store := _put("storehouse", 7)
+	var saw := _put("sawmill", 3, -1)  # older building, input buffer empty
+	_fill_store(store)
+	var site := _site_for("woodcutter", 10)
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_not_null(t)
+	assert_eq(t.dst, site.id, "the site comes before the sawmill's input")
+	assert_ne(t.dst, saw.id)
+
+
+func test_sites_are_served_by_priority_then_oldest_and_paused_sites_get_nothing() -> void:
+	var store := _put("storehouse", 7)
+	_fill_store(store)
+	var old_site := _site_for("woodcutter", 4)
+	var new_site := _site_for("woodcutter", 10)
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_eq(t.dst, old_site.id, "same priority: the oldest first")
+	s.set_building_priority(new_site.id, "high")
+	t = hs._plan(s, ws, -1)
+	assert_eq(t.dst, new_site.id, "a high-priority site goes before an older normal one")
+	s.set_building_priority(old_site.id, "low")
+	s.set_building_priority(new_site.id, "normal")
+	t = hs._plan(s, ws, -1)
+	assert_eq(t.dst, new_site.id, "low comes after normal")
+	s.set_building_priority(new_site.id, "paused")
+	t = hs._plan(s, ws, -1)
+	assert_eq(t.dst, old_site.id, "the paused site is skipped")
+	s.set_building_priority(old_site.id, "paused")
+	t = hs._plan(s, ws, -1)
+	assert_true(t == null or (t.dst != old_site.id and t.dst != new_site.id), "paused sites get nothing")

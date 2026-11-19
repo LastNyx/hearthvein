@@ -31,6 +31,14 @@ func _site(id: String, dx: int) -> Building:
 	return s.buildings.get(bid)
 
 
+## Puts a site's whole cost into its buffer (paused sites get no haulers).
+func _deliver(b: Building) -> void:
+	var cost := b.effective_cost()
+	for g in cost:
+		if g != BuildingDef.GOLD:
+			b.input_buffer.add(g, float(cost[g]))
+
+
 func _hearth_materials() -> float:
 	return s.hearth.inventory.amount_of("materials")
 
@@ -111,8 +119,10 @@ func test_build_time_follows_size_and_era() -> void:
 func test_high_priority_site_gets_builders_first() -> void:
 	var a := _site("tent", 4)
 	var b := _site("tent", 6)
-	s.set_building_priority(a.id, "paused")  # paused sites get no builders: let both be delivered first
+	s.set_building_priority(a.id, "paused")  # paused sites get no builders: stock both by hand (they get no hauling either)
 	s.set_building_priority(b.id, "paused")
+	_deliver(a)
+	_deliver(b)
 	s.step_days(1)
 	assert_true(a.site_delivered() and b.site_delivered())
 	assert_eq(a.build_work + b.build_work, 0.0)
@@ -185,6 +195,8 @@ func test_builders_take_the_nearest_ready_site_first() -> void:
 	var near := _site("tent", 4)
 	s.set_building_priority(far.id, "paused")
 	s.set_building_priority(near.id, "paused")
+	_deliver(far)
+	_deliver(near)
 	s.step_days(1)
 	assert_true(far.site_delivered() and near.site_delivered())
 	s.set_building_priority(far.id, "normal")
@@ -216,3 +228,44 @@ func test_site_too_far_from_every_builders_yard_shows_a_status() -> void:
 	assert_gt(yard, -1, "a yard near the site")
 	s.step_hours(2)
 	assert_eq(b.halt, "", "a closer builders' yard clears it")
+
+
+func test_site_wait_line_says_what_is_missing() -> void:
+	s.gold = 1000.0
+	s.era_override = "village"
+	var model := HudModel.new(s)
+	var b := _site("cleanser", 4)
+	b.input_buffer.add("materials", 12.0)
+	assert_eq(model.wait_text(b), "Waiting for materials: 12/60 materials, 0/10 lumen")
+	b.input_buffer.add("materials", 48.0)
+	assert_eq(model.wait_text(b), "Waiting for materials: 0/10 lumen", "only the goods still missing")
+	model.select(b.id)
+	var sel := model.selection()
+	assert_true((sel["lines"] as Array).has("Waiting for materials: 0/10 lumen"), "the panel shows it")
+	assert_true((model.tooltip_for_building(b)["text"] as String).contains("Waiting for materials: 0/10 lumen"))
+
+
+func test_site_wait_line_for_builders_shows_the_place_in_line() -> void:
+	var model := HudModel.new(s)
+	var sites: Array[Building] = []
+	for dx in [4, 6, 8]:
+		var b := _site("tent", dx)
+		b.input_buffer.add("materials", 5.0)
+		sites.append(b)
+	assert_eq(model.wait_text(sites[0]), "Waiting for builders (1st in line)")
+	assert_eq(model.wait_text(sites[1]), "Waiting for builders (2nd in line)")
+	assert_eq(model.wait_text(sites[2]), "Waiting for builders (3rd in line)")
+	s.set_building_priority(sites[2].id, "high")
+	assert_eq(model.wait_text(sites[2]), "Waiting for builders (1st in line)", "ready_works order")
+
+
+func test_site_wait_line_for_paused_and_unreachable() -> void:
+	var model := HudModel.new(s)
+	var b := _site("tent", 4)
+	s.set_building_priority(b.id, "paused")
+	assert_eq(model.wait_text(b), "Paused")
+	s.set_building_priority(b.id, "normal")
+	b.halt = "too_far"
+	assert_eq(model.wait_text(b), "No Builder's Yard can reach it")
+	var done := s.place_building_instant("storehouse", Vector2i(h.x + 9, h.y + 1))
+	assert_eq(model.wait_text(s.buildings[done]), "", "a finished building has none")

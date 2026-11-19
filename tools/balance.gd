@@ -99,6 +99,9 @@ var _g_acc := {}
 var _food_prev := 0.0
 var _gold_before := 0.0
 var _placed_day := {}  # building id -> day it was placed (verbose build-time lines)
+var _placed_hour := {}  # building id -> clock hour it was placed (place-to-finish times)
+var _finish_small: Array[int] = []  # game hours from placement to completion, 1x1 buildings
+var _finish_big: Array[int] = []  # ... larger buildings
 var _inc_today := 0.0
 var _inc := {}  # gold income by source in the current era (an estimate from the day's staffing), and the rest spent
 var _wanted_max := 0.0  # highest wanted slots / citizens seen since the last era change (47h)
@@ -403,10 +406,17 @@ func _dump_map() -> void:
 
 
 func _on_built(entry: Dictionary) -> void:
-	if not _verbose:
-		return
 	var data: Dictionary = entry["data"]
 	var id := int(data.get("id", -1))
+	if _placed_hour.has(id) and s.buildings.has(id):
+		var took := s.clock.total_hours - int(_placed_hour[id])
+		if s.buildings[id].def.size == Vector2i(1, 1):
+			_finish_small.append(took)
+		else:
+			_finish_big.append(took)
+		_placed_hour.erase(id)
+	if not _verbose:
+		return
 	if _placed_day.has(id) and s.buildings.has(id):
 		print("   d%d built %s after %d days" % [s.clock.total_days(), s.buildings[id].def.id, s.clock.total_days() - int(_placed_day[id])])
 
@@ -451,11 +461,20 @@ func _report(stalled: bool, secs: float) -> void:
 	for b: Building in s.buildings.values():
 		counts[b.def.id] = int(counts.get(b.def.id, 0)) + 1
 	print("Labour: wanted slots / citizens at most %.2f since the last era (days over %d); producers placed %d within idle hands, %d let through" % [_wanted_max, _wanted_over, _placed_capped, _placed_exempt])
+	print("Place-to-finish (game hours, median / worst): 1x1 %s, bigger %s" % [_finish_text(_finish_small), _finish_text(_finish_big)])
 	print("Buildings at the end: ", counts)
 	print("Skyheart finished: ", ("day %d" % _skyheart_done_day) if _skyheart_done_day >= 0 else "no")
 	print("Great Dimming: ", _great_end if _great_end != "" else "not over")
 	var camp := s.get_system(CampaignSystem) as CampaignSystem
 	print("Campaign outcome: ", camp.outcome if camp.outcome != "" else "open")
+
+
+func _finish_text(hours: Array[int]) -> String:
+	if hours.is_empty():
+		return "none built"
+	var sorted := hours.duplicate()
+	sorted.sort()
+	return "%d / %d (%d built)" % [sorted[sorted.size() / 2], sorted[sorted.size() - 1], sorted.size()]
 
 
 func _skyheart_state() -> String:
@@ -615,6 +634,7 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 			return null
 		_refresh_stock()
 		_placed_day[bid] = s.clock.total_days()
+		_placed_hour[bid] = s.clock.total_hours
 		if _verbose:
 			print("   d%d place %s pop %d idle %d jobs_free %d" % [s.clock.total_days(), id, s.citizens.size(), s.idle_citizens().size(), _jobs_free()])
 		return b
