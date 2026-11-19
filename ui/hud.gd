@@ -68,6 +68,7 @@ var _cat_buttons: Dictionary = {}
 var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _open_cat := ""
+var workforce_page: WorkforcePage
 var tutorial_panel: TutorialPanel
 var tools_tab: ToolsTab
 var hint_cards: HintCards
@@ -140,6 +141,9 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	_float.add_child(_region_map)
 	_region_map.setup(self, model)
 	_region_map.resized.connect(_center_region_map)
+	workforce_page = WorkforcePage.new()
+	_float.add_child(workforce_page)
+	workforce_page.setup(self, model)
 	_build_bar(col)
 	_build_tooltip()
 	tools_tab = ToolsTab.new()
@@ -633,6 +637,7 @@ func refresh() -> void:
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
+	workforce_page.refresh()
 	tutorial_panel.refresh()
 	update_highlight()
 
@@ -662,6 +667,8 @@ func _process(delta: float) -> void:
 		_place_selection_panel()
 	if _region_map.visible:
 		_center_region_map()
+	if workforce_page.visible:
+		workforce_page.position = ((get_viewport().get_visible_rect().size - workforce_page.size) / 2.0).floor()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0
@@ -670,7 +677,7 @@ func _process(delta: float) -> void:
 
 ## True when Esc would still cancel something (build tool, selection, open build flyout): then it is not the menu's.
 func has_cancelable() -> bool:
-	return _region_map.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
+	return _region_map.visible or workforce_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -687,6 +694,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_H: _on_overlay("coverage")
 			KEY_L: _on_overlay("grid")
 			KEY_M: _region_map.toggle()
+			KEY_Q: workforce_page.toggle()
 			KEY_TAB:
 				if model.layer_tag_visible():  # no island yet: Tab is not ours (98)
 					model.toggle_layer()
@@ -697,6 +705,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
 			KEY_ESCAPE:
 				_region_map.close()
+				workforce_page.close()
 				model.clear_selection()
 				_open_cat = ""
 				_show_flyout()
