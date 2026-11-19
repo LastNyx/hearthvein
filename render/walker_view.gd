@@ -2,7 +2,8 @@ class_name WalkerView
 extends Node2D
 ## Draws every citizen outside a building in one _draw pass (no node per walker), from the walker atlas exported by
 ## tools/export_art.py. Facing follows the movement vector and the walk cycle runs only while the walker has a
-## path. Walkers standing at a building door are inside it and not drawn. Haulers carrying goods show a bundle.
+## path. Walkers standing at a building door are inside it and not drawn, except a builder on a crew standing at its
+## site, upgrade or Clear tile (ConstructionSystem.crews, ticket 105): it stays visible, standing around the door. Haulers carrying goods show a bundle.
 ## Reads the sim only; the only state kept here is the last facing per citizen (render state, not sim).
 
 const STEP_SECONDS := 0.16  # per frame of the 4-beat cycle: step A, stand, step B, stand
@@ -16,6 +17,7 @@ var _shadow: Texture2D
 var _bundles: Dictionary = {}
 var _facing: Dictionary = {}  # citizen id -> DIR_*
 var _time: float = 0.0
+var _construction: ConstructionSystem
 var _sky: SkyWalkers  # draws the walkers whose tile is on the sky layer, above the sky group (ticket 40d)
 
 
@@ -23,6 +25,7 @@ func setup(s: Settlement) -> void:
 	settlement = s
 	_system = s.get_system(WalkerSystem)
 	_hauling = s.get_system(HaulingSystem)
+	_construction = s.get_system(ConstructionSystem) as ConstructionSystem
 	var e := ArtLibrary.walker_entry()
 	_atlas = ArtLibrary.texture(e["file"])
 	_shadow = ArtLibrary.texture(e["shadow"])
@@ -76,6 +79,18 @@ static func _riding(w: Walker) -> bool:
 	return not w.path.is_empty() and MapState.layer_of(w.path[0]) != MapState.layer_of(w.tile)
 
 
+## True for a walker standing at a door that must still be drawn: a builder on a crew whose work is that building.
+static func shown_at_door(w: Walker, crews: Dictionary) -> bool:
+	return w.at_building >= 0 and w.path.is_empty() and crews.get(w.citizen_id, -1) == w.at_building
+
+
+## Pixel offset of a standing crew member from the door tile centre, fixed per citizen id so a crew of 4 does not stack:
+## spread along the door tile's width, on its lower (front) half.
+static func crew_offset(citizen_id: int) -> Vector2:
+	var slot := citizen_id % 4
+	return Vector2(-6.0 + 4.0 * slot, 2.0 + 3.0 * ((citizen_id / 4) % 2))
+
+
 ## Movement vector in tiles of a walker (zero when it has no path).
 static func move_vector(w: Walker) -> Vector2:
 	if w.path.is_empty() or _riding(w):
@@ -117,8 +132,11 @@ func _draw_layer(ci: CanvasItem, layer: int) -> void:
 	for id in _system.walkers:
 		var w: Walker = _system.walkers[id]
 		var moving := w.is_walking() and not _riding(w)
+		var at_door := false
 		if not moving and w.at_building >= 0:
-			continue
+			if _construction == null or not shown_at_door(w, _construction.crews):
+				continue
+			at_door = true
 		if MapState.layer_of(w.tile) != layer:
 			continue
 		var local_pos := _local_position(w, layer)
@@ -127,6 +145,8 @@ func _draw_layer(ci: CanvasItem, layer: int) -> void:
 		var dir: int = ArtLibrary.facing_for(move_vector(w), _facing.get(id, ArtLibrary.DIR_DOWN))
 		_facing[id] = dir
 		var p := (local_pos * tile).round()
+		if at_door:
+			p += crew_offset(id)
 		items.append([p, id, dir, moving])
 	items.sort_custom(func(a, b): return a[0].y < b[0].y)  # nearer walkers over farther ones
 	for it in items:

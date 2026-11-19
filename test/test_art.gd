@@ -713,3 +713,17 @@ func test_park_is_flat_and_draws_under_a_tall_neighbour() -> void:
 	assert_eq(view.flats.get_child_count(), 1, "the park sits on the flats layer")
 	assert_true(view.objects.get_child_count() >= before + 1, "the apartment block stays among the y-sorted objects")
 	assert_lt(view.flats.get_index(), view.objects.get_index(), "flats draw before (under) objects")
+
+
+## Ticket 105: a crew standing at its site stays drawn; ordinary workers inside a finished building do not.
+func test_crew_standing_at_its_site_is_drawn_and_spread() -> void:
+	var w := Walker.new()
+	w.citizen_id = 5
+	w.at_building = 7
+	assert_false(WalkerView.shown_at_door(w, {}), "a worker inside a building is hidden")
+	assert_false(WalkerView.shown_at_door(w, {5: 8}), "crew of another site: hidden")
+	assert_true(WalkerView.shown_at_door(w, {5: 7}), "crew at its own site: drawn")
+	var seen := {}
+	for id in [8, 9, 10, 11]:
+		seen[WalkerView.crew_offset(id)] = true
+	assert_eq(seen.size(), 4, "a crew of four does not stack")

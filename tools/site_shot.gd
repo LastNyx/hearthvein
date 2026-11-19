@@ -3,7 +3,7 @@ extends SceneTree
 ## Writes /tmp/hv_site.png (mid-build), /tmp/hv_site_wait.png (site panel with the wait line) and /tmp/hv_site_done.png.
 ## Night mode (ticket 105): godot --path . -s tools/site_shot.gd -- night
 ## Writes /tmp/hv_site_night.png (a Meeting Hall site at 23:00 with its crew resting at the door) and
-## /tmp/hv_site_night_day.png (the same crew at work at 12:00 the next day).
+## /tmp/hv_site_night_day.png (the same crew at work at 09:00 the next day, site still unfinished, no HUD).
 
 func _shoot(path: String) -> void:
 	for i in 3:
@@ -55,7 +55,7 @@ func _init() -> void:
 
 
 ## A crew resting at an unfinished site: the cost is put into the site, the crew works one shift and is shot at 23:00
-## standing at the door, then again at noon the next day at work.
+## standing at the door, then again at 09:00 the next day at work.
 func _night(main: Node, s: Settlement, h: Vector2i) -> void:
 	var id := s.place_building("meeting_hall", Vector2i(h.x + 5, h.y - 2))
 	var b: Building = s.buildings[id]
@@ -74,8 +74,10 @@ func _night(main: Node, s: Settlement, h: Vector2i) -> void:
 	print("night: site ", b.site, " progress ", b.build_progress(), " crew ", cs.crews.size(), " at ", s.clock.label())
 	await _shoot("/tmp/hv_site_night.png")
 	guard = 0
-	while b.site and s.clock.hour() != 12 and guard < 400:
+	while b.site and s.clock.hour() != 9 and guard < 400:
 		s.step_hours(1)
 		guard += 1
+	if main.hud != null:
+		main.hud.hide()  # no tooltip in the day frame
 	print("day: site ", b.site, " progress ", b.build_progress(), " at ", s.clock.label())
 	await _shoot("/tmp/hv_site_night_day.png")
