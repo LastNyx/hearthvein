@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mockups as M  # noqa: E402
 import mockups_v1 as MV  # noqa: E402  (HUD icons)
 import sky_island_art as SI  # noqa: E402  (ticket 72 island slabs and kit)
+import generic_props as GP  # noqa: E402  (ticket 110 signature props and door signs)
 
 T = M.T
 ROOT = Path(__file__).resolve().parent.parent
@@ -1385,7 +1386,7 @@ TINT = {
 }
 
 
-def generic_house(cat, fw, fh, seed):
+def generic_house(cat, fw, fh, seed, bid=None):
     roof, wall, shut, light = TINT[cat]
     w = fw * 30 - 8 if fw > 1 else 22
     wall_h = 13 + 4 * (fh - 1)
@@ -1395,6 +1396,8 @@ def generic_house(cat, fw, fh, seed):
     door = (7, 11) if fw == 1 else (9, 13)
     im, glows, smoke = M.gable_house(w, wall_h, apex, depth, roof, wall, wins, seed, shutters=shut, door=door,
                                      win_glow=light)
+    if bid in GP.GLYPHS:
+        GP.add_signature(im, bid, fw, w, door)
     return M.pack(im, glows, smoke, fw, fh, (1.0, 8 + 2 * fh))
 
 
@@ -1406,8 +1409,10 @@ def export_buildings(manifest):
     for i, (bid, (cat, fw, fh)) in enumerate(sorted(GENERIC.items())):
         if bid in SHEET:  # drawn on the sheet (pylon, battery); kept in GENERIC so the other seeds stay put
             continue
-        manifest["buildings"][bid] = export_sprite(generic_house(cat, fw, fh, 200 + i), f"buildings/{bid}.png",
-                                                   {"generic": True, "category": cat})
+        manifest["buildings"][bid] = export_sprite(generic_house(cat, fw, fh, 200 + i, bid),
+                                                   f"buildings/{bid}.png",
+                                                   {"generic": True, "category": cat,
+                                                    "signature": bid in GP.GLYPHS})
 
 
 # ---------------------------------------------------------------- walkers (ticket 50)

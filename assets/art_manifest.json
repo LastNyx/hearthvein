@@ -226,6 +226,7 @@
      -9
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/bloom_orchard_smoke.png",
     "offset": [
@@ -262,6 +263,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/builders_yard_smoke.png",
     "offset": [
@@ -334,6 +336,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/clearwater_works_smoke.png",
     "offset": [
@@ -544,6 +547,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/fishing_dock_smoke.png",
     "offset": [
@@ -580,6 +584,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/forager_smoke.png",
     "offset": [
@@ -616,6 +621,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/forester_smoke.png",
     "offset": [
@@ -746,6 +752,7 @@
      -8
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/hall_of_seasons_smoke.png",
     "offset": [
@@ -782,6 +789,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/handcart_shed_smoke.png",
     "offset": [
@@ -854,6 +862,7 @@
      -8
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/heartroot_tap_smoke.png",
     "offset": [
@@ -948,6 +957,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/kitchen_smoke.png",
     "offset": [
@@ -984,6 +994,7 @@
      -9
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/lift_anchor_smoke.png",
     "offset": [
@@ -1056,6 +1067,7 @@
      -9
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/lumen_arcology_smoke.png",
     "offset": [
@@ -1309,6 +1321,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/mason_smoke.png",
     "offset": [
@@ -1461,6 +1474,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/quarry_smoke.png",
     "offset": [
@@ -1526,6 +1540,7 @@
      -8
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/refinery_smoke.png",
     "offset": [
@@ -1562,6 +1577,7 @@
      -8
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/rewilding_grove_smoke.png",
     "offset": [
@@ -1634,6 +1650,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/sawmill_smoke.png",
     "offset": [
@@ -1887,6 +1904,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/storehouse_smoke.png",
     "offset": [
@@ -1923,6 +1941,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/tax_office_smoke.png",
     "offset": [
@@ -2046,6 +2065,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/vein_mender_smoke.png",
     "offset": [
@@ -2082,6 +2102,7 @@
      -8
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/verdant_spring_smoke.png",
     "offset": [
@@ -2140,6 +2161,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/well_smoke.png",
     "offset": [
@@ -2198,6 +2220,7 @@
      -6
     ]
    },
+   "signature": true,
    "smoke": {
     "file": "buildings/workshop_smoke.png",
     "offset": [
