@@ -727,3 +727,14 @@ func test_crew_standing_at_its_site_is_drawn_and_spread() -> void:
 	for id in [8, 9, 10, 11]:
 		seen[WalkerView.crew_offset(id)] = true
 	assert_eq(seen.size(), 4, "a crew of four does not stack")
+
+
+func test_generic_buildings_have_a_signature_prop_and_sign() -> void:
+	var ids := ["forager", "storehouse", "fishing_dock", "quarry", "sawmill", "forester", "builders_yard", "workshop",
+		"tax_office", "well", "mason", "refinery", "kitchen", "handcart_shed", "lift_anchor", "lumen_arcology",
+		"heartroot_tap", "verdant_spring", "vein_mender", "rewilding_grove", "clearwater_works", "bloom_orchard",
+		"hall_of_seasons"]
+	for id in ids:
+		var e := ArtLibrary.building_entry(id)
+		assert_true(e["generic"], "%s is a generic gable house" % id)
+		assert_true(e.get("signature", false), "%s has a signature prop and door sign" % id)
