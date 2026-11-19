@@ -831,11 +831,7 @@ func line_segments(line: String) -> Array[Dictionary]:
 
 ## "3 Planks, 2 Cut Stone": real good names, wood and stone first then by id.
 func goods_cost_text(cost: Dictionary) -> String:
-	var ids: Array = cost.keys()
-	ids.sort_custom(func(a: String, c: String) -> bool:
-		var ra := COST_ORDER.find(a) if COST_ORDER.has(a) else COST_ORDER.size()
-		var rc := COST_ORDER.find(c) if COST_ORDER.has(c) else COST_ORDER.size()
-		return ra < rc if ra != rc else a < c)
+	var ids := _sorted_goods(cost.keys())
 	var parts: Array[String] = []
 	for g in ids:
 		var gd := s.registry.get_good(g)
@@ -1087,18 +1083,93 @@ static func category_label(id: String) -> String:
 	return id.capitalize()
 
 
+## What the player owns of each good, for the "have N" numbers: storage totals plus the gold purse.
+func _have_all() -> Dictionary:
+	var t := s.totals()
+	t["gold"] = s.gold
+	return t
+
+
+## The cost of `def` per good for a build card: [{good, icon, name, need, have, short}], wood and stone first.
+## `have` is _have_all() (computed when left out). The icon is "" for a good with no icon of its own.
+func cost_rows(def: BuildingDef, have: Dictionary = {}) -> Array[Dictionary]:
+	if have.is_empty():
+		have = _have_all()
+	var cost := def.entry_cost()
+	var out: Array[Dictionary] = []
+	for g: String in _sorted_goods(cost.keys()):
+		var need := int(cost[g])
+		var own := int(floorf(float(have.get(g, 0.0))))
+		out.append({"good": g, "icon": icon_id(g), "name": _good_name(g), "need": need, "have": own, "short": own < need})
+	return out
+
+
+func _sorted_goods(ids: Array) -> Array:
+	var out := ids.duplicate()
+	out.sort_custom(func(a: String, c: String) -> bool:
+		var ra := COST_ORDER.find(a) if COST_ORDER.has(a) else COST_ORDER.size()
+		var rc := COST_ORDER.find(c) if COST_ORDER.has(c) else COST_ORDER.size()
+		return ra < rc if ra != rc else a < c)
+	return out
+
+
+## The HUD icon id of a good ("cells" for lumen cells, "food" for any food good), "" when it has none.
+func icon_id(good: String) -> String:
+	var icons: Dictionary = ArtLibrary.manifest()["icons"]
+	if good == "lumen_cells":
+		return "cells"
+	if icons.has(good):
+		return good
+	if GrowthSystem.food_goods(s.registry).has(good):
+		return "food"
+	return ""
+
+
+## Defs of the era right after the current one (shown locked in the build menu), by era order then id.
+func _next_era_defs() -> Array[BuildingDef]:
+	var cur := s.registry.get_era(s.era_id())
+	var out: Array[BuildingDef] = []
+	if cur == null:
+		return out
+	for d: BuildingDef in s.registry.buildings.values():
+		var e := s.registry.get_era(d.era)
+		if e != null and e.order == cur.order + 1:
+			out.append(d)
+	out.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
+	return out
+
+
+## "Needs City era" for a def the current era has not reached, "" otherwise.
+func unlock_text(def: BuildingDef) -> String:
+	if s.is_unlocked(def):
+		return ""
+	var e := s.registry.get_era(def.era)
+	return "Needs %s era" % (e.display_name if e != null else def.era)
+
+
 ## [{id, label, entries: [{kind: road|demolish|building, id, label, cost}]}] in design order; categories without an
 ## unlocked building are left out (Roads always stays). Re-ask after era_changed.
 func build_bar() -> Array[Dictionary]:
 	var by_cat := {}
+	var have := _have_all()
 	for def in s.unlocked_buildings():
 		if def.id == "hearth":
 			continue
 		if not by_cat.has(def.category):
 			by_cat[def.category] = []
+		var block := layer_block_reason(def)
+		var costs := cost_rows(def, have)
 		by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
 				"cost": goods_cost_text(def.entry_cost()), "size": "%dx%d" % [def.size.x, def.size.y],
-				"reason": layer_block_reason(def), "enabled": layer_block_reason(def) == ""})
+				"reason": block, "enabled": block == "", "locked": false, "unlock": "", "costs": costs,
+				"short": costs.any(func(c: Dictionary) -> bool: return c["short"])})
+	# Ticket 116: the next era's buildings show locked (greyed, with the reason) next to the unlocked ones of their category.
+	for def in _next_era_defs():
+		if def.id != "hearth" and by_cat.has(def.category):
+			by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
+					"cost": goods_cost_text(def.entry_cost()), "size": "%dx%d" % [def.size.x, def.size.y],
+					"reason": unlock_text(def), "enabled": false, "locked": true, "unlock": unlock_text(def),
+					"costs": cost_rows(def, have), "short": false})
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:
 		if cat == "roads":

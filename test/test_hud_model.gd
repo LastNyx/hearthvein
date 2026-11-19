@@ -165,7 +165,7 @@ func test_selection_of_a_site_shows_progress() -> void:
 	assert_true((sel["lines"][0] as String).begins_with("Under construction"))
 
 
-func test_build_bar_lists_only_unlocked_by_category() -> void:
+func test_build_bar_lists_unlocked_by_category_and_next_era_locked() -> void:
 	var bar := m.build_bar()
 	var ids: Array = bar.map(func(c: Dictionary) -> String: return c["id"])
 	assert_eq(ids[0], "roads")
@@ -174,7 +174,7 @@ func test_build_bar_lists_only_unlocked_by_category() -> void:
 	for cat in bar:
 		for e: Dictionary in cat["entries"]:
 			if e["kind"] == "building":
-				assert_true(s.is_unlocked(reg.get_building(e["id"])), e["id"])
+				assert_eq(not s.is_unlocked(reg.get_building(e["id"])), e["locked"], e["id"])
 				assert_ne(e["id"], "hearth")
 	# an era unlock adds entries
 	var before := 0

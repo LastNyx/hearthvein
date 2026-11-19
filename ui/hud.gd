@@ -73,6 +73,8 @@ var _region_map: RegionMap
 var _cat_buttons: Dictionary = {}
 var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
+var _fly_title: Label
+var _fly_key := ""
 var _open_cat := ""
 var workforce_page: WorkforcePage
 var resources_page: ResourcesPage
@@ -263,8 +265,8 @@ func _hud_line(parent: Node, text: String, color: Color, size: int = 14, wrap_wi
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(row)
 	for seg: Dictionary in segs:
-		if seg.has("good"):
-			_icon(row, str(seg["good"]), size + 6)
+		if seg.has("good") and model.icon_id(str(seg["good"])) != "":
+			_icon(row, model.icon_id(str(seg["good"])), size + 6)
 		var l := _label(row, size, color)
 		l.text = str(seg["text"])
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -574,12 +576,33 @@ func _place_selection_panel() -> void:
 
 # ---------------------------------------------------------------- build bar
 
+## Left edge of the flyout: clear of the tools tab, so the cards never cover it.
+const FLY_INDENT := 118.0
+## Build cards (ticket 116): size, cards per row and rows shown before the flyout scrolls (fits 1280x720 with the
+## detail panel on the right).
+const CARD_SIZE := Vector2(146, 200)
+const CARD_COLUMNS := 5
+const CARD_ROWS := 2
+const CARD_GAP := 6
+
+
 func _build_bar(parent: Node) -> void:
-	_fly_panel = _panel(parent)
-	_fly_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var fly_row := HBoxContainer.new()
+	fly_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(fly_row)
+	var pad := Control.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.custom_minimum_size = Vector2(FLY_INDENT, 0)
+	fly_row.add_child(pad)
+	_fly_panel = _panel(fly_row)
+	_fly_panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	var fly_col := VBoxContainer.new()
+	fly_col.add_theme_constant_override("separation", 4)
+	_fly_panel.add_child(fly_col)
+	_fly_title = _label(fly_col, 18, GOLD)
 	_fly_box = HBoxContainer.new()
 	_fly_box.add_theme_constant_override("separation", 6)
-	_fly_panel.add_child(_fly_box)
+	fly_col.add_child(_fly_box)
 	_fly_panel.visible = false
 	var p := _panel(parent)
 	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -612,25 +635,49 @@ func open_category(id: String) -> void:
 
 func _show_flyout() -> void:
 	for c in _fly_box.get_children():
+		_fly_box.remove_child(c)
 		c.queue_free()
 	for id in _cat_buttons:
 		_style_button(_cat_buttons[id], id == _open_cat)
 	_fly_panel.visible = false
+	_fly_key = ""
 	for cat in model.build_bar():
 		if cat["id"] != _open_cat:
 			continue
 		_fly_panel.visible = true
-		for e: Dictionary in cat["entries"]:
-			var text: String = e["label"]
-			if e["cost"] != "":
-				text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
-			var b := _button(_fly_box, text, 14)
+		_fly_title.text = cat["label"]
+		_fly_key = _flyout_key(cat)
+		var entries: Array = cat["entries"]
+		var card_count := entries.filter(func(e: Dictionary) -> bool: return e["kind"] == "building").size()
+		var grid: GridContainer = null
+		if card_count > 0:
+			var cols := mini(card_count, CARD_COLUMNS)
+			var rows := ceili(float(card_count) / CARD_COLUMNS)
+			var shown := mini(rows, CARD_ROWS)
+			var scroll := ScrollContainer.new()
+			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			scroll.custom_minimum_size = Vector2(cols * CARD_SIZE.x + (cols - 1) * CARD_GAP + (14 if rows > CARD_ROWS else 0),
+					shown * CARD_SIZE.y + (shown - 1) * CARD_GAP)
+			_fly_box.add_child(scroll)
+			grid = GridContainer.new()
+			grid.columns = cols
+			grid.add_theme_constant_override("h_separation", CARD_GAP)
+			grid.add_theme_constant_override("v_separation", CARD_GAP)
+			scroll.add_child(grid)
+		for e: Dictionary in entries:
+			var b: Button
+			if e["kind"] == "building":
+				b = _card(grid, e)
+			else:
+				var text: String = e["label"]
+				if e["cost"] != "":
+					text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
+				b = _button(_fly_box, text, 14)
+				b.name = "Tool_" + str(e["id"])
+				b.tooltip_text = str(e.get("tip", ""))
 			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
 			b.set_meta("kind", e["kind"])
 			b.set_meta("tool_id", e["id"])
-			if e["kind"] != "building":
-				b.name = "Tool_" + str(e["id"])
-				b.tooltip_text = str(e.get("tip", ""))
 			if e["kind"] == "building":
 				b.name = "Build_" + str(e["id"])
 				b.set_meta("def_id", e["id"])
@@ -641,8 +688,140 @@ func _show_flyout() -> void:
 						_tip_btn = null)
 			if e.get("enabled", true) == false:
 				b.disabled = true
-				b.modulate = Color(1, 1, 1, 0.5)
+				if not e.get("locked", false):
+					b.modulate = Color(1, 1, 1, 0.5)
 	_refresh_active_tool()
+
+
+## What decides how the cards look (state per entry): the flyout is rebuilt when this changes.
+func _flyout_key(cat: Dictionary) -> String:
+	var parts: Array[String] = []
+	for e: Dictionary in cat["entries"]:
+		parts.append("%s:%s:%s:%s" % [e["id"], e.get("locked", false), e.get("short", false), e.get("enabled", true)])
+	return "|".join(parts)
+
+
+## Rebuilds the open flyout when a card changes state (stock now covers a cost, or no longer does).
+func _refresh_flyout_cards() -> void:
+	if _open_cat == "" or not _fly_panel.visible:
+		return
+	for cat in model.build_bar():
+		if cat["id"] == _open_cat:
+			if _flyout_key(cat) != _fly_key:
+				_show_flyout()
+			return
+
+
+## One build card (a Button, so pressing, disabling and the tutorial pulse work as before): sprite, name, the cost of
+## each good as icon + number (the short number red), a lock and the unlock reason when the era is not reached.
+func _card(parent: Node, e: Dictionary) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = CARD_SIZE
+	b.clip_contents = true
+	parent.add_child(b)
+	var locked: bool = e.get("locked", false)
+	b.set_meta("card", "locked" if locked else ("short" if e.get("short", false) else "ok"))
+	_style_card(b, false)
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 6)
+	b.add_child(m)
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	m.add_child(v)
+	var pic := Control.new()
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.custom_minimum_size = Vector2(0, 84)
+	v.add_child(pic)
+	var entry: Variant = ArtLibrary.manifest()["buildings"].get(str(e["id"]))
+	if entry != null:
+		var t := TextureRect.new()
+		t.texture = ArtLibrary.texture(entry["file"])
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.modulate = Color(0.45, 0.45, 0.45, 1) if locked else Color.WHITE
+		pic.add_child(t)
+		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if locked:
+		var lock := LockGlyph.new()
+		lock.name = "Lock"
+		pic.add_child(lock)
+		lock.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	var title := _label(v, 16, DIM if locked else INK)
+	title.name = "CardName"
+	title.text = e["label"]
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.clip_text = true
+	if locked:
+		var why := _label(v, 12, GOLD)
+		why.name = "UnlockReason"
+		why.text = e["unlock"]
+		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		why.clip_text = true
+	var grid := GridContainer.new()
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 0)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(grid)
+	for c: Dictionary in e["costs"]:
+		var row := HBoxContainer.new()
+		row.name = "Cost_" + str(c["good"])
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 3)
+		grid.add_child(row)
+		if c["icon"] != "":
+			var ic := _icon(row, c["icon"], 20)
+			ic.name = "Icon"
+			ic.modulate = Color(0.6, 0.6, 0.6, 1) if locked else Color.WHITE
+		var num := _label(row, 14, RED if c["short"] and not locked else (DIM if locked else INK))
+		num.name = "Num"
+		num.text = str(c["need"])
+		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return b
+
+
+## Card look by state (the meta "card"): plain, red when something is short, grey when locked; gold edge while it is the
+## tool in use.
+func _style_card(b: Button, on: bool) -> void:
+	var state: String = b.get_meta("card", "ok")
+	var bg := Color(0.11, 0.094, 0.086)
+	var edge := PANEL_EDGE
+	var hover := Color(0.17, 0.145, 0.125)
+	if state == "short":
+		bg = Color(0.37, 0.09, 0.08)
+		edge = RED
+		hover = Color(0.45, 0.11, 0.09)
+	elif state == "locked":
+		bg = Color(0.09, 0.09, 0.09)
+		edge = Color(0.22, 0.22, 0.22)
+		hover = bg
+	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 5, 2))
+	b.add_theme_stylebox_override("hover", _style(hover, GOLD if state != "locked" else edge, 5, 2))
+	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 5, 2))
+	b.add_theme_stylebox_override("disabled", _style(bg, edge, 5, 2))
+
+
+## A small padlock for a locked card.
+class LockGlyph extends Control:
+	func _init() -> void:
+		custom_minimum_size = Vector2(20, 24)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var gold := Color("f2d27a")
+		draw_arc(Vector2(10, 9), 6.0, PI, TAU, 12, gold, 3.0)
+		draw_line(Vector2(4, 9), Vector2(4, 12), gold, 3.0)
+		draw_line(Vector2(16, 9), Vector2(16, 12), gold, 3.0)
+		draw_rect(Rect2(1, 12, 18, 11), gold)
+		draw_rect(Rect2(8, 15, 4, 5), Color("3a2e18"))
 
 
 const TOOL_MODES := {"road": BuildController.Mode.ROAD, "channel": BuildController.Mode.CHANNEL,
@@ -655,12 +834,15 @@ func _refresh_active_tool() -> void:
 	if build == null:
 		return
 	if _fly_box != null:
-		for c in _fly_box.get_children():
-			if c is Button and c.has_meta("kind") and not c.is_queued_for_deletion():
+		for c: Node in _fly_box.find_children("*", "Button", true, false):
+			if c.has_meta("kind") and not c.is_queued_for_deletion():
 				var id := str(c.get_meta("tool_id"))
 				var on: bool = (build.mode == BuildController.Mode.BUILD and c.get_meta("kind") == "building" and id == build.def_id) \
 						or (c.get_meta("kind") != "building" and TOOL_MODES.get(id, -1) == build.mode)
-				_style_button(c, on)
+				if c.has_meta("card"):
+					_style_card(c as Button, on)
+				else:
+					_style_button(c as Button, on)
 	if tools_tab != null:
 		tools_tab.refresh()
 
@@ -724,6 +906,7 @@ func refresh() -> void:
 	model.sync_layer()
 	_refresh_layer_tag()
 	tools_tab.refresh()
+	_refresh_flyout_cards()
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
