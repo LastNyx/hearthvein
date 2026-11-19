@@ -12,6 +12,7 @@ var _body_font: FontFile
 var _scale_buttons: Dictionary = {}
 var _fullscreen_box: CheckBox
 var _hints_box: CheckBox
+var _day_night_box: CheckBox
 var _mute_box: CheckBox
 var _updates_box: CheckBox
 var _sliders: Dictionary = {}
@@ -38,6 +39,8 @@ func setup(s: GameSettings) -> void:
 		_scale_buttons[sc] = b
 	_hints_box = _check("Show hints", s.hints_enabled, set_hints_enabled)
 	_hints_box.name = "HintsToggle"
+	_day_night_box = _check("Day and night", s.day_night, set_day_night)
+	_day_night_box.name = "DayNightToggle"
 	var reset := _button(self, "Reset tutorial and hints", 16)
 	reset.name = "ResetTutorial"
 	reset.pressed.connect(reset_tutorial)
@@ -72,6 +75,11 @@ func set_ui_scale(v: float) -> void:
 
 func set_hints_enabled(on: bool) -> void:
 	settings.hints_enabled = on
+	_commit()
+
+
+func set_day_night(on: bool) -> void:
+	settings.day_night = on
 	_commit()
 
 

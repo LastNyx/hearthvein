@@ -38,6 +38,12 @@ func status_text() -> String:
 	return "%s, %s" % [settlement.clock.label(), sp]
 
 
+## Fraction of the current hour already simulated, 0..1 (render-side only: the clock bar and the day and night tint).
+## Holds while paused, because the sim does not move.
+func hour_fraction() -> float:
+	return settlement.hour_fraction() if settlement != null else 0.0
+
+
 func _process(delta: float) -> void:
 	advance(delta)
 	if label != null and settlement != null:

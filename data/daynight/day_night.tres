@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DayNightDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/day_night_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+night_color = Color(0.5, 0.55, 0.78, 1)
+dusk_start = 19
+night_start = 21
+dawn_start = 5
+day_start = 7

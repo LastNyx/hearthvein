@@ -17,6 +17,7 @@ var planet: PlanetDef = null  # the single data/planet/planet.tres
 var soil: SoilDef = null      # the single data/soil/soil.tres
 var forest: ForestDef = null  # the single data/forest/forest.tres
 var water: WaterDef = null    # the single data/water/water.tres
+var day_night: DayNightDef = null  # the single data/daynight/day_night.tres
 var regions: RegionsDef = null  # the single data/regions/regions.tres
 var mapgen: MapGenDef = null        # the single data/mapgen/mapgen.tres
 var tiers: TierRuleDef = null       # the single data/tiers/tiers.tres (upgrade tier default rule)
@@ -46,6 +47,7 @@ func load_all(root: String = DEFAULT_ROOT) -> Array[String]:
 	soil = null
 	forest = null
 	water = null
+	day_night = null
 	regions = null
 	mapgen = null
 	tiers = null
@@ -208,6 +210,10 @@ func _index(path: String) -> void:
 		if water != null:
 			errors.append("%s: a second water definition" % path)
 		water = res
+	elif res is DayNightDef:
+		if day_night != null:
+			errors.append("%s: a second day and night definition" % path)
+		day_night = res
 	elif res is RegionsDef:
 		if regions != null:
 			errors.append("%s: a second regions definition" % path)
@@ -333,6 +339,13 @@ func _validate() -> void:
 			or water.foul_dock_output_factor <= 0.0 or water.foul_dock_output_factor > 1.0 \
 			or water.foul_farm_output_factor <= 0.0 or water.foul_farm_output_factor > 1.0:
 		errors.append("water: invalid numbers")
+	if day_night == null:
+		if not goods.is_empty():
+			errors.append("missing day and night definition")
+	elif day_night.dawn_start < 0 or day_night.dusk_start < 0 or day_night.night_start < 0 \
+			or day_night.day_start <= day_night.dawn_start or day_night.dusk_start < day_night.day_start \
+			or day_night.night_start <= day_night.dusk_start or day_night.night_start > GameClock.HOURS_PER_DAY:
+		errors.append("day and night: hours must satisfy dawn < day <= dusk < night <= 24")
 	if regions == null:
 		if not goods.is_empty():
 			errors.append("missing regions definition")

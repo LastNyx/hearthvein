@@ -56,6 +56,8 @@ var _title: Array[Node] = []
 var _updating := false
 var _pan: Tween
 var driver: SimDriver
+## The world CanvasModulate (ticket 107): night tint x Dimming colour, refreshed every frame from the clock.
+var dim_tint: CanvasModulate
 var map_view: MapView
 var placement: PlacementView
 var walkers: WalkerView
@@ -307,6 +309,7 @@ func _free_world() -> void:
 	_world.clear()
 	settlement = null
 	driver = null
+	dim_tint = null
 	map_view = null
 	placement = null
 	walkers = null
@@ -398,13 +401,13 @@ func _build_world(s: Settlement) -> void:
 	for kind in ["campaign_won", "campaign_no_win", "campaign_lost"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void:
 			end_screen.show_outcome(kind.trim_prefix("campaign_"), s))
-	# Dimming: darken the world (CanvasModulate does not touch the CanvasLayer HUD).
+	# Day and night x Dimming: darken the world (CanvasModulate does not touch the CanvasLayer HUD). Refreshed every
+	# frame in _process so the dusk and dawn blends move with the hour fraction; paused, the sim holds and so does it.
 	var dim := CanvasModulate.new()
 	dim.name = "DimmingTint"
 	_add(dim)
-	dim.color = Color(0.45, 0.48, 0.65) if DimmingSystem.is_active(s) else Color.WHITE
-	s.events.subscribe("dimming_started", func(_e: Dictionary) -> void: dim.color = Color(0.45, 0.48, 0.65))
-	s.events.subscribe("dimming_ended", func(_e: Dictionary) -> void: dim.color = Color.WHITE)
+	dim_tint = dim
+	_update_tint()
 	placement = PlacementView.new()
 	placement.name = "PlacementView"
 	view.add_child(placement)
@@ -455,6 +458,22 @@ func _build_world(s: Settlement) -> void:
 	hud.add_cards(settings)
 	hud.hint_cards.help_page_requested.connect(help.open_page)
 	hud.help_requested.connect(help.toggle)
+
+
+## The map tint: the day and night colour (from DayNightDef) times the Dimming colour, or plain Dimming when the
+## player turned day and night off. Cheap, so it runs every frame.
+func _update_tint() -> void:
+	if dim_tint == null or settlement == null or registry == null:
+		return
+	var hours_f := float(settlement.clock.hour())
+	if driver != null:
+		hours_f += driver.hour_fraction()
+	dim_tint.color = DayNight.map_tint(hours_f, registry.day_night, DimmingSystem.is_active(settlement),
+			settings == null or settings.day_night)
+
+
+func _process(_delta: float) -> void:
+	_update_tint()
 
 
 ## Repaint the islands on the sky layer from the sim (raised and removed islands).

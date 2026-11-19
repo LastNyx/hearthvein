@@ -71,6 +71,12 @@ var _roads_dirty := true
 var _hour_acc: float = 0.0
 
 
+## Fraction of the current hour already simulated, 0..1. Read-only, render-side (the clock bar and the day and night
+## tint); the sim itself only moves in whole hours.
+func hour_fraction() -> float:
+	return clampf(_hour_acc / GameClock.REAL_SECONDS_PER_HOUR, 0.0, 1.0)
+
+
 static func new_game(seed: int, reg: DataRegistry, endless_start: bool = false, tutorial: bool = false) -> Settlement:
 	var s := Settlement.new()
 	s.registry = reg
