@@ -60,7 +60,7 @@ and the campaign win needs planet health >= 50% at the very end.
 - Sky land (Skyborne, section 17): floating districts add up to 4 islands of 16x12 tiles over owned regions.
 
 ## 5. Citizens, housing and growth (D17, D46)
-- Start: Hearth (houses 8), 8 citizens, 60 food, 40 materials, 10 Lumen, 0 gold.
+- Start: Hearth (houses 8), 8 citizens, 60 food, 40 wood, 0 stone, 10 Lumen, 0 gold.
 - Each citizen eats 1 food/day. Daily surplus goes into the growth bar.
 - Growth bar size = 3 + pop / 6 food (tuned in 47b-47d; was 8 + pop / 3). Full bar and a free bed = one new citizen
   at the Hearth.
@@ -75,30 +75,32 @@ and the campaign win needs planet health >= 50% at the very end.
 
 ## 6. Jobs, walking and building
 - Production buildings have worker slots, filled from idle citizens by priority:
-  food > water > Lumen > hauling > materials > refined goods > gold > civic. The player can set one building's
+  food > water > Lumen > hauling > wood and stone > refined goods > gold > civic. The player can set one building's
   priority (low/normal/high) or pause it; never assigns a person.
 - Workers walk home -> job; output counts only while at work, so distance matters.
 - Walking speed (tiles/s): grass 1.0, dirt road 1.5, paved road 2.0. Handcart haulers on paved road 2.5.
 - A building with no road connection to the Hearth (or, from Conflux, to a Rail Depot in its region) gets no
   workers and shows an icon (D22).
-- Roads: dirt free, paved 1 materials + 0.2 cut stone per tile (Town).
+- Roads: dirt free, paved 1 wood + 0.2 cut stone per tile (Town).
 - **Construction (D48):** placing a building makes a site. Haulers deliver its cost, then builders build it
-  (Builder job: 4 slots at the Hearth, 4 per Builder's Yard). Build time 1-6 days by size and era. The player
+  (Builder job: 4 slots at the Hearth, 4 per Builder's Yard). Build time 0.3 days per tile + 0.1 per era past Camp (0.3-6 days). The player
   can raise one site's priority. Demolish refunds 50% to the nearest storehouse. Upgrades (section 10) work the
   same way and the building keeps running at its old tier until done.
 
 ## 7. Resources and refined goods (D14, D38)
-Base resources stay four. Gold is a global counter (coins, never hauled). Food, materials, Lumen and every
+Base resources are five: food, wood, stone, Lumen, gold. Gold is a global counter (coins, never hauled).
+Food, wood, stone, Lumen and every
 refined good are physical goods held in storehouses and moved by haulers.
 
 | Good | Made by | From | Era | Used for |
 |---|---|---|---|---|
 | Food | Forager, Farm, Fishing Dock, Greenhouse, Hydroponic Hall, Sky Garden, Bloom Orchard | land/water | Camp+ | eating, growth |
-| Materials | Woodcutter, Quarry, Workshop | land | Camp+ | building, roads, refining |
+| Wood | Woodcutter | land | Camp+ | building, roads, refining |
+| Stone | Quarry, Workshop | land, Lumen | Village+ | building, roads, refining |
 | Lumen | Tap, Pump, Reactor, Vein Bore, Aether Collector, Heartroot Tap | veins/air | Camp+ | upkeep, light in the Dimming, landmarks |
 | Gold | Market, Tax Office, Grand Bazaar | people | Village+ | regions, era gates, late buildings |
-| Planks | Sawmill | 2 materials -> 1 | Village | tier II upgrades, Town+ buildings |
-| Cut stone | Mason | 3 materials -> 1 | Town | tier II upgrades, paved roads, landmarks |
+| Planks | Sawmill | 6 wood -> 3 | Village | tier II upgrades, Town+ buildings |
+| Cut stone | Mason | 6 stone -> 2 | Town | tier II upgrades, paved roads, landmarks |
 | Lumen cells | Refinery | 6 Lumen -> 1 cell (holds 5) | Town | lossless Lumen storage, tools |
 | Meals | Kitchen | 1 food of type A + 1 of type B -> 3 meals | Town | eating (1 meal = 1 food), food variety |
 | Tools | Toolsmith | 1 plank + 1 cell -> 1 | City | tier III upgrades, Conflux+ buildings |
@@ -112,13 +114,13 @@ refined good are physical goods held in storehouses and moved by haulers.
 
 ## 8. Hauling and logistics (D39)
 - Hauler is an auto-filled job. Slots: Hearth 2, each Storehouse 2, Builder's Yard 2.
-- Producers drop output in a door buffer (20 units). Full buffer = production stops, icon shown.
+- Producers drop output in a door buffer (40 units). Full buffer = production stops, icon shown.
 - Haulers carry door buffers to the nearest storehouse with room, and from storehouses to consumers (refiners,
   construction sites, buildings with upkeep). Consumers keep an input buffer of 2 days of need.
 - Carry: 5 units on foot. Handcart Shed (Town) gives every hauler in its region 15 units and +25% speed on
   paved roads.
 - Citizens eat and take light Lumen from the nearest storehouse in their region (a walk, but no hauling).
-- Cargo rail (Conflux): a Rail Depot in each region, linked by rail track (placed like road, 2 materials +
+- Cargo rail (Conflux): a Rail Depot in each region, linked by rail track (placed like road, 1 wood + 1 stone +
   1 cut stone per tile). Each depot has a manifest the player never edits: it moves surplus to regions in need.
   Without rail, goods cross regions only by hauler on foot.
 - Airship Dock (Conflux): freight between any two owned regions with docks, no track needed; also serves islands.
@@ -129,7 +131,7 @@ refined good are physical goods held in storehouses and moved by haulers.
 ### Water
 - Every tile is wet or dry; recomputed daily, no fluid simulation.
 - Wet: within 2 tiles of river/lake/spring, or within 1 tile of a flowing channel.
-- Irrigation Channel (Village): placed like road (1 materials/tile). A channel is flowing if it connects to a
+- Irrigation Channel (Village): placed like road (1 stone/tile). A channel is flowing if it connects to a
   water tile through other channels. Channels block buildings but not walking (small footbridges).
 - Farms: x1.25 if at least half the footprint is wet. Irrigated Farm (Farm tier II) works only when wet.
 - Drinking water: from Town, housing from Rowhouse up needs a Well within 8 tiles (Water Tower: 16 tiles,
@@ -158,14 +160,14 @@ refined good are physical goods held in storehouses and moved by haulers.
 
 ## 10. Upgrade tiers (D36)
 - Tiers: base, II, III, upgraded in place (keeps spot and workers; building runs at old tier during works).
-- Only housing, food, materials and Lumen buildings upgrade. Landmarks, civic, refiners, logistics don't.
+- Only housing, food, resources and Lumen buildings upgrade. Landmarks, civic, refiners, logistics don't.
 - Tier II unlocks in Town, tier III in City.
 - Default rule (per building data may override):
 
 | Tier | Effect | Cost |
 |---|---|---|
-| II | output or beds x1.5, +1 worker slot | planks = 50% of base materials cost, cut stone = 25% |
-| III | output or beds x2 (of base), +2 worker slots | tools = 20% of base materials cost, cells = 10%, cut stone = 25% |
+| II | output or beds x1.5, +1 worker slot | planks = 50% of base wood + stone cost, cut stone = 25% |
+| III | output or beds x2 (of base), +2 worker slots | tools = 20% of base wood + stone cost, cells = 10%, cut stone = 25% |
 
 - Special tiers: Tent II/III = Hut/Lodge. Farm II = Irrigated Farm (needs wet; x1.5 output on top of tier).
   Farm III = Terraced Farm (no fertility loss). Lumen extractors: tiers raise output but not blight radius or
@@ -254,61 +256,61 @@ Effects of low health:
 Reaching an era unlocks its building set. No research tree (D19).
 
 ## 16. Buildings, Camp to City
-Cost shorthand: M materials, G gold, L Lumen, P planks, S cut stone, C Lumen cells, T tools.
+Cost shorthand: W wood, St stone, G gold, L Lumen, P planks, S cut stone, C Lumen cells, T tools.
 Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at tier base.
 
 ### Camp
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
 | Hearth | 2x2 | start | 2 haul, 4 build | - | town centre, houses 8, storage 150 each |
-| Tent | 1x1 | 5M | - | - | houses 2 (Hut 3, Lodge 4) |
-| Forager | 1x1 | 10M | 2 | - | +1.5 food; needs grass/forest in r3 |
-| Woodcutter | 1x1 | 10M | 2 | - | +1 M; cuts forest in r4 |
-| Storehouse | 2x1 | 25M | 2 haul | - | 400 units any goods |
-| Lumen Tap | 1x1, vein | 20M | 2 | - | +4.5 L; blight r2/6d (tooltip says so) |
-| Meeting Hall* | 2x2 | 60M 10L | - | - | Village gate |
+| Tent | 1x1 | 5W | - | - | houses 2 (Hut 3, Lodge 4) |
+| Forager | 1x1 | 10W | 2 | - | +1.5 food; needs grass/forest in r3 |
+| Woodcutter | 1x1 | 10W | 2 | - | +12 wood; cuts forest in r4 |
+| Storehouse | 2x1 | 25W | 2 haul | - | 400 units any goods |
+| Lumen Tap | 1x1, vein | 20W | 2 | - | +4.5 L; blight r2/6d (tooltip says so) |
+| Meeting Hall* | 2x2 | 60W 10L | - | - | Village gate |
 
 ### Village
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Cottage | 1x1 | 15M | - | - | houses 4 |
-| Farm | 2x2 | 30M | 3 | - | +2 food x fertility; x1.25 wet |
-| Fishing Dock | 1x1, shore | 20M | 2 | - | +1.5 food; x0.5 fouled |
-| Quarry | 1x1, rock | 25M | 2 | - | +1.5 M |
-| Market | 2x2 | 40M | 2 | - | +1 G; food variety needs a Market in reach of homes |
-| Shrine | 1x1 | 30M 5L | - | - | Spirit coverage r6 |
-| Sawmill | 2x1 | 35M | 2 | - | 2 M -> 1 P, 3/worker/day |
-| Forester | 1x1 | 20M | 1 | - | plants forest r5, halves regrowth |
-| Builder's Yard | 2x1 | 30M | 4 build, 2 haul | - | more builders |
-| Irrigation Channel | tile | 1M | - | - | carries water |
-| Cleanser | 2x1 | 60M 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01; Village (96), upkeep from Town |
-| Bell Tower* | 1x1 | 120M 20G 20L 20P | - | - | Town gate |
+| Cottage | 1x1 | 10W 5St | - | - | houses 4 |
+| Farm | 2x2 | 21W 9St | 3 | - | +2 food x fertility; x1.25 wet |
+| Fishing Dock | 1x1, shore | 14W 6St | 2 | - | +1.5 food; x0.5 fouled |
+| Quarry | 1x1, rock | 25W | 2 | - | +1.5 M |
+| Market | 2x2 | 40W | 2 | - | +1 G; food variety needs a Market in reach of homes |
+| Shrine | 1x1 | 12W 18St 5L | - | - | Spirit coverage r6 |
+| Sawmill | 2x1 | 14W 21St | 2 | - | 6 W -> 3 P, 3/worker/day |
+| Forester | 1x1 | 20W | 1 | - | plants forest r5, halves regrowth |
+| Builder's Yard | 2x1 | 21W 9St | 4 build, 2 haul | - | more builders |
+| Irrigation Channel | tile | 1St | - | - | carries water |
+| Cleanser | 2x1 | 24W 36St 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01; Village (96), upkeep from Town |
+| Bell Tower* | 1x1 | 48W 72St 20G 20L 20P | - | - | Town gate |
 
 ### Town (Lumen upkeep starts)
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Rowhouse | 2x1 | 40M 5G 10P | - | 0 | houses 10; needs well |
-| Greenhouse | 2x1 | 50M 10G 10L 10P | 3 | 1 | +2.5 food; Dimming-proof |
-| Workshop | 2x1 | 50M 10G | 3 | 1 | 2 L -> 3 M |
-| Lumen Pump | 1x1, vein | 60M 15G 10P | 3 | 0 | +7 L; blight r4/3d |
-| Tax Office | 1x1 | 40M | 1 | 0 | +0.2 G per citizen/day; Spirit -5 |
-| Well | 1x1, wet | 25M 5S | - | 0 | drinking water r8 |
-| Mason | 2x1 | 45M 10P | 2 | 0 | 3 M -> 1 S, 2/worker/day |
-| Refinery | 2x2 | 60M 20G 15P | 2 | 0 | 6 L -> 1 C, 2/worker/day |
-| Kitchen | 1x1 | 30M 10P | 2 | 0 | 2 food (two types) -> 3 meals, 4/worker/day |
-| Handcart Shed | 2x1 | 40M 20P | - | 1 | haulers in region carry 15 |
-| Lumen Spire* | 2x2 | 250M 80G 120L 40P 40S | - | 0 | City gate |
+| Rowhouse | 2x1 | 28W 12St 5G 10P | - | 0 | houses 10; needs well |
+| Greenhouse | 2x1 | 35W 15St 10G 10L 10P | 3 | 1 | +2.5 food; Dimming-proof |
+| Workshop | 2x1 | 50W 10G | 3 | 1 | 2 L -> 3 St |
+| Lumen Pump | 1x1, vein | 24W 36St 15G 10P | 3 | 0 | +7 L; blight r4/3d |
+| Tax Office | 1x1 | 16W 24St | 1 | 0 | +0.2 G per citizen/day; Spirit -5 |
+| Well | 1x1, wet | 10W 15St 5S | - | 0 | drinking water r8 |
+| Mason | 2x1 | 18W 27St 10P | 2 | 0 | 6 St -> 2 S, 2/worker/day |
+| Refinery | 2x2 | 24W 36St 20G 15P | 2 | 0 | 6 L -> 1 C, 2/worker/day |
+| Kitchen | 1x1 | 12W 18St 10P | 2 | 0 | 2 food (two types) -> 3 meals, 4/worker/day |
+| Handcart Shed | 2x1 | 28W 12St 20P | - | 1 | haulers in region carry 15 |
+| Lumen Spire* | 2x2 | 100W 150St 80G 120L 40P 40S | - | 0 | City gate |
 
 ### City
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Apartment Block | 2x2 | 90M 20G 30P 20S | - | 1 | houses 24; needs well |
-| Lumen Reactor | 2x2, vein | 150M 60G 30S | 4 | 0 | +10 L, Dimming hit x0.6 instead of x0.25; blight r6/2d |
-| Purifier Tower | 1x1 | 100M 40G 20L 20S | 2 | 3 | 1 tile/day r8, blocks blight r4; planet +0.03 |
-| Grand Bazaar | 3x2 | 120M 30G 30P | 4 | 1 | +1.5 G; counts as a food type |
-| Park | 2x2 | 40M 10G | - | 0 | Spirit coverage r5, blight-proof; planet +0.005 |
-| Toolsmith | 2x1 | 80M 30G 20S | 2 | 1 | 1 P + 1 C -> 1 T, 1.5/worker/day |
-| Lumen Nexus* | 3x3 | 400M 200G 300L 80S 40T 30C | - | 0 | Conflux gate; first grid node (r12) |
+| Apartment Block | 2x2 | 63W 27St 20G 30P 20S | - | 1 | houses 24; needs well |
+| Lumen Reactor | 2x2, vein | 60W 90St 60G 30S | 4 | 0 | +10 L, Dimming hit x0.6 instead of x0.25; blight r6/2d |
+| Purifier Tower | 1x1 | 40W 60St 40G 20L 20S | 2 | 3 | 1 tile/day r8, blocks blight r4; planet +0.03 |
+| Grand Bazaar | 3x2 | 48W 72St 30G 30P | 4 | 1 | +1.5 G; counts as a food type |
+| Park | 2x2 | 16W 24St 10G | - | 0 | Spirit coverage r5, blight-proof; planet +0.005 |
+| Toolsmith | 2x1 | 32W 48St 30G 20S | 2 | 1 | 1 P + 1 C -> 1 T, 1.5/worker/day |
+| Lumen Nexus* | 3x3 | 160W 240St 200G 300L 80S 40T 30C | - | 0 | Conflux gate; first grid node (r12) |
 
 ## 17. Buildings, Conflux to Ascendant (D45, D54)
 Design intent: Conflux makes the settlement one connected machine (grid, rail, airships). Skyborne adds clean
@@ -318,17 +320,17 @@ heal the planet you spent 12 years draining, then face the Great Dimming.
 ### Conflux: Lumen grid, cargo rail, first airship dock
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Conduit Terraces | 3x2 | 140M 40G 40P 40S 10T | - | 2 | houses 36; needs well; upgrades |
-| Lumen Pylon | 1x1 | 30M 10S 5T | - | 0 | grid node: feeds buildings in r8, links pylons within 12 |
-| Grid Battery | 2x1 | 60M 30G 20S 20C | - | 0 | holds 600 L for the grid, lossless, discharges in a Dimming |
-| Rail Depot | 3x1 | 120M 60G 30S 15T | 2 haul | 1 | cargo rail station, one per region, links via track |
-| Airship Dock | 3x3 | 200M 120G 40P 20T | 3 | 4 | freight between docked regions and islands; survey flight reveals a locked region's reward |
-| Vein Bore | 2x2, vein | 200M 80G 40S 20T | 4 | 0 | +16 L, Dimming x0.4; blight r5/1d; planet -0.05/day |
-| Hydroponic Hall | 3x2 | 150M 50G 30P 20T | 4 | 3 | +4 food, no soil, needs water; Dimming- and blight-proof |
-| Water Tower | 1x1 | 80M 20G 30S | - | 1 | drinking water r16, wets tiles r3 |
-| Sky Foundry* | 3x3 | 600M 400G 400L 120S 80T 60C | - | 0 | Skyborne gate; makes the first Lift Anchor free |
+| Conduit Terraces | 3x2 | 98W 42St 40G 40P 40S 10T | - | 2 | houses 36; needs well; upgrades |
+| Lumen Pylon | 1x1 | 21W 9St 10S 5T | - | 0 | grid node: feeds buildings in r8, links pylons within 12 |
+| Grid Battery | 2x1 | 42W 18St 30G 20S 20C | - | 0 | holds 600 L for the grid, lossless, discharges in a Dimming |
+| Rail Depot | 3x1 | 84W 36St 60G 30S 15T | 2 haul | 1 | cargo rail station, one per region, links via track |
+| Airship Dock | 3x3 | 140W 60St 120G 40P 20T | 3 | 4 | freight between docked regions and islands; survey flight reveals a locked region's reward |
+| Vein Bore | 2x2, vein | 80W 120St 80G 40S 20T | 4 | 0 | +16 L, Dimming x0.4; blight r5/1d; planet -0.05/day |
+| Hydroponic Hall | 3x2 | 105W 45St 50G 30P 20T | 4 | 3 | +4 food, no soil, needs water; Dimming- and blight-proof |
+| Water Tower | 1x1 | 32W 48St 20G 30S | - | 1 | drinking water r16, wets tiles r3 |
+| Sky Foundry* | 3x3 | 240W 360St 400G 400L 120S 80T 60C | - | 0 | Skyborne gate; makes the first Lift Anchor free |
 
-Rail track: tile, 2M + 1S. Pylons and the grid are an overlay (section 20).
+Rail track: tile, 1W + 1St + 1S. Pylons and the grid are an overlay (section 20).
 
 ### Skyborne: floating districts
 Islands: a Lift Anchor raises a 16x12 sky island over an owned region (max 4 islands). Sky tiles are plain
@@ -339,34 +341,34 @@ the ground layer when viewing ground.
 
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Lift Anchor | 3x3 (ground) | 400M 300G 100S 60T 60C | 2 | 20 per island | raises one island |
-| Sky Lift | 1x1 pair | 80M 30G 20S 10T | - | 2 | walker/hauler link ground <-> island |
-| Skyspire | 2x2 | 160M 60G 40P 40S 20T | - | 2 | houses 40; island or ground; needs water |
-| Cloud Cistern | 2x1, island | 60M 20G 20S | - | 0 | drinking water r10 on its island, wets r3 |
-| Sky Garden | 3x2, island | 120M 40G 30P 10T | 3 | 1 | +3.5 food, own food type; needs wet |
-| Aether Collector | 2x2, island | 150M 60G 30S 20T | 3 | 0 | +6 L from the air; no blight, no planet drain; Dimming x0.5 |
-| Skyforge | 2x2, island | 140M 60G 40S | 3 | 2 | 1 P + 1 C -> 1 T at 3/worker/day |
-| Observatory | 2x2 | 120M 80G 30S 10T | 1 | 1 | Dimming forecast two seasons ahead; Spirit coverage r8 |
-| Dawn Beacon* | 2x2 | 800M 800G 600L 150S 120T 100C | - | 0 | Ascendant gate; light need 0.5 -> 0.35 per citizen |
+| Lift Anchor | 3x3 (ground) | 160W 240St 300G 100S 60T 60C | 2 | 20 per island | raises one island |
+| Sky Lift | 1x1 pair | 32W 48St 30G 20S 10T | - | 2 | walker/hauler link ground <-> island |
+| Skyspire | 2x2 | 112W 48St 60G 40P 40S 20T | - | 2 | houses 40; island or ground; needs water |
+| Cloud Cistern | 2x1, island | 24W 36St 20G 20S | - | 0 | drinking water r10 on its island, wets r3 |
+| Sky Garden | 3x2, island | 84W 36St 40G 30P 10T | 3 | 1 | +3.5 food, own food type; needs wet |
+| Aether Collector | 2x2, island | 60W 90St 60G 30S 20T | 3 | 0 | +6 L from the air; no blight, no planet drain; Dimming x0.5 |
+| Skyforge | 2x2, island | 56W 84St 60G 40S | 3 | 2 | 1 P + 1 C -> 1 T at 3/worker/day |
+| Observatory | 2x2 | 48W 72St 80G 30S 10T | 1 | 1 | Dimming forecast two seasons ahead; Spirit coverage r8 |
+| Dawn Beacon* | 2x2 | 320W 480St 800G 600L 150S 120T 100C | - | 0 | Ascendant gate; light need 0.5 -> 0.35 per citizen |
 
 ### Ascendant: planet healing and the finale
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Lumen Arcology | 3x3 | 300M 120G 60S 40T 20C | - | 4 | houses 60; needs water; upgrades |
-| Heartroot Tap | 2x2, vein | 200M 100G 40S 30T | 3 | 0 | +12 L, no blight, no drain; works only at planet health >= 50% |
-| Verdant Spring | 2x2 | 250M 150G 50S 30C | 2 | 4 | 1 blighted tile/day in r10 -> fertile soil (fertility 100); planet +0.08 |
-| Vein Mender | 1x1, vein | 150M 100G 40C | 2 | 3 | extractors within r6 drain the planet half as much; planet +0.04 |
-| Rewilding Grove | 2x2 | 100M 60G 20P | 2 | 1 | spreads forest r8 (1 tile/day on grass/stump); planet +0.03 |
-| Clearwater Works | 2x1, river | 160M 80G 40S 20T | 2 | 2 | no fouling past its tile; planet +0.03 |
-| Bloom Orchard | 3x3 | 120M 40G 30P | 4 | 0 | +3 food, own food type; needs fertility >= 60; Dimming x0.75 |
-| Hall of Seasons | 3x2 | 200M 150G 60S | 2 | 2 | Spirit coverage r12; halves the darkness penalty in its range |
+| Lumen Arcology | 3x3 | 210W 90St 120G 60S 40T 20C | - | 4 | houses 60; needs water; upgrades |
+| Heartroot Tap | 2x2, vein | 80W 120St 100G 40S 30T | 3 | 0 | +12 L, no blight, no drain; works only at planet health >= 50% |
+| Verdant Spring | 2x2 | 100W 150St 150G 50S 30C | 2 | 4 | 1 blighted tile/day in r10 -> fertile soil (fertility 100); planet +0.08 |
+| Vein Mender | 1x1, vein | 60W 90St 100G 40C | 2 | 3 | extractors within r6 drain the planet half as much; planet +0.04 |
+| Rewilding Grove | 2x2 | 40W 60St 60G 20P | 2 | 1 | spreads forest r8 (1 tile/day on grass/stump); planet +0.03 |
+| Clearwater Works | 2x1, river | 64W 96St 80G 40S 20T | 2 | 2 | no fouling past its tile; planet +0.03 |
+| Bloom Orchard | 3x3 | 84W 36St 40G 30P | 4 | 0 | +3 food, own food type; needs fertility >= 60; Dimming x0.75 |
+| Hall of Seasons | 3x2 | 80W 120St 150G 60S | 2 | 2 | Spirit coverage r12; halves the darkness penalty in its range |
 | Skyheart* | 4x4 | 4 stages, see section 18 | - | 0 | final landmark; starts the Great Dimming |
 
 Count: Conflux 8 + landmark, Skyborne 8 + landmark, Ascendant 8 + Skyheart.
 
 ## 18. The Skyheart and the finale (D33)
 - Built in 4 stages, each a separate construction (ONI-style megaproject):
-  1. Foundation: 800M 300S. 2. Lattice: 300P 200T. 3. Core: 400C 1000L. 4. Crown: 1500G 200T 200C.
+  1. Foundation: 320W 480St 300S. 2. Lattice: 300P 200T. 3. Core: 400C 1000L. 4. Crown: 1500G 200T 200C.
 - Finished: the Great Dimming is announced and starts one season later.
 - Reservoir: the finished Skyheart holds up to 3000 L (grid-fed, lossless) and pours it into the grid and light
   during the Great Dimming. The season before is the last big stockpiling push.
@@ -392,7 +394,7 @@ Count: Conflux 8 + landmark, Skyborne 8 + landmark, Ascendant 8 + Skyheart.
 - Keys: space pause, 1/2/3 speed, B build menu, R road, C channel, X demolish, U upgrade selected, M region map.
 - HUD (see `mockups/scene_village.png`): top bar with resources and deltas (refined goods in a fold-out),
   population/beds, Spirit, planet health with yearly trend; era + Dimming forecast panel; selected-building
-  panel (tier, workers, buffers, priority); bottom build bar by category (Roads, Housing, Food, Materials, Lumen,
+  panel (tier, workers, buffers, priority); bottom build bar by category (Roads, Housing, Food, Resources, Lumen,
   Refining, Water, Logistics, Civic, Sky, Landmark).
 - Overlays: blight, coverage (Shrine/Park/Hall), water (wet/dry/fouled), fertility, road connection, Lumen grid,
   regions (prices, rewards).
