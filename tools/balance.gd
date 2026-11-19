@@ -115,6 +115,7 @@ var _wanted_max := 0.0  # highest wanted slots / citizens seen since the last er
 var _wanted_over := 0  # days the wanted slots were above the population since the last era change
 var _placed_capped := 0  # workplaces placed for the producers' shares since the last era change: within the idle hands
 var _placed_exempt := 0  # ... and let through the cap (food running out, a landmark good nobody makes yet)
+var _act_hour: int = 0  # argument at=<hour>: the bot plays at this hour of the day (a player places sites in daylight), default midnight
 var _measure: bool = false  # argument m: step hour by hour and sample where site time and producer hours go (102)
 var _m_site := {}  # site phase -> site-hours
 var _m_deliv := {}  # site id -> clock hour its goods were all there
@@ -138,6 +139,8 @@ func _init() -> void:
 			_map_day = int(a.substr(4))
 		if a.begins_with("stall="):
 			_stall_years = int(a.substr(6))
+		if a.begins_with("at="):
+			_act_hour = int(a.substr(3))
 	var reg := DataRegistry.new()
 	reg.load_all()
 	s = Settlement.new_game(seed_value, reg)
@@ -150,6 +153,8 @@ func _init() -> void:
 	var stalled := false
 	var days := MAX_YEARS * GameClock.DAYS_PER_YEAR
 	var t0 := Time.get_ticks_msec()
+	if _act_hour > 0:
+		s.step_hours(_act_hour)
 	for d in days:
 		_gold_before = s.gold
 		_act()
