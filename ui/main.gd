@@ -38,11 +38,22 @@ var help: HelpScreen
 var title_screen: TitleScreen
 var new_game_panel: NewGamePanel
 var whats_new_panel: WhatsNewPanel
+var update_panel: UpdatePanel
+## Auto-update (ticket 94). `update_offer` is the newer release found, {} when none; the other vars are seams the tests swap.
+var updater: UpdateCheck
+var update_offer: Dictionary = {}
+var update_url: String = ""
+var install_kind: String = UpdateCheck.install_kind(OS.get_name(), OS.has_feature("editor"), OS.get_environment("APPIMAGE"))
+var appimage_path: String = OS.get_environment("APPIMAGE")
+var update_dir: String = "user://updates"
+var open_fn: Callable = func(target: String) -> void: OS.shell_open(target)
+var launch_fn: Callable = func(path: String) -> void: OS.create_process(path, [])
 ## The version shown on the title and compared for the What's new auto-open; blank = the project's. Tests set it.
 var app_version: String = ""
 var changelog_path: String = "res://CHANGELOG.md"
 var _world: Array[Node] = []
 var _title: Array[Node] = []
+var _updating := false
 var _pan: Tween
 var driver: SimDriver
 var map_view: MapView
@@ -90,9 +101,13 @@ func _ready() -> void:
 	menu.main_menu_requested.connect(return_to_title)
 	menu.quit_requested.connect(quit_game)
 	end_screen.title_requested.connect(return_to_title)
+	updater = UpdateCheck.new()
+	updater.name = "UpdateCheck"
+	add_child(updater)
 	_build_title()
 	if ChangelogText.auto_open(settings, app_version):
 		open_whats_new()
+	_start_update_check()
 
 
 ## Starts a fresh Settlement and enters GAME. Seed -1 is the tutorial seed (data) when `tutorial` is on, else `game_seed`,
@@ -149,6 +164,109 @@ func close_whats_new() -> void:
 	remove_child(whats_new_panel)
 	whats_new_panel.queue_free()
 	whats_new_panel = null
+
+
+## Once on launch, at most every 24 h, toggle permitting; never in a headless run (tests) unless HV_UPDATE_URL points
+## somewhere (then it always asks: the override is for local checks).
+func _start_update_check() -> void:
+	var override := OS.get_environment("HV_UPDATE_URL")
+	if update_url == "":
+		update_url = override if override != "" else UpdateCheck.API_URL
+	if override == "" and DisplayServer.get_name() == "headless":
+		return
+	var now := int(Time.get_unix_time_from_system())
+	if not settings.check_updates or (override == "" and not UpdateCheck.should_check(settings, now)):
+		return
+	updater.check_done.connect(func(offer: Dictionary) -> void:
+		settings.update_last_check = now
+		settings.save()
+		show_update_offer(offer), CONNECT_ONE_SHOT)
+	updater.check(update_url, app_version, install_kind)
+
+
+## An offer from a check: the title gets its button unless the player skipped that version.
+func show_update_offer(offer: Dictionary) -> void:
+	if UpdateCheck.is_skipped(offer, settings):
+		offer = {}
+	update_offer = offer
+	if title_screen != null:
+		if offer.is_empty():
+			title_screen.hide_update()
+		else:
+			title_screen.show_update(str(offer["version"]))
+
+
+func open_update_panel() -> void:
+	if update_panel != null or state != State.TITLE or update_offer.is_empty():
+		return
+	update_panel = UpdatePanel.new()
+	update_panel.name = "UpdatePanel"
+	_add_title(update_panel)
+	update_panel.setup(update_offer)
+	update_panel.later_pressed.connect(close_update_panel)
+	update_panel.skip_pressed.connect(skip_update)
+	update_panel.page_pressed.connect(open_update_page)
+	update_panel.primary_pressed.connect(start_update_download)
+
+
+func close_update_panel() -> void:
+	if update_panel == null or _updating:
+		return
+	_title.erase(update_panel)
+	remove_child(update_panel)
+	update_panel.queue_free()
+	update_panel = null
+
+
+func skip_update() -> void:
+	if update_offer.is_empty():
+		return
+	settings.update_skipped_version = str(update_offer["version"])
+	settings.save()
+	close_update_panel()
+	show_update_offer(update_offer)
+
+
+func open_update_page() -> void:
+	var url := str(update_offer.get("html_url", ""))
+	if url != "":
+		open_fn.call(url)
+
+
+## The panel's install button: downloads the asset (Windows: user://updates/, AppImage: beside the old one as .new),
+## then installs. Any failure shows in the panel with a download page button; the partial file is gone.
+func start_update_download() -> void:
+	if _updating or update_panel == null or not bool(update_offer.get("downloadable", false)):
+		return
+	var dest := ""
+	if install_kind == "appimage":
+		dest = appimage_path + ".new"
+	else:
+		DirAccess.make_dir_recursive_absolute(update_dir)
+		dest = ProjectSettings.globalize_path(update_dir).path_join(str(update_offer["asset_name"]))
+	_updating = true
+	update_panel.set_busy(true)
+	updater.progress.connect(update_panel.set_progress)
+	updater.download_done.connect(_on_update_downloaded.bind(dest), CONNECT_ONE_SHOT)
+	updater.download(str(update_offer["asset_url"]), dest, int(update_offer["asset_size"]), str(update_offer["asset_digest"]))
+
+
+func _on_update_downloaded(err: String, dest: String) -> void:
+	if update_panel != null and updater.progress.is_connected(update_panel.set_progress):
+		updater.progress.disconnect(update_panel.set_progress)
+	if err == "" and install_kind == "appimage":
+		err = UpdateCheck.replace_file(dest, appimage_path)
+	if err != "":
+		_updating = false
+		if update_panel != null:
+			update_panel.set_busy(false)
+			update_panel.set_message(err, true)
+		return
+	if install_kind == "appimage":
+		launch_fn.call(appimage_path)
+	else:
+		open_fn.call(dest)
+	quit_game()
 
 
 ## Replaces whatever is showing (the title, or the running Settlement) with `s` and re-binds every view to it.
@@ -233,6 +351,9 @@ func _build_title() -> void:
 	title_screen.load_pressed.connect(menu.open_view.bind("load"))
 	title_screen.milestones_pressed.connect(menu.open_view.bind("milestones"))
 	title_screen.whats_new_pressed.connect(open_whats_new)
+	title_screen.update_pressed.connect(open_update_panel)
+	if not update_offer.is_empty():
+		title_screen.show_update(str(update_offer["version"]))
 	title_screen.settings_pressed.connect(menu.open_view.bind("settings"))
 	title_screen.quit_pressed.connect(func() -> void: get_tree().quit())
 
@@ -253,6 +374,7 @@ func _free_title() -> void:
 	title_screen = null
 	new_game_panel = null
 	whats_new_panel = null
+	update_panel = null
 	map_view = null
 
 
@@ -358,6 +480,9 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif menu.is_open():
 			menu.close()
+			get_viewport().set_input_as_handled()
+		elif update_panel != null:
+			close_update_panel()
 			get_viewport().set_input_as_handled()
 		elif whats_new_panel != null:
 			close_whats_new()

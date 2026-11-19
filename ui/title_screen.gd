@@ -8,10 +8,14 @@ signal new_game_pressed
 signal load_pressed
 signal milestones_pressed
 signal whats_new_pressed
+signal update_pressed
 signal settings_pressed
 signal quit_pressed
 
 var continue_button: Button
+var update_button: Button
+var _col: VBoxContainer
+var _font: FontFile
 
 
 ## `version` is shown small in the bottom-right corner (empty: no label).
@@ -35,6 +39,7 @@ func setup(has_save: bool, version: String = "") -> void:
 	col.add_theme_constant_override("separation", 10)
 	col.custom_minimum_size = Vector2(320, 0)
 	center.add_child(col)
+	_col = col
 	var logo := TextureRect.new()
 	logo.name = "Logo"
 	logo.texture = ArtLibrary.texture(ArtLibrary.manifest()["logo"]["file"])
@@ -48,6 +53,7 @@ func setup(has_save: bool, version: String = "") -> void:
 	gap.custom_minimum_size = Vector2(0, 24)
 	col.add_child(gap)
 	var font := Hud._pixel_font(Hud.FONT_PATH)
+	_font = font
 	continue_button = _button(col, font, "Continue", "Continue", continue_pressed)
 	continue_button.visible = has_save
 	_button(col, font, "New game", "NewGame", new_game_pressed)
@@ -68,6 +74,22 @@ func setup(has_save: bool, version: String = "") -> void:
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(v)
 		v.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+
+
+## Adds the "Update <version> available" button above Continue (ticket 94); a second call only changes the version.
+func show_update(version: String) -> void:
+	if update_button == null:
+		update_button = _button(_col, _font, "", "Update", update_pressed)
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			update_button.add_theme_color_override(c, Hud.GOLD)
+		_col.move_child(update_button, continue_button.get_index())
+	update_button.text = "Update %s available" % version
+
+
+func hide_update() -> void:
+	if update_button != null:
+		update_button.queue_free()
+		update_button = null
 
 
 ## A soft dark ellipse behind the logo and buttons so they do not sit on busy forest.

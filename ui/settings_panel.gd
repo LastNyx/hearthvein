@@ -13,6 +13,7 @@ var _scale_buttons: Dictionary = {}
 var _fullscreen_box: CheckBox
 var _hints_box: CheckBox
 var _mute_box: CheckBox
+var _updates_box: CheckBox
 var _sliders: Dictionary = {}
 var _status: Label
 
@@ -46,6 +47,8 @@ func setup(s: GameSettings) -> void:
 	_slider("volume_ambience", "Ambience volume", s.volume_ambience)
 	_mute_box = _check("Mute when the window is in the background", s.mute_in_background, set_mute_in_background)
 	_mute_box.name = "MuteToggle"
+	_updates_box = _check("Check for updates", s.check_updates, set_check_updates)
+	_updates_box.name = "UpdatesToggle"
 	_status = _text(self, "", 16, Hud.DIM)
 	var bar := HBoxContainer.new()
 	bar.alignment = BoxContainer.ALIGNMENT_END
@@ -74,6 +77,11 @@ func set_hints_enabled(on: bool) -> void:
 
 func set_mute_in_background(on: bool) -> void:
 	settings.mute_in_background = on
+	_commit()
+
+
+func set_check_updates(on: bool) -> void:
+	settings.check_updates = on
 	_commit()
 
 
