@@ -48,7 +48,7 @@ const GOLD_HOLD := {"wood": 90.0, "stone": 60.0}
 ## From this era on a new workplace needs as many idle citizens (not promised to open sites) as it has slots (47h).
 const LABOUR_ERA := 3
 ## Share of a landmark's goods that must be in stock before its site is placed (City on).
-const NEAR_READY := 0.8
+const NEAR_READY := 0.5
 ## From City on, wood and stone producers are held while a landmark good is short and the raw stock is over this share of its cost.
 const REFINED_HOLD_CITY := 0.5
 ## Stock above which a good stops being built for.
