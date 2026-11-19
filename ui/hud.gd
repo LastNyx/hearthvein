@@ -1047,6 +1047,13 @@ func update_highlight(t: float = 0.0) -> void:
 # ---------------------------------------------------------------- build detail panel (ticket 117)
 
 const DETAIL_W := 350.0
+## The preview box of the detail panel (width = DETAIL_W minus the panel margins).
+const DETAIL_BOX := Vector2(326, 190)
+
+
+## The largest whole-number factor that fits a sprite of `sprite` pixels in `box` (at least 1), so the pixels stay crisp.
+static func detail_scale(sprite: Vector2, box: Vector2) -> int:
+	return maxi(1, floori(minf(box.x / sprite.x, box.y / sprite.y)))
 const GREEN := Color("90c870")
 
 
@@ -1109,11 +1116,12 @@ func _fill_detail(d: Dictionary) -> void:
 	var pic := PanelContainer.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pic.add_theme_stylebox_override("panel", _style(Color(0.16, 0.21, 0.14), Color(0, 0, 0, 0), 4, 0))
-	pic.custom_minimum_size = Vector2(inner, 136)
+	pic.custom_minimum_size = Vector2(inner, DETAIL_BOX.y)
+	pic.clip_contents = true
 	_detail_box.add_child(pic)
 	var entry: Variant = ArtLibrary.manifest()["buildings"].get(str(d["id"]))
 	if entry != null:
-		var scale := clampi(floori(minf((inner - 24.0) / float(entry["w"]), 112.0 / float(entry["h"]))), 1, 4)
+		var scale := detail_scale(Vector2(float(entry["w"]), float(entry["h"])), DETAIL_BOX)
 		var t := TextureRect.new()
 		t.name = "DetailSprite"
 		t.texture = ArtLibrary.texture(entry["file"])

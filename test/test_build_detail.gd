@@ -93,3 +93,12 @@ func test_hovering_a_card_opens_the_detail_panel_and_leaving_closes_it() -> void
 	other.mouse_exited.emit()
 	hud.hover_tick(0.0)
 	assert_false(hud.detail_visible())
+
+
+func test_detail_sprite_scale_is_the_largest_whole_factor_that_fits() -> void:
+	var box := Hud.DETAIL_BOX
+	assert_eq(Hud.detail_scale(Vector2(62, 59), box), 3, "a Sawmill fills the box")
+	assert_eq(Hud.detail_scale(Vector2(27, 43), box), 4, "the smallest hut: limited by height")
+	assert_eq(Hud.detail_scale(Vector2(100, 40), box), 3, "limited by width")
+	assert_eq(Hud.detail_scale(Vector2(114, 238), box), 1, "taller than the box stays 1x")
+	assert_eq(Hud.detail_scale(Vector2(10, 10), box), 19)
