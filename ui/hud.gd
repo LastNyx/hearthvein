@@ -774,6 +774,12 @@ func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
 		elif model.active_layer == Building.LAYER_GROUND and model.s.is_clear_marked(t):
 			key = "clear:%d,%d" % [t.x, t.y]
 			data = model.clear_tooltip(t)
+		elif model.active_layer == Building.LAYER_GROUND and model.s.is_plant_marked(t):
+			key = "plant:%d,%d" % [t.x, t.y]
+			data = model.plant_tooltip(t)
+		elif model.active_layer == Building.LAYER_GROUND and MapState.in_bounds(t.x, t.y) and model.s.map.terrain_id_at(t.x, t.y) == "stump":
+			key = "stump:%d,%d" % [t.x, t.y]
+			data = model.stump_tooltip(t)
 	if key == "" or data.is_empty():
 		if _tip_panel.visible or _tip_key != "":
 			_hide_tip()

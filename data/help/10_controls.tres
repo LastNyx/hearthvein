@@ -27,6 +27,7 @@ J: rail track (from the Conflux era).
 X: demolish.
 U: upgrade mode: click buildings to upgrade them.
 K: clear: click-drag forest, stumps and rock to have builders clear them (wood and stone to storage). Click again or X unmarks. Cleared rock is no longer a quarry spot.
+N: plant: click-drag grass to mark it; Foresters in reach plant marked tiles before any other grass. Click again or X unmarks.
 
 Views
 V: blight.
@@ -40,4 +41,4 @@ Tab: switch between ground and sky.
 Menus
 Esc: cancel the tool or selection; if there is none, the pause menu.
 F1: this help."
-keys = PackedStringArray("SPACE", "1", "2", "3", "B", "R", "C", "P", "J", "X", "K", "U", "TAB", "M", "V", "G", "T", "H", "L", "W", "A", "S", "D", "ESCAPE", "F1")
+keys = PackedStringArray("SPACE", "1", "2", "3", "B", "R", "C", "P", "J", "X", "K", "N", "U", "TAB", "M", "V", "G", "T", "H", "L", "W", "A", "S", "D", "ESCAPE", "F1")

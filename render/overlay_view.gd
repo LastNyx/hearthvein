@@ -7,6 +7,7 @@ extends Node2D
 const TILE := ArtLibrary.TILE
 const MARK_CLEAR := Color("f2a93a")
 const MARK_FAR := Color("e05a4a")
+const MARK_PLANT := Color("5fcf6a")
 
 var settlement: Settlement
 var model: HudModel
@@ -25,7 +26,7 @@ func setup(s: Settlement, m: HudModel) -> void:
 	model = m
 	z_index = 15
 	for kind in ["blight_changed", "building_connection_changed", "building_placed", "building_demolished",
-			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started", "clear_marks_changed"]:
+			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started", "clear_marks_changed", "plant_marks_changed"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _dirty = true)
 
 
@@ -87,6 +88,7 @@ func _draw() -> void:
 			draw_rect(r, c)
 			draw_rect(r, c.lightened(0.3), false, 2.0)
 	_draw_clear_marks()
+	_draw_plant_marks()
 	var sb := model.selected()
 	if sb != null:
 		var r := Rect2(Vector2(sb.origin) * TILE, Vector2(sb.def.size) * TILE).grow(2.0)
@@ -102,6 +104,12 @@ func _draw_clear_marks() -> void:
 		return
 	for idx: int in cs.clear_marks:
 		_draw_marker(Vector2i(idx % MapState.WIDTH, idx / MapState.WIDTH), MARK_FAR if cs.clear_far.has(idx) else MARK_CLEAR, true)
+
+
+## The tiles marked with the Plant tool (ticket 101): a green frame, red when no Forester reaches the tile.
+func _draw_plant_marks() -> void:
+	for tile in settlement.plant_marked_tiles():
+		_draw_marker(tile, MARK_FAR if not ForestSystem.reached(settlement, tile) else MARK_PLANT, false)
 
 
 ## A small tile marker: a thin dark-edged frame in `color`, with a cross when `cross` (clear) and without (plant).

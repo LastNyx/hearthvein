@@ -1,7 +1,7 @@
 class_name ToolsTab
 extends VBoxContainer
 ## Bottom-left tools tab (ticket 88): one tab button whose label is the current speed, and when open a column with Pause,
-## 1x, 2x, 3x, Demolish, Clear, Upgrade, Region map and Help. It mirrors SimDriver.speed (signal plus the HUD refresh) and
+## 1x, 2x, 3x, Demolish, Clear, Plant, Upgrade, Region map and Help. It mirrors SimDriver.speed (signal plus the HUD refresh) and
 ## keeps its open/closed state in GameSettings. Every button calls what its key calls.
 
 const SPEED_LABELS: Array[String] = ["||", "1x", "2x", "3x"]
@@ -36,6 +36,7 @@ func setup(hud: Hud, driver: SimDriver) -> void:
 		_speed_button(col, "Tool_speed%d" % i, "%dx" % i, "Speed %dx (%d)" % [i, i], i)
 	_tool(col, "Tool_demolish", "Demolish", "Demolish (X)", func() -> void: hud.build.set_mode(BuildController.Mode.DEMOLISH))
 	_tool(col, "Tool_clear", "Clear", "Clear (K): click-drag forest, stumps and rock to have builders clear them for wood and stone. Cleared rock is no longer a quarry spot.", func() -> void: hud.build.set_mode(BuildController.Mode.CLEAR))
+	_tool(col, "Tool_plant", "Plant", "Plant (N): click-drag grass to mark it; Foresters in reach plant marked tiles before any other grass.", func() -> void: hud.build.set_mode(BuildController.Mode.PLANT))
 	_tool(col, "Tool_upgrade", "Upgrade", "Upgrade mode: click buildings to upgrade them (U)", func() -> void: hud.build.set_mode(BuildController.Mode.UPGRADE))
 	_tool(col, "Tool_regionmap", "Region map", "Region map (M)", hud.toggle_region_map)
 	_tool(col, "Tool_help", "Help", "Help (F1)", hud.help_requested.emit)
@@ -83,11 +84,12 @@ func refresh() -> void:
 		_hud._style_button(_speed_buttons[i], i == _driver.speed)
 
 
-## Demolish, Clear and Upgrade are lit while their build mode is on.
+## Demolish, Clear, Plant and Upgrade are lit while their build mode is on.
 func _light_tools() -> void:
 	var mode: int = _hud.build.mode if _hud.build != null else BuildController.Mode.NONE
 	_hud._style_button(button("demolish"), mode == BuildController.Mode.DEMOLISH)
 	_hud._style_button(button("clear"), mode == BuildController.Mode.CLEAR)
+	_hud._style_button(button("plant"), mode == BuildController.Mode.PLANT)
 	_hud._style_button(button("upgrade"), mode == BuildController.Mode.UPGRADE)
 
 

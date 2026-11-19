@@ -3,7 +3,8 @@ extends SceneTree
 ## Writes /tmp/hv_hud.png (building selected) and /tmp/hv_hud_overlay.png (blight + road overlays on), plus the tools
 ## tab (ticket 88): /tmp/hv_88_tools_open.png (1x), /tmp/hv_88_tools_closed.png (1x) and the same two paused
 ## (/tmp/hv_88_tools_open_paused.png, /tmp/hv_88_tools_closed_paused.png), and the Clear tool lit with marked tiles
-## (ticket 100): /tmp/hv_100_clear_lit.png.
+## (ticket 100): /tmp/hv_100_clear_lit.png, the Plant tool lit with marked tiles (ticket 101): /tmp/hv_101_plant_lit.png, and
+## a hovered stump's regrowth tooltip: /tmp/hv_101_stump_tip.png.
 
 func _shoot(path: String) -> void:
 	for i in 4:
@@ -119,5 +120,29 @@ func _init() -> void:
 	cam.position = (Vector2(h) + Vector2(7, 3)) * ArtLibrary.TILE
 	await _shoot("/tmp/hv_100_clear_lit.png")
 	bc.cancel()
+	# Ticket 101: the Plant tool lit with marked grass (the farthest one out of every Forester's reach, drawn red), then a
+	# hovered stump showing when it regrows.
+	var forester_id := s.place_building_instant("forester", Vector2i(h.x + 9, h.y - 3))
+	var plants: Array[Vector2i] = []
+	for dy in range(2, 6):
+		for dx in range(7, 11):
+			var pt := Vector2i(h.x + dx, h.y + dy)
+			if plants.size() < 8:
+				s.set_terrain(pt, "grass")
+				if s.mark_plant(pt):
+					plants.append(pt)
+	var far_plant := Vector2i(far_x, h.y + 8)
+	s.set_terrain(far_plant, "grass")
+	s.mark_plant(far_plant)
+	bc.set_mode(BuildController.Mode.PLANT)
+	cam.position = (Vector2(h) + Vector2(9, 3)) * ArtLibrary.TILE
+	await _shoot("/tmp/hv_101_plant_lit.png")
+	bc.cancel()
+	var stump := Vector2i(h.x + 3, h.y + 6)  # marked for clearing above: take that mark off so the plain tooltip shows
+	s.unmark_clear(stump)
+	cam.position = (Vector2(stump) + Vector2(3, 0)) * ArtLibrary.TILE
+	(main.get_node("Hud") as Hud).hover_tick(1.0, stump)
+	await _shoot("/tmp/hv_101_stump_tip.png")
+	print("forester ", forester_id, " stump tip: ", m.stump_tooltip(stump).get("text", ""))
 	print(s.clock.label(), " notices: ", m.notifications.items.map(func(i: Dictionary) -> String: return i["text"]))
 	quit()

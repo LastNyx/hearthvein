@@ -609,6 +609,47 @@ func clear_tooltip(tile: Vector2i) -> Dictionary:
 	return {"title": title, "description": desc, "status": status, "lines": lines, "text": "\n".join(parts)}
 
 
+## Tooltip of a tile marked for planting: {title, description, status, lines, text}, {} when it is not marked.
+func plant_tooltip(tile: Vector2i) -> Dictionary:
+	if not s.is_plant_marked(tile):
+		return {}
+	var title := "Marked for planting"
+	var desc := "A Forester in reach plants this tile before any other grass."
+	var status: Array[String] = []
+	if s.plant_mark_unreached(tile):
+		status.append("No Forester reaches it")
+	return _tile_tip(title, desc, status)
+
+
+## Tooltip of a stump: when it regrows into forest, or why it will not (from ForestSystem's real timer and rules).
+## {} when the tile is not a stump.
+func stump_tooltip(tile: Vector2i) -> Dictionary:
+	var fs := s.get_system(ForestSystem) as ForestSystem
+	if fs == null:
+		return {}
+	var info := fs.regrow_info(s, tile)
+	var line := ""
+	match str(info["state"]):
+		"grows":
+			var d := int(info["days"])
+			line = "Regrows in about %d %s" % [d, "day" if d == 1 else "days"]
+		"blighted": line = "Won't regrow: blighted"
+		"health": line = "Won't regrow: planet health below %d" % roundi(s.registry.forest.regrow_min_health)
+		"covered": line = "Won't regrow: something is built on it"
+		_: return {}
+	var status: Array[String] = [line]
+	return _tile_tip("Stump", "Felled forest.", status)
+
+
+func _tile_tip(title: String, desc: String, status: Array[String]) -> Dictionary:
+	var lines: Array[String] = []
+	var parts: Array[String] = [title]
+	if desc != "":
+		parts.append(desc)
+	parts.append_array(status)
+	return {"title": title, "description": desc, "status": status, "lines": lines, "text": "\n".join(parts)}
+
+
 # ---------------------------------------------------------------- build bar
 
 static func category_label(id: String) -> String:
@@ -739,6 +780,13 @@ static func paved_refusal_text(reason: String) -> String:
 static func clear_refusal_text(reason: String) -> String:
 	return {"not_clearable": "only forest, stumps and rock can be cleared", "locked_region": "Region not owned",
 			"out_of_bounds": "Off the map", "overlap": "A building is here", "road": "A road is here"}.get(reason, "Blocked")
+
+
+## Player-facing reason a tile cannot be marked for planting.
+static func plant_refusal_text(reason: String) -> String:
+	return {"not_plantable": "only plain grass can be planted", "locked_region": "Region not owned",
+			"out_of_bounds": "Off the map", "overlap": "A building is here", "road": "A road is here",
+			"blighted": "Blighted", "clear_marked": "Marked for clearing"}.get(reason, "Blocked")
 
 
 ## Player-facing reason a channel cannot be dug on a tile ("" when it can).
