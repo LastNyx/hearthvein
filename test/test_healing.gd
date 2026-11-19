@@ -19,6 +19,7 @@ func before_each() -> void:
 	s.era_override = "ascendant"
 	s.systems.erase(s.get_system(JobSystem))  # keep the hand-assigned crew
 	s.hearth.inventory.add("food", 600.0)
+	s.spirit_override = 39.0  # below the immigration threshold: a newcomer on day 1 reshuffles the hand-assigned crew
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
 	c = _flat_centre(13)
