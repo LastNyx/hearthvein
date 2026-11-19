@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.6 - 2026-11-20
 
 ### Added
 - Day and night: the map darkens from dusk to dawn. Settings has a "Day and night" switch.
