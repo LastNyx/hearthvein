@@ -95,7 +95,7 @@ func test_market_data_matches_the_village_row() -> void:
 	assert_not_null(m)
 	assert_eq([m.era, m.category], ["camp", "gold"])
 	assert_eq([m.size, m.cost, m.worker_slots], [Vector2i(2, 2), {"materials": 40}, 2])
-	assert_eq(m.gold_per_worker_day, 1.0)
+	assert_eq(m.gold_per_worker_day, 1.5)
 	assert_eq(m.market_reach, 12, "design gives no reach; ticket 23 chose 12 tiles")
 	assert_null(m.recipe, "gold is a counter, not a recipe output")
 
@@ -114,10 +114,10 @@ func test_food_type_data() -> void:
 	assert_eq(reg.get_good("crops").food_type, "crops", "Farm food is crops")
 	assert_eq(reg.get_good("fish").food_type, "fish")
 	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 8.0})
-	assert_eq(reg.get_building("farm").recipe.outputs, {"crops": 4.0})
+	assert_eq(reg.get_building("farm").recipe.outputs, {"crops": 6.0})
 
 
-# AC2: each assigned worker brings one gold a day; paused or unstaffed Markets pay nothing.
+# AC2: each assigned worker brings 1.5 gold a day; paused or unstaffed Markets pay nothing.
 func test_market_pays_gold_per_worker_per_day() -> void:
 	_strip()
 	var o := Vector2i(h.x + 4, h.y - 2)
@@ -128,12 +128,12 @@ func test_market_pays_gold_per_worker_per_day() -> void:
 	assert_eq(_workers(id), 2, "both worker slots are filled")
 	assert_eq(s.gold, 0.0)
 	s.step_days(1)
-	assert_almost_eq(s.gold, 2.0, 0.001, "two workers, one gold each")
+	assert_almost_eq(s.gold, 3.0, 0.001, "two workers, 1.5 gold each")
 	s.step_days(1)
-	assert_almost_eq(s.gold, 4.0, 0.001)
+	assert_almost_eq(s.gold, 6.0, 0.001)
 	assert_true(s.set_building_priority(id, "paused"))
 	s.step_days(1)
-	assert_almost_eq(s.gold, 4.0, 0.001, "a paused Market pays nothing")
+	assert_almost_eq(s.gold, 6.0, 0.001, "a paused Market pays nothing")
 
 
 func test_unstaffed_market_pays_nothing() -> void:

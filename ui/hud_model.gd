@@ -285,6 +285,7 @@ func halt_text(b: Building) -> String:
 		"island_still": return "Halted: the island is still"
 		"planet_too_sick": return "Halted: planet health below %d%%" % int(b.def.min_planet_health)
 		"dry": return "Halted: no water in reach"
+		"too_far": return "Halted: too far from a builders' yard"
 	return ""
 
 
@@ -594,6 +595,25 @@ func track_cost_text() -> String:
 		c["materials"] = lg.track_cost_materials
 	if lg.track_cost_cut_stone > 0.0:
 		c["cut_stone"] = lg.track_cost_cut_stone
+	return goods_cost_text(c)
+
+
+## "5 Materials" extra for one water tile of road at `level` (a bridge), "" when the road has no bridge cost.
+func bridge_cost_text(level: int) -> String:
+	var rd := s.registry.get_road_by_level(level)
+	return goods_cost_text(rd.bridge_cost) if rd != null and not rd.bridge_cost.is_empty() else ""
+
+
+## "6 Materials, 3 Cut stone" for one rail bridge tile (track on water).
+func track_bridge_cost_text() -> String:
+	var lg := s.registry.logistics
+	if lg == null:
+		return ""
+	var c := {}
+	if lg.track_cost_materials > 0.0:
+		c["materials"] = lg.track_cost_materials * lg.track_bridge_multiplier
+	if lg.track_cost_cut_stone > 0.0:
+		c["cut_stone"] = lg.track_cost_cut_stone * lg.track_bridge_multiplier
 	return goods_cost_text(c)
 
 

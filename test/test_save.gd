@@ -25,10 +25,33 @@ const SKIP := {
 	"Settlement._reached": "road BFS cache, rebuilt from roads on load",
 	"Settlement._sky_reached": "sky road BFS cache (from lifts and island docks), rebuilt from roads on load",
 	"Settlement._roads_dirty": "road BFS bookkeeping, set by load",
-	"Settlement._deferred": "pending day hooks; SaveGame.save flushes them, so a save never holds any",
+	"Settlement._deferred": "pending hour, day and season hooks; SaveGame.save flushes them, so a save never holds any",
 	"Settlement._deferred_head": "pending day hooks; SaveGame.save flushes them",
 	"Settlement._frame_step": "only meaningful inside a step_seconds call",
+	"Settlement._held": "frame steps waiting for the pending hour-end hooks; a save flushes them, the wait is not state",
+	"Settlement._kind_ids": "citizen ids per job kind, a cache refilled on demand",
+	"Settlement._kind_key": "key of the per-job-kind id cache, refilled on demand",
+	# WalkerSystem (band lists are rebuilt from the walkers; save_state pays every band first, so nothing is owed)
+	"WalkerSystem._bands": "walker lists per movement band, rebuilt from the walkers",
+	"WalkerSystem._bands_count": "key of the band lists, rebuilt",
+	"WalkerSystem._band_owed": "game seconds owed per band; save_state pays them, so a save holds none",
+	"WalkerSystem._seen_occ": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_roads": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_terrain": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_sky_occ": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_sky_roads": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"WalkerSystem._seen_sky_terrain": "tile arrays as the last A* scan saw them, rebuilt by the first scan after a load",
+	"Settlement._landmark_key": "key of the finished-landmark cache, refilled on demand",
+	"Settlement._landmarks": "finished-landmark cache for era_gate, refilled on demand",
+	# FoulingSystem caches
+	"FoulingSystem._sources_cache": "river tiles beside blight, rebuilt on the first pass after a load",
+	"FoulingSystem._sources_version": "version the source list was built for, rebuilt after a load",
+	"FoulingSystem._steady_key": "marks a pass that changed nothing; a load runs one full pass again",
+	# SkyheartSystem
+	"SkyheartSystem._cand": "staged-landmark and reservoir id list, rebuilt on demand",
+	"SkyheartSystem._cand_key": "key of that list, rebuilt on demand",
 	# MapState
+	"MapState.blight_version": "counter of blight changes, not saved; a load rebuilds the fouling source list",
 	"MapState.water_version": "counter of water-terrain changes, not saved; a load rebuilds the water cache",
 	"MapState.foul_version": "counter of fouling changes, not saved; a load rebuilds the fouling mask and caches",
 	# WaterSystem
@@ -93,6 +116,8 @@ const SKIP := {
 	"JobSystem._lc_works": "layout cache: sites and upgrading buildings, rebuilt lazily",
 	# HaulingSystem
 	"HaulingSystem._walk_cache": "door walking time cache, rebuilt on a grid change",
+	"ConstructionSystem._trip_cache": "yard -> site walking time cache, rebuilt on a grid change",
+	"ConstructionSystem._trip_version": "grid version of _trip_cache",
 	"HaulingSystem._walk_version": "walk cache version",
 	"HaulingSystem._layout_version": "layout cache version",
 	"HaulingSystem._layout_count": "layout cache version",
@@ -412,6 +437,25 @@ func test_save_file_is_compressed_and_carries_a_version() -> void:
 	assert_lt(on_disk.size(), uncompressed.size(),
 			"on disk %d bytes for a %d byte payload" % [on_disk.size(), uncompressed.size()])
 	assert_ne(on_disk.slice(0, 8), uncompressed.slice(0, 8), "the file is wrapped, not raw variant bytes")
+
+
+func test_save_mid_hour_end_queue_loads_to_the_same_state() -> void:
+	# A frame-sized step across an hour boundary leaves that hour's hooks queued (ticket 89); a save in that gap runs
+	# them first, and the file loads to the same settlement.
+	var s := Settlement.new_game(SEED, reg)
+	s.step_hours(7)
+	var start := s.clock.total_hours
+	var guard := 0
+	while s.clock.total_hours == start and guard < 100:
+		s.step_seconds(0.05)
+		guard += 1
+	assert_gt(s._deferred.size(), 0, "the frame that ends the hour leaves its hooks queued")
+	var path := _save_path()
+	assert_eq(SaveGame.save(s, path), OK)
+	assert_eq(s._deferred.size(), 0, "save ran the pending hooks")
+	var loaded := SaveGame.load(path, reg)
+	assert_not_null(loaded)
+	_assert_same(s, loaded, "a save taken between an hour end and its hooks does not round trip")
 
 
 func test_save_flushes_pending_day_hooks() -> void:

@@ -110,7 +110,7 @@ func save_state() -> Dictionary:
 	var tl := []
 	for cid in trips:
 		tl.append([cid, (trips[cid] as Trip).to_dict()])
-	return {"trips": tl, "reserved": _reserved.duplicate(true)}
+	return {"trips": tl, "reserved": _reserved.duplicate(true), "retry_left": _retry_left}
 
 
 func load_state(d: Dictionary, _settlement: Settlement) -> void:
@@ -118,6 +118,7 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	for pair in d["trips"]:
 		trips[int(pair[0])] = Trip.from_dict(pair[1])
 	_reserved = d["reserved"].duplicate(true)
+	_retry_left = float(d.get("retry_left", 0.0))
 	# Caches: rebuilt from the loaded layout and grid when first needed.
 	_walk_cache.clear()
 	_walk_version = -1
@@ -141,28 +142,35 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 		var guard := 0
 		while trips.has(cid) and guard < 8 and _advance(s, ws, t, in_shift):
 			guard += 1
-	var ids: Array = s.citizens.keys()
-	ids.sort()
+	_retry_left = maxf(0.0, _retry_left - seconds)
+	if not in_shift or _retry_left > 0.0:
+		return
 	var allowance := _plan_allowance(seconds)
-	for cid in ids:
+	for cid in s.citizen_ids_of_kind(Citizen.JOB_HAUL):
 		if allowance <= 0:
 			break
-		var c: Citizen = s.citizens[cid]
-		if c.job_kind != Citizen.JOB_HAUL or trips.has(cid) or not in_shift:
+		var c: Citizen = s.citizens.get(cid)
+		if c == null or c.job_kind != Citizen.JOB_HAUL or trips.has(cid):
 			continue
 		var w := ws.walker_of(cid)
 		if w == null or w.controlled or not w.path.is_empty() or w.at_building != c.job_id:
 			continue
 		allowance -= 1
 		var t := _plan(s, ws, cid)
-		if t != null:
-			t.citizen_id = cid
-			w.controlled = true
-			trips[cid] = t
-			_start(s, ws, t)
-			var guard := 0
-			while trips.has(cid) and guard < 8 and _advance(s, ws, t, in_shift):
-				guard += 1
+		if t == null:
+			_retry_left = PLAN_RETRY_SECONDS  # nothing to haul for anybody: look again shortly, not every frame
+			break
+		t.citizen_id = cid
+		w.controlled = true
+		trips[cid] = t
+		_start(s, ws, t)
+		var guard := 0
+		while trips.has(cid) and guard < 8 and _advance(s, ws, t, in_shift):
+			guard += 1
+
+
+func on_hour(_s: Settlement) -> void:
+	_retry_left = 0.0
 
 
 func is_hauling(citizen_id: int) -> bool:
@@ -173,6 +181,11 @@ func is_hauling(citizen_id: int) -> bool:
 ## used to plan every one of them in a single frame, about 0.6 ms each at 600 citizens. The allowance grows with
 ## `seconds`, so a coarse step (step_hours) is not throttled; a leftover hauler is simply planned a frame later.
 const PLAN_PER_SECOND := 120.0
+## After a plan finds no trip, idle haulers wait this many game seconds (a tenth of a game hour: 15 frames at
+## 1x) before the next plan scans every building again (ticket 89b: a failed plan took 1-5 ms and ran every frame).
+## on_hour clears it, so a new hour always starts with a fresh look. Saved, so a load continues the same way.
+const PLAN_RETRY_SECONDS := 0.25
+var _retry_left: float = 0.0
 
 
 static func _plan_allowance(seconds: float) -> int:
@@ -225,8 +238,12 @@ func _layout(s: Settlement) -> void:
 
 ## Nested lookups instead of a formatted key: a plan asks this once per building it scans (ticket 55).
 func _res(kind: String, bid: int, good: String) -> float:
-	var by_bid: Dictionary = _reserved.get(kind, {})
-	var by_good: Dictionary = by_bid.get(bid, {})
+	var by_bid = _reserved.get(kind)  # no default {}: that built a Dictionary on every call
+	if by_bid == null:
+		return 0.0
+	var by_good = by_bid.get(bid)
+	if by_good == null:
+		return 0.0
 	return by_good.get(good, 0.0)
 
 
@@ -263,6 +280,8 @@ func _walk(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> float:
 ## Nearest storage (by walking time from `from`, ties lowest id) with room for `amount` of `good`.
 func nearest_storage_with_room(s: Settlement, ws: WalkerSystem, from: Building, good: String, amount: float) -> Building:
 	_layout(s)
+	if _room_fail.get(good, INF) <= amount:
+		return null  # a smaller amount already found no storage with room this plan, and reservations have not moved
 	var best: Building = null
 	var best_t := INF
 	for b in _storages:
@@ -272,6 +291,8 @@ func nearest_storage_with_room(s: Settlement, ws: WalkerSystem, from: Building, 
 		if t < best_t:
 			best = b
 			best_t = t
+	if best == null:
+		_room_fail[good] = minf(_room_fail.get(good, INF), amount)
 	return best
 
 
@@ -289,7 +310,22 @@ func _haul_load(s: Settlement, cid: int) -> float:
 	return maxf(base, RegionSystem.haul_load_in(s, s.map.get_region(b.origin.x, b.origin.y)))
 
 
+## Within one _plan call: good -> smallest amount for which no storage had room / no source had stock (so any larger
+## amount fails too without another scan). Cleared at the start of every plan, since a trip changes reservations.
+var _room_fail: Dictionary = {}
+var _src_fail: Dictionary = {}
+
+
 func _plan(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
+	_room_fail.clear()
+	_src_fail.clear()
+	var t := _plan_trip(s, ws, cid)
+	_room_fail.clear()  # outside a plan (tests, other callers) nearest_storage_with_room must always scan
+	_src_fail.clear()
+	return t
+
+
+func _plan_trip(s: Settlement, ws: WalkerSystem, cid: int) -> Trip:
 	var load_cap := _haul_load(s, cid)
 	_layout(s)
 	# 0. construction sites first: a busy settlement's door buffers must not starve its builders.
@@ -317,7 +353,10 @@ func _plan_door(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 	var best_avail := 0.0
 	for b in _door_blds:
 		for g in b.door_buffer.goods():
-			var avail: float = b.door_buffer.amount_of(g) - _res("d", b.id, g)
+			var have := b.door_buffer.amount_of(g)
+			if have < lg.min_pickup - Inventory.EPS or have <= best_avail:
+				continue  # reservations only lower what is available, so the checks below would skip it too
+			var avail: float = have - _res("d", b.id, g)
 			if avail < lg.min_pickup - Inventory.EPS or avail <= best_avail:
 				continue
 			var load := minf(load_cap, avail)
@@ -386,6 +425,8 @@ func _plan_for_need(s: Settlement, ws: WalkerSystem, b: Building, buf: Inventory
 
 func _nearest_source(s: Settlement, ws: WalkerSystem, consumer: Building, good: String, min_amount: float) -> Building:
 	_layout(s)
+	if _src_fail.get(good, INF) <= min_amount:
+		return null  # as _room_fail: a smaller amount found no source with stock in this plan
 	var best: Building = null
 	var best_t := INF
 	for b in _storages:
@@ -395,6 +436,8 @@ func _nearest_source(s: Settlement, ws: WalkerSystem, consumer: Building, good: 
 		if t < best_t:
 			best = b
 			best_t = t
+	if best == null:
+		_src_fail[good] = minf(_src_fail.get(good, INF), min_amount)
 	return best
 
 

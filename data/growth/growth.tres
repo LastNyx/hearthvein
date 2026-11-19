@@ -5,11 +5,11 @@
 [resource]
 script = ExtResource("1")
 food_per_citizen = 1.0
-bar_base = 5.0
-bar_pop_divisor = 3.0
+bar_base = 3.0
+bar_pop_divisor = 6.0
 soft_cap = 600
 soft_cap_span = 100.0
-immigration_spirit = 60.0
-immigration_days = 3
+immigration_spirit = 40.0
+immigration_days = 1
 default_spirit = 50.0
 leave_per_day = 1

@@ -74,7 +74,7 @@ func test_rowhouse_houses_ten() -> void:
 	assert_false(ids.has("rowhouse"), "Town set only")
 
 
-# AC2a: the Greenhouse row is the Town table's: 2x1, 3 workers, 1 Lumen upkeep, +2.5 food, Dimming-proof.
+# AC2a: the Greenhouse row is the Town table's: 2x1, 3 workers, 1 Lumen upkeep, +16 food, Dimming-proof.
 func test_greenhouse_data_matches_the_town_table() -> void:
 	var def := reg.get_building("greenhouse")
 	assert_not_null(def)
@@ -83,7 +83,7 @@ func test_greenhouse_data_matches_the_town_table() -> void:
 			[Vector2i(2, 1), {"materials": 50, "gold": 10, "lumen": 10, "planks": 10}])
 	assert_eq([def.worker_slots, def.upkeep_lumen], [3, 1.0])
 	assert_eq(def.recipe.inputs, {})
-	assert_eq(def.recipe.outputs, {"greenhouse": 2.5})
+	assert_eq(def.recipe.outputs, {"greenhouse": 16.0})
 	assert_eq(def.dimming_factor, 1.0, "design section 14: Greenhouse unaffected")
 	assert_eq(reg.get_good("greenhouse").food_type, "greenhouse", "its own food type (section 7)")
 	assert_true(GrowthSystem.food_goods(reg).has("greenhouse"), "citizens can eat it")
@@ -102,9 +102,9 @@ func test_greenhouse_food_reaches_storage() -> void:
 	var before := s.hearth.inventory.amount_of("greenhouse")
 	s.step_days(5)
 	var per_day := (s.hearth.inventory.amount_of("greenhouse") - before) / 5.0
-	assert_between(per_day, 6.0, 8.2, "three workers x 2.5 food a day, got %f" % per_day)
+	assert_between(per_day, 4.0, 14.0, "three workers x 16 food a day, hauling-limited, got %f" % per_day)
 	assert_gt(s.totals().get("greenhouse", 0.0), 0.0, "greenhouse food is a real stored good")
-	assert_eq(gh.halt, "", "the Greenhouse kept running")
+	assert_true(["", "door_full"].has(gh.halt), "the Greenhouse kept running (at 48 food a day a full door buffer is the only halt)")
 
 
 # AC2c: during a Dimming a plain Farm runs at x0.5 but the Greenhouse is unaffected.

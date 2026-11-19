@@ -47,6 +47,10 @@ failure. Test files go in `test/` and are named `test_*.gd`.
 Layout: `sim/` (pure simulation, no scene-tree code), `data/` (all game numbers, as `.tres`), `render/`,
 `ui/`, `test/`, `tools/` (shot scripts, balance bot, art export). Design docs are in `docs/`.
 
+## Build from source
+
+`packaging/build.sh` exports the Windows and Linux builds into `build/` (needs the export templates, NSIS and appimagetool). It refuses to run unless `CHANGELOG.md` has a `## <version>` section for the version in `project.godot`. `CHANGELOG.md` is the one source for the in-game What's new panel and the GitHub release notes: `packaging/release_notes.sh <version>` prints that version's section (use it with `gh release create --notes-file`).
+
 ## Licence
 
 The code is MIT (see [LICENSE](LICENSE)). Third-party assets keep their own licences: the fonts in `assets/ui`

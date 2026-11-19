@@ -54,6 +54,53 @@ func _auto_files() -> Array:
 
 # ---------------------------------------------------------------- autosave
 
+## Ticket 89b: a frame-stepped season start builds its snapshot in several steps with the clock held, writes the file
+## on a thread, and the file holds the state of the moment the queue drained.
+func test_frame_stepped_autosave_is_built_over_steps_and_matches_the_state() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var slots := SaveSlots.new(dir)
+	slots.attach(s)
+	s.step_hours(8 * GameClock.HOURS_PER_DAY - 1)
+	while s.clock.total_hours < 8 * GameClock.HOURS_PER_DAY:
+		s.step_seconds(0.1)
+	s._held.clear()  # the time that arrived with the boundary would replay after the queue and move the sim past the snapshot
+	var steps := 0
+	while not s._deferred.is_empty() and steps < 400:
+		s.step_seconds(0.0)
+		steps += 1
+		assert_eq(s.clock.total_hours, 8 * GameClock.HOURS_PER_DAY, "the clock holds while the snapshot is built")
+	assert_gt(steps, 1, "the season hooks and the snapshot took several steps")
+	slots.finish_pending()
+	assert_eq(slots.list().size(), 1, "one autosave was written")
+	var loaded := slots.load_auto(slots.latest_auto(), reg)
+	assert_not_null(loaded)
+	if loaded != null:
+		var a := loaded.to_dict()
+		var b := s.to_dict()
+		(a["systems"] as Dictionary).erase("walker")  # a loaded walker system has not seen a grid yet (grid_version -1)
+		(b["systems"] as Dictionary).erase("walker")
+		assert_eq(hash(var_to_str(a)), hash(var_to_str(b)), "the file holds the state of the season start")
+
+
+## Ticket 89b: the snapshot the autosave thread reads shares nothing with the live settlement (Packed arrays are
+## references in GDScript, so the isolated steps copy them), so play can go on while it is written.
+func test_isolated_snapshot_ignores_later_changes_to_the_settlement() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	s.step_hours(30)
+	var expected := var_to_str(s.to_dict())
+	var out := {}
+	for step in s.to_dict_steps(out, true):
+		step.call()
+	assert_eq(var_to_str(out), expected, "the steps build what to_dict builds")
+	s.roads[0] = 2
+	s.occupancy[5] = 77
+	s.map.terrain[3] = 2
+	s.map.fertility[4] = 1
+	s.map.region_owned[0] = 1 - s.map.region_owned[0]
+	s.step_hours(30)
+	assert_eq(var_to_str(out), expected, "nothing in the snapshot moved with the sim")
+
+
 func test_autosave_rotates_three_files_across_four_seasons() -> void:
 	var s := Settlement.new_game(SEED, reg)
 	var slots := SaveSlots.new(dir)
@@ -71,6 +118,7 @@ func test_autosave_rotates_three_files_across_four_seasons() -> void:
 			break
 		s.step_seconds(0.0)  # runs the next deferred hook without advancing the clock
 	assert_eq(s.clock.total_hours, 16 * GameClock.HOURS_PER_DAY, "the frame-stepped season boundary landed")
+	slots.finish_pending()  # the frame-stepped autosave is written on a thread (ticket 89b)
 	assert_eq(_auto_files().size(), 2, "the frame-stepped season start writes the second autosave")
 	s.step_days(8)  # third
 	s.step_days(8)  # fourth: every rotation index is taken, the oldest (summer, year 1) is overwritten

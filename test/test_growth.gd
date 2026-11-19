@@ -24,6 +24,7 @@ func before_each() -> void:
 	s = Settlement.new_game(SEED, reg)
 	h = s.map.hearth_spot
 	g = s.get_system(GrowthSystem)
+	s.spirit_override = 39.0  # below the immigration threshold (40): only the growth bar adds people unless a test says otherwise
 	for x in range(h.x + 2, h.x + 16):
 		for y in range(h.y - 3, h.y + 3):
 			if s.map.terrain_id_at(x, y) == "forest":
@@ -60,9 +61,9 @@ func test_surplus_fills_bar_and_spawns_citizen_only_with_free_bed() -> void:
 	assert_true(g.bar < GrowthSystem.bar_size(reg, 9), "bar was spent")
 
 
-func test_bar_size_is_5_plus_pop_over_3() -> void:
-	assert_almost_eq(GrowthSystem.bar_size(reg, 8), 5.0 + 8.0 / 3.0, 0.0001)
-	assert_almost_eq(GrowthSystem.bar_size(reg, 60), 25.0, 0.0001)
+func test_bar_size_is_3_plus_pop_over_6() -> void:
+	assert_almost_eq(GrowthSystem.bar_size(reg, 8), 3.0 + 8.0 / 6.0, 0.0001)
+	assert_almost_eq(GrowthSystem.bar_size(reg, 60), 13.0, 0.0001)
 
 
 func test_new_citizen_appears_at_the_hearth() -> void:
@@ -156,34 +157,32 @@ func test_citizens_cannot_eat_from_another_region() -> void:
 		assert_almost_eq((s.buildings[near] as Building).inventory.amount_of("food"), 43.0, 0.001)
 
 
-func test_immigration_every_3_days_at_spirit_70_with_free_beds() -> void:
+func test_immigration_every_day_at_spirit_40_with_free_beds() -> void:
 	_tent(4)
 	s.hearth.inventory.add("food", 90.0)
-	s.spirit_override = 70.0
-	s.step_days(2)
-	assert_eq(s.citizens.size(), 8)
+	s.spirit_override = 60.0
 	s.step_days(1)
-	assert_eq(s.citizens.size(), 9, "one newcomer on day 3")
-	s.step_days(3)
-	assert_eq(s.citizens.size(), 10, "and one more 3 days later (10 beds)")
-	s.step_days(3)
+	assert_eq(s.citizens.size(), 9, "one newcomer on day 1")
+	s.step_days(1)
+	assert_eq(s.citizens.size(), 10, "and one more on day 2 (10 beds)")
+	s.step_days(2)
 	assert_eq(s.citizens.size(), 10, "no free bed left")
 
 
-func test_no_immigration_below_spirit_60() -> void:
+func test_no_immigration_below_spirit_40() -> void:
 	_tent(4)
 	s.hearth.inventory.add("food", 90.0)
-	s.spirit_override = 59.0
+	s.spirit_override = 39.0
 	s.step_days(1)
 	s.step_days(8)
 	assert_eq(s.citizens.size(), 8)
-	assert_eq(s.spirit(), 59.0)
+	assert_eq(s.spirit(), 39.0)
 
 
 func test_bar_multiplier_above_600_and_no_immigration() -> void:
-	assert_almost_eq(GrowthSystem.bar_size(reg, 600), 205.0, 0.0001, "no multiplier at the cap")
-	assert_almost_eq(GrowthSystem.bar_size(reg, 700), (5.0 + 700.0 / 3.0) * 2.0, 0.0001, "x2 at 700")
-	assert_almost_eq(GrowthSystem.bar_size(reg, 650), (5.0 + 650.0 / 3.0) * 1.5, 0.0001, "x1.5 at 650")
+	assert_almost_eq(GrowthSystem.bar_size(reg, 600), 103.0, 0.0001, "no multiplier at the cap")
+	assert_almost_eq(GrowthSystem.bar_size(reg, 700), (3.0 + 700.0 / 6.0) * 2.0, 0.0001, "x2 at 700")
+	assert_almost_eq(GrowthSystem.bar_size(reg, 650), (3.0 + 650.0 / 6.0) * 1.5, 0.0001, "x1.5 at 650")
 	reg.get_building("hearth").housing_beds = 2000
 	s.hearth.inventory.cap = 1000000.0
 	s.hearth.inventory.add("food", 1000000.0)

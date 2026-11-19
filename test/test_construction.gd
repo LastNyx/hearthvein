@@ -82,15 +82,15 @@ func test_build_time_follows_size_and_era() -> void:
 	var tent := reg.get_building("tent")
 	var store := reg.get_building("storehouse")
 	var hall := reg.get_building("meeting_hall")
-	assert_eq(s.build_days(tent), 1.0, "1 tile is clamped up to the 1 day minimum")
-	assert_almost_eq(s.build_days(store), 1.5, 0.001)
-	assert_almost_eq(s.build_days(hall), 3.0, 0.001)
+	assert_eq(s.build_days(tent), 0.5, "1 tile is clamped up to the half day minimum")
+	assert_almost_eq(s.build_days(store), 0.8, 0.001)
+	assert_almost_eq(s.build_days(hall), 1.6, 0.001)
 	var huge := tent.duplicate() as BuildingDef
 	huge.size = Vector2i(10, 10)
 	assert_eq(s.build_days(huge), 6.0, "clamped to 6 days")
 	var late := tent.duplicate() as BuildingDef
 	late.era = "city"
-	assert_almost_eq(s.build_days(late), 2.25, 0.001, "era adds days")
+	assert_almost_eq(s.build_days(late), 1.15, 0.001, "era adds days")
 	# Played out: a tent is done long before a meeting hall (same delivery, a full crew).
 	s.hearth.inventory.add("materials", 100.0)
 	s.hearth.inventory.add("lumen", 10.0)
@@ -178,3 +178,41 @@ func test_demolished_site_refunds_half_of_what_was_delivered() -> void:
 	assert_almost_eq(_hearth_materials(), before + delivered * 0.5, 0.001)
 	s.step_days(2)  # haulers whose destination vanished put their load back, nothing crashes
 	assert_eq(s.events.log_of("building_demolished").size(), 1)
+
+
+func test_builders_take_the_nearest_ready_site_first() -> void:
+	var far := _site("tent", 14)  # lower id, but farther from the builders
+	var near := _site("tent", 4)
+	s.set_building_priority(far.id, "paused")
+	s.set_building_priority(near.id, "paused")
+	s.step_days(1)
+	assert_true(far.site_delivered() and near.site_delivered())
+	s.set_building_priority(far.id, "normal")
+	s.set_building_priority(near.id, "normal")
+	for i in 6 * 24:
+		s.step_hours(1)
+		if not near.site or not far.site:
+			break
+	assert_false(near.site, "the near site is built first")
+	assert_true(far.site)
+
+
+func test_site_too_far_from_every_builders_yard_shows_a_status() -> void:
+	var far_x := 40
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	for x in range(h.x + 16, h.x + far_x + 4):
+		for y in range(h.y - 3, h.y + 1):
+			s.set_terrain(Vector2i(x, y), "grass")
+		s.place_road(Vector2i(x, h.y))
+	var b := _site("tent", far_x)
+	var near := _site("tent", 4)
+	var model := HudModel.new(s)
+	s.step_hours(2)
+	assert_eq(b.halt, "too_far", "round trip from the Hearth is longer than the work day")
+	assert_eq(near.halt, "")
+	assert_eq(model.halt_text(b), "Halted: too far from a builders' yard")
+	var yard := s.place_building_instant("builders_yard", Vector2i(h.x + far_x - 4, h.y - 2))
+	assert_gt(yard, -1, "a yard near the site")
+	s.step_hours(2)
+	assert_eq(b.halt, "", "a closer builders' yard clears it")

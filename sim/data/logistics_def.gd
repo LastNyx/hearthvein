@@ -10,6 +10,9 @@ extends Resource
 @export var input_buffer_days: float = 0.0
 ## A hauler does not set out for less than this much.
 @export var min_pickup: float = 0.0
+## Share of all citizens kept as haulers before any producer slot is filled (floored, so tiny settlements keep
+## none). Without it food slots take every citizen and nothing is carried.
+@export var min_hauler_share: float = 0.0
 ## A woodcutter (BuildingDef.fells_forest) turns one forest tile into a stump per this many units produced.
 @export var units_per_felled_tile: float = 0.0
 
@@ -30,6 +33,8 @@ extends Resource
 ## Rail track (design.md section 8, ticket 37): cost of one track tile, paid at once from storage. Whole units.
 @export var track_cost_materials: float = 0.0
 @export var track_cost_cut_stone: float = 0.0
+## Track on a water tile is a rail bridge: the tile costs this many times the track cost (ticket 91).
+@export var track_bridge_multiplier: float = 1.0
 ## Cargo rail manifests (design.md section 8, ticket 37b). A region's target stock of a good is its daily demand times
 ## this many days; a depot's train moves at most train_capacity units out per day, at train_speed track tiles per hour.
 @export var manifest_cover_days: float = 0.0

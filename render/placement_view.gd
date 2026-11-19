@@ -15,6 +15,9 @@ var _sky_ids: Dictionary = {}  # id -> true for buildings on the sky layer (thei
 var _sky_canvas: SkyCanvas
 var _channels_dirty := false
 var _drawn_channels: Dictionary = {}  # tile -> true for every channel cell currently on the layer
+var _smoke: Dictionary = {}  # building id -> chimney smoke Sprite2D (ticket 90); shown only while the building works
+var _smoke_clock := 0.0
+const SMOKE_EVERY := 0.5  # seconds between working checks
 
 
 func setup(s: Settlement, v: MapView) -> void:
@@ -45,6 +48,7 @@ func setup(s: Settlement, v: MapView) -> void:
 	for id in s.buildings:
 		_add_building(s.buildings[id])
 	_refresh_channels()
+	refresh_smoke()
 	queue_redraw()
 	_sky_canvas.queue_redraw()
 
@@ -68,6 +72,7 @@ func _on_event(kind: String, e: Dictionary) -> void:
 			if _nodes.has(e["id"]):
 				for n in _nodes[e["id"]]:
 					(n as CanvasItem).visible = true
+				refresh_smoke()
 		"building_upgraded":
 			if settlement.buildings.has(e["id"]):  # new tier: swap in its sprite
 				_remove_building(e["id"], e["origin"], e["def"])
@@ -112,6 +117,7 @@ func _refresh_road(t: Vector2i) -> void:
 	var lv := _level(t)
 	if lv <= 0:
 		view.roads.erase_cell(t)
+		view.bridges.erase_cell(t)
 		# Props come back unless a building or track still covers the tile.
 		view.set_props_visible(t, settlement.building_at(t) == null and not settlement.track_at(t))
 		return
@@ -120,6 +126,11 @@ func _refresh_road(t: Vector2i) -> void:
 	for i in 4:
 		if _level(t + [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT][i]) > 0:
 			mask |= 1 << i
+	if settlement.is_water_tile(t):  # a bridge: the deck goes on its own layer and the water stays visible around it
+		view.roads.erase_cell(t)
+		view.bridges.set_cell(t, lv, Vector2i(mask, 0))
+		return
+	view.bridges.erase_cell(t)
 	view.roads.set_cell(t, lv, ArtLibrary.road_coords(mask, t.x, t.y))
 
 
@@ -138,7 +149,10 @@ func _refresh_track(t: Vector2i) -> void:
 	for i in 4:
 		if settlement.track_at(t + dirs[i]):
 			mask |= 1 << i
-	view.track.set_cell(t, 1 if _level(t) > 0 else 0, Vector2i(mask, 0))  # source 1: level crossing over a road
+	var src := 1 if _level(t) > 0 else 0  # source 1: level crossing over a road (a bridge deck, on water)
+	if src == 0 and settlement.is_water_tile(t):
+		src = ArtLibrary.BRIDGE_TRESTLE  # rail bridge with no road deck under it
+	view.track.set_cell(t, src, Vector2i(mask, 0))
 
 
 func _dug(t: Vector2i) -> bool:
@@ -211,6 +225,13 @@ func _add_building(b: Building) -> void:
 		f.position = base
 		fx_parent.add_child(f)
 		list.append(f)
+	var sm := ArtLibrary.smoke_sprite(e)
+	if sm != null:
+		sm.position = base
+		sm.visible = false  # refresh_smoke turns it on while the building works
+		fx_parent.add_child(sm)
+		list.append(sm)
+		_smoke[b.id] = sm
 	_nodes[b.id] = list
 	if b.site:  # shadow and glows wait for the finished building
 		for n in list:
@@ -226,6 +247,7 @@ func _remove_building(id: int, origin: Vector2i, def_id: String) -> void:
 	for n in _nodes.get(id, []):
 		(n as Node).queue_free()
 	_nodes.erase(id)
+	_smoke.erase(id)
 	if _sky_ids.erase(id):
 		_sky_canvas.queue_redraw()
 		return
@@ -235,17 +257,47 @@ func _remove_building(id: int, origin: Vector2i, def_id: String) -> void:
 			view.set_props_visible(origin + Vector2i(x, y), true)
 
 
-func _process(_d: float) -> void:
+func _process(delta: float) -> void:
 	if settlement == null:
 		return
 	if _channels_dirty:
 		_refresh_channels()
+	_smoke_clock += delta
+	if _smoke_clock >= SMOKE_EVERY:
+		_smoke_clock = 0.0
+		refresh_smoke()
 	for id in settlement.buildings:
 		var b: Building = settlement.buildings[id]
 		if b.site or b.upgrading():
 			queue_redraw()
 			_sky_canvas.queue_redraw()
 			return
+
+
+## Is the building's chimney lit: finished and not paused, and either staffed right now (someone at work there),
+## housing with a resident, or a building that needs neither workers nor residents (the Hearth).
+func smoke_active(b: Building, work_counts: Dictionary, homes: Dictionary) -> bool:
+	if b.site or b.paused:
+		return false
+	if b.def.worker_slots > 0:
+		return work_counts.get(b.id, 0) > 0
+	if b.def.housing_beds > 0:
+		return homes.has(b.id)
+	return true
+
+
+## Show the smoke of the working buildings, hide it elsewhere. One pass over walkers and citizens, twice a second.
+func refresh_smoke() -> void:
+	if _smoke.is_empty() or settlement == null:
+		return
+	var ws := settlement.get_system(WalkerSystem) as WalkerSystem
+	var counts: Dictionary = ws.work_counts() if ws != null else {}
+	var homes := {}
+	for cid in settlement.citizens:
+		homes[(settlement.citizens[cid] as Citizen).home_id] = true
+	for id in _smoke:
+		var b: Building = settlement.buildings.get(id)
+		(_smoke[id] as Sprite2D).visible = b != null and smoke_active(b, counts, homes)
 
 
 func _draw() -> void:

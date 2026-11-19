@@ -11,6 +11,11 @@ extends RefCounted
 ## breaker, so several seasons stepped in one second still rotate in order). detach() unsubscribes (19d swaps
 ## settlements).
 ##
+## In a frame-sized step (ticket 89b) the season_started autosave does not write at once: it queues the settlement's
+## snapshot as small steps behind the season hooks (the clock is held until they have run, so the sim does not move
+## meanwhile), then compresses and writes the file on a Thread. Anything that reads the slot files, and the next autosave,
+## first waits for that thread (finish_pending). Coarse steps and flushes write at once, as before.
+##
 ## SaveGame.save flushes the season hooks still queued when the event fires (ticket 57c spreads them over frames), so
 ## the snapshot is taken after that season's on_season hooks; the flush re-enters the deferred loop with the event
 ## itself already consumed, so it does not recurse.
@@ -23,6 +28,8 @@ const META_SUFFIX := ".meta"
 var save_dir: String
 var _settlement: Settlement = null
 var _season_cb: Callable = Callable()
+var _writer: Thread = null  # the autosave write in flight, joined by finish_pending
+var _write_error: Error = OK
 
 
 func _init(dir: String = "user://saves") -> void:
@@ -41,6 +48,7 @@ func attach(settlement: Settlement) -> void:
 
 
 func detach() -> void:
+	finish_pending()
 	if _settlement != null and _season_cb.is_valid():
 		_settlement.events.unsubscribe("season_started", _season_cb)
 	_settlement = null
@@ -50,11 +58,54 @@ func detach() -> void:
 func _on_season_started(_entry: Dictionary) -> void:
 	if _settlement == null:
 		return
-	autosave(_settlement)
+	if _settlement.is_spreading():
+		autosave_spread(_settlement)
+	else:
+		autosave(_settlement)
+
+
+## The autosave of a frame step: queues the snapshot steps on the settlement and, last, the thread that writes the file.
+func autosave_spread(s: Settlement) -> void:
+	finish_pending()
+	var pick := _pick_auto_slot()
+	var path := _auto_path(int(pick["slot"]))
+	var meta := _meta_for(s, int(pick["slot"]), "auto")
+	meta["seq"] = int(pick["seq"])
+	var payload := {"version": SaveGame.CURRENT_VERSION, "state": {}}
+	for step in s.to_dict_steps(payload["state"], true):
+		s.defer_work(step)
+	s.defer_work(func() -> void:
+		_writer = Thread.new()
+		_writer.start(SaveSlots._write_job.bind(payload, path, meta)))
+
+
+## Static, so the Thread's Callable does not hold the SaveSlots (a Thread that holds its owner would never be freed).
+static func _write_job(payload: Dictionary, path: String, meta: Dictionary) -> Error:
+	var err := SaveGame.write_payload(payload, path)
+	if err != OK:
+		push_error("SaveSlots.autosave: cannot write %s (error %d)" % [path, err])
+		return err
+	return _write_meta(path, meta)
+
+
+## Waits for an autosave write still running on its thread (readers of the slot files and the next autosave do this
+## themselves; tests call it before looking at the directory). Returns its error, OK when none was pending.
+func finish_pending() -> Error:
+	if _writer == null:
+		return OK
+	_write_error = _writer.wait_to_finish() as Error
+	_writer = null
+	return _write_error
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE and _writer != null:
+		_writer.wait_to_finish()  # inline: methods are gone by now
 
 
 ## Writes the next autosave now (the season event calls this; tests call it directly too). Returns the error.
 func autosave(s: Settlement) -> Error:
+	finish_pending()
 	var pick := _pick_auto_slot()
 	var path := _auto_path(int(pick["slot"]))
 	var meta := _meta_for(s, int(pick["slot"]), "auto")
@@ -68,6 +119,7 @@ func autosave(s: Settlement) -> Error:
 
 ## Loads autosave `i` (rotation index 0..2). Null when the index is out of range or the file does not load.
 func load_auto(i: int, registry: DataRegistry) -> Settlement:
+	finish_pending()
 	if not _in_range(i, AUTO_SLOTS):
 		push_error("SaveSlots.load_auto: autosave index %d is outside 0..%d" % [i, AUTO_SLOTS - 1])
 		return null
@@ -76,6 +128,7 @@ func load_auto(i: int, registry: DataRegistry) -> Settlement:
 
 ## Rotation index of the newest existing autosave, -1 when there is none (the "continue" button of 19d).
 func latest_auto() -> int:
+	finish_pending()
 	var found := -1
 	var found_saved := 0
 	var found_seq := 0
@@ -158,6 +211,7 @@ func delete_slot(i: int) -> Error:
 ## Every existing slot as {slot, kind ("manual"/"auto"), era, date, population, saved_at}, autosaves first. For an
 ## autosave, slot is its rotation index 0..2. Read from the sidecars only, so listing never loads a save.
 func list() -> Array[Dictionary]:
+	finish_pending()
 	var out: Array[Dictionary] = []
 	for i in AUTO_SLOTS:
 		var path := _auto_path(i)
@@ -202,12 +256,12 @@ func _auto_path(i: int) -> String:
 	return save_dir.path_join("auto_%d%s" % [i, SAVE_SUFFIX])
 
 
-func _meta_path(save_path: String) -> String:
+static func _meta_path(save_path: String) -> String:
 	return save_path + META_SUFFIX
 
 
 ## Writes the sidecar atomically too (JSON text): a reader never sees half a sidecar.
-func _write_meta(save_path: String, meta: Dictionary) -> Error:
+static func _write_meta(save_path: String, meta: Dictionary) -> Error:
 	var path := _meta_path(save_path)
 	var tmp := path + ".tmp"
 	var f := FileAccess.open(tmp, FileAccess.WRITE)

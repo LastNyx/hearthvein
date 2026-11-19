@@ -97,7 +97,10 @@ static func tier_stops_loss(b: Building) -> bool:
 	return i >= 0 and i < b.def.tiers.size() and b.def.tiers[i].stops_fertility_loss
 
 
-## The seasonal soil drift (design.md section 3: soil changes once per season).
+## The seasonal soil drift (design.md section 3: soil changes once per season). The 12k-tile pass is cut into row bands
+## (ticket 89b): a frame step queues them behind the other season hooks (Settlement.defer_work, so they run one or two per
+## frame with the clock held and before the autosave takes its snapshot), a coarse step or a direct call does them all now.
+## Tiles do not depend on each other, so the result is the same whichever way it runs.
 func on_season(s: Settlement) -> void:
 	var soil := s.registry.soil
 	if soil == null:
@@ -106,19 +109,40 @@ func on_season(s: Settlement) -> void:
 	var worked: Dictionary = farms["worked"]   # footprint tile -> true, under a working Farm
 	var wearing: Dictionary = farms["wearing"]  # footprint tile -> true, under a working Farm that loses fertility
 	var starts := _start_points(s)
-	for y in MapState.HEIGHT:
-		for x in MapState.WIDTH:
-			var i := MapState.idx(x, y)
-			var now := float(s.map.fertility[i]) + float(_extra.get(i, 0)) / float(QUARTERS)
-			var after := now
-			if wearing.has(i):
-				after = maxf(0.0, now - soil.wear_per_season)
-			elif worked.has(i):
-				pass  # a staffed Terraced Farm holds its soil where it is
-			elif now < starts[s.map.terrain[i]]:
-				after = minf(starts[s.map.terrain[i]], now + soil.recovery_per_season)
-			if is_equal_approx(after, now):
-				continue
+	for y0 in range(0, MapState.HEIGHT, SEASON_BAND_ROWS):
+		var y1 := mini(y0 + SEASON_BAND_ROWS, MapState.HEIGHT)
+		var band := func() -> void: _drift_rows(s, soil, worked, wearing, starts, y0, y1)
+		if s.is_spreading():
+			s.defer_work(band)
+		else:
+			band.call()
+
+
+## Map rows per drift band: 12 rows is 1536 tiles, about half a millisecond.
+const SEASON_BAND_ROWS := 12
+
+
+## The drift of the tiles in rows y0 up to y1.
+func _drift_rows(s: Settlement, soil: SoilDef, worked: Dictionary, wearing: Dictionary, starts: PackedFloat32Array,
+		y0: int, y1: int) -> void:
+	var lo := y0 * MapState.WIDTH
+	var hi := y1 * MapState.WIDTH
+	for i: int in worked:  # tiles under a working Farm: wear (or hold, for a staffed Terraced Farm)
+		if i < lo or i >= hi or not wearing.has(i):
+			continue
+		var now := float(s.map.fertility[i]) + float(_extra.get(i, 0)) / float(QUARTERS)
+		var after := maxf(0.0, now - soil.wear_per_season)
+		if not is_equal_approx(after, now):
+			_write_points(s.map, i, after)
+	var fert := s.map.fertility
+	var terr := s.map.terrain
+	for i in range(lo, hi):  # every other tile regains fertility up to its terrain's start
+		var st := starts[terr[i]]
+		if fert[i] >= st or worked.has(i):  # whole points at or above the start: nothing to regain (st is a whole number)
+			continue
+		var now := float(fert[i]) + float(_extra.get(i, 0)) / float(QUARTERS)
+		var after := minf(st, now + soil.recovery_per_season)
+		if not is_equal_approx(after, now):
 			_write_points(s.map, i, after)
 
 

@@ -84,15 +84,33 @@ func take(s: Settlement, amount: float, grid_id: int = -1) -> float:
 	return got
 
 
+## Ids (in id order) of the buildings this hour pass can act on: a staged landmark (owes stage gold) or a reservoir.
+## Every other building is skipped by the pass whatever its state, so the list is cached on the layout key instead of
+## sorting and walking all buildings every hour (ticket 89b).
+var _cand: Array = []
+var _cand_key := Vector3i(-1, -1, -1)
+
+
+func _candidates(s: Settlement) -> Array:
+	var key := Vector3i(s.buildings.size(), s.grid_version, s.completion_version)
+	if key != _cand_key:
+		_cand_key = key
+		_cand = []
+		for bid: int in s.buildings:
+			var d := (s.buildings[bid] as Building).def
+			if not d.stages.is_empty() or d.reservoir_capacity > 0.0:
+				_cand.append(bid)
+		_cand.sort()
+	return _cand
+
+
 func on_hour(s: Settlement) -> void:
 	for bid: int in _charge.keys():
 		if not s.buildings.has(bid):
 			_charge.erase(bid)
 	var pouring := can_pour(s)
 	var gs := s.get_system(GridSystem) as GridSystem
-	var ids: Array = s.buildings.keys()
-	ids.sort()
-	for bid: int in ids:
+	for bid: int in _candidates(s):
 		var b: Building = s.buildings[bid]
 		if b.site:
 			s.pay_stage_gold(b)

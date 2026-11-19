@@ -194,9 +194,20 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 		entries.append(e.duplicate())
 	entries = _cap_builders(s, sys, entries)
 	var left := s.citizens.size()
+	# Hauler reserve first (data: min_hauler_share), then every slot in rank order.
+	var reserve := 0
+	if s.registry.logistics != null:
+		reserve = floori(left * s.registry.logistics.min_hauler_share)
 	for e in entries:
-		var n := mini(e["slots"], left)
+		var n := 0
+		if e["kind"] == Citizen.JOB_HAUL:
+			n = mini(mini(e["slots"], reserve), left)
+			reserve -= n
 		e["want"] = n
+		left -= n
+	for e in entries:
+		var n := mini(e["slots"] - e["want"], left)
+		e["want"] += n
 		left -= n
 	var by_slot := {}
 	for e in entries:

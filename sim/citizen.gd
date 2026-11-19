@@ -16,7 +16,13 @@ var home_id: int = -1
 ## Building id of the workplace, -1 = idle.
 var job_id: int = -1
 ## JOB_WORK or JOB_HAUL when job_id >= 0.
-var job_kind: String = JOB_NONE
+var job_kind: String = JOB_NONE:
+	set(v):
+		if v != job_kind:
+			job_kind = v
+			job_epoch += 1
+## Bumps whenever any citizen's job_kind changes: Settlement.citizen_ids_of_kind keeps its per-kind lists until then.
+static var job_epoch: int = 0
 
 
 func is_idle() -> bool:

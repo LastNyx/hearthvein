@@ -8,3 +8,6 @@ id = "dirt"
 display_name = "Dirt road"
 level = 1
 walk_speed = 1.5
+bridge_cost = {
+"materials": 5.0
+}

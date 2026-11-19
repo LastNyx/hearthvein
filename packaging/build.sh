@@ -14,6 +14,9 @@ export WINEDLLOVERRIDES="mscoree,mshtml="
 export WINEDEBUG=-all
 export WINEPREFIX="${WINEPREFIX:-$HOME/.cache/hv_wine_build}"
 
+# The release needs a CHANGELOG.md section for this version (the GitHub release notes come from it).
+packaging/release_notes.sh "$VERSION" >/dev/null || { echo "build.sh: add a \"## $VERSION\" section to CHANGELOG.md first" >&2; exit 1; }
+
 rm -rf build
 mkdir -p build/windows build/linux
 

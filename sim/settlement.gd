@@ -208,6 +208,7 @@ func add_system(system: SimSystem) -> void:
 ## likewise season_started / on_season.
 func step_hours(n: int) -> void:
 	_frame_step = false
+	_held.clear()  # a coarse step starts from a settled sim
 	_run_deferred(true)
 	for i in n:
 		var rest := GameClock.REAL_SECONDS_PER_HOUR - _hour_acc
@@ -219,34 +220,59 @@ func step_hours(n: int) -> void:
 
 ## Finer seam for movement: advance `seconds` of game time (1x seconds). on_seconds hooks see the time in pieces that
 ## never cross an hour boundary; every completed hour runs exactly the hooks step_hours(1) would.
+## A frame-sized step spreads an hour end (ticket 89, and the day and season hooks of 57c): the hour's hooks are queued
+## and run over the following steps, about SPREAD_BUDGET_USEC of them per step, while the clock holds at the boundary.
+## The steps that come meanwhile wait in _held and are played, piece by piece as they came, once the queue is empty, so
+## the hooks and movement see the same sequence as an unspread run. A coarse step runs everything at once.
 func step_seconds(seconds: float) -> void:
-	# Day and season hooks of a frame-sized step run one system per following step (ticket 57c), a coarse step runs
-	# them all at once.
 	_frame_step = seconds < DEFER_BELOW_SECONDS
-	_run_deferred(not _frame_step)
-	var left := seconds
-	while left > 0.0:
-		var chunk := minf(left, GameClock.REAL_SECONDS_PER_HOUR - _hour_acc)
-		for sys in systems:
-			sys.on_seconds(self, chunk)
-		left -= chunk
-		_hour_acc += chunk
-		if _hour_acc >= GameClock.REAL_SECONDS_PER_HOUR - 0.000001:
-			_hour_acc = 0.0
-			_advance_hour()
+	_step_seconds(seconds)
+	_frame_step = false  # is_spreading() is only true while a frame step runs
 
 
-## Steps shorter than this (game seconds, 0.25 s = a frame at 15 fps and 1x) spread the day hooks over several steps.
+func _step_seconds(seconds: float) -> void:
+	if _frame_step:
+		_run_deferred_budget()
+		if _deferred_head < _deferred.size():
+			_held.append(seconds)
+			return
+	else:
+		_run_deferred(true)
+	var pieces := _held
+	_held = []
+	pieces.append(seconds)
+	for p in pieces.size():
+		var left := pieces[p]
+		while left > 0.0:
+			var chunk := minf(left, GameClock.REAL_SECONDS_PER_HOUR - _hour_acc)
+			for sys in systems:
+				sys.on_seconds(self, chunk)
+			left -= chunk
+			_hour_acc += chunk
+			if _hour_acc >= GameClock.REAL_SECONDS_PER_HOUR - 0.000001:
+				_hour_acc = 0.0
+				_advance_hour()
+				if _deferred_head < _deferred.size():  # the hour end is queued: hold the rest of the time
+					if left > 0.0:
+						_held.append(left)
+					_held.append_array(pieces.slice(p + 1))
+					return
+
+
+## Steps shorter than this (game seconds, 0.25 s = a frame at 15 fps and 1x) spread the hour end over several steps.
 const DEFER_BELOW_SECONDS := GameClock.REAL_SECONDS_PER_HOUR / 10.0
+## Wall time one frame-sized step spends on pending hour-end work (at least one item runs).
+const SPREAD_BUDGET_USEC := 1000
 
-## Pending day/season work of the hour end that a frame-sized step spread out, in the order it runs (Callables).
-## Runtime only: ticket 19 calls flush_deferred() before saving so nothing is pending in a save file.
+## Pending hour-end work (hourly, day and season hooks, their events) that a frame-sized step spread out, in the order
+## it runs (Callables). Runtime only: ticket 19 calls flush_deferred() before saving so nothing is pending in a save file.
 var _deferred: Array[Callable] = []
 var _deferred_head: int = 0
-var _frame_step: bool = false  # inside a step_seconds call short enough to spread the day work
+var _frame_step: bool = false  # inside a step_seconds call short enough to spread the hour-end work
+var _held: Array[float] = []  # game seconds of the steps that came while the queue was not empty, in order; runtime only
 
 
-## Runs the next pending day/season item, or all of them.
+## Runs every pending item.
 func _run_deferred(all: bool) -> void:
 	while _deferred_head < _deferred.size():
 		var d: Callable = _deferred[_deferred_head]
@@ -254,33 +280,87 @@ func _run_deferred(all: bool) -> void:
 		d.call()
 		if not all:
 			break
+	_reset_deferred()
+
+
+## Runs pending items until the step's time budget is spent (at least one).
+func _run_deferred_budget() -> void:
+	var t0 := Time.get_ticks_usec()
+	while _deferred_head < _deferred.size():
+		var d: Callable = _deferred[_deferred_head]
+		_deferred_head += 1
+		d.call()
+		if Time.get_ticks_usec() - t0 >= SPREAD_BUDGET_USEC:
+			break
+	_reset_deferred()
+
+
+func _reset_deferred() -> void:
 	if _deferred_head >= _deferred.size():
 		_deferred.clear()
 		_deferred_head = 0
 
 
-## Runs every pending day and season hook now (a save, or code that reads the sim right after a day change).
+## Queues one more piece of work behind the pending hour-end items. It runs in a later frame step with the clock held
+## (so the sim does not change in between), or at once when the queue is flushed.
+func defer_work(work: Callable) -> void:
+	_deferred.append(work)
+
+
+## True inside a frame-sized step (the queue is being spread over frames), false for coarse steps and flushes.
+func is_spreading() -> bool:
+	return _frame_step
+
+
+## Runs every pending hour, day and season hook now (a save, or code that reads the sim right after a change).
 func flush_deferred() -> void:
+	var was := _frame_step
+	_frame_step = false  # a flush is a coarse run: work the items queue for later (the autosave) happens right here
 	_run_deferred(true)
+	_frame_step = was
 
 
 func _advance_hour() -> void:
-	_run_deferred(true)  # a hook still pending from the last day must not run after this hour's
+	_run_deferred(true)  # work still pending from the last hour must not run after this hour's
 	clock.total_hours += 1
 	events.now_hours = clock.total_hours
 	for sys in systems:
-		sys.on_hour(self)
+		_deferred.append(sys.on_hour.bind(self))
 	if clock.is_day_start():
-		events.emit("day_started", {"day": clock.day(), "season": clock.season_name(), "year": clock.year()})
+		_deferred.append(func() -> void:
+			events.emit("day_started", {"day": clock.day(), "season": clock.season_name(), "year": clock.year()}))
 		for sys in systems:
 			_deferred.append(sys.on_day.bind(self))
 		if clock.is_season_start():
-			_deferred.append(func() -> void:
-				events.emit("season_started", {"season": clock.season_name(), "year": clock.year()}))
 			for sys in systems:
 				_deferred.append(sys.on_season.bind(self))
-		if not _frame_step:
-			_run_deferred(true)
+			# After the season hooks: the autosave on this event flushes whatever is pending, and by now that is nothing.
+			_deferred.append(func() -> void:
+				events.emit("season_started", {"season": clock.season_name(), "year": clock.year()}))
+	if not _frame_step:
+		_run_deferred(true)
+
+
+var _kind_ids: Dictionary = {}  # job kind -> citizen ids in id order, see citizen_ids_of_kind
+var _kind_key := Vector2i(-1, -1)
+
+
+## Citizen ids whose job_kind is `kind`, in id order, kept until a job kind changes (Citizen.job_epoch) or the number of
+## citizens does. Per-frame systems used to sort and scan every citizen each frame. A citizen swapped for another with no
+## job change in between can leave a stale id: callers check the citizen they get, as they did before.
+func citizen_ids_of_kind(kind: String) -> Array:
+	var key := Vector2i(Citizen.job_epoch, citizens.size())
+	if key != _kind_key:
+		_kind_key = key
+		_kind_ids.clear()
+	if not _kind_ids.has(kind):
+		var out: Array = []
+		for cid in citizens:
+			if (citizens[cid] as Citizen).job_kind == kind:
+				out.append(cid)
+		out.sort()
+		_kind_ids[kind] = out
+	return _kind_ids[kind]
 
 
 ## The registered system of a class, or null.
@@ -307,50 +387,81 @@ func step_days(n: int) -> void:
 # loaded settlement iterates in the same order as the one that was saved (dictionary order is part of determinism).
 
 func to_dict() -> Dictionary:
-	var bl := []
-	for id in buildings:
-		bl.append([id, (buildings[id] as Building).to_dict()])
-	var cl := []
-	for id in citizens:
-		cl.append([id, (citizens[id] as Citizen).to_dict()])
-	var sys_state := {}
+	var out := {}
+	for step in to_dict_steps(out, false):
+		step.call()
+	return out
+
+
+## to_dict as a list of steps that fill `out` (a Dictionary the caller owns) piece by piece, each about a millisecond:
+## the autosave runs them one per frame while the clock is held (ticket 89b). The keys are laid out in to_dict's order up
+## front. `isolate` copies the containers that live objects keep and later change (map arrays, system state), so a thread
+## may read the finished dictionary while the sim runs on; to_dict() itself skips that, its caller owns the result at once.
+func to_dict_steps(out: Dictionary, isolate: bool) -> Array[Callable]:
+	for key in ["map", "occupancy", "roads", "sky_map", "sky_occupancy", "sky_roads", "free_anchor_used", "channels",
+			"track", "buildings", "citizens", "hearth", "gold", "next_building_id", "next_citizen_id", "grid_version",
+			"pave_stone_debt", "structure_version", "forest_gain_version", "terrain_dirty", "hour_acc", "clock", "events",
+			"era_current", "era_override", "planet_health_override", "spirit_override", "systems"]:
+		out[key] = null
+	var steps: Array[Callable] = []
+	steps.append(func() -> void:
+		var dirty := []
+		for t in terrain_dirty:
+			dirty.append(t)
+		out["map"] = map.to_dict().duplicate(true) if isolate else map.to_dict()
+		out["occupancy"] = occupancy.duplicate() if isolate else occupancy
+		out["roads"] = roads.duplicate() if isolate else roads
+		out["sky_map"] = sky_map.to_dict().duplicate(true) if isolate else sky_map.to_dict()
+		out["sky_occupancy"] = sky_occupancy.duplicate() if isolate else sky_occupancy
+		out["sky_roads"] = sky_roads.duplicate() if isolate else sky_roads
+		out["free_anchor_used"] = free_anchor_used
+		out["channels"] = channels.duplicate() if isolate else channels
+		out["track"] = track.duplicate() if isolate else track
+		out["hearth"] = hearth.id if hearth != null else -1
+		out["gold"] = gold
+		out["next_building_id"] = _next_building_id
+		out["next_citizen_id"] = _next_citizen_id
+		out["grid_version"] = grid_version
+		out["pave_stone_debt"] = _pave_stone_debt
+		out["structure_version"] = structure_version
+		out["forest_gain_version"] = forest_gain_version
+		out["terrain_dirty"] = dirty
+		out["hour_acc"] = _hour_acc
+		out["clock"] = clock.to_dict()
+		out["events"] = events.to_dict()
+		out["era_current"] = era_current
+		out["era_override"] = era_override
+		out["planet_health_override"] = planet_health_override
+		out["spirit_override"] = spirit_override
+		out["buildings"] = []
+		out["citizens"] = []
+		out["systems"] = {})
+	var building_ids: Array = buildings.keys()
+	for from in range(0, building_ids.size(), SAVE_CHUNK_BUILDINGS):
+		steps.append(func() -> void:
+			var bl: Array = out["buildings"]
+			for k in range(from, mini(from + SAVE_CHUNK_BUILDINGS, building_ids.size())):
+				var id: int = building_ids[k]
+				bl.append([id, (buildings[id] as Building).to_dict()]))
+	var citizen_ids: Array = citizens.keys()
+	for from in range(0, citizen_ids.size(), SAVE_CHUNK_CITIZENS):
+		steps.append(func() -> void:
+			var cl: Array = out["citizens"]
+			for k in range(from, mini(from + SAVE_CHUNK_CITIZENS, citizen_ids.size())):
+				var id: int = citizen_ids[k]
+				cl.append([id, (citizens[id] as Citizen).to_dict()]))
 	for sys in systems:
 		var key := SimSystem.save_key_of(sys)
 		if key != "":
-			sys_state[key] = sys.save_state()
-	var dirty := []
-	for t in terrain_dirty:
-		dirty.append(t)
-	return {
-		"map": map.to_dict(),
-		"occupancy": occupancy,
-		"roads": roads,
-		"sky_map": sky_map.to_dict(),
-		"sky_occupancy": sky_occupancy,
-		"sky_roads": sky_roads,
-		"free_anchor_used": free_anchor_used,
-		"channels": channels,
-		"track": track,
-		"buildings": bl,
-		"citizens": cl,
-		"hearth": hearth.id if hearth != null else -1,
-		"gold": gold,
-		"next_building_id": _next_building_id,
-		"next_citizen_id": _next_citizen_id,
-		"grid_version": grid_version,
-		"pave_stone_debt": _pave_stone_debt,
-		"structure_version": structure_version,
-		"forest_gain_version": forest_gain_version,
-		"terrain_dirty": dirty,
-		"hour_acc": _hour_acc,
-		"clock": clock.to_dict(),
-		"events": events.to_dict(),
-		"era_current": era_current,
-		"era_override": era_override,
-		"planet_health_override": planet_health_override,
-		"spirit_override": spirit_override,
-		"systems": sys_state,
-	}
+			steps.append(func() -> void:
+				var st := sys.save_state()
+				(out["systems"] as Dictionary)[key] = st.duplicate(true) if isolate else st)
+	return steps
+
+
+## Buildings and citizens per to_dict step (a building is about 5 microseconds, a citizen far less).
+const SAVE_CHUNK_BUILDINGS := 150
+const SAVE_CHUNK_CITIZENS := 500
 
 
 ## Builds a settlement from to_dict() data. Null when the data names a def the registry does not know.
@@ -872,6 +983,29 @@ func unlocked_buildings() -> Array[BuildingDef]:
 	return out
 
 
+var _landmark_key := Vector2i(-1, -1)
+var _landmarks: Dictionary = {}  # landmark def id -> the buildings of that def, kept per layout key (era_gate runs hourly)
+
+
+## True when a finished building of this def stands. The buildings of the def are cached until buildings are placed or
+## removed; whether each is still a site is read fresh.
+func _landmark_built(def_id: String) -> bool:
+	var key := Vector2i(buildings.size(), grid_version)
+	if key != _landmark_key:
+		_landmark_key = key
+		_landmarks.clear()
+	if not _landmarks.has(def_id):
+		var found: Array[Building] = []
+		for b: Building in buildings.values():
+			if b.def.id == def_id:
+				found.append(b)
+		_landmarks[def_id] = found
+	for b: Building in _landmarks[def_id]:
+		if not b.site:
+			return true
+	return false
+
+
 ## Gate state for the era after the current one (HUD, ticket 17): {next, pop, pop_need, gold, gold_need, landmark,
 ## landmark_built, met}. next is "" at the last era. Needs come from the EraDef row only.
 func era_gate() -> Dictionary:
@@ -882,11 +1016,7 @@ func era_gate() -> Dictionary:
 			nxt = e
 	if nxt == null:
 		return {"next": "", "met": false}
-	var built := false
-	for b: Building in buildings.values():
-		if not b.site and b.def.id == nxt.gate_landmark:
-			built = true
-			break
+	var built := _landmark_built(nxt.gate_landmark)
 	var pop := citizens.size()
 	return {"next": nxt.id, "pop": pop, "pop_need": nxt.gate_pop, "gold": gold, "gold_need": nxt.gate_gold,
 		"landmark": nxt.gate_landmark, "landmark_built": built,
@@ -1162,10 +1292,48 @@ func can_place_road(tile: Vector2i, layer: int = Building.LAYER_GROUND) -> bool:
 		return false
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water" or (tdef != null and not tdef.buildable):
+	var water := tid == "water"  # a road on water is a bridge (ticket 91): allowed when the dirt bridge cost is in storage
+	if tdef != null and not tdef.buildable and not water:
 		return false
 	var i := MapState.idx(tile.x, tile.y)
+	if water and not _can_afford(bridge_cost(tile, ROAD_DIRT)):
+		return false
 	return occupancy[i] < 0 and channels[i] == CHANNEL_NONE  # a track tile may take a road: a level crossing (ticket 67)
+
+
+## True when the tile is open water (river). A road here is a bridge, track here a rail bridge (ticket 91).
+func is_water_tile(tile: Vector2i) -> bool:
+	return MapState.in_bounds(tile.x, tile.y) and map.terrain_id_at(tile.x, tile.y) == "water"
+
+
+## True when a road or track tile stands on water: the bridge art is drawn there, the water underneath is unchanged.
+func is_bridge(tile: Vector2i) -> bool:
+	return is_water_tile(tile) and (road_at(tile) != ROAD_NONE or track_at(tile))
+
+
+## Extra cost of laying road `level` on this tile: RoadDef.bridge_cost on a water tile, {} on land.
+func bridge_cost(tile: Vector2i, level: int) -> Dictionary:
+	if not is_water_tile(tile):
+		return {}
+	var rd := registry.get_road_by_level(level)
+	return rd.bridge_cost if rd != null else {}
+
+
+func _can_afford(cost: Dictionary) -> bool:
+	var have := totals()
+	for g in cost:
+		if float(have.get(g, 0.0)) + Inventory.EPS < float(cost[g]):
+			return false
+	return true
+
+
+## Pays a whole cost from storage, all or nothing.
+func _spend_cost(cost: Dictionary) -> bool:
+	if not _can_afford(cost):
+		return false
+	for g in cost:
+		spend_good(g, float(cost[g]))
+	return true
 
 
 ## Dirt by default; a higher level on an existing road upgrades it. Returns false when nothing changed.
@@ -1181,6 +1349,8 @@ func place_road(tile: Vector2i, level: int = ROAD_DIRT, layer: int = Building.LA
 		_recompute_connections()
 		return true
 	if not can_place_road(tile) or roads[MapState.idx(tile.x, tile.y)] >= level:
+		return false
+	if not _spend_cost(bridge_cost(tile, level)):  # a bridge tile pays RoadDef.bridge_cost for the level laid
 		return false
 	roads[MapState.idx(tile.x, tile.y)] = level
 	grid_version += 1
@@ -1240,7 +1410,8 @@ func _pave_stone_units(cost: Dictionary) -> int:
 ## tile or upgrades a dirt road. The cost is the paved RoadDef's `cost` (design.md section 6: 1 materials + 0.2 cut
 ## stone, Town). Cut stone is charged in whole units: each tile adds its 0.2 to a running debt and a whole unit is
 ## spent as the debt fills, so five tiles cost one stone and storage never holds a fraction of a good.
-## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, channel, already_paved, era_locked,
+## On a water tile the paved bridge cost (RoadDef.bridge_cost) is added to the paved cost (ticket 91).
+## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, already_paved, era_locked,
 ## materials, cut_stone.
 func can_pave_road(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
@@ -1249,9 +1420,7 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "locked_region"}
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water":
-		return {"ok": false, "reason": "water"}
-	if tdef != null and not tdef.buildable:
+	if tdef != null and not tdef.buildable and tid != "water":
 		return {"ok": false, "reason": "blocked_terrain"}
 	var i := MapState.idx(tile.x, tile.y)
 	if occupancy[i] >= 0:
@@ -1264,7 +1433,8 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "era_locked"}
 	var rd := registry.get_road_by_level(ROAD_PAVED)
 	var cost: Dictionary = rd.cost if rd != null else {}
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < float(cost.get("materials", 0.0)):
+	var bridge := bridge_cost(tile, ROAD_PAVED)  # a stone bridge tile pays the paved cost and the bridge cost again
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < float(cost.get("materials", 0.0)) + float(bridge.get("materials", 0.0)):
 		return {"ok": false, "reason": "materials"}
 	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < float(_pave_stone_units(cost)):
 		return {"ok": false, "reason": "cut_stone"}
@@ -1303,7 +1473,8 @@ func track_at(tile: Vector2i) -> bool:
 ## its own layer, placed like road: on owned, buildable land, never under a building. A track tile and a road tile are
 ## different overlays and cannot share a tile (reason "road"; the same goes for a channel). The cost is
 ## LogisticsDef.track_cost_materials + track_cost_cut_stone per tile (design.md section 8: 2 materials + 1 cut stone).
-## Reasons: out_of_bounds, locked_region, water, blocked_terrain, overlap, channel, track, materials, cut_stone.
+## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, track, materials, cut_stone.
+## Track on a water tile is a rail bridge at LogisticsDef.track_bridge_multiplier (3x) the track cost (ticket 91).
 ## A road tile takes track too (ticket 67, a level crossing): both layers stay set, and lifting one leaves the other.
 func can_place_track(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
@@ -1312,9 +1483,7 @@ func can_place_track(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "locked_region"}
 	var tid := map.terrain_id_at(tile.x, tile.y)
 	var tdef := registry.get_terrain(tid)
-	if tid == "water":
-		return {"ok": false, "reason": "water"}
-	if tdef != null and not tdef.buildable:
+	if tdef != null and not tdef.buildable and tid != "water":
 		return {"ok": false, "reason": "blocked_terrain"}
 	var i := MapState.idx(tile.x, tile.y)
 	if occupancy[i] >= 0:
@@ -1324,9 +1493,10 @@ func can_place_track(tile: Vector2i) -> Dictionary:
 	if track[i] != 0:
 		return {"ok": false, "reason": "track"}
 	var lg := registry.logistics
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < lg.track_cost_materials:
+	var k := _track_factor(tile)
+	if float(totals().get("materials", 0.0)) + Inventory.EPS < lg.track_cost_materials * k:
 		return {"ok": false, "reason": "materials"}
-	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < lg.track_cost_cut_stone:
+	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < lg.track_cost_cut_stone * k:
 		return {"ok": false, "reason": "cut_stone"}
 	return {"ok": true, "reason": ""}
 
@@ -1337,10 +1507,11 @@ func place_track(tile: Vector2i) -> bool:
 	if not can_place_track(tile)["ok"]:
 		return false
 	var lg := registry.logistics
-	if not spend_good("materials", lg.track_cost_materials):
+	var k := _track_factor(tile)
+	if not spend_good("materials", lg.track_cost_materials * k):
 		return false
-	if lg.track_cost_cut_stone > 0.0 and not spend_good("cut_stone", lg.track_cost_cut_stone):
-		_return_goods({"materials": lg.track_cost_materials}, tile)  # defensive: can_place_track checked both
+	if lg.track_cost_cut_stone > 0.0 and not spend_good("cut_stone", lg.track_cost_cut_stone * k):
+		_return_goods({"materials": lg.track_cost_materials * k}, tile)  # defensive: can_place_track checked both
 		return false
 	track[MapState.idx(tile.x, tile.y)] = 1
 	grid_version += 1
@@ -1349,6 +1520,11 @@ func place_track(tile: Vector2i) -> bool:
 	events.emit("track_changed", {"tile": tile, "laid": true})
 	_recompute_connections()
 	return true
+
+
+## Cost multiplier of a track tile: the rail bridge factor on water, 1 on land.
+func _track_factor(tile: Vector2i) -> float:
+	return registry.logistics.track_bridge_multiplier if is_water_tile(tile) else 1.0
 
 
 ## True from the Conflux era on: the build bar and the T key offer track only then (place_track itself does not
@@ -1371,8 +1547,9 @@ func remove_track(tile: Vector2i) -> bool:
 	var lg := registry.logistics
 	if lg != null:
 		var refund := {}
-		var m := lg.track_cost_materials * lg.demolish_refund
-		var c := lg.track_cost_cut_stone * lg.demolish_refund
+		var k := _track_factor(tile)
+		var m := lg.track_cost_materials * k * lg.demolish_refund
+		var c := lg.track_cost_cut_stone * k * lg.demolish_refund
 		if m > Inventory.EPS:
 			refund["materials"] = m
 		if c > Inventory.EPS:

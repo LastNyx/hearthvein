@@ -21,6 +21,8 @@ var map: MapState
 var roads: TileMapLayer
 var channels: TileMapLayer
 var track: TileMapLayer
+## Bridge decks (ticket 91): road tiles on water draw here, above Roads and the shore, with the water showing around them.
+var bridges: TileMapLayer
 var shadows: Node2D
 var flats: Node2D  # flat footprints (Park): on the ground, under every y-sorted object
 var objects: Node2D
@@ -90,6 +92,7 @@ func setup(m: MapState) -> void:
 	_base.name = "Base"
 	_base.tile_set = ArtLibrary.terrain_tileset()
 	_base.rendering_quadrant_size = 16
+	_base.material = ArtLibrary.water_material()  # ticket 90: shimmers the water-coloured pixels only
 	add_child(_base)
 	var ground: PackedStringArray = PackedStringArray()
 	for id in map.terrain_ids:
@@ -105,6 +108,7 @@ func setup(m: MapState) -> void:
 	_rock_edge = _autotile_layer("RockEdge", "rock")
 	_fouled = _state_layer("Fouled", "fouled")  # under the shore line so the bank stays crisp over the murk
 	_shore = _autotile_layer("Shore", "water")
+	_shore.material = ArtLibrary.water_material()
 	_shade = Sprite2D.new()  # tonal patches over the ground blends but under the vein and sky edges
 	_shade.name = "Shade"
 	_shade.centered = false
@@ -119,6 +123,10 @@ func setup(m: MapState) -> void:
 	roads.name = "Roads"
 	roads.tile_set = ArtLibrary.road_tileset()
 	add_child(roads)
+	bridges = TileMapLayer.new()
+	bridges.name = "Bridges"
+	bridges.tile_set = ArtLibrary.bridge_tileset()
+	add_child(bridges)
 	channels = TileMapLayer.new()
 	channels.name = "Channels"
 	channels.tile_set = ArtLibrary.channel_tileset()

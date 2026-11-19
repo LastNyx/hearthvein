@@ -20,6 +20,10 @@ var volume_master: float = 0.8
 var volume_effects: float = 0.8
 var volume_ambience: float = 0.8
 var mute_in_background: bool = true
+## Bottom-left tools tab open or collapsed (ticket 88).
+var tools_open: bool = true
+## The version the What's new panel was last offered for (ticket 92); empty before the first launch.
+var last_seen_version: String = ""
 
 
 func to_dict() -> Dictionary:
@@ -27,7 +31,8 @@ func to_dict() -> Dictionary:
 		"fullscreen": fullscreen, "ui_scale": ui_scale, "hints_enabled": hints_enabled,
 		"tutorial_first_run_done": tutorial_first_run_done, "seen_hints": seen_hints.duplicate(),
 		"volume_master": volume_master, "volume_effects": volume_effects, "volume_ambience": volume_ambience,
-		"mute_in_background": mute_in_background,
+		"mute_in_background": mute_in_background, "tools_open": tools_open,
+		"last_seen_version": last_seen_version,
 	}
 
 
@@ -40,9 +45,12 @@ func load_file() -> void:
 	hints_enabled = _bool(cf, "hints_enabled", hints_enabled)
 	tutorial_first_run_done = _bool(cf, "tutorial_first_run_done", tutorial_first_run_done)
 	mute_in_background = _bool(cf, "mute_in_background", mute_in_background)
+	tools_open = _bool(cf, "tools_open", tools_open)
 	volume_master = _vol(cf, "volume_master", volume_master)
 	volume_effects = _vol(cf, "volume_effects", volume_effects)
 	volume_ambience = _vol(cf, "volume_ambience", volume_ambience)
+	var lsv: Variant = cf.get_value(SECTION, "last_seen_version", "")
+	last_seen_version = lsv if lsv is String else ""
 	var sc: Variant = cf.get_value(SECTION, "ui_scale", ui_scale)
 	if (sc is float or sc is int) and SCALES.has(float(sc)):
 		ui_scale = float(sc)

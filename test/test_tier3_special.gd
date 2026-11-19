@@ -78,6 +78,7 @@ func test_greenhouse_three_keeps_working_on_blight() -> void:
 	g.tier = 1
 	s.refresh_population()
 	_run_days(1)
+	g.door_buffer.remove("greenhouse", 1000.0)  # empty: a full day of output fits under the cap of 20
 	var before := ps.produced_total
 	_run_days(1)
 	var blighted_day := ps.produced_total - before
@@ -86,6 +87,7 @@ func test_greenhouse_three_keeps_working_on_blight() -> void:
 	s.refresh_population()
 	_run_days(1)
 	assert_almost_eq(BlightSystem.output_modifier(s, g), 1.0, 0.0001, "tier III ignores blight")
+	g.door_buffer.remove("greenhouse", 1000.0)
 	before = ps.produced_total
 	_run_days(1)
 	assert_gt(ps.produced_total - before, blighted_day, "Greenhouse III makes more than a blighted tier I")

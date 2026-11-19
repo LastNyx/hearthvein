@@ -1,6 +1,8 @@
 extends SceneTree
 ## Windowed HUD screenshots: godot --path . -s tools/hud_shot.gd
-## Writes /tmp/hv_hud.png (building selected) and /tmp/hv_hud_overlay.png (blight + road overlays on).
+## Writes /tmp/hv_hud.png (building selected) and /tmp/hv_hud_overlay.png (blight + road overlays on), plus the tools
+## tab (ticket 88): /tmp/hv_88_tools_open.png (1x), /tmp/hv_88_tools_closed.png (1x) and the same two paused
+## (/tmp/hv_88_tools_open_paused.png, /tmp/hv_88_tools_closed_paused.png).
 
 func _shoot(path: String) -> void:
 	for i in 4:
@@ -44,5 +46,15 @@ func _init() -> void:
 	m.toggle_overlay("blight")
 	m.toggle_overlay("roads")
 	await _shoot("/tmp/hv_hud_overlay.png")
+	var tab: ToolsTab = (main.get_node("Hud") as Hud).tools_tab
+	main.driver.set_speed(1)
+	tab.set_open(true, false)
+	await _shoot("/tmp/hv_88_tools_open.png")
+	tab.set_open(false, false)
+	await _shoot("/tmp/hv_88_tools_closed.png")
+	main.driver.set_speed(0)
+	await _shoot("/tmp/hv_88_tools_closed_paused.png")
+	tab.set_open(true, false)
+	await _shoot("/tmp/hv_88_tools_open_paused.png")
 	print(s.clock.label(), " notices: ", m.notifications.items.map(func(i: Dictionary) -> String: return i["text"]))
 	quit()

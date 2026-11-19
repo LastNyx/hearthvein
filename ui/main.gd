@@ -37,6 +37,10 @@ var end_screen: EndScreen
 var help: HelpScreen
 var title_screen: TitleScreen
 var new_game_panel: NewGamePanel
+var whats_new_panel: WhatsNewPanel
+## The version shown on the title and compared for the What's new auto-open; blank = the project's. Tests set it.
+var app_version: String = ""
+var changelog_path: String = "res://CHANGELOG.md"
 var _world: Array[Node] = []
 var _title: Array[Node] = []
 var _pan: Tween
@@ -56,6 +60,8 @@ func _ready() -> void:
 	settings.path = settings_path
 	settings.load_file()
 	settings.apply(get_window())
+	if app_version == "":
+		app_version = str(ProjectSettings.get_setting("application/config/version", ""))
 	sound = SoundPlayer.new()
 	sound.name = "SoundPlayer"
 	add_child(sound)  # first, so every button built below clicks
@@ -85,6 +91,8 @@ func _ready() -> void:
 	menu.quit_requested.connect(quit_game)
 	end_screen.title_requested.connect(return_to_title)
 	_build_title()
+	if ChangelogText.auto_open(settings, app_version):
+		open_whats_new()
 
 
 ## Starts a fresh Settlement and enters GAME. Seed -1 is the tutorial seed (data) when `tutorial` is on, else `game_seed`,
@@ -118,6 +126,29 @@ func close_new_game_panel() -> void:
 	remove_child(new_game_panel)
 	new_game_panel.queue_free()
 	new_game_panel = null
+
+
+## The title's What's new button: CHANGELOG.md in a scrollable panel over the title (Back or Esc closes it). The
+## Unreleased section is left out of exported builds when the changelog has a section for this version.
+func open_whats_new() -> void:
+	if whats_new_panel != null or state != State.TITLE:
+		return
+	var md := FileAccess.get_file_as_string(changelog_path)
+	var hide := ChangelogText.hide_unreleased(md, app_version, OS.has_feature("editor"))
+	whats_new_panel = WhatsNewPanel.new()
+	whats_new_panel.name = "WhatsNewPanel"
+	_add_title(whats_new_panel)
+	whats_new_panel.setup(ChangelogText.to_bbcode(ChangelogText.drop_preamble(md), hide))
+	whats_new_panel.back_pressed.connect(close_whats_new)
+
+
+func close_whats_new() -> void:
+	if whats_new_panel == null:
+		return
+	_title.erase(whats_new_panel)
+	remove_child(whats_new_panel)
+	whats_new_panel.queue_free()
+	whats_new_panel = null
 
 
 ## Replaces whatever is showing (the title, or the running Settlement) with `s` and re-binds every view to it.
@@ -193,7 +224,7 @@ func _build_title() -> void:
 	title_screen = TitleScreen.new()
 	title_screen.name = "TitleScreen"
 	_add_title(title_screen)
-	title_screen.setup(not menu_model.newest_save().is_empty())
+	title_screen.setup(not menu_model.newest_save().is_empty(), app_version)
 	title_screen.continue_pressed.connect(func() -> void:
 		var s := menu_model.continue_newest()
 		if s != null:
@@ -201,6 +232,7 @@ func _build_title() -> void:
 	title_screen.new_game_pressed.connect(open_new_game_panel)
 	title_screen.load_pressed.connect(menu.open_view.bind("load"))
 	title_screen.milestones_pressed.connect(menu.open_view.bind("milestones"))
+	title_screen.whats_new_pressed.connect(open_whats_new)
 	title_screen.settings_pressed.connect(menu.open_view.bind("settings"))
 	title_screen.quit_pressed.connect(func() -> void: get_tree().quit())
 
@@ -220,6 +252,7 @@ func _free_title() -> void:
 	_title.clear()
 	title_screen = null
 	new_game_panel = null
+	whats_new_panel = null
 	map_view = null
 
 
@@ -299,6 +332,7 @@ func _build_world(s: Settlement) -> void:
 	hud.setup(hud_model, build, camera, driver)
 	hud.add_cards(settings)
 	hud.hint_cards.help_page_requested.connect(help.open_page)
+	hud.help_requested.connect(help.toggle)
 
 
 ## Repaint the islands on the sky layer from the sim (raised and removed islands).
@@ -324,6 +358,9 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif menu.is_open():
 			menu.close()
+			get_viewport().set_input_as_handled()
+		elif whats_new_panel != null:
+			close_whats_new()
 			get_viewport().set_input_as_handled()
 		elif new_game_panel != null:
 			close_new_game_panel()
