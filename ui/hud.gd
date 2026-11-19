@@ -42,6 +42,9 @@ var _layer_tag: Button
 var _overlay_panel: PanelContainer
 var _era_title: Label
 var _era_dimming: Label
+var _era_light: Label
+var _era_short: Label
+var _era_output: Label
 var _era_gate: Label
 var _era_date: Label
 var _era_panel: PanelContainer
@@ -357,6 +360,13 @@ func _build_era_panel(parent: Node) -> void:
 	v.add_child(row)
 	_moon = _icon(row, "moon", 24)
 	_era_dimming = _label(row, 17, Color("c8d2f0"))
+	_era_light = _label(v, 12, Color("c8d2f0"))
+	_era_light.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_era_light.custom_minimum_size = Vector2(336, 0)
+	_era_short = _label(v, 12, RED)
+	_era_output = _label(v, 12, DIM)
+	_era_output.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_era_output.custom_minimum_size = Vector2(336, 0)
 	_era_gate = _label(v, 12, DIM)
 	_era_gate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_era_gate.custom_minimum_size = Vector2(336, 0)
@@ -604,6 +614,13 @@ func refresh() -> void:
 	var ep := model.era_panel()
 	_era_title.text = ep["title"]
 	_era_dimming.text = ep["dimming"]
+	var detail: String = ep["stock"] if ep["light"] == "" else ep["light"]
+	_era_light.text = detail
+	_era_light.visible = detail != ""
+	_era_short.text = ep["light_short"]
+	_era_short.visible = ep["light_short"] != ""
+	_era_output.text = ep["output"]
+	_era_output.visible = ep["output"] != ""
 	_era_gate.text = ep["gate"]
 	_era_date.text = driver.status_text() if driver != null else model.clock_text()
 	var active: bool = ep["dimming_state"] == "active"

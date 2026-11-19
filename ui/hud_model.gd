@@ -134,7 +134,9 @@ func era_panel() -> Dictionary:
 				floori(gate["gold"]), gate["gold_need"], lm.display_name if lm != null else str(gate["landmark"]),
 				"built" if gate["landmark_built"] else "not built"]
 	return {"title": "Era: %s" % era_name(), "gate": gate_text, "dimming": dimming_text(),
-			"dimming_state": dimming_state(), "date": "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]}
+			"dimming_state": dimming_state(), "light": dimming_light_text(), "light_short": dimming_short_text(),
+			"output": dimming_output_text(), "stock": dimming_stock_text(),
+			"date": "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]}
 
 
 func dimming_state() -> String:
@@ -158,6 +160,104 @@ func dimming_text() -> String:
 				return "GREAT DIMMING - day %d of %d%s" % [total - int(st["days_left"]) + 1, total, " (dark)" if st["dark"] else ""]
 			return "DIMMING - day %d of %d%s" % [total - int(st["days_left"]) + 1, total, " (dark)" if st["dark"] else ""]
 	return "No Dimming expected"
+
+
+## "x0.5" for an output factor: two decimals at most, no trailing zeros (0.25 -> "0.25", 0.5 -> "0.5").
+static func factor_text(f: float) -> String:
+	return ("%.2f" % f).rstrip("0").rstrip(".")
+
+
+## "Light: needs 4 Lumen/day, have 10 Lumen + 0 cells (about 2 days)" during a Dimming, "" otherwise. The days are
+## floor((Lumen + cells x lumen_per_cell) / need); "enough" when that covers the rest of the Dimming.
+func dimming_light_text() -> String:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return ""
+	var st := d.status(s)
+	if st["state"] != "active":
+		return ""
+	var need := DimmingSystem.light_need(s)
+	var t := s.totals()
+	var lumen := floori(float(t.get("lumen", 0.0)))
+	var cells := floori(float(t.get("lumen_cells", 0.0)))
+	var per_cell := s.registry.planet.lumen_per_cell
+	var days := 0
+	if need > 0.0:
+		days = floori((float(lumen) + float(cells) * per_cell) / need)
+	var left := int(st["days_left"])
+	var have := "enough" if days >= left else "about %d days" % days
+	return "Light: needs %s Lumen/day, have %d Lumen + %d cells (%s)" % [num_text(need), lumen, cells, have]
+
+
+## "Light short: Spirit falls" while the last day's light fell short (or the settlement is dark), "" otherwise.
+func dimming_short_text() -> String:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return ""
+	var st := d.status(s)
+	if st["state"] != "active":
+		return ""
+	if bool(st["dark"]) or float(d.last_light.get("short", 0.0)) > 0.0:
+		return "Light short: Spirit falls"
+	return ""
+
+
+## "Output: Farm x0.5, Forager x0.5, Lumen Tap x0.25" listing each finished building def a Dimming lowers today
+## (at most 4 names, then "+N more"), "" outside a Dimming or when nothing is affected.
+func dimming_output_text() -> String:
+	if not DimmingSystem.is_active(s):
+		return ""
+	var affected := {}
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if b.site:
+			continue
+		var f := DimmingSystem.output_modifier(s, b)
+		if f >= 1.0:
+			continue
+		affected[b.display_name(s.registry)] = f
+	if affected.is_empty():
+		return ""
+	var names: Array = affected.keys()
+	names.sort()
+	var parts: Array[String] = []
+	for i in mini(4, names.size()):
+		parts.append("%s x%s" % [names[i], factor_text(float(affected[names[i]]))])
+	if names.size() > 4:
+		parts.append("+%d more" % (names.size() - 4))
+	return "Output: " + ", ".join(parts)
+
+
+## "Stock before it: ~12 Lumen for 3 days" for a forecast Dimming (plus " and food" when the food stock, at the daily
+## eating rate, would not last the wait and the Dimming), "" otherwise.
+func dimming_stock_text() -> String:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return ""
+	var st := d.status(s)
+	if st["state"] != "forecast":
+		return ""
+	var length := int(st["length"])
+	var target := DimmingSystem.light_need(s) * float(length)
+	var line := "Stock before it: ~%s Lumen for %d days" % [num_text(target), length]
+	var eat := float(s.citizens.size()) * s.registry.growth.food_per_citizen
+	if eat <= 0.0:
+		eat = 1.0
+	var food := 0.0
+	var t := s.totals()
+	for g in GrowthSystem.food_goods(s.registry):
+		food += float(t.get(g, 0.0))
+	if food / eat < float(int(st["days_until"]) + length):
+		line += " and food"
+	return line
+
+
+## "x0.5 Dimming" while a Dimming lowers this building's output, "" otherwise.
+func dimming_building_text(b: Building) -> String:
+	if b == null or b.site:
+		return ""
+	var f := DimmingSystem.output_modifier(s, b)
+	return "" if f >= 1.0 else "x%s Dimming" % factor_text(f)
 
 
 # ---------------------------------------------------------------- layer (ticket 40d)
@@ -475,6 +575,9 @@ func selection() -> Dictionary:
 			lines.append(_goods_line("Stored", b.inventory))
 		if not b.connected:
 			warn = "Not connected to the Hearth by road"
+	var dim := dimming_building_text(b)
+	if dim != "":
+		lines.append(dim)
 	var halt_text := halt_text(b)
 	var bl := _blight_near(b)
 	if bl > 0:
@@ -699,6 +802,9 @@ func tooltip_for_building(b: Building) -> Dictionary:
 				status.append(adv)
 		if not b.connected:
 			status.append("Not connected to the Hearth by road")
+	var dim := dimming_building_text(b)
+	if dim != "":
+		status.append(dim)
 	return _tooltip(b.display_name(s.registry), b.def, status, _def_tooltip_lines(b.def, b))
 
 

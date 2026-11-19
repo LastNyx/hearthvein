@@ -217,6 +217,11 @@ static func light_per_citizen(s: Settlement) -> float:
 	return need
 
 
+## Light the whole settlement needs each day: light_per_citizen x citizens (the HUD's "needs N Lumen/day").
+static func light_need(s: Settlement) -> float:
+	return light_per_citizen(s) * float(s.citizens.size())
+
+
 func _light(s: Settlement) -> void:
 	var pd := s.registry.planet
 	var need_by_region := {}
