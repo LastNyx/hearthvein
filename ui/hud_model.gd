@@ -74,6 +74,68 @@ func resources() -> Array[Dictionary]:
 	return out
 
 
+# ---------------------------------------------------------------- Resources page (ticket 114)
+
+## Top-bar goods whose ledger id differs.
+const LEDGER_GOOD := {"cells": "lumen_cells"}
+
+
+func _ledger() -> ResourceLedgerSystem:
+	return s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
+
+
+## One row per good in RESOURCES: {id, name, icon, stock, change, made, used} (made/used are yesterday's).
+func resource_rows() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var now := _stock()
+	var ledger := _ledger()
+	for k in RESOURCES:
+		var y: Dictionary = ledger.yesterday(LEDGER_GOOD.get(k, k)) if ledger != null else {"made": 0.0, "used": 0.0}
+		out.append({"id": k, "name": _good_name(LEDGER_GOOD.get(k, k)), "icon": k, "stock": floori(now[k]), "change": _deltas[k],
+				"made": roundi(y["made"]), "used": roundi(y["used"])})
+	return out
+
+
+## What made `id` yesterday: [{label, amount}] biggest first. Buildings show with how many of them stand ("Woodcutter
+## x3"); a Clear-tool yield reads "Clearing forest".
+func made_breakdown(id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var ledger := _ledger()
+	if ledger == null:
+		return out
+	var by: Dictionary = ledger.yesterday(LEDGER_GOOD.get(id, id))["made_by"]
+	for def_id: String in by:
+		var label := def_id.capitalize()
+		if def_id.begins_with(ConstructionSystem.CLEAR_PREFIX):
+			var t := s.registry.get_terrain(def_id.trim_prefix(ConstructionSystem.CLEAR_PREFIX))
+			label = "Clearing %s" % (t.display_name.to_lower() if t != null else "land")
+		elif def_id == "ruins":
+			label = "Ruins"
+		else:
+			var def := s.registry.get_building(def_id)
+			if def != null:
+				label = def.display_name
+				var n := 0
+				for b: Building in s.buildings.values():
+					if b.def.id == def_id and not b.site:
+						n += 1
+				if n > 1:
+					label += " x%d" % n
+		out.append({"label": label, "amount": roundi(by[def_id]), "raw": float(by[def_id])})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["raw"] > b["raw"])
+	return out
+
+
+## The chart series for `id`: the day-start stock samples (oldest first) and today's stock last, at most 60 values.
+func resource_history(id: String) -> Array[float]:
+	var ledger := _ledger()
+	var out: Array[float] = ledger.history(LEDGER_GOOD.get(id, id)) if ledger != null else ([] as Array[float])
+	out.append(float(_stock()[id]))
+	while out.size() > ResourceLedgerSystem.HISTORY_DAYS:
+		out.pop_front()
+	return out
+
+
 static func delta_text(d: int) -> String:
 	return ("+%d" % d) if d >= 0 else ("%d" % d)
 
