@@ -194,8 +194,9 @@ func _px_font(size: int) -> FontFile:
 
 
 static func _pixel_font(path: String) -> FontFile:
-	var f := FontFile.new()
-	f.data = FileAccess.get_file_as_bytes(path)
+	# load(), not the raw .ttf bytes: exports pack only the imported font, so reading the file gave the default font
+	# in every exported build up to 1.1.2.
+	var f := (load(path) as FontFile).duplicate() as FontFile
 	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE  # crisp pixel edges
 	f.hinting = TextServer.HINTING_NONE
 	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED

@@ -2,6 +2,16 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Added
+- Updates from inside the game: the title screen shows "Update x.y.z available" when a new release is out, with
+  its notes. Windows downloads and runs the installer; the Linux AppImage replaces itself and restarts. Checked at
+  most once a day; turn it off in Settings.
+
+### Fixed
+- The pixel fonts were missing from the downloadable builds, which showed a plain default font instead.
+
 ## 1.1.2 - 2026-11-19
 
 ### Added
