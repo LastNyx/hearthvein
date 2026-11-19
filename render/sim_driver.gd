@@ -33,9 +33,16 @@ func toggle_pause() -> void:
 	set_speed(_last_speed if speed == 0 else 0)
 
 
+## The clock bar (ticket 113): "Day 3, 06:40", with the minutes from the progress inside the current hour.
 func status_text() -> String:
-	var sp := "paused" if speed == 0 else "%dx" % speed
-	return "%s, %s" % [settlement.clock.label(), sp]
+	if settlement == null:
+		return ""
+	return HudModel.clock_bar_text(settlement.clock.day(), float(settlement.clock.hour()) + hour_fraction())
+
+
+## "1x"/"2x"/"3x" or "paused": the era panel shows it beside the year and season.
+func speed_text() -> String:
+	return "paused" if speed == 0 else "%dx" % speed
 
 
 ## Fraction of the current hour already simulated, 0..1 (render-side only: the clock bar and the day and night tint).

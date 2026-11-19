@@ -125,6 +125,16 @@ func clock_text(speed_text: String = "") -> String:
 	return t if speed_text == "" else "%s  %s" % [t, speed_text]
 
 
+## The clock bar of the era panel (ticket 113, design D4): "Day 3, 06:40". The sim clock has whole hours only, so the
+## minutes come from the fraction already simulated inside the current hour (render-side; the sim does not change).
+## The last minute shown is 59, so a nearly finished hour never reads ":60".
+static func clock_bar_text(day: int, hours_f: float) -> String:
+	var of_day := fposmod(hours_f, 24.0)
+	var hour := int(floorf(of_day))
+	var minute := mini(int((of_day - float(hour)) * 60.0), 59)
+	return "Day %d, %02d:%02d" % [day, hour, minute]
+
+
 # ---------------------------------------------------------------- era and Dimming panel
 
 func era_name() -> String:

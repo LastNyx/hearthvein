@@ -49,6 +49,8 @@ var _era_short: Label
 var _era_output: Label
 var _era_gate: Label
 var _era_date: Label
+var _era_season: Label
+var _clock_dial: ClockDial
 var _era_panel: PanelContainer
 var _moon: TextureRect
 var _notes_box: VBoxContainer
@@ -406,6 +408,19 @@ func _build_era_panel(parent: Node) -> void:
 	var v := VBoxContainer.new()
 	_era_panel.add_child(v)
 	_era_title = _label(v, 18, GOLD)
+	var clock_row := HBoxContainer.new()
+	clock_row.add_theme_constant_override("separation", 8)
+	v.add_child(clock_row)
+	_clock_dial = ClockDial.new()
+	_clock_dial.custom_minimum_size = Vector2(56, 36)
+	_clock_dial.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_clock_dial.tooltip_text = "The sun is up 05-21, the moon 21-05"
+	clock_row.add_child(_clock_dial)
+	var dates := VBoxContainer.new()
+	dates.add_theme_constant_override("separation", 0)
+	clock_row.add_child(dates)
+	_era_date = _label(dates, 17)
+	_era_season = _label(dates, 12, DIM)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	v.add_child(row)
@@ -421,7 +436,6 @@ func _build_era_panel(parent: Node) -> void:
 	_era_gate = _label(v, 12, DIM)
 	_era_gate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_era_gate.custom_minimum_size = Vector2(336, 0)
-	_era_date = _label(v, 13, DIM)
 
 
 # ---------------------------------------------------------------- notices
@@ -689,7 +703,12 @@ func refresh() -> void:
 	_era_output.text = ep["output"]
 	_era_output.visible = ep["output"] != ""
 	_era_gate.text = ep["gate"]
-	_era_date.text = driver.status_text() if driver != null else model.clock_text()
+	var hours_f := float(model.s.clock.hour())
+	if driver != null:
+		hours_f += driver.hour_fraction()
+	_era_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
+	_era_season.text = ep["date"] if driver == null else "%s  -  %s" % [ep["date"], driver.speed_text()]
+	_clock_dial.set_time(hours_f, model.s.registry.day_night)
 	var active: bool = ep["dimming_state"] == "active"
 	_era_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
 	_moon.visible = ep["dimming_state"] != "none"
