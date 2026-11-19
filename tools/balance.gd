@@ -18,7 +18,7 @@ const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
-	"food": 0.4, "wood": 0.12, "stone": 0.08, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
+	"food": 0.4, "wood": 0.16, "stone": 0.07, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
 	"lumen_cells": 0.05, "tools": 0.03,
 }
 ## From City on these replace the share above (the Nexus and everything after it eat Lumen: light, cells, upkeep, 47g).
@@ -71,6 +71,8 @@ const TAX_OFFICES_MAX := 3
 ## Tax Offices are built below this many times the next gate's gold and pulled down above TAX_DROP_AT times it.
 const TAX_BUILD_BELOW := 0.9
 const TAX_DROP_AT := 1.25
+## Longest one-way walk (game hours) from a yard to a site before the bot builds a yard closer to it (102).
+const YARD_WALK_MAX := 1.5
 const SEARCH_RADIUS := 26
 ## Landmark saving starts at this share of the gate population.
 const LANDMARK_AT := 0.6
@@ -78,7 +80,7 @@ const LANDMARK_AT := 0.6
 const PREP_AT := 0.35
 const SAVE_AT := 0.55
 ## New storehouses stop when the hauler slots (hauling outranks producers: each takes a citizen) pass this share of the pop.
-const HAULER_SHARE_MAX := 0.2
+const HAULER_SHARE_MAX := 0.3
 ## Regions over 100 gold are bought only while this share of the next gate's gold is left over.
 const REGION_KEEP := 0.6
 
@@ -111,6 +113,16 @@ var _wanted_max := 0.0  # highest wanted slots / citizens seen since the last er
 var _wanted_over := 0  # days the wanted slots were above the population since the last era change
 var _placed_capped := 0  # workplaces placed for the producers' shares since the last era change: within the idle hands
 var _placed_exempt := 0  # ... and let through the cap (food running out, a landmark good nobody makes yet)
+var _measure: bool = false  # argument m: step hour by hour and sample where site time and producer hours go (102)
+var _m_site := {}  # site phase -> site-hours
+var _m_deliv := {}  # site id -> clock hour its goods were all there
+var _m_to_deliv: Array[int] = []  # 1x1 sites: game hours from placement to the whole cost delivered
+var _m_to_done: Array[int] = []  # ... and from delivered to finished
+var _m_trip: Array[int] = []  # 1x1 sites: one-way walk from the nearest yard in game minutes, taken when the goods were all there
+var _m_why := {}  # "good:halt" -> staffed producer-hours halted for another reason than a full door
+var _m_room := {}  # output good -> door-full hours in which some storage still had room for it (the haulers' fault)
+var _m_goods := {}  # missing good -> site-hours waiting for it
+var _m_prod := {}  # output good -> [staffed producer-hours, hours halted on a full door]
 var _gate_seen := {}  # gate part -> [day, gold] when it was first met in the current era
 
 
@@ -118,6 +130,7 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var seed_value := int(args[0]) if args.size() > 0 and args[0].is_valid_int() else DEFAULT_SEED
 	_verbose = args.has("v")
+	_measure = args.has("m")
 	for a in args:
 		if a.begins_with("map="):
 			_map_day = int(a.substr(4))
@@ -144,6 +157,10 @@ func _init() -> void:
 			_dbg_builders()
 			print("     chain (hour 10): ", _chain_state())
 			s.step_hours(GameClock.HOURS_PER_DAY - 10)
+		elif _measure:
+			for _h in GameClock.HOURS_PER_DAY:
+				s.step_hours(1)
+				_sample()
 		else:
 			s.step_hours(GameClock.HOURS_PER_DAY)
 		var day := s.clock.total_days()
@@ -415,6 +432,9 @@ func _on_built(entry: Dictionary) -> void:
 		var took := s.clock.total_hours - int(_placed_hour[id])
 		if s.buildings[id].def.size == Vector2i(1, 1):
 			_finish_small.append(took)
+			if _m_deliv.has(id):
+				_m_to_deliv.append(int(_m_deliv[id]) - int(_placed_hour[id]))
+				_m_to_done.append(s.clock.total_hours - int(_m_deliv[id]))
 		else:
 			_finish_big.append(took)
 		_placed_hour.erase(id)
@@ -464,12 +484,96 @@ func _report(stalled: bool, secs: float) -> void:
 	for b: Building in s.buildings.values():
 		counts[b.def.id] = int(counts.get(b.def.id, 0)) + 1
 	print("Labour: wanted slots / citizens at most %.2f since the last era (days over %d); producers placed %d within idle hands, %d let through" % [_wanted_max, _wanted_over, _placed_capped, _placed_exempt])
+	_refresh_stock()
+	print("End stocks: wood %d stone %d planks %d cut_stone %d (storage)" % [int(_stock.get("wood", 0.0)), int(_stock.get("stone", 0.0)), int(_stock.get("planks", 0.0)), int(_stock.get("cut_stone", 0.0))])
 	print("Place-to-finish (game hours, median / worst): 1x1 %s, bigger %s" % [_finish_text(_finish_small), _finish_text(_finish_big)])
+	if _measure:
+		print(_measure_text())
 	print("Buildings at the end: ", counts)
 	print("Skyheart finished: ", ("day %d" % _skyheart_done_day) if _skyheart_done_day >= 0 else "no")
 	print("Great Dimming: ", _great_end if _great_end != "" else "not over")
 	var camp := s.get_system(CampaignSystem) as CampaignSystem
 	print("Campaign outcome: ", camp.outcome if camp.outcome != "" else "open")
+
+
+## One hour of site and producer samples (argument m).
+func _sample() -> void:
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var h := s.clock.hour()
+	var in_shift := h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
+	var staff := {}
+	for c: Citizen in s.citizens.values():
+		if c.job_kind == Citizen.JOB_WORK:
+			staff[c.job_id] = int(staff.get(c.job_id, 0)) + 1
+	for b: Building in s.buildings.values():
+		if b.site:
+			if b.paused:
+				continue
+			var phase := ""
+			if b.site_delivered() and not _m_deliv.has(b.id):
+				_m_deliv[b.id] = s.clock.total_hours
+				var best := INF
+				for y: Building in s.buildings.values():
+					if y.def.builder_slots > 0 and not y.site:
+						best = minf(best, cs._trip_seconds(s, ws, y, b))
+				if best < INF and b.def.size == Vector2i(1, 1):
+					_m_trip.append(int(best / GameClock.REAL_SECONDS_PER_HOUR * 60.0))
+			if b.halt == "too_far":
+				phase = "far"
+			elif not b.site_delivered():
+				phase = "goods"
+				var cost := b.effective_cost()
+				for g in cost:
+					if g != BuildingDef.GOLD and b.input_buffer.amount_of(g) < float(cost[g]) - Inventory.EPS:
+						_m_goods[g] = int(_m_goods.get(g, 0)) + 1
+						break
+			elif not in_shift:
+				phase = "night"
+			else:
+				phase = "queue"
+				for cid in cs.crews:
+					if cs.crews[cid] == b.id:
+						var w := ws.walker_of(cid)
+						phase = "work" if (w != null and w.path.is_empty() and w.at_building == b.id) else "walk"
+						if phase == "work":
+							break
+			_m_site[phase] = int(_m_site.get(phase, 0)) + 1
+		elif b.def.recipe != null and b.door_buffer != null and not b.paused and int(staff.get(b.id, 0)) > 0:
+			var out: String = b.def.recipe.outputs.keys()[0] if not b.def.recipe.outputs.is_empty() else "?"
+			var row: Array = _m_prod.get(out, [0, 0])
+			row[0] += 1
+			row[1] += 1 if b.halt == "door_full" else 0
+			if b.halt == "door_full" and s.find_storage_with_room(out, b.origin, 1.0) != null:
+				_m_room[out] = int(_m_room.get(out, 0)) + 1
+			if b.halt != "" and b.halt != "door_full":
+				_m_why["%s:%s" % [out, b.halt]] = int(_m_why.get("%s:%s" % [out, b.halt], 0)) + 1
+			_m_prod[out] = row
+
+
+func _measure_text() -> String:
+	var tot := 0
+	for k in _m_site:
+		tot += int(_m_site[k])
+	var parts: Array[String] = []
+	for k in _m_site:
+		parts.append("%s %.0f%%" % [k, 100.0 * float(_m_site[k]) / float(maxi(tot, 1))])
+	var out := "Site-hours %d: %s; missing goods %s\n" % [tot, ", ".join(parts), _m_goods]
+	var pt := 0
+	var ph := 0
+	var rows: Array[String] = []
+	for g in _m_prod:
+		pt += int(_m_prod[g][0])
+		ph += int(_m_prod[g][1])
+		rows.append("%s %.1f%% of %d" % [g, 100.0 * float(_m_prod[g][1]) / float(maxi(int(_m_prod[g][0]), 1)), int(_m_prod[g][0])])
+	out += "1x1 median hours placed->delivered %s, delivered->finished %s\n" % [_finish_text(_m_to_deliv), _finish_text(_m_to_done)]
+	out += "1x1 one-way walk from the nearest yard (game minutes, median / worst): %s\n" % _finish_text(_m_trip)
+	var room := 0
+	for g in _m_room:
+		room += int(_m_room[g])
+	out += "Door-full hours with storage room left: %d (%.1f%% of producer-hours) %s\n" % [room, 100.0 * float(room) / float(maxi(pt, 1)), _m_room]
+	out += "Other producer halts (hours): %s\n" % _m_why
+	return out + "Producer-hours halted on a full door: %.1f%% of %d (%s)" % [100.0 * float(ph) / float(maxi(pt, 1)), pt, ", ".join(rows)]
 
 
 func _finish_text(hours: Array[int]) -> String:
@@ -1166,6 +1270,17 @@ func _cancel_stale_yards() -> void:
 			s.demolish(b.id)
 
 
+## One-way walk in game hours from the nearest finished yard to a site's door (INF without a path).
+func _walk_hours(site: Building) -> float:
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var best := INF
+	for y: Building in s.buildings.values():
+		if y.def.builder_slots > 0 and not y.site:
+			best = minf(best, cs._trip_seconds(s, ws, y, site))
+	return best / GameClock.REAL_SECONDS_PER_HOUR
+
+
 func _far_sites() -> int:
 	var n := 0
 	for b: Building in s.buildings.values():
@@ -1189,6 +1304,12 @@ func _yards(pop: int, era: int) -> void:
 	if s.is_unlocked(yard_def) and _afford("builders_yard") and not _yard_site_open():
 		for b: Building in s.buildings.values():
 			if b.site and b.halt == "too_far" and b.def.id != "builders_yard":
+				if _place_yard_for(b) != null:
+					break
+	# a player puts a yard next to where the work is: a site over YARD_WALK_MAX hours' walk from every yard gets one (102)
+	if _count("builders_yard") < 2 + pop / 20 and s.is_unlocked(yard_def) and _afford("builders_yard") and not _yard_site_open():
+		for b: Building in s.buildings.values():
+			if b.site and b.def.id != "builders_yard" and b.halt != "too_far" and _walk_hours(b) > YARD_WALK_MAX:
 				if _place_yard_for(b) != null:
 					break
 	if era >= 2 and _count("builders_yard") < pop / 25 and _afford("builders_yard") and not _yard_site_open():

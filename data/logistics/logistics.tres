@@ -4,15 +4,15 @@
 
 [resource]
 script = ExtResource("1")
-door_buffer_cap = 20.0
+door_buffer_cap = 40.0
 haul_load = 10.0
 input_buffer_days = 2.0
 min_pickup = 1.0
-min_hauler_share = 0.2
+min_hauler_share = 0.3
 units_per_felled_tile = 10.0
-build_days_per_tile = 0.4
-build_days_per_era = 0.25
-build_days_min = 0.5
+build_days_per_tile = 0.3
+build_days_per_era = 0.1
+build_days_min = 0.3
 build_days_max = 6.0
 builder_crew = 4
 demolish_refund = 0.5

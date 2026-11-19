@@ -41,6 +41,7 @@ var _forest_version: int = -1
 var _producer_list: Array[Building] = []
 var _producers_version: int = -1
 var _producers_count: int = -1
+var _producers_completion: int = -1
 var _first_out: Dictionary = {}  # recipe -> first output good id
 
 
@@ -70,6 +71,7 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_producer_list.clear()
 	_producers_version = -1
 	_producers_count = -1
+	_producers_completion = -1
 	_first_out.clear()
 
 
@@ -121,8 +123,10 @@ func _run(s: Settlement, first: int, n: int) -> void:
 ## Buildings with a door buffer, in id order. Rebuilt when the set of buildings changes (grid_version moves on
 ## every placement and demolition).
 func _producers(s: Settlement) -> Array[Building]:
-	if _producers_version != s.grid_version or _producers_count != s.buildings.size():
+	# a finished site gets its door buffer without a grid change or a new building: completion_version moves then
+	if _producers_version != s.grid_version or _producers_count != s.buildings.size() or _producers_completion != s.completion_version:
 		_producers_version = s.grid_version
+		_producers_completion = s.completion_version
 		_producers_count = s.buildings.size()
 		_producer_list.clear()
 		var ids: Array = s.buildings.keys()
