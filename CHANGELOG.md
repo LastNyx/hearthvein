@@ -19,6 +19,8 @@ All notable changes to Hearthvein. Newest first.
 - A finished building's priority goes back to Normal; the buttons say Build priority on a site and Work priority on
   a finished building. Houses and other buildings without jobs have no priority buttons.
 - Balance: Woodcutters cut more, buildings take less work, door buffers hold twice as much and more people haul.
+- Builders stay at their site until it is finished instead of walking back to the yard every evening; they rest
+  in front of it at night, where you can see them, and work 06:00-20:00.
 
 ### Fixed
 - A finished building did not start working until something else was placed or demolished.

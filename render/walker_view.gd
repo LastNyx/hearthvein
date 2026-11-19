@@ -85,10 +85,11 @@ static func shown_at_door(w: Walker, crews: Dictionary) -> bool:
 
 
 ## Pixel offset of a standing crew member from the door tile centre, fixed per citizen id so a crew of 4 does not stack:
-## spread along the door tile's width, on its lower (front) half.
+## spread across the tile in front of the door, outside the footprint, because the site scaffold (PlacementView, z 20)
+## draws over the walkers (z 10) and would hide anyone standing on the door tile itself.
 static func crew_offset(citizen_id: int) -> Vector2:
 	var slot := citizen_id % 4
-	return Vector2(-6.0 + 4.0 * slot, 2.0 + 3.0 * ((citizen_id / 4) % 2))
+	return Vector2(-15.0 + 10.0 * slot, 38.0 + 4.0 * ((citizen_id / 4) % 2))
 
 
 ## Movement vector in tiles of a walker (zero when it has no path).
