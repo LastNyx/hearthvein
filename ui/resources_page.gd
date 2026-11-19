@@ -6,11 +6,14 @@ extends PanelContainer
 ## HudModel (resource_rows, made_breakdown, resource_history), which reads the ResourceLedgerSystem.
 
 const SIZE := Vector2(900, 590)
-const COL_NAME := 180
-const COL_NUM := 90
+const COL_NAME := 150
+const COL_STOCK := 60
+const COL_CHANGE := 100
+const COL_WIDE := 135  # "Made yesterday" / "Used yesterday" headers must fit
+const LINE_COLOR := {"food": Color("e0644e"), "wood": Color("c8883f"), "stone": Color("b0aaa0"), "planks": Color("d09a58"),
+		"cut_stone": Color("a8b0ba"), "tools": Color("b8b8c8"), "lumen": Color("5ccaf0"), "cells": Color("78d8e8"), "gold": Color("f2d27a")}
 const GREEN := Color("78be5a")
 const CHART_BG := Color(0.07, 0.06, 0.055)
-const CHART_FILL := Color(0.69, 0.47, 0.25)
 const CHART_PAD := Vector4(40, 8, 12, 22)  # left, top, right, bottom room inside the chart for labels
 
 var hud: Hud
@@ -50,7 +53,7 @@ func setup(h: Hud, m: HudModel) -> void:
 	v.add_child(mid)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 0)
-	_list.custom_minimum_size = Vector2(COL_NAME + 4 * COL_NUM + 40, 0)
+	_list.custom_minimum_size = Vector2(COL_NAME + COL_STOCK + COL_CHANGE + 2 * COL_WIDE + 16, 0)
 	mid.add_child(_list)
 	_tip = hud._panel(mid)  # the made-by breakdown, beside the table, shown while a made number is hovered
 	_tip.add_theme_stylebox_override("panel", hud._style(Color(0.094, 0.078, 0.071, 1.0), Hud.GOLD))
@@ -126,13 +129,17 @@ func refresh() -> void:
 		c.queue_free()
 	var head := HBoxContainer.new()
 	_list.add_child(head)
-	_cell(head, "Good", COL_NAME, Hud.DIM, false, 14, 36)
-	for t in ["Stock", "Change/day", "Made yesterday", "Used yesterday"]:
-		_cell(head, t, COL_NUM, Hud.DIM, true, 14)
+	head.add_theme_constant_override("separation", 4)
+	_cell(head, "Good", COL_NAME, Hud.DIM, false, 14)
+	_cell(head, "Stock", COL_STOCK, Hud.DIM, true, 14)
+	_cell(head, "Change/day", COL_CHANGE, Hud.DIM, true, 14)
+	_cell(head, "Made yesterday", COL_WIDE, Hud.DIM, true, 14)
+	_cell(head, "Used yesterday", COL_WIDE, Hud.DIM, true, 14)
 	for r: Dictionary in rows:
 		_add_row(r)
 	_chart_title.text = "%s stock, last 60 days" % _name_of(rows, selected)
 	_crumb_icon.texture = ArtLibrary.texture(ArtLibrary.manifest()["icons"][selected])
+	_chart.color = LINE_COLOR.get(selected, Hud.GOLD)
 	_chart.set_values(hist)
 
 
@@ -175,15 +182,15 @@ func _add_row(r: Dictionary) -> void:
 	var ic := hud._icon(h, r["icon"], 22)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_cell(h, r["name"], COL_NAME - 26, Hud.INK, false)
-	_cell(h, str(r["stock"]), COL_NUM, Hud.INK, true)
+	_cell(h, str(r["stock"]), COL_STOCK, Hud.INK, true)
 	var ch: int = r["change"]
-	_cell(h, HudModel.delta_text(ch), COL_NUM, GREEN if ch > 0 else (Hud.RED if ch < 0 else Hud.DIM), true)
-	var made := _cell(h, str(r["made"]), COL_NUM, Hud.INK if r["made"] > 0 else Hud.DIM, true)
+	_cell(h, HudModel.delta_text(ch), COL_CHANGE, GREEN if ch > 0 else (Hud.RED if ch < 0 else Hud.DIM), true)
+	var made := _cell(h, str(r["made"]), COL_WIDE, Hud.INK if r["made"] > 0 else Hud.DIM, true)
 	made.name = "Made"
 	made.mouse_filter = Control.MOUSE_FILTER_PASS  # gets hover, still lets the row see the click
 	made.mouse_entered.connect(func() -> void: show_breakdown(id))
 	made.mouse_exited.connect(func() -> void: hide_breakdown())
-	_cell(h, str(r["used"]), COL_NUM, Hud.INK if r["used"] > 0 else Hud.DIM, true)
+	_cell(h, str(r["used"]), COL_WIDE, Hud.INK if r["used"] > 0 else Hud.DIM, true)
 
 
 ## Lists what made `id` yesterday beside the table (hover on the made number).
@@ -243,6 +250,7 @@ func chart() -> Chart:
 class Chart extends Control:
 	var font: Font
 	var values: Array[float] = []
+	var color := Color("f2d27a")
 
 	func set_values(v: Array[float]) -> void:
 		values = v
@@ -288,7 +296,7 @@ class Chart extends Control:
 		var fs := 16
 		for f: float in [0.0, 0.5, 1.0]:
 			var y := plot.end.y - plot.size.y * f
-			draw_line(Vector2(plot.position.x, y), Vector2(plot.end.x, y), Color(1, 1, 1, 0.08))
+			draw_line(Vector2(plot.position.x, y), Vector2(plot.end.x, y), Color(1, 1, 1, 0.15))
 			if font != null:
 				draw_string(font, Vector2(0, y + 5), str(roundi(top * f)), HORIZONTAL_ALIGNMENT_RIGHT, plot.position.x - 6, fs, dim)
 		var n := values.size()
@@ -304,9 +312,9 @@ class Chart extends Control:
 		poly.append(Vector2(pts[n - 1].x, plot.end.y))
 		poly.append(Vector2(pts[0].x, plot.end.y))
 		if n > 1:
-			draw_colored_polygon(poly, CHART_FILL)
-			draw_polyline(pts, Hud.GOLD, 2.0)
-		draw_circle(pts[n - 1], 4.0, Hud.GOLD)
+			draw_colored_polygon(poly, Color(color, 0.2))
+			draw_polyline(pts, color, 2.0)
+		draw_circle(pts[n - 1], 4.0, color)
 		if font != null:
 			var label := str(roundi(values[n - 1]))
-			draw_string(font, pts[n - 1] + Vector2(-10 - font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, -8), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Hud.GOLD)
+			draw_string(font, pts[n - 1] + Vector2(-10 - font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, -8), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
