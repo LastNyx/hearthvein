@@ -2,6 +2,24 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Added
+- Day and night: the map darkens from dusk to dawn. Settings has a "Day and night" switch.
+- A clock in the era panel ("Day 3, 06:40") with a small sun and moon dial.
+- Resources page (E, or click a good in the top bar): every good with stock, change per day, made and used
+  yesterday, a 60-day chart, and which buildings made it.
+- Workforce page (Q): every building with its workers, priority and pause in one list, construction sites first.
+- Build menu cards with the building, its cost and what you are short of; locked buildings say what unlocks them.
+  Hovering a card shows the details: purpose, cost, workers, size and what it makes per day.
+- New icons for every good, including planks, cut stone, tools and Lumen cells, all in the top bar.
+- During a Dimming the era panel says how much light the town needs against its Lumen and cells and which
+  buildings make less; affected buildings show their factor, and the forecast says what to stock.
+
+### Changed
+- Buildings that shared one look now each carry a sign and something that shows their trade.
+- Stumps that are growing back show a sapling.
+
 ## 1.1.5 - 2026-11-19
 
 ### Added
