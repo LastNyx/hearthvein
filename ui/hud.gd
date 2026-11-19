@@ -75,6 +75,7 @@ var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _open_cat := ""
 var workforce_page: WorkforcePage
+var resources_page: ResourcesPage
 var tutorial_panel: TutorialPanel
 var tools_tab: ToolsTab
 var hint_cards: HintCards
@@ -150,6 +151,9 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	workforce_page = WorkforcePage.new()
 	_float.add_child(workforce_page)
 	workforce_page.setup(self, model)
+	resources_page = ResourcesPage.new()
+	_float.add_child(resources_page)
+	resources_page.setup(self, model)
 	_build_bar(col)
 	_build_tooltip()
 	tools_tab = ToolsTab.new()
@@ -318,7 +322,11 @@ func _build_top_bar(parent: Node) -> void:
 		_res_labels[k] = _label(col, 17)
 		_res_deltas[k] = _label(col, 12, DIM)
 		var gd := model.s.registry.get_good("lumen_cells" if k == "cells" else k)
-		box.tooltip_text = "%s stock and its change over the last day" % (gd.display_name if gd != null else k)
+		box.tooltip_text = "%s stock and its change over the last day (click for the Resources page)" % (gd.display_name if gd != null else k)
+		box.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				box.accept_event()
+				resources_page.open_for(k))
 	var pop := HBoxContainer.new()
 	pop.add_theme_constant_override("separation", 6)
 	pop.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -720,6 +728,7 @@ func refresh() -> void:
 	_refresh_notes()
 	_region_map.refresh()
 	workforce_page.refresh()
+	resources_page.refresh()
 	tutorial_panel.refresh()
 	update_highlight()
 
@@ -751,6 +760,8 @@ func _process(delta: float) -> void:
 		_center_region_map()
 	if workforce_page.visible:
 		workforce_page.position = ((get_viewport().get_visible_rect().size - workforce_page.size) / 2.0).floor()
+	if resources_page.visible:
+		resources_page.position = ((get_viewport().get_visible_rect().size - resources_page.size) / 2.0).floor()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0
@@ -759,7 +770,7 @@ func _process(delta: float) -> void:
 
 ## True when Esc would still cancel something (build tool, selection, open build flyout): then it is not the menu's.
 func has_cancelable() -> bool:
-	return _region_map.visible or workforce_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
+	return _region_map.visible or workforce_page.visible or resources_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -777,6 +788,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_L: _on_overlay("grid")
 			KEY_M: _region_map.toggle()
 			KEY_Q: workforce_page.toggle()
+			KEY_E: resources_page.toggle()
 			KEY_TAB:
 				if model.layer_tag_visible():  # no island yet: Tab is not ours (98)
 					model.toggle_layer()
@@ -788,6 +800,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_ESCAPE:
 				_region_map.close()
 				workforce_page.close()
+				resources_page.close()
 				model.clear_selection()
 				_open_cat = ""
 				_show_flyout()

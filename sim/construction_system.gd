@@ -28,6 +28,8 @@ extends SimSystem
 ## Marks no Builder's Yard can reach (round trip longer than the shift) are flagged in clear_far and get nobody.
 
 const SAVE_KEY := "construction"
+## Ledger def id prefix for a Clear-tool yield (ticket 114): "clear_forest", "clear_rock".
+const CLEAR_PREFIX := "clear_"
 
 var crews: Dictionary = {}  # citizen id -> work id: a site's building id, or a clear job's clear_work_id
 ## Marked tile index (MapState.idx) -> builder work hours done on it.
@@ -224,6 +226,7 @@ func _finish_clear(s: Settlement, idx: int) -> void:
 	s.set_terrain(tile, "grass")
 	if def != null and def.clear_good != "" and def.clear_amount > 0.0:
 		s.store_goods({def.clear_good: def.clear_amount}, tile)
+		ResourceLedgerSystem.record_made(s, def.clear_good, def.clear_amount, CLEAR_PREFIX + def.id)
 	s.events.emit("clear_marks_changed", {"tile": tile, "marked": false, "cleared": true})
 	s.refresh_population()  # one builder less is wanted
 

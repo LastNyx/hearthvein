@@ -1858,6 +1858,7 @@ func buy_region(r: int) -> bool:
 		return false
 	var price := next_region_price()
 	gold -= float(price)
+	ResourceLedgerSystem.record_used(self, BuildingDef.GOLD, float(price), "region")
 	map.set_region_owned(r, true)
 	var rs := get_system(RegionSystem) as RegionSystem
 	if rs != null:

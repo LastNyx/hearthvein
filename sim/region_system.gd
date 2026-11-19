@@ -73,6 +73,7 @@ static func pay_ruins(s: Settlement, rd: RegionsDef, from: Vector2i) -> void:
 		return
 	if rd.ruins_gold > 0:
 		s.gold += float(rd.ruins_gold)
+		ResourceLedgerSystem.record_made(s, BuildingDef.GOLD, float(rd.ruins_gold), "ruins")
 	if not rd.ruins_goods.is_empty():
 		s.store_goods(rd.ruins_goods.duplicate(), from)
 
