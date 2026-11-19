@@ -370,6 +370,91 @@ func has_jobs(b: Building) -> bool:
 	return b.effective_worker_slots(s.registry) > 0 or b.def.hauler_slots > 0 or b.def.builder_slots > 0
 
 
+## The Workforce page (Q): {"header": {workers, idle, haulers, builders}, "groups": [{id, label, rows}]}. One pass over
+## the citizens counts the header and every building's filled slots. The first group is the construction sites
+## ("sites"), then the buildings by category in build bar order. A row: {id, name, site, filled, slots, count_text
+## ("3/3", "builders 4/4"), short, ok, has_jobs, priority, paused, note}; rows without jobs get no buttons.
+func workforce() -> Dictionary:
+	var header := {"workers": 0, "idle": 0, "haulers": 0, "builders": 0}
+	var filled := {}  # building id -> {work, haul, build} citizens with a job there
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_id < 0 or not s.buildings.has(c.job_id):
+			header["idle"] += 1  # same test as role_of, so it matches the people tooltip
+			continue
+		if not filled.has(c.job_id):
+			filled[c.job_id] = {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0}
+		filled[c.job_id][c.job_kind] += 1
+	var crew := {}  # site id -> builders on its crew
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	if cs != null:
+		for cid in cs.crews:
+			crew[cs.crews[cid]] = int(crew.get(cs.crews[cid], 0)) + 1
+	var crew_size := s.registry.logistics.builder_crew if s.registry.logistics != null else 0
+	var sites: Array = []
+	var by_cat := {}
+	var ids := s.buildings.keys()
+	ids.sort()
+	for id in ids:
+		var b: Building = s.buildings[id]
+		if not b.site and b.def.category == "housing":
+			continue  # houses have no jobs and no row
+		var row := {"id": b.id, "name": b.display_name(s.registry), "site": b.site, "priority": b.priority,
+				"paused": b.paused, "has_jobs": b.site or has_jobs(b), "filled": 0, "slots": 0, "short": 0,
+				"ok": true, "note": "", "count_text": "", "work": 0}
+		if b.site:
+			row["name"] += " (site)"
+			row["filled"] = int(crew.get(b.id, 0))
+			row["slots"] = crew_size
+			row["short"] = maxi(0, crew_size - row["filled"])
+			row["count_text"] = "builders %d/%d" % [row["filled"], crew_size]
+			row["ok"] = row["short"] == 0
+			row["note"] = wait_text(b)
+			sites.append(row)
+			continue
+		var f: Dictionary = filled.get(b.id, {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0})
+		var w := b.effective_worker_slots(s.registry)
+		var kinds := [["workers", w, mini(f[Citizen.JOB_WORK], w)],
+				["haulers", b.def.hauler_slots, mini(f[Citizen.JOB_HAUL], b.def.hauler_slots)],
+				["builders", b.def.builder_slots, mini(f[Citizen.JOB_BUILD], b.def.builder_slots)]]
+		var parts: Array[String] = []
+		var only := kinds.filter(func(k: Array) -> bool: return k[1] > 0)
+		for k: Array in only:
+			row["slots"] += k[1]
+			row["filled"] += k[2]
+			parts.append(("%d/%d" if only.size() == 1 and k[0] == "workers" else {"workers": "work", "haulers": "haul", "builders": "build"}[k[0]] + " %d/%d") % [k[2], k[1]])
+		header["workers"] += kinds[0][2]
+		header["haulers"] += kinds[1][2]
+		header["builders"] += kinds[2][2]
+		row["work"] = kinds[0][2]
+		row["short"] = row["slots"] - row["filled"]
+		row["ok"] = row["short"] == 0
+		row["count_text"] = ", ".join(parts) if not parts.is_empty() else "0/0"
+		var notes: Array[String] = []
+		if row["slots"] == 0:
+			notes.append("no workers needed")
+		if b.paused:
+			notes.append("paused")
+		elif row["short"] > 0:
+			notes.append("%d short" % row["short"])
+		var dim := dimming_building_text(b)
+		if dim != "":
+			notes.append(dim)
+		row["note"] = ", ".join(notes)
+		if not by_cat.has(b.def.category):
+			by_cat[b.def.category] = []
+		by_cat[b.def.category].append(row)
+	var groups: Array = []
+	if not sites.is_empty():
+		groups.append({"id": "sites", "label": "Construction sites", "rows": sites})
+	var cats: Array = CATEGORY_ORDER.filter(func(c: String) -> bool: return by_cat.has(c))
+	var rest: Array = by_cat.keys().filter(func(c: String) -> bool: return not CATEGORY_ORDER.has(c))
+	rest.sort()
+	for cat: String in cats + rest:
+		groups.append({"id": cat, "label": category_label(cat), "rows": by_cat[cat]})
+	return {"header": header, "groups": groups}
+
+
 ## The role of one citizen: "hauler", "builder", the lower-case name of the workplace ("woodcutter"), or "idle".
 func role_of(c: Citizen) -> String:
 	if c.job_id < 0 or not s.buildings.has(c.job_id):
