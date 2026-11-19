@@ -26,7 +26,7 @@ cost = {"tools": 4, "lumen_cells": 2, "cut_stone": 5}
 [resource]
 script = ExtResource("1")
 id = "lumen_tap"
-description = "Workers draw Lumen from a vein in the ground. Place it on a vein."
+description = "Workers draw Lumen from a vein in the ground. Place it on a vein. It slowly spreads blight around it; a Cleanser (Village) cleans it."
 display_name = "Lumen Tap"
 era = "camp"
 category = "lumen"

@@ -1195,7 +1195,7 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	for v in s.map.blight:
 		blight += int(v)
 	var cleaners := _count("cleanser") + _count("purifier_tower")
-	if era >= 3 and cleaners < mini(10, blight / 10) and _jobs_free() >= 2:
+	if era >= 2 and cleaners < clampi(blight / 10, mini(1, blight), 10) and _jobs_free() >= 2:
 		for id in CLEANERS:
 			if s.is_unlocked(s.registry.get_building(id)) and _afford(id, res):
 				if _place(id, _hearth_near(), 18) != null:

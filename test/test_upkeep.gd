@@ -63,7 +63,8 @@ func test_data_starts_upkeep_in_town_and_keeps_before_town_rows_clean() -> void:
 	assert_eq(reg.get_era("town").order, 3)
 	assert_true(reg.buildings.values().any(func(d: BuildingDef) -> bool: return d.era == "camp"))
 	for d: BuildingDef in reg.buildings.values():
-		if d.era == "camp" or d.era == "village":
+		# The Cleanser moved to Village in 1.1.4 and keeps its 2 Lumen row; upkeep still only runs from Town.
+		if (d.era == "camp" or d.era == "village") and d.id != "cleanser":
 			assert_eq(d.upkeep_lumen, 0.0, "%s needs no Lumen before Town" % d.id)
 
 

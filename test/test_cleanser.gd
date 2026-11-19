@@ -74,11 +74,21 @@ func _forest_count() -> int:
 	return s.map.terrain.count(fi) if fi >= 0 else 0
 
 
+# Ticket 96: the Cleanser unlocks at Village, and the Lumen Tap (Camp) says it spreads blight and who cleans it.
+func test_cleanser_unlocks_at_village_and_the_tap_warns() -> void:
+	assert_eq(reg.get_building("cleanser").era, "village")
+	var s2 := Settlement.new_game(SEED, reg)
+	s2.era_override = "village"
+	assert_true(s2.is_unlocked(reg.get_building("cleanser")), "a Village can build the Cleanser")
+	var desc := reg.get_building("lumen_tap").description.to_lower()
+	assert_true(desc.contains("blight") and desc.contains("cleanser"), "tap description names blight and the Cleanser")
+
+
 # AC1a: the data row is the Town table's, with the cleaning numbers in data, not code.
 func test_data_matches_the_town_row() -> void:
 	var d := reg.get_building("cleanser")
 	assert_not_null(d, "data/buildings/cleanser.tres exists")
-	assert_eq([d.era, d.size, d.cost], ["town", Vector2i(2, 1),
+	assert_eq([d.era, d.size, d.cost], ["village", Vector2i(2, 1),
 			{"materials": 60, "gold": 20, "lumen": 10}])
 	assert_eq([d.worker_slots, d.upkeep_lumen], [2, 2.0])
 	assert_eq([d.clean_radius, d.clean_interval_days], [5, 2], "section 12: 1 tile every 2 days in r5")
