@@ -134,6 +134,7 @@ const SKIP := {
 	"ProductionSystem._producer_list": "producer list cache, rebuilt",
 	"ProductionSystem._producers_version": "producer list cache version",
 	"ProductionSystem._producers_count": "producer list cache version",
+	"ProductionSystem._producers_completion": "producer list cache version (completion_version)",
 	"ProductionSystem._first_out": "recipe -> first output id cache, rebuilt",
 	# GrowthSystem
 	"GrowthSystem._map": "back-reference to the map, set at the start of on_day",
@@ -190,7 +191,7 @@ func _fixture() -> Settlement:
 	assert_true(s.place_building("meeting_hall", Vector2i(h.x + 11, h.y - 2)) >= 0, "hall site placed")
 	s.hearth.inventory.add("wood", 200.0)  # the hall alone takes 60; enough for all three sites
 	s.hearth.inventory.add("stone", 200.0)  # the hall alone takes 60; enough for all three sites
-	s.step_days(2)
+	s.step_days(1)
 	# A second hall is placed just before the save point so haulers are still delivering it at 06:00.
 	assert_true(s.place_building("meeting_hall", Vector2i(h.x + 14, h.y - 2)) >= 0, "second hall site placed")
 	s.hearth.inventory.add("wood", 200.0)

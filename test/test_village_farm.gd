@@ -96,7 +96,7 @@ func test_farm_output_follows_footprint_fertility() -> void:
 	var rich := _farm(-1, "grass", [100, 100, 100, 100])
 	var mixed := _farm(1, "grass", [100, 100, 0, 0])  # mean 50, half of the rich farm
 	s.step_days(1)  # let both crews walk to work
-	rich.door_buffer.remove("crops", 100.0)  # the buffers caps at 20: start both from empty
+	rich.door_buffer.remove("crops", 100.0)  # the buffers cap at 40: start both from empty
 	mixed.door_buffer.remove("crops", 100.0)
 	var r0 := 0.0
 	var m0 := 0.0
@@ -115,7 +115,7 @@ func test_farm_fertile_origin_bonus() -> void:
 	var plain := _farm(-1, "grass", [100, 100, 100, 100])
 	var fertile := _farm(1, "fertile_soil", [100, 100, 100, 100])
 	s.step_days(1)  # let both crews walk to work
-	plain.door_buffer.remove("crops", 100.0)  # the buffers cap at 20: start both from empty
+	plain.door_buffer.remove("crops", 100.0)  # the buffers cap at 40: start both from empty
 	fertile.door_buffer.remove("crops", 100.0)
 	var p0 := 0.0
 	var f0 := 0.0
@@ -123,5 +123,5 @@ func test_farm_fertile_origin_bonus() -> void:
 	var a := plain.door_buffer.amount_of("crops") - p0
 	var b := fertile.door_buffer.amount_of("crops") - f0
 	assert_gt(a, 0.0, "the plain farm still makes food")
-	assert_gt(b / a, 1.2, "plain %f vs fertile origin %f (the door buffer caps at 20, so the x1.5 shows only in part)" % [a, b])
-	assert_lt(b, 20.001, "capped by the door buffer")
+	assert_gt(b / a, 1.2, "plain %f vs fertile origin %f (the door buffer caps at 40, so the x1.5 shows only in part)" % [a, b])
+	assert_lt(b, 40.001, "capped by the door buffer")

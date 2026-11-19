@@ -52,6 +52,20 @@ func _hours_to_finish(b: Building, max_days: int) -> int:
 	return -1
 
 
+## Balance pass (102): a site that finishes starts producing at once, even when nothing else is placed or removed after it
+## (the producer list was only rebuilt on a grid change or a new building, so such a building stood idle for ever).
+func test_a_finished_site_produces_without_any_later_placement() -> void:
+	for x in range(h.x + 3, h.x + 7):
+		s.set_terrain(Vector2i(x, h.y - 4), "forest")
+	var b := _site("woodcutter", 4)
+	_deliver(b)
+	s.step_hours(1)  # the producer list is built while the woodcutter is still a site
+	assert_true(_hours_to_finish(b, 4) >= 0, "the woodcutter is built")
+	var wood: float = s.totals().get("wood", 0.0)
+	s.step_days(3)
+	assert_gt(s.totals().get("wood", 0.0), wood + 5.0, "the new woodcutter made wood")
+
+
 func test_place_building_makes_a_site_instant_path_is_explicit() -> void:
 	var beds := s.beds_total()
 	var b := _site("tent", 4)
@@ -76,7 +90,7 @@ func test_site_only_progresses_once_full_cost_is_delivered() -> void:
 	assert_between(b.input_buffer.amount_of("wood"), 9.99, 10.01, "what exists was delivered")
 	assert_eq(s.events.log_of("building_completed").size(), 0)
 	s.hearth.inventory.add("wood", 15.0)
-	s.step_days(1)
+	s.step_hours(12)  # a whole day would also finish it now (0.6 days for a 2x1)
 	assert_true(b.site_delivered())
 	assert_between(b.input_buffer.amount_of("wood"), 24.99, 25.01)
 	assert_true(_hours_to_finish(b, 4) >= 0, "builds once everything arrived")
@@ -90,15 +104,15 @@ func test_build_time_follows_size_and_era() -> void:
 	var tent := reg.get_building("tent")
 	var store := reg.get_building("storehouse")
 	var hall := reg.get_building("meeting_hall")
-	assert_eq(s.build_days(tent), 0.5, "1 tile is clamped up to the half day minimum")
-	assert_almost_eq(s.build_days(store), 0.8, 0.001)
-	assert_almost_eq(s.build_days(hall), 1.6, 0.001)
+	assert_eq(s.build_days(tent), 0.3, "1 tile is 0.3 days (102 balance: 0.3 a tile, 0.1 an era, 0.3 at least)")
+	assert_almost_eq(s.build_days(store), 0.6, 0.001)
+	assert_almost_eq(s.build_days(hall), 1.2, 0.001)
 	var huge := tent.duplicate() as BuildingDef
 	huge.size = Vector2i(10, 10)
 	assert_eq(s.build_days(huge), 6.0, "clamped to 6 days")
 	var late := tent.duplicate() as BuildingDef
 	late.era = "city"
-	assert_almost_eq(s.build_days(late), 1.15, 0.001, "era adds days")
+	assert_almost_eq(s.build_days(late), 0.6, 0.001, "era adds days")
 	# Played out: a tent is done long before a meeting hall (same delivery, a full crew).
 	s.hearth.inventory.add("wood", 100.0)
 	s.hearth.inventory.add("stone", 100.0)

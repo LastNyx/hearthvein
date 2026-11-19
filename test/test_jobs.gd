@@ -95,9 +95,9 @@ func test_higher_category_fills_first_when_short() -> void:
 	assert_not_null(lumen)
 	_keep_citizens(s, 4)
 	s.refresh_population()
-	# 4 citizens: food 2, lumen 2; hauling (hearth) and resources get nobody.
+	# 4 citizens: the hauler reserve (min_hauler_share 0.3, 1 hand) goes first, then food 2, lumen 1; resources get nobody.
 	assert_eq(_workers(s, food), 2)
-	assert_eq(_workers(s, lumen), 2)
+	assert_eq(_workers(s, lumen), 1)
 	assert_eq(_workers(s, wood), 0)
 	_keep_citizens(s, 3)
 	assert_eq(_workers(s, food), 2)
@@ -178,7 +178,7 @@ func test_hauler_reserve_is_filled_before_food_slots() -> void:
 	s.add_citizen()
 	assert_eq(s.citizens.size(), 10)
 	s.refresh_population()
-	# Food slots (8) outrank hauling, but min_hauler_share 0.2 of 10 citizens keeps 2 hands on the carts.
+	# Food slots (8) outrank hauling, but min_hauler_share 0.3 of 10 citizens (3, the Hearth has 2 hauler slots) keeps 2 hands on the carts.
 	assert_eq(_haulers(s), 2)
 	var fed := 0
 	for b: Building in s.buildings.values():

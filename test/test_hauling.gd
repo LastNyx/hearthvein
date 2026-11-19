@@ -43,7 +43,7 @@ func _food() -> float:
 
 
 func test_numbers_come_from_data() -> void:
-	assert_eq(reg.logistics.door_buffer_cap, 20.0)
+	assert_eq(reg.logistics.door_buffer_cap, 40.0)
 	assert_eq(reg.logistics.haul_load, 10.0)
 	assert_eq(reg.logistics.input_buffer_days, 2.0)
 	assert_eq(reg.get_building("hearth").hauler_slots, 2)
@@ -65,16 +65,16 @@ func test_door_buffer_full_stops_production_and_sets_flag() -> void:
 	var f := _put("forager", 4)
 	s.set_storage_filter(s.hearth.id, ["lumen"])  # nowhere to put food: nobody can haul it
 	s.step_days(9)
-	assert_almost_eq(f.door_buffer.amount_of("food"), 20.0, 0.001)
+	assert_almost_eq(f.door_buffer.amount_of("food"), 40.0, 0.001)
 	assert_eq(f.halt, "door_full")
 	assert_eq(s.events.log_of("production_halted").size(), 1)
 	var seen := _food()
 	s.step_days(1)
-	assert_almost_eq(f.door_buffer.amount_of("food"), 20.0, 0.001, "stays at the cap")
+	assert_almost_eq(f.door_buffer.amount_of("food"), 40.0, 0.001, "stays at the cap")
 	assert_eq(_food(), seen, "nothing was hauled")
 	s.set_storage_filter(s.hearth.id, [])
 	s.step_days(2)
-	assert_lt(f.door_buffer.amount_of("food"), 20.0, "hauling frees the buffer")
+	assert_lt(f.door_buffer.amount_of("food"), 40.0, "hauling frees the buffer")
 	assert_eq(f.halt, "", "production resumed")
 
 

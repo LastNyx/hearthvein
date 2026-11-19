@@ -83,7 +83,7 @@ func test_camp_buildings_match_design() -> void:
 	assert_eq(forager.recipe.outputs, {"food": 8.0})
 	var wc := reg.get_building("woodcutter")
 	assert_eq([wc.cost, wc.worker_slots], [{"wood": 10}, 2])
-	assert_eq(wc.recipe.outputs, {"wood": 5})
+	assert_eq(wc.recipe.outputs, {"wood": 12})
 	var sh := reg.get_building("storehouse")
 	assert_eq(sh.size, Vector2i(2, 1))
 	assert_eq(sh.cost, {"wood": 25})
@@ -156,7 +156,7 @@ func test_wood_and_stone_replace_materials_in_the_data() -> void:
 		assert_false(d.cost.has("materials"), "%s cost" % id)
 		if d.recipe != null:
 			assert_false(d.recipe.inputs.has("materials") or d.recipe.outputs.has("materials"), "%s recipe" % id)
-	assert_eq(reg.get_building("woodcutter").recipe.outputs, {"wood": 5})
+	assert_eq(reg.get_building("woodcutter").recipe.outputs, {"wood": 12})
 	assert_eq(reg.get_building("quarry").recipe.outputs, {"stone": 12.0})
 	assert_eq(reg.get_building("workshop").recipe.outputs, {"stone": 3.0})
 	assert_eq([reg.get_building("sawmill").recipe.inputs, reg.get_building("sawmill").recipe.outputs], [{"wood": 6.0}, {"planks": 3.0}])
