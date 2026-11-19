@@ -2,6 +2,27 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Added
+- Wood and stone replace the single "materials" good. Woodcutters cut wood, Quarries and Workshops make stone, the
+  Sawmill turns wood into planks and the Mason turns stone into cut stone. Costs name the real goods, and the top bar
+  shows both. Old saves keep loading; their materials are split half wood, half stone.
+- Clear tool (K): mark forest, stumps or rock and builders clear them for wood or stone.
+- Plant tool (N): mark grass and Foresters plant there first.
+- Hovering a stump says when it grows back, or why it won't.
+- Panels say who does what: filled job places ("Haulers 1/2, Builders 3/4"), who lives in a house and what they do,
+  and the people count in the top bar breaks down by job on hover.
+- "Output full" says what to do: build a Storehouse nearby, or why haulers are short.
+
+### Changed
+- A finished building's priority goes back to Normal; the buttons say Build priority on a site and Work priority on
+  a finished building. Houses and other buildings without jobs have no priority buttons.
+- Balance: Woodcutters cut more, buildings take less work, door buffers hold twice as much and more people haul.
+
+### Fixed
+- A finished building did not start working until something else was placed or demolished.
+
 ## 1.1.4 - 2026-11-19
 
 ### Added
