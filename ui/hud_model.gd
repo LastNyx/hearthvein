@@ -1125,6 +1125,43 @@ func icon_id(good: String) -> String:
 	return ""
 
 
+## The detail panel of a build card (ticket 117), {} for an unknown id: title, kind ("Refining, Village era"),
+## description, costs (cost_rows, with have), workers, size ("2 x 1 tiles"), inputs / outputs of the recipe per worker per
+## day ([{good, icon, name, amount}]), extra (other data lines: reach, beds, storage...), unlock ("Village era
+## (unlocked)" / "Needs City era"), locked and reason (why the button is off, "" when it is not).
+func detail_for(def_id: String) -> Dictionary:
+	var def := s.registry.get_building(def_id)
+	if def == null:
+		return {}
+	var era := s.registry.get_era(def.era)
+	var era_name := era.display_name if era != null else def.era
+	var locked := not s.is_unlocked(def)
+	var inputs: Array[Dictionary] = []
+	var outputs: Array[Dictionary] = []
+	var r := def.recipe
+	if r != null:
+		for g: String in r.inputs:
+			inputs.append(_flow_row(g, float(r.inputs[g])))
+		if r.any_input_count > 0:
+			inputs.append({"good": "", "icon": "food", "name": "any %d foods" % r.any_input_count,
+					"amount": num_text(r.any_input_amount)})
+		for g: String in r.outputs:
+			outputs.append(_flow_row(g, float(r.outputs[g])))
+	var extra: Array[String] = []
+	for l in _def_tooltip_lines(def, null):
+		if not (l.begins_with("Cost:") or l.begins_with("Workers ") or l.begins_with("Per worker per day")):
+			extra.append(l)
+	return {"id": def.id, "title": def.display_name, "kind": "%s, %s era" % [category_label(def.category), era_name],
+			"description": def.description, "costs": cost_rows(def), "workers": def.worker_slots,
+			"size": "%d x %d tiles" % [def.size.x, def.size.y], "inputs": inputs, "outputs": outputs, "extra": extra,
+			"unlock": "Needs %s era" % era_name if locked else "%s era (unlocked)" % era_name, "locked": locked,
+			"reason": layer_block_reason(def)}
+
+
+func _flow_row(good: String, amount: float) -> Dictionary:
+	return {"good": good, "icon": icon_id(good), "name": _good_name(good), "amount": num_text(amount)}
+
+
 ## Defs of the era right after the current one (shown locked in the build menu), by era order then id.
 func _next_era_defs() -> Array[BuildingDef]:
 	var cur := s.registry.get_era(s.era_id())

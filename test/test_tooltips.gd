@@ -81,23 +81,22 @@ func _hud() -> Array:
 	return [main, main.hud]
 
 
-func test_build_button_tooltip_appears_after_the_delay() -> void:
+func test_build_button_hover_opens_the_detail_panel_not_the_tooltip() -> void:
 	var r := await _hud()
 	var hud: Hud = r[1]
 	hud.open_category("food")
 	await wait_process_frames(2)
 	var b: Button = hud.build_button("forager")
 	assert_not_null(b)
-	assert_false(hud.tooltip_visible())
+	assert_false(hud.detail_visible())
 	b.mouse_entered.emit()
-	hud.hover_tick(0.2)
-	assert_false(hud.tooltip_visible(), "not yet")
-	hud.hover_tick(0.3)
-	assert_true(hud.tooltip_visible())
-	assert_string_contains(hud.tooltip_text(), "Forager")
+	hud.hover_tick(0.0)
+	assert_true(hud.detail_visible())
+	assert_eq(hud.detail_title(), "Forager")
+	assert_false(hud.tooltip_visible())
 	b.mouse_exited.emit()
 	hud.hover_tick(0.0)
-	assert_false(hud.tooltip_visible())
+	assert_false(hud.detail_visible())
 
 
 func test_map_tooltip_over_a_building_but_not_while_placing_or_dragging() -> void:

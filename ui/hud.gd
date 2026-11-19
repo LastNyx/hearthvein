@@ -74,6 +74,7 @@ var _cat_buttons: Dictionary = {}
 var _fly_panel: PanelContainer
 var _fly_box: HBoxContainer
 var _fly_title: Label
+var _fly_hint: Label
 var _fly_key := ""
 var _open_cat := ""
 var workforce_page: WorkforcePage
@@ -93,6 +94,10 @@ const NO_TILE := Vector2i(-99999, -99999)
 var _tip_panel: PanelContainer
 var _tip_box: VBoxContainer
 var _tip_btn: Button
+var _detail: PanelContainer
+var _detail_box: VBoxContainer
+var _detail_key := ""
+var _detail_title := ""
 var _tip_key := ""
 var _tip_text := ""
 var _tip_t := 0.0
@@ -158,6 +163,7 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	resources_page.setup(self, model)
 	_build_bar(col)
 	_build_tooltip()
+	_build_detail()
 	tools_tab = ToolsTab.new()
 	_float.add_child(tools_tab)
 	tools_tab.setup(self, driver)
@@ -599,7 +605,12 @@ func _build_bar(parent: Node) -> void:
 	var fly_col := VBoxContainer.new()
 	fly_col.add_theme_constant_override("separation", 4)
 	_fly_panel.add_child(fly_col)
-	_fly_title = _label(fly_col, 18, GOLD)
+	var fly_head := HBoxContainer.new()
+	fly_col.add_child(fly_head)
+	_fly_title = _label(fly_head, 18, GOLD)
+	_fly_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_fly_hint = _label(fly_head, 12, DIM)
+	_fly_hint.text = "Hover a card for details"
 	_fly_box = HBoxContainer.new()
 	_fly_box.add_theme_constant_override("separation", 6)
 	fly_col.add_child(_fly_box)
@@ -646,6 +657,7 @@ func _show_flyout() -> void:
 			continue
 		_fly_panel.visible = true
 		_fly_title.text = cat["label"]
+		_fly_hint.visible = cat["id"] != "roads"
 		_fly_key = _flyout_key(cat)
 		var entries: Array = cat["entries"]
 		var card_count := entries.filter(func(e: Dictionary) -> bool: return e["kind"] == "building").size()
@@ -1032,6 +1044,177 @@ func update_highlight(t: float = 0.0) -> void:
 		target.self_modulate = Color.WHITE.lerp(GOLD * 1.4, 0.5 + 0.5 * sin(t * 6.0))
 
 
+# ---------------------------------------------------------------- build detail panel (ticket 117)
+
+const DETAIL_W := 350.0
+const GREEN := Color("90c870")
+
+
+func _build_detail() -> void:
+	_detail = PanelContainer.new()
+	_detail.name = "BuildDetail"
+	_detail.add_theme_stylebox_override("panel", _style(PANEL_BG, GOLD, 8, 2))
+	_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail.custom_minimum_size = Vector2(DETAIL_W, 0)
+	_detail.visible = false
+	_detail_box = VBoxContainer.new()
+	_detail_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail_box.add_theme_constant_override("separation", 6)
+	_detail.add_child(_detail_box)
+	_float.add_child(_detail)
+
+
+func detail_visible() -> bool:
+	return _detail.visible
+
+
+## The title the detail panel shows, "" when it is closed.
+func detail_title() -> String:
+	return _detail_title if _detail.visible else ""
+
+
+## Opens the panel for the hovered build card (`def_id`), closes it for "". Rebuilt only when its data changes.
+func _set_detail(def_id: String) -> void:
+	var d := model.detail_for(def_id) if def_id != "" else {}
+	if d.is_empty():
+		_detail.visible = false
+		_detail_key = ""
+		_detail_title = ""
+		return
+	var key := str(d)
+	if key != _detail_key:
+		_detail_key = key
+		_detail_title = str(d["title"])
+		_fill_detail(d)
+	_detail.visible = true
+	_place_detail()
+
+
+## Bottom right, just above the build bar, clear of the flyout's cards.
+func _place_detail() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var sz := _detail.get_combined_minimum_size()
+	_detail.size = sz
+	var bottom := vp.y - 6.0
+	if _cat_box != null and _cat_box.get_parent() is Control:
+		bottom = (_cat_box.get_parent() as Control).get_global_rect().position.y - 6.0
+	_detail.position = Vector2(maxf(6.0, vp.x - sz.x - 6.0), maxf(56.0, bottom - sz.y))
+
+
+func _fill_detail(d: Dictionary) -> void:
+	for c in _detail_box.get_children():
+		_detail_box.remove_child(c)
+		c.queue_free()
+	var inner := DETAIL_W - 24.0
+	var pic := PanelContainer.new()
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.add_theme_stylebox_override("panel", _style(Color(0.16, 0.21, 0.14), Color(0, 0, 0, 0), 4, 0))
+	pic.custom_minimum_size = Vector2(inner, 136)
+	_detail_box.add_child(pic)
+	var entry: Variant = ArtLibrary.manifest()["buildings"].get(str(d["id"]))
+	if entry != null:
+		var scale := clampi(floori(minf((inner - 24.0) / float(entry["w"]), 112.0 / float(entry["h"]))), 1, 4)
+		var t := TextureRect.new()
+		t.name = "DetailSprite"
+		t.texture = ArtLibrary.texture(entry["file"])
+		t.custom_minimum_size = Vector2(float(entry["w"]), float(entry["h"])) * scale
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pic.add_child(t)
+	var head := HBoxContainer.new()
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail_box.add_child(head)
+	var title := _label(head, 18, INK)
+	title.name = "DetailTitle"
+	title.text = d["title"]
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var kind := _label(head, 12, DIM)
+	kind.text = d["kind"]
+	kind.size_flags_vertical = Control.SIZE_SHRINK_END
+	var desc := _label(_detail_box, 14, INK)
+	desc.name = "DetailDescription"
+	desc.text = d["description"]
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size = Vector2(inner, 0)
+	var rule := HSeparator.new()
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail_box.add_child(rule)
+	var grid := GridContainer.new()
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 6)
+	_detail_box.add_child(grid)
+	var cost := _detail_row(grid, "Cost", inner)
+	for c: Dictionary in d["costs"]:
+		var item := HBoxContainer.new()
+		item.name = "DetailCost_" + str(c["good"])
+		item.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		item.add_theme_constant_override("separation", 3)
+		cost.add_child(item)
+		_flow_item(item, c["icon"], str(c["name"]), str(c["need"]))
+		var have := _label(item, 14, RED if c["short"] else DIM)
+		have.name = "Have"
+		have.text = "(have %d)" % c["have"]
+		have.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if (d["costs"] as Array).is_empty():
+		_label(cost, 14, INK).text = "free"
+	if int(d["workers"]) > 0:
+		_label(_detail_row(grid, "Workers", inner), 14, INK).text = str(d["workers"])
+	_label(_detail_row(grid, "Size", inner), 14, INK).text = d["size"]
+	if not (d["inputs"] as Array).is_empty() or not (d["outputs"] as Array).is_empty():
+		var flow := _detail_row(grid, "Per day", inner)
+		flow.name = "DetailFlow"
+		for r: Dictionary in d["inputs"]:
+			_flow_item(flow, r["icon"], str(r["name"]), str(r["amount"]))
+		if not (d["inputs"] as Array).is_empty():
+			_label(flow, 14, DIM).text = "->"
+		for r: Dictionary in d["outputs"]:
+			_flow_item(flow, r["icon"], str(r["name"]), str(r["amount"]))
+		_label(flow, 12, DIM).text = "per worker"
+	for l: String in d["extra"]:
+		_hud_line(_detail_box, l, DIM, 14, inner)
+	var unlock := _label(_detail_row(grid, "Unlock", inner), 14, GOLD if d["locked"] else GREEN)
+	unlock.name = "DetailUnlock"
+	unlock.text = d["unlock"]
+	if d["reason"] != "":
+		_hud_line(_detail_box, d["reason"], GOLD, 14, inner)
+	_detail.reset_size()
+
+
+## One "label | value" row of the detail grid; returns the value flow.
+func _detail_row(grid: GridContainer, label: String, inner: float) -> HFlowContainer:
+	var l := _label(grid, 14, DIM)
+	l.text = label
+	l.custom_minimum_size = Vector2(70, 0)
+	l.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var flow := HFlowContainer.new()
+	flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 2)
+	flow.custom_minimum_size = Vector2(inner - 82.0, 0)
+	grid.add_child(flow)
+	return flow
+
+
+## An icon (the good's name when it has none) and a number.
+func _flow_item(parent: Node, icon: String, good_name: String, amount: String) -> void:
+	if icon != "":
+		_icon(parent, icon, 20).name = "Icon"
+		var n := _label(parent, 14, INK)
+		n.name = "Num"
+		n.text = amount
+		n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	else:
+		var n := _label(parent, 14, INK)
+		n.name = "Num"
+		n.text = "%s %s" % [amount, good_name]
+
+
 # ---------------------------------------------------------------- tooltips
 
 func _build_tooltip() -> void:
@@ -1067,18 +1250,15 @@ func _hide_tip() -> void:
 func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
 	var key := ""
 	var data := {}
-	var at_button := false
 	if _tip_btn != null and not is_instance_valid(_tip_btn):
 		_tip_btn = null
-	if _tip_btn != null and _tip_btn.is_visible_in_tree():
-		key = "def:" + str(_tip_btn.get_meta("def_id"))
-		data = model.tooltip_for(str(_tip_btn.get_meta("def_id")))
-		var why := str(_tip_btn.get_meta("reason", ""))
-		if why != "" and not data.is_empty():
-			(data["lines"] as Array[String]).append(why)
-			data["text"] = str(data["text"]) + "\n" + why
-		at_button = true
-	elif camera != null and (build == null or build.mode == BuildController.Mode.NONE) and not _right.down \
+	# A hovered build card opens the detail panel at once (ticket 117) instead of the small tooltip.
+	_set_detail(str(_tip_btn.get_meta("def_id")) if _tip_btn != null and _tip_btn.is_visible_in_tree() else "")
+	if _detail.visible:
+		if _tip_panel.visible or _tip_key != "":
+			_hide_tip()
+		return
+	if camera != null and (build == null or build.mode == BuildController.Mode.NONE) and not _right.down \
 			and not _mid_down and not _region_map.visible and (tile != NO_TILE or get_viewport().gui_get_hovered_control() == null):
 		var t := tile
 		if t == NO_TILE:
@@ -1111,7 +1291,7 @@ func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
 	if not _tip_panel.visible or str(data["text"]) != _tip_text:
 		_fill_tip(data)
 	_tip_panel.visible = true
-	_place_tip(at_button)
+	_place_tip()
 
 
 func _fill_tip(d: Dictionary) -> void:
@@ -1134,16 +1314,11 @@ func _fill_tip(d: Dictionary) -> void:
 	_tip_panel.reset_size()
 
 
-## Above the hovered button (below it if there is no room), or beside the mouse for the map; clamped to the screen.
-func _place_tip(at_button: bool) -> void:
+## Beside the mouse, clamped to the screen.
+func _place_tip() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var sz := _tip_panel.get_combined_minimum_size()
 	_tip_panel.size = sz
 	var pos := get_viewport().get_mouse_position() + Vector2(18, 18)
-	if at_button and _tip_btn != null:
-		var r := _tip_btn.get_global_rect()
-		pos = Vector2(r.position.x, r.position.y - sz.y - 6.0)
-		if pos.y < 6.0:
-			pos.y = r.end.y + 6.0
 	_tip_panel.position = Vector2(clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0)),
 			clampf(pos.y, 6.0, maxf(6.0, vp.y - sz.y - 6.0)))

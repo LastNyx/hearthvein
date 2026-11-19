@@ -102,7 +102,7 @@ func test_site_wait_line_draws_good_icons() -> void:
 	assert_same(icons[0].texture, ArtLibrary.texture(ArtLibrary.manifest()["icons"]["wood"]))
 
 
-func test_build_tooltip_cost_line_draws_good_icons() -> void:
+func test_build_detail_cost_draws_good_icons() -> void:
 	var main: Node = await _game()
 	var hud: Hud = main.get_node("Hud")
 	hud.open_category("food")
@@ -110,10 +110,10 @@ func test_build_tooltip_cost_line_draws_good_icons() -> void:
 	var b: Button = hud.build_button("forager")
 	assert_not_null(b)
 	b.mouse_entered.emit()
-	hud.hover_tick(0.5)
-	assert_true(hud.tooltip_visible())
-	var row := _line_row(hud._tip_box, "Cost: ")
-	assert_not_null(row, "the cost line is drawn as its own row")
+	hud.hover_tick(0.0)
+	assert_true(hud.detail_visible())
+	var row: Control = hud._detail.find_child("DetailCost_wood", true, false)
+	assert_not_null(row, "the wood cost is drawn as its own row")
 	var icons := _icons(row)
 	assert_eq(icons.size(), 1, "a Forager costs wood only")
 	assert_same(icons[0].texture, ArtLibrary.texture(ArtLibrary.manifest()["icons"]["wood"]))
