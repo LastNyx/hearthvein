@@ -62,8 +62,10 @@ and the campaign win needs planet health >= 50% at the very end.
 ## 5. Citizens, housing and growth (D17, D46)
 - Start: Hearth (houses 8), 8 citizens, 60 food, 40 materials, 10 Lumen, 0 gold.
 - Each citizen eats 1 food/day. Daily surplus goes into the growth bar.
-- Growth bar size = 8 + pop / 3 food. Full bar and a free bed = one new citizen at the Hearth.
-- Immigration: Spirit >= 70 and free beds = one newcomer every 3 days, on top of growth.
+- Growth bar size = 3 + pop / 6 food (tuned in 47b-47d; was 8 + pop / 3). Full bar and a free bed = one new citizen
+  at the Hearth.
+- Immigration: Spirit >= 40 and free beds = one newcomer every day, on top of growth (tuned in 47i; was Spirit 70,
+  every 3 days: a well-run City sits at Spirit 40-49, so immigration never came).
 - Food stock at 0 with a deficit: one citizen leaves per day until food balances.
 - Homeless (pop above beds): Spirit penalty, no growth.
 - Soft cap (D46): target ~600 citizens. Above 600 the growth bar size is multiplied by 1 + (pop - 600) / 100,
@@ -181,7 +183,7 @@ One meter, 0-100, starts at 60. Each day it moves 2 points towards a target:
 - -5 if a Tax Office exists.
 - -up to 10 planet grief: (60 - planet health) / 6 when health is below 60%.
 
-Effects: >= 70 work +15%, growth +20%, immigration on. <= 30 work -20%, no immigration.
+Effects: >= 70 work +15%, growth +20%. >= 40 immigration on (section 5). <= 30 work -20%, no immigration.
 Below 20 for 5 days in a row: one citizen leaves every 2 days.
 
 ## 12. Blight

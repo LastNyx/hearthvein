@@ -18,6 +18,8 @@ All notable changes to Hearthvein. Newest first.
 - Faster early game: producers make more, construction is quicker, the growth bar fills sooner and immigrants
   arrive from Spirit 50.
 - Markets pay 1.5 gold per worker a day (was 4), so gold matters again at the Town and City gates.
+- Immigration starts at Spirit 40 (was 50) and brings a newcomer every day (was every two days), so a busy
+  City keeps growing.
 - Smoother play in big settlements: a 600-citizen town now costs about a fifth of the frame time it did, the work
   at the end of each in-game hour is spread over several frames, and the autosave at each season start is written
   in the background.
