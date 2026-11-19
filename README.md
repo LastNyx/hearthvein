@@ -51,6 +51,16 @@ Layout: `sim/` (pure simulation, no scene-tree code), `data/` (all game numbers,
 
 `packaging/build.sh` exports the Windows and Linux builds into `build/` (needs the export templates, NSIS and appimagetool). It refuses to run unless `CHANGELOG.md` has a `## <version>` section for the version in `project.godot`. `CHANGELOG.md` is the one source for the in-game What's new panel and the GitHub release notes: `packaging/release_notes.sh <version>` prints that version's section (use it with `gh release create --notes-file`).
 
+## Releasing
+
+Pushing a `v*` tag builds and publishes the release (`.github/workflows/release.yml`).
+
+1. `packaging/bump_version.sh <version>` sets the version in `project.godot`, `export_presets.cfg`, `packaging/windows/hearthvein.nsi` and `packaging/linux/README.txt`.
+2. Date the `## <version> - <date>` section in `CHANGELOG.md`, commit and push to `main`.
+3. `git tag v<version> && git push origin v<version>`.
+
+The workflow fails early if the tag and those four files disagree or `CHANGELOG.md` has no section for the version. It then runs `packaging/build.sh` (Godot 4.7.2, native `makensis`, appimagetool) and creates the release "Hearthvein <version>" with the changelog section as notes and the installer, AppImage and tar.gz attached. A tag with a `-` suffix (`v1.3.0-rc1`) is marked pre-release.
+
 ## Licence
 
 The code is MIT (see [LICENSE](LICENSE)). Third-party assets keep their own licences: the fonts in `assets/ui`

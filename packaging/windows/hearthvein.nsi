@@ -5,6 +5,9 @@ Unicode true
 !ifndef VERSION
   !define VERSION "1.1.2"
 !endif
+!ifndef NUMVER
+  !define NUMVER "${VERSION}"   ; numeric x.y.z for VIProductVersion (build.sh strips a -suffix)
+!endif
 !ifndef SRC_DIR
   !define SRC_DIR "..\..\build\windows"
 !endif
@@ -26,7 +29,7 @@ RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 Icon "${ICON}"
 UninstallIcon "${ICON}"
-VIProductVersion "${VERSION}.0"
+VIProductVersion "${NUMVER}.0"
 VIAddVersionKey "ProductName" "${APP}"
 VIAddVersionKey "FileDescription" "${APP} installer"
 VIAddVersionKey "FileVersion" "${VERSION}"

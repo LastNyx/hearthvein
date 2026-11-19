@@ -1,0 +1,86 @@
+name: release
+
+# Push a tag like v1.2.0 (see "Releasing" in README.md). Builds the three artefacts with packaging/build.sh and
+# publishes a GitHub release. A tag with a "-" suffix (v1.2.0-rc1) is marked pre-release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+  APPIMAGETOOL_VERSION: "1.9.1"
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check the tag matches the game version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          packaging/check_version.sh "$version"
+          packaging/release_notes.sh "$version" > /dev/null || { echo "::error::CHANGELOG.md has no ## $version section"; exit 1; }
+
+      - name: Cache Godot and export templates
+        id: godot-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/godot-dl
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-stable-linux-x86_64
+
+      - name: Download Godot and export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot-dl ~/.local/share/godot/export_templates
+          curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/godot.zip -d ~/godot-dl
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+
+      - name: Install NSIS and appimagetool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nsis
+          mkdir -p ~/bin
+          curl -fsSL -o ~/bin/appimagetool "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+          chmod +x ~/bin/appimagetool
+          ln -sf ~/godot-dl/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/bin/godot
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          echo "APPIMAGETOOL=$HOME/bin/appimagetool" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: packaging/build.sh
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          {
+            packaging/release_notes.sh "$version"
+            echo
+            echo "### Downloads"
+            echo "- Windows: Hearthvein-${version}-setup.exe"
+            echo "- Linux: Hearthvein-${version}-x86_64.AppImage (chmod +x, then run it), or the tar.gz"
+            echo
+            echo "Full history: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
+          } > /tmp/notes.md
+          flags=()
+          case "$version" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$TAG" --title "Hearthvein $version" --notes-file /tmp/notes.md "${flags[@]}" \
+            "build/Hearthvein-${version}-setup.exe" \
+            "build/Hearthvein-${version}-x86_64.AppImage" \
+            "build/Hearthvein-${version}-linux-x86_64.tar.gz"

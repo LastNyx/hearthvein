@@ -26,11 +26,11 @@ echo "== export"
 "$GODOT" --headless --path . --export-release "Linux" build/linux/Hearthvein.x86_64
 
 echo "== windows installer"
+# packaging/windows is the cwd so the .nsi's relative defaults resolve
 if command -v makensis >/dev/null; then
-  makensis -V2 -DVERSION="$VERSION" packaging/windows/hearthvein.nsi
+  (cd packaging/windows && makensis -V2 -DVERSION="$VERSION" -DNUMVER="${VERSION%%-*}" hearthvein.nsi)
 else
-  # packaging/windows is the cwd so the .nsi's relative defaults resolve
-  (cd packaging/windows && wine "$NSIS_EXE" -V2 -DVERSION="$VERSION" hearthvein.nsi)
+  (cd packaging/windows && wine "$NSIS_EXE" -V2 -DVERSION="$VERSION" -DNUMVER="${VERSION%%-*}" hearthvein.nsi)
 fi
 
 echo "== linux AppImage"
