@@ -22,7 +22,7 @@ func _init() -> void:
 	for r in MapState.REGION_COUNT:
 		s.map.region_owned[r] = 1
 	s.era_override = "village"
-	s.registry.water.channel_cost_materials = 0.0  # the shot does not care about the stockpile
+	s.registry.water.channel_cost_stone = 0.0  # the shot does not care about the stockpile
 	var line := _river_line(s)
 	var dry_at := _dry_spot(s, line)
 	print("WATER line=%s dry=%s" % [line, dry_at])

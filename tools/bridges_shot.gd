@@ -55,7 +55,8 @@ func _init() -> void:
 	for r in MapState.REGION_COUNT:
 		s.map.region_owned[r] = 1
 	s.era_override = "conflux"
-	s.hearth.inventory.add("materials", 800.0)
+	s.hearth.inventory.add("wood", 800.0)
+	s.hearth.inventory.add("stone", 800.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	var runs := _runs(s, s.map.hearth_spot)
 	if runs.is_empty():

@@ -18,7 +18,7 @@ const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
-	"food": 0.4, "materials": 0.2, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
+	"food": 0.4, "wood": 0.12, "stone": 0.08, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
 	"lumen_cells": 0.05, "tools": 0.03,
 }
 ## From City on these replace the share above (the Nexus and everything after it eat Lumen: light, cells, upkeep, 47g).
@@ -26,7 +26,8 @@ const CITY_SHARES := {"lumen": 0.18}
 ## Producer buildings per good, best first. The bot takes the first one that is unlocked, affordable and has room.
 const PRODUCERS := {
 	"food": ["bloom_orchard", "hydroponic_hall", "greenhouse", "farm", "fishing_dock", "forager"],
-	"materials": ["quarry", "woodcutter"],
+	"wood": ["woodcutter"],
+	"stone": ["quarry"],
 	"lumen": ["heartroot_tap", "lumen_pump", "lumen_reactor", "lumen_tap"],
 	"gold": ["grand_bazaar", "market"],
 	"planks": ["sawmill"],
@@ -35,21 +36,23 @@ const PRODUCERS := {
 	"tools": ["toolsmith"],
 }
 ## Pause a good's producers above (per citizen, flat) stock; resume below 60% of it.
-const THROTTLE := {"food": [6.0, 60.0], "materials": [3.0, 200.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0],
+const THROTTLE := {"food": [6.0, 60.0], "wood": [1.8, 120.0], "stone": [1.2, 80.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0],
 	"cut_stone": [0.0, 100.0], "lumen_cells": [0.0, 60.0], "tools": [0.0, 50.0]}
 ## From City on, food producers pause above this many units per citizen (see _throttle).
 const FOOD_THROTTLE_CITY := 12.0
 const CITY_ORDER := 4
-## Materials stock above which the quarries may give way to unstaffed Markets (City on).
-const GOLD_HOLD_MATERIALS := 150.0
+## The raw goods (ticket 99 split the old "materials" into these two).
+const RAW: Array[String] = ["wood", "stone"]
+## Stock above which that good's producers may give way to unstaffed Markets (City on).
+const GOLD_HOLD := {"wood": 90.0, "stone": 60.0}
 ## From this era on a new workplace needs as many idle citizens (not promised to open sites) as it has slots (47h).
 const LABOUR_ERA := 3
 ## Share of a landmark's goods that must be in stock before its site is placed (City on).
 const NEAR_READY := 0.8
-## From City on, materials producers are held while a landmark good is short and the materials stock is over this share of its cost.
+## From City on, wood and stone producers are held while a landmark good is short and the raw stock is over this share of its cost.
 const REFINED_HOLD_CITY := 0.5
 ## Stock above which a good stops being built for.
-const STOCK_CAP := {"materials": 2500.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
+const STOCK_CAP := {"wood": 1500.0, "stone": 1000.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
 const HOUSING: Array[String] = ["lumen_arcology", "conduit_terraces", "apartment_block", "rowhouse", "cottage", "tent"]
 ## The landmark each era builds (the gate to the next era; the Skyheart in the last).
@@ -161,8 +164,8 @@ func _init() -> void:
 			_food_prev = now
 		if _verbose and day % 4 == 0:
 			var tot := s.totals()
-			print("   d%d pop %d beds %d idle %d gold %d food %d mat %d lumen %d sites %d bld %d" % [day, s.citizens.size(), s.beds_total(),
-				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0) + tot.get("crops", 0) + tot.get("fish", 0)), int(tot.get("materials", 0)), int(tot.get("lumen", 0)),
+			print("   d%d pop %d beds %d idle %d gold %d food %d wood %d stone %d lumen %d sites %d bld %d" % [day, s.citizens.size(), s.beds_total(),
+				s.idle_citizens().size(), int(s.gold), int(tot.get("food", 0) + tot.get("crops", 0) + tot.get("fish", 0)), int(tot.get("wood", 0)), int(tot.get("stone", 0)), int(tot.get("lumen", 0)),
 				_open_sites(), s.buildings.size()] + " | pl %d st %d cell %d tool %d" % [int(tot.get("planks", 0)), int(tot.get("cut_stone", 0)), int(tot.get("lumen_cells", 0)), int(tot.get("tools", 0))] + _lm_short())
 		if _verbose and day % 12 == 0:
 			var gr := s.get_system(GrowthSystem) as GrowthSystem
@@ -199,8 +202,8 @@ func _init() -> void:
 			var doormat := 0.0
 			for b: Building in s.buildings.values():
 				if b.door_buffer != null:
-					doormat += b.door_buffer.amount_of("materials")
-			print("     door materials %.0f" % doormat)
+					doormat += b.door_buffer.amount_of("wood") + b.door_buffer.amount_of("stone")
+			print("     door wood+stone %.0f" % doormat)
 			var slots := {}
 			var fill := {}
 			for b: Building in s.buildings.values():
@@ -745,7 +748,7 @@ func _hearth_near() -> Vector2i:
 	return s.hearth.origin
 
 
-## Goods in storage minus what open sites still need (so the bot never promises the same materials twice).
+## Goods in storage minus what open sites still need (so the bot never promises the same goods twice).
 func _refresh_stock() -> void:
 	_stock = s.totals()
 	# "food" in the bot's eyes is every food good (crops and fish too), not only the forager's plain food
@@ -808,8 +811,8 @@ func _act() -> void:
 	var tries := 0
 	# a falling food stock is not held back by the site limit (housing and support sites can sit waiting for goods)
 	var food_low := float(_stock.get("food", 0.0)) < 2.0 * float(pop) + 40.0
-	# so is a materials or Lumen stock that cannot pay for the sites already open (their producers are what unblocks them)
-	var low_stock := food_low or float(_stock.get("materials", 0.0)) < 0.8 * float(pop) + 40.0 or float(_stock.get("lumen", 0.0)) < 0.5 * float(pop)
+	# so is a wood, stone or Lumen stock that cannot pay for the sites already open (their producers are what unblocks them)
+	var low_stock := food_low or _raw_low("wood", pop) or _raw_low("stone", pop) or float(_stock.get("lumen", 0.0)) < 0.5 * float(pop)
 	while _open_sites() < site_cap + (4 if (food_low or (low_stock and far_n < 2)) else 0) and tries < 3:
 		tries += 1
 		if not _produce(goal, pop):
@@ -839,10 +842,10 @@ func _throttle(pop: int) -> void:
 			else:
 				high = maxf(high, 1.3 * want_n + 20.0)  # what the landmark needs stays wanted
 		var stock := float(_stock.get(good, 0.0))
-		if good == "materials" and _refined_short():
-			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the quarries until they have caught up
-		if good == "materials" and stock >= GOLD_HOLD_MATERIALS and _gold_unstaffed():
-			high = minf(high, stock - 1.0)  # Markets rank below the quarries: hold the quarries while the gate's gold waits for hands (47h)
+		if RAW.has(good) and _refined_short(good):
+			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the raw producers until they have caught up
+		if RAW.has(good) and stock >= float(GOLD_HOLD[good]) and _gold_unstaffed():
+			high = minf(high, stock - 1.0)  # Markets rank below the raw producers: hold them while the gate's gold waits for hands (47h)
 		var ids: Array = PRODUCERS.get(good, [])
 		if good == "food":
 			ids = ["forager", "farm", "fishing_dock", "greenhouse", "hydroponic_hall", "bloom_orchard"]
@@ -853,6 +856,13 @@ func _throttle(pop: int) -> void:
 				s.set_building_priority(b.id, "paused")
 			elif stock < high * 0.6 and b.paused:
 				s.set_building_priority(b.id, "normal")
+
+
+## True when the stock of a raw good cannot pay for the open sites: the old 0.8 * pop + 40 materials mark, split by the
+## wood and stone shares (60 / 40).
+func _raw_low(good: String, pop: int) -> bool:
+	var share := 0.6 if good == "wood" else 0.4
+	return float(_stock.get(good, 0.0)) < share * (0.8 * float(pop) + 40.0)
 
 
 ## Slots the settlement asks citizens for: workplaces not paused (sites count for the slots they will open), hauler slots, and
@@ -899,7 +909,7 @@ func _gold_unstaffed() -> bool:
 
 
 ## Producers of a refined good the era's landmark still lacks (and of the planks and cells a missing Tool eats) get high
-## priority: they rank behind food, Lumen, hauling, builders and materials, so a busy town leaves them empty (47g).
+## priority: they rank behind food, Lumen, hauling, builders and the raw producers, so a busy town leaves them empty (47g).
 func _chain_priority() -> void:
 	var lm := _landmark_id()
 	var cost := {} if lm == "" or not _lm_open() else s.registry.get_building(lm).entry_cost()
@@ -918,23 +928,25 @@ func _chain_priority() -> void:
 				s.set_building_priority(b.id, want)
 
 
-## True while the era's landmark waits for a refined good (planks, cut stone) and the materials for it are in stock.
-func _refined_short() -> bool:
+## True while the era's landmark waits for a refined good (planks, cut stone) and the stock of raw good `raw` (wood or
+## stone) already covers what the landmark needs of it.
+func _refined_short(raw: String) -> bool:
 	var lm := _landmark_id()
 	if lm == "" or not _lm_open():
 		return false
 	var cost := s.registry.get_building(lm).entry_cost()
-	var hold := float(cost.get("materials", 0)) + 100.0
+	var raw_cost := float(cost.get(raw, 0))
+	var hold := raw_cost + 50.0
 	if s.registry.get_era(s.era_current).order >= CITY_ORDER:
-		hold = REFINED_HOLD_CITY * float(cost.get("materials", 0))  # the refiners are what the Nexus waits for: free their hands early (47g)
-	if float(_stock.get("materials", 0.0)) < hold:
+		hold = REFINED_HOLD_CITY * raw_cost  # the refiners are what the Nexus waits for: free their hands early (47g)
+	if float(_stock.get(raw, 0.0)) < hold:
 		return false
 	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()
 	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
 		if not cost.has(g) or float(_stock.get(g, 0.0)) >= float(cost[g]):
 			continue
-		# the quarries give way only while a producer of the short good has empty slots (47h: with every refiner staffed the
-		# hold only kept the materials stock under the landmark's cost)
+		# the raw producers give way only while a producer of the short good has empty slots (47h: with every refiner staffed the
+		# hold only kept the wood and stone stock under the landmark's cost)
 		for b: Building in s.buildings.values():
 			if not b.site and not b.paused and PRODUCERS[g].has(b.def.id) and int(counts.get(b.id, 0)) < b.effective_worker_slots(s.registry):
 				return true
@@ -992,7 +1004,7 @@ func _housing(pop: int, reserve: Dictionary) -> void:
 
 
 ## Places the next unmet row of the opening order. Returns true while the opening still holds the stock back (a row is
-## waiting for materials), so nothing else is bought.
+## waiting for wood), so nothing else is bought.
 func _opening(pop: int) -> bool:
 	for row in OPENING:
 		var id: String = row[0]
@@ -1005,6 +1017,12 @@ func _opening(pop: int) -> bool:
 			if _place(id, _hearth_near(), SEARCH_RADIUS) != null:
 				return true
 			continue
+		# a row waiting for wood or stone nobody makes yet: build that producer now (the Quarry is wood only), or the
+		# opening would wait for stone for ever (ticket 99)
+		var cost := s.cost_for(id)
+		for g in RAW:
+			if float(cost.get(g, 0.0)) > float(_stock.get(g, 0.0)) and _slots_for(g) == 0:
+				_produce(float(pop) * 1.15 + 10.0, pop, g, true)
 		return true
 	return false
 
@@ -1051,7 +1069,7 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 			var tgt: float = (goal * 3.0 if good == "food" else goal * 2.0 + 60.0)
 			if stock < tgt:
 				score *= 1.5
-		if good == "materials" and stock < 0.8 * float(pop) + 40.0:
+		if RAW.has(good) and _raw_low(good, pop):
 			score *= 1.5  # sites and refiners wait for it
 		scored.append([score, good])
 	scored.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
@@ -1066,7 +1084,7 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 				return false
 			if _over_cap(def, good, pop, no_hands_needed):
 				continue
-			if not _afford(id, {} if (good == "food" or good == "lumen" or good == "materials" or good == "gold" or _landmark_needs(good)) else reserve):
+			if not _afford(id, {} if (good == "food" or good == "lumen" or RAW.has(good) or good == "gold" or _landmark_needs(good)) else reserve):
 				continue
 			var through := _jobs_free() < def.worker_slots
 			if _place(id, _hearth_near(), SEARCH_RADIUS) != null:

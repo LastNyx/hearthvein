@@ -39,7 +39,8 @@ func _init() -> void:
 	# Paved cross at x0 + 9 with arms north and south.
 	for k in range(-3, 4):
 		s.place_road(Vector2i(x0 + 9, y + k))
-	s.hearth.inventory.add("materials", 500.0)
+	s.hearth.inventory.add("wood", 500.0)
+	s.hearth.inventory.add("stone", 500.0)
 	s.hearth.inventory.add("cut_stone", 50.0)
 	var paved := 0
 	for x in range(x0, h.x + 14):

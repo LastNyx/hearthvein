@@ -39,7 +39,8 @@ func _init() -> void:
 	_try(s, "fishing_dock", h + Vector2i(0, 8))
 	_try(s, "bell_tower", h + Vector2i(-12, -3))
 	s.hearth.inventory.add("food", 200.0)
-	s.hearth.inventory.add("materials", 100.0)
+	s.hearth.inventory.add("wood", 100.0)
+	s.hearth.inventory.add("stone", 100.0)
 	L.populate(s)
 	for i in 2 * 24:
 		s.step_hours(1)

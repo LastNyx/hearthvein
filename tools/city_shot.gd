@@ -29,7 +29,8 @@ func _init() -> void:
 	var h := s.map.hearth_spot
 	s.era_current = "city"
 	(main.get_node("Hud") as Hud)._rebuild_categories()
-	s.hearth.inventory.add("materials", 900.0)
+	s.hearth.inventory.add("wood", 900.0)
+	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 40.0)
 	s.hearth.inventory.add("food", 900.0)
 	# Town buildings around the Hearth; wells need a wet tile and pumps need a vein, so their searches are wider.

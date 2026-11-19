@@ -27,7 +27,8 @@ func _init() -> void:
 	var h := s.map.hearth_spot
 	s.era_current = "conflux"
 	(main.get_node("Hud") as Hud)._rebuild_categories()
-	s.hearth.inventory.add("materials", 900.0)
+	s.hearth.inventory.add("wood", 900.0)
+	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 40.0)
 	s.hearth.inventory.add("food", 900.0)
 	# The Hearth region is 32 x 24 tiles; positions are relative to its corner so the chain fits inside it.

@@ -32,7 +32,8 @@ func _init() -> void:
 	(main.get_node("Hud") as Hud)._rebuild_categories()
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
-	s.hearth.inventory.add("materials", 900.0)
+	s.hearth.inventory.add("wood", 900.0)
+	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 200.0)
 	s.hearth.inventory.add("food", 600.0)
 	# Two neighbouring regions: the Hearth's own, and the one to its right (or left at the map edge).

@@ -37,7 +37,8 @@ func _init() -> void:
 	hud._rebuild_categories()
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
-	s.hearth.inventory.add("materials", 900.0)
+	s.hearth.inventory.add("wood", 900.0)
+	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 200.0)
 	# The sim runs only through our own stepping; jobs are set by hand, so the job and growth systems stay out.
 	s.systems.erase(s.get_system(GrowthSystem))
@@ -62,7 +63,7 @@ func _init() -> void:
 	while s.citizens.size() < 14:
 		s.add_citizen()
 	for g in s.hearth.inventory.goods():
-		if g != "materials" and g != "cut_stone":
+		if g != "wood" and g != "stone" and g != "cut_stone":
 			s.hearth.inventory.remove(g, 1000000.0)
 	store_a.inventory.add("food", 300.0)
 	var ids: Array = s.citizens.keys()

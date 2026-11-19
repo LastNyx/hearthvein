@@ -26,7 +26,8 @@ func _build(main: Node, era: String) -> Settlement:
 	(main.get_node("Hud") as Hud)._rebuild_categories()
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
-	s.hearth.inventory.add("materials", 900.0)
+	s.hearth.inventory.add("wood", 900.0)
+	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	s.hearth.inventory.add("food", 900.0)
 	if era == "skyborne":
