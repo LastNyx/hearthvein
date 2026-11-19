@@ -60,7 +60,7 @@ func test_data_matches_the_town_table() -> void:
 	var def := reg.get_building("tax_office")
 	assert_not_null(def)
 	assert_eq([def.era, def.category], ["town", "gold"])
-	assert_eq([def.size, def.cost, def.worker_slots], [Vector2i(1, 1), {"materials": 40}, 1])
+	assert_eq([def.size, def.cost, def.worker_slots], [Vector2i(1, 1), {"wood": 16, "stone": 24}, 1])
 	assert_eq([def.upkeep_lumen, def.housing_beds], [0.0, 0])
 	assert_eq(def.gold_per_citizen_day, 0.2)
 	assert_null(def.recipe, "gold is a counter, not a recipe output")

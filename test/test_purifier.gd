@@ -124,7 +124,7 @@ func test_data_matches_the_city_row() -> void:
 	var d := reg.get_building("purifier_tower")
 	assert_not_null(d, "data/buildings/purifier_tower.tres exists")
 	assert_eq([d.era, d.category, d.size], ["city", "civic", Vector2i(1, 1)])
-	assert_eq(d.cost, {"materials": 100, "gold": 40, "lumen": 20, "cut_stone": 20})
+	assert_eq(d.cost, {"wood": 40, "stone": 60, "gold": 40, "lumen": 20, "cut_stone": 20})
 	assert_eq([d.worker_slots, d.upkeep_lumen], [2, 3.0])
 	assert_eq([d.clean_radius, d.clean_interval_days], [8, 1], "section 12: 1 tile/day in r8")
 	assert_eq(d.blight_block_radius, 4, "section 12: blocks new blight in r4")

@@ -95,7 +95,7 @@ func test_higher_category_fills_first_when_short() -> void:
 	assert_not_null(lumen)
 	_keep_citizens(s, 4)
 	s.refresh_population()
-	# 4 citizens: food 2, lumen 2; hauling (hearth) and materials get nobody.
+	# 4 citizens: food 2, lumen 2; hauling (hearth) and resources get nobody.
 	assert_eq(_workers(s, food), 2)
 	assert_eq(_workers(s, lumen), 2)
 	assert_eq(_workers(s, wood), 0)

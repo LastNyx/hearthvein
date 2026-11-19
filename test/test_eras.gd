@@ -118,7 +118,7 @@ func test_bell_tower_and_town_gate_match_the_design() -> void:
 	var bell := reg.get_building("bell_tower")
 	assert_not_null(bell)
 	assert_eq([bell.era, bell.category, bell.size], ["village", "landmark", Vector2i(1, 1)])
-	assert_eq(bell.cost, {"materials": 120, "gold": 20, "lumen": 20, "planks": 20})
+	assert_eq(bell.cost, {"wood": 48, "stone": 72, "gold": 20, "lumen": 20, "planks": 20})
 	assert_eq(bell.worker_slots, 0)
 	var town := reg.get_era("town")
 	assert_eq([town.gate_pop, town.gate_gold, town.gate_landmark], [40, 150, "bell_tower"])
@@ -266,7 +266,8 @@ func test_every_village_building_can_be_built() -> void:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
-	_stock(s, "materials", 500.0)
+	_stock(s, "wood", 500.0)
+	_stock(s, "stone", 500.0)
 	_stock(s, "planks", 60.0)
 	_stock(s, "lumen", 80.0)
 	_stock(s, "food", 500.0)
@@ -306,7 +307,7 @@ func test_lumen_spire_and_city_gate_match_the_design() -> void:
 	var spire := reg.get_building("lumen_spire")
 	assert_not_null(spire)
 	assert_eq([spire.era, spire.category, spire.size], ["town", "landmark", Vector2i(2, 2)])
-	assert_eq(spire.cost, {"materials": 250, "gold": 80, "lumen": 120, "planks": 40, "cut_stone": 40})
+	assert_eq(spire.cost, {"wood": 100, "stone": 150, "gold": 80, "lumen": 120, "planks": 40, "cut_stone": 40})
 	assert_eq(spire.worker_slots, 0)
 	var city := reg.get_era("city")
 	assert_eq([city.gate_pop, city.gate_gold, city.gate_landmark], [100, 500, "lumen_spire"])
@@ -365,7 +366,8 @@ func test_every_town_building_can_be_built() -> void:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
-	_stock(s, "materials", 750.0)
+	_stock(s, "wood", 380.0)  # the Town set costs 345 wood and 345 stone
+	_stock(s, "stone", 380.0)
 	_stock(s, "planks", 125.0)
 	_stock(s, "lumen", 400.0)  # the whole cost plus the Town upkeep that runs while the sites go up
 	_stock(s, "cut_stone", 45.0)
@@ -407,7 +409,7 @@ func test_lumen_nexus_and_conflux_gate_match_the_design() -> void:
 	var nexus := reg.get_building("lumen_nexus")
 	assert_not_null(nexus)
 	assert_eq([nexus.era, nexus.category, nexus.size], ["city", "landmark", Vector2i(3, 3)])
-	assert_eq(nexus.cost, {"materials": 400, "gold": 200, "lumen": 300, "cut_stone": 80, "tools": 40, "lumen_cells": 30})
+	assert_eq(nexus.cost, {"wood": 160, "stone": 240, "gold": 200, "lumen": 300, "cut_stone": 80, "tools": 40, "lumen_cells": 30})
 	assert_eq(nexus.worker_slots, 0)
 	var conflux := reg.get_era("conflux")
 	assert_eq([conflux.gate_pop, conflux.gate_gold, conflux.gate_landmark], [200, 1200, "lumen_nexus"])
@@ -466,7 +468,8 @@ func test_every_city_building_can_be_built() -> void:
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
 	for i in 24:
 		s.add_citizen()  # eight storehouses open 24 hauler slots, which rank above the builders: enough hands for both
-	_stock(s, "materials", 1000.0)
+	_stock(s, "wood", 430.0)  # the City set costs 419 wood and 561 stone
+	_stock(s, "stone", 570.0)
 	_stock(s, "planks", 60.0)
 	_stock(s, "lumen", 1200.0)  # the whole cost plus the upkeep of the finished buildings while the sites go up
 	_stock(s, "cut_stone", 175.0)
@@ -512,7 +515,7 @@ func test_sky_foundry_and_skyborne_gate_match_the_design() -> void:
 	var f := reg.get_building("sky_foundry")
 	assert_not_null(f)
 	assert_eq([f.era, f.category, f.size], ["conflux", "landmark", Vector2i(3, 3)])
-	assert_eq(f.cost, {"materials": 600, "gold": 400, "lumen": 400, "cut_stone": 120, "tools": 80, "lumen_cells": 60})
+	assert_eq(f.cost, {"wood": 240, "stone": 360, "gold": 400, "lumen": 400, "cut_stone": 120, "tools": 80, "lumen_cells": 60})
 	var sky := reg.get_era("skyborne")
 	assert_eq([sky.gate_pop, sky.gate_gold, sky.gate_landmark], [320, 2500, "sky_foundry"])
 

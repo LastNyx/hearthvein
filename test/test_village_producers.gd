@@ -88,16 +88,16 @@ func test_data_matches_the_village_table() -> void:
 	var dock := reg.get_building("fishing_dock")
 	assert_not_null(dock)
 	assert_eq([dock.era, dock.category], ["village", "food"])
-	assert_eq([dock.size, dock.cost, dock.worker_slots], [Vector2i(1, 1), {"materials": 20}, 2])
+	assert_eq([dock.size, dock.cost, dock.worker_slots], [Vector2i(1, 1), {"wood": 14, "stone": 6}, 2])
 	assert_eq(dock.placement_rule, "shore")
 	assert_eq(dock.recipe.outputs, {"fish": 7.0})
 	assert_eq(reg.get_good("fish").food_type, "fish", "the Dock's food counts as the fish type")
 	var quarry := reg.get_building("quarry")
 	assert_not_null(quarry)
-	assert_eq([quarry.era, quarry.category], ["village", "materials"])
-	assert_eq([quarry.size, quarry.cost, quarry.worker_slots], [Vector2i(1, 1), {"materials": 25}, 2])
+	assert_eq([quarry.era, quarry.category], ["village", "resources"])
+	assert_eq([quarry.size, quarry.cost, quarry.worker_slots], [Vector2i(1, 1), {"wood": 25}, 2])
 	assert_eq(quarry.placement_rule, "on_rock")
-	assert_eq(quarry.recipe.outputs, {"materials": 12.0})
+	assert_eq(quarry.recipe.outputs, {"stone": 12.0})
 
 
 # AC1b: the Dock places only on shore and the Quarry only on rock.
@@ -139,14 +139,14 @@ func test_dock_output_reaches_the_hearth_through_hauling() -> void:
 	assert_gt(s.totals().get("fish", 0.0), 0.0, "fish is a real stockpiled good")
 
 
-# AC2b: two Quarry workers make about 12 materials a day (hauling-limited) and the haulers move it into the Hearth.
+# AC2b: two Quarry workers make up to 12 stone each a day (hauling-limited; the Hearth no longer caps it, stone starts at 0) and the haulers move it into the Hearth.
 func test_quarry_output_reaches_the_hearth_through_hauling() -> void:
 	var spot := _make_rock_spot()
 	assert_ne(spot, Vector2i(-1, -1), "a rock spot in the strip")
 	var quarry: Building = s.buildings.get(s.place_building_instant("quarry", spot))
 	assert_not_null(quarry)
 	s.step_days(2)
-	var before := s.hearth.inventory.amount_of("materials")
+	var before := s.hearth.inventory.amount_of("stone")
 	s.step_days(5)
-	var per_day := (s.hearth.inventory.amount_of("materials") - before) / 5.0
-	assert_between(per_day, 10.5, 15.0, "materials per day into the Hearth was %f" % per_day)
+	var per_day := (s.hearth.inventory.amount_of("stone") - before) / 5.0
+	assert_between(per_day, 15.0, 25.0, "stone per day into the Hearth was %f" % per_day)

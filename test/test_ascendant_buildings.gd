@@ -60,11 +60,11 @@ func _cov() -> CoverageSystem:
 func test_data_rows() -> void:
 	var a := reg.get_building("lumen_arcology")
 	assert_eq([a.era, a.size, a.category, a.layers], ["ascendant", Vector2i(3, 3), "housing", "either"])
-	assert_eq(a.cost, {"materials": 300, "gold": 120, "cut_stone": 60, "tools": 40, "lumen_cells": 20})
+	assert_eq(a.cost, {"wood": 210, "stone": 90, "gold": 120, "cut_stone": 60, "tools": 40, "lumen_cells": 20})
 	assert_eq([a.housing_beds, a.upkeep_lumen, a.needs_water, a.upgradable], [60, 4.0, true, true])
 	var t := reg.get_building("heartroot_tap")
 	assert_eq([t.era, t.size, t.worker_slots, t.upkeep_lumen, t.layers], ["ascendant", Vector2i(2, 2), 3, 0.0, "ground"])
-	assert_eq(t.cost, {"materials": 200, "gold": 100, "cut_stone": 40, "tools": 30})
+	assert_eq(t.cost, {"wood": 80, "stone": 120, "gold": 100, "cut_stone": 40, "tools": 30})
 	assert_eq(t.recipe.outputs, {"lumen": 12.0})
 	assert_eq([t.placement_rule, t.blight_radius, t.health_per_day, t.vein_extractor, t.upgradable, t.min_planet_health],
 			["on_vein", 0, 0.0, false, false, 50.0])

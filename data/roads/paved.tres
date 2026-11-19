@@ -10,9 +10,10 @@ level = 2
 walk_speed = 2.0
 era = "town"
 cost = {
-"materials": 1.0,
+"wood": 1.0,
 "cut_stone": 0.2
 }
 bridge_cost = {
-"materials": 5.0
+"wood": 4.0,
+"stone": 1.0
 }

@@ -1,6 +1,6 @@
 extends GutTest
 ## Ticket 34b: tier III costs, effects and the Lodge (design.md section 10). Tier III opens in the City and costs
-## tools 20% + Lumen cells 10% + cut stone 25% of the base materials cost (data/tiers/tiers.tres, per-def overrides
+## tools 20% + Lumen cells 10% + cut stone 25% of the base wood + stone cost (data/tiers/tiers.tres, per-def overrides
 ## in the TierDef); output or beds x2 of base and +2 worker slots. Tent III is the Lodge (4 beds). Lumen extractor
 ## tiers raise output but never the blight radius or rate.
 
@@ -47,7 +47,7 @@ func test_tier_three_needs_city() -> void:
 
 
 # AC1: every upgradable building's tier III cost is tools + Lumen cells + cut stone, and it follows the default
-# fractions of the base materials cost (rounded up) unless the data overrides it.
+# fractions of the base wood + stone cost (rounded up) unless the data overrides it.
 func test_tier_three_costs_are_tools_cells_and_cut_stone() -> void:
 	var seen := 0
 	for id in reg.buildings:
@@ -61,16 +61,16 @@ func test_tier_three_costs_are_tools_cells_and_cut_stone() -> void:
 		assert_eq(cost.keys().size(), 3, "%s tier III cost goods" % id)
 		for g in ["tools", "lumen_cells", "cut_stone"]:
 			assert_true(cost.get(g, 0) > 0, "%s tier III needs %s" % [id, g])
-		var base := float(def.cost.get("materials", 0))
+		var base := float(def.cost.get("wood", 0)) + float(def.cost.get("stone", 0))
 		# Per-def data may nudge a number by one (Quarry's cut stone is 6, not 7).
 		assert_true(absi(cost["tools"] - int(ceil(base * 0.2 - 0.000001))) <= 1, "%s tools ~20%%" % id)
 		assert_true(absi(cost["lumen_cells"] - int(ceil(base * 0.1 - 0.000001))) <= 1, "%s cells ~10%%" % id)
 		assert_true(absi(cost["cut_stone"] - int(ceil(base * 0.25 - 0.000001))) <= 1, "%s cut stone ~25%%" % id)
 	assert_gt(seen, 0)
-	# A def without an override takes the rule: 20 materials -> 4 tools, 2 cells, 5 cut stone.
+	# A def without an override takes the rule: 20 wood and stone -> 4 tools, 2 cells, 5 cut stone.
 	var d := BuildingDef.new()
 	d.id = "synthetic"
-	d.cost = {"materials": 20}
+	d.cost = {"wood": 14, "stone": 6}
 	assert_eq(reg.tiers.cost_of(d, 3), {"tools": 4, "lumen_cells": 2, "cut_stone": 5})
 
 

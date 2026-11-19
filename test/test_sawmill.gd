@@ -1,6 +1,6 @@
 extends GutTest
 ## Ticket 24: Sawmill, planks and the Builder's Yard (design.md sections 6-8 and 16 Village, D38, D48).
-## The two data rows, planks made from hauled materials through the real systems, and extra builders.
+## The two data rows, planks made from hauled wood through the real systems, and extra builders.
 
 const SEED := 42
 
@@ -70,19 +70,19 @@ func _hours_until_both_built(s: Settlement, sites: Array[Building], max_days: in
 	return -1
 
 
-# AC1a: both rows match the Village table and the recipe is 2 materials -> 1 plank, 3/worker/day.
+# AC1a: both rows match the Village table and the recipe is 2 wood -> 1 plank, 3/worker/day.
 func test_data_matches_the_village_table() -> void:
 	var saw := reg.get_building("sawmill")
 	assert_not_null(saw)
 	assert_eq([saw.era, saw.category], ["village", "refining"])
-	assert_eq([saw.size, saw.cost, saw.worker_slots], [Vector2i(2, 1), {"materials": 35}, 2])
-	assert_eq(saw.recipe.inputs, {"materials": 6.0}, "2 per plank x 3 planks a worker-day")
+	assert_eq([saw.size, saw.cost, saw.worker_slots], [Vector2i(2, 1), {"wood": 14, "stone": 21}, 2])
+	assert_eq(saw.recipe.inputs, {"wood": 6.0}, "2 per plank x 3 planks a worker-day")
 	assert_eq(saw.recipe.outputs, {"planks": 3.0})
 	assert_false(saw.upgradable, "design section 10: refiners do not upgrade")
 	assert_eq(reg.get_good("planks").kind, "refined")
 	var yard := reg.get_building("builders_yard")
 	assert_not_null(yard)
-	assert_eq([yard.era, yard.size, yard.cost], ["village", Vector2i(2, 1), {"materials": 30}])
+	assert_eq([yard.era, yard.size, yard.cost], ["village", Vector2i(2, 1), {"wood": 21, "stone": 9}])
 	assert_eq([yard.builder_slots, yard.hauler_slots, yard.worker_slots], [4, 2, 0])
 
 
@@ -95,25 +95,26 @@ func test_both_are_village_buildings() -> void:
 	assert_true(ids.has("sawmill") and ids.has("builders_yard"))
 
 
-# AC1b: end to end. Haulers bring materials to the Sawmill, planks are made and hauled into storage, and the
-# Hearth loses two materials for every plank that arrives.
-func test_sawmill_consumes_hauled_materials_and_planks_reach_storage() -> void:
+# AC1b: end to end. Haulers bring wood to the Sawmill, planks are made and hauled into storage, and the
+# Hearth loses two wood for every plank that arrives.
+func test_sawmill_consumes_hauled_wood_and_planks_reach_storage() -> void:
 	var s := Settlement.new_game(SEED, reg)
 	s.era_override = "village"
 	_strip(s)
-	s.hearth.inventory.add("materials", 400.0)  # clamped to the Hearth's 150
+	s.hearth.inventory.add("wood", 400.0)  # clamped to the Hearth's 150
+	s.hearth.inventory.add("stone", 400.0)  # clamped to the Hearth's 150
 	s.hearth.inventory.add("food", 200.0)  # no starving workers skewing the rate
 	var saw := _put(s, "sawmill", 4)
 	s.step_days(3)  # the crew walks to work and haulers fill the two-day input buffer
-	assert_gt(saw.input_buffer.amount_of("materials"), 10.0, "materials were hauled to the Sawmill")
-	var before_m := s.hearth.inventory.amount_of("materials")
+	assert_gt(saw.input_buffer.amount_of("wood"), 10.0, "wood was hauled to the Sawmill")
+	var before_m := s.hearth.inventory.amount_of("wood")
 	var before_p := s.hearth.inventory.amount_of("planks")
 	s.step_days(5)
 	var planks := s.hearth.inventory.amount_of("planks") - before_p
-	var materials := before_m - s.hearth.inventory.amount_of("materials")
+	var used := before_m - s.hearth.inventory.amount_of("wood")
 	assert_gt(planks, 0.0, "planks reached the Hearth's storage")
 	assert_between(planks / 5.0, 5.0, 6.4, "two workers x 3 planks a day")
-	assert_between(materials / planks, 1.9, 2.1, "2 materials per plank")
+	assert_between(used / planks, 1.9, 2.1, "2 wood per plank")
 	assert_eq(saw.halt, "", "the Sawmill kept running")
 	assert_eq(s.totals().get("planks", 0.0), s.hearth.inventory.amount_of("planks"), "planks are a real stored good")
 

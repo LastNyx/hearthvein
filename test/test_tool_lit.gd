@@ -26,6 +26,7 @@ func _game(era: String = "town") -> Node:
 	main.start_new_game(42, false, false)
 	await wait_process_frames(2)
 	main.settlement.era_override = era
+	main.settlement.hearth.inventory.add("stone", 40.0)  # channels cost stone
 	for r in MapState.REGION_COUNT:
 		main.settlement.map.region_owned[r] = 1
 	(main.get_node("Hud") as Hud)._rebuild_categories()

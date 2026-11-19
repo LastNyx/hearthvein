@@ -22,6 +22,7 @@ func before_all() -> void:
 func before_each() -> void:
 	s = Settlement.new_game(SEED, reg)
 	s.era_override = "village"
+	s.hearth.inventory.add("stone", 40.0)  # channels cost stone; a new game starts with wood only
 	_water.resize(MapState.WIDTH * MapState.HEIGHT)
 	for y in MapState.HEIGHT:
 		for x in MapState.WIDTH:
@@ -186,30 +187,30 @@ func test_channels_block_buildings_but_not_walking() -> void:
 	assert_true(s.can_place("tent", c)["ok"], "removing the channel frees the tile")
 
 
-# Round 2: a channel costs WaterDef.channel_cost_materials from storage; with none, the dig is refused.
-func test_placing_a_channel_with_no_materials_fails() -> void:
+# Round 2: a channel costs WaterDef.channel_cost_stone from storage; with none, the dig is refused.
+func test_placing_a_channel_with_no_stone_fails() -> void:
 	var b := _dry_block(3, 1)
 	assert_ne(b, Vector2i(-1, -1), "a dry grass run")
 	if b == Vector2i(-1, -1):
 		return
-	assert_true(s.spend_good("materials", float(s.totals().get("materials", 0.0))), "drained the store")
-	assert_almost_eq(float(s.totals().get("materials", 0.0)), 0.0, 0.001)
-	assert_eq(s.can_place_channel(b)["reason"], "materials", "the refusal reason is materials")
-	assert_false(s.place_channel(b), "no materials, no channel")
+	assert_true(s.spend_good("stone", float(s.totals().get("stone", 0.0))), "drained the store")
+	assert_almost_eq(float(s.totals().get("stone", 0.0)), 0.0, 0.001)
+	assert_eq(s.can_place_channel(b)["reason"], "stone", "the refusal reason is stone")
+	assert_false(s.place_channel(b), "no stone, no channel")
 	assert_false(s.channel_at(b), "the tile stays bare")
 
 
 # Round 2: every channel tile is paid for, one at a time.
-func test_three_channels_spend_three_materials() -> void:
+func test_three_channels_spend_three_stone() -> void:
 	var b := _dry_block(3, 1)
 	assert_ne(b, Vector2i(-1, -1), "a dry grass run")
 	if b == Vector2i(-1, -1):
 		return
-	var cost := s.registry.water.channel_cost_materials
-	var before := float(s.totals().get("materials", 0.0))
+	var cost := s.registry.water.channel_cost_stone
+	var before := float(s.totals().get("stone", 0.0))
 	for dx in 3:
 		assert_true(s.place_channel(b + Vector2i(dx, 0)), "channel %d" % dx)
-	assert_almost_eq(float(s.totals().get("materials", 0.0)), before - 3.0 * cost, 0.001, "three tiles paid for")
+	assert_almost_eq(float(s.totals().get("stone", 0.0)), before - 3.0 * cost, 0.001, "three tiles paid for")
 
 
 # Round 2: the stock that pays is summed over every storage, not just the Hearth.
@@ -223,12 +224,12 @@ func test_a_storehouse_can_pay_for_a_channel() -> void:
 	if sid < 0:
 		return
 	var st: Building = s.buildings[sid]
-	var moved := s.hearth.inventory.remove("materials", 1000.0)
+	var moved := s.hearth.inventory.remove("stone", 1000.0)
 	assert_almost_eq(moved, 40.0, 0.001, "the starting stock came out of the Hearth")
-	assert_almost_eq(st.inventory.add("materials", moved), moved, 0.001, "and went into the storehouse")
+	assert_almost_eq(st.inventory.add("stone", moved), moved, 0.001, "and went into the storehouse")
 	var c := b + Vector2i(3, 1)
-	assert_true(s.place_channel(c), "the storehouse's materials paid for the channel")
-	assert_almost_eq(float(s.totals().get("materials", 0.0)), 40.0 - s.registry.water.channel_cost_materials, 0.001)
+	assert_true(s.place_channel(c), "the storehouse's stone paid for the channel")
+	assert_almost_eq(float(s.totals().get("stone", 0.0)), 40.0 - s.registry.water.channel_cost_stone, 0.001)
 
 
 # Round 2: removing a channel gives back LogisticsDef.demolish_refund of its cost (into the nearest storage).
@@ -237,13 +238,13 @@ func test_removing_a_channel_refunds_the_demolish_share() -> void:
 	assert_ne(b, Vector2i(-1, -1), "a dry grass pair")
 	if b == Vector2i(-1, -1):
 		return
-	var cost := s.registry.water.channel_cost_materials
+	var cost := s.registry.water.channel_cost_stone
 	var refund := cost * s.registry.logistics.demolish_refund
-	var before := float(s.totals().get("materials", 0.0))
+	var before := float(s.totals().get("stone", 0.0))
 	assert_true(s.place_channel(b))
-	assert_almost_eq(float(s.totals().get("materials", 0.0)), before - cost, 0.001, "the dig was paid for")
+	assert_almost_eq(float(s.totals().get("stone", 0.0)), before - cost, 0.001, "the dig was paid for")
 	assert_true(s.remove_channel(b))
-	assert_almost_eq(float(s.totals().get("materials", 0.0)), before - cost + refund, 0.001, "the refund came back")
+	assert_almost_eq(float(s.totals().get("stone", 0.0)), before - cost + refund, 0.001, "the refund came back")
 
 
 # Channels are saved with the settlement.

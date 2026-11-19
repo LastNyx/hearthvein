@@ -53,7 +53,7 @@ func test_rowhouse_data_matches_the_town_table() -> void:
 	var def := reg.get_building("rowhouse")
 	assert_not_null(def)
 	assert_eq([def.era, def.category], ["town", "housing"])
-	assert_eq([def.size, def.cost], [Vector2i(2, 1), {"materials": 40, "gold": 5, "planks": 10}])
+	assert_eq([def.size, def.cost], [Vector2i(2, 1), {"wood": 28, "stone": 12, "gold": 5, "planks": 10}])
 	assert_eq([def.worker_slots, def.upkeep_lumen], [0, 0.0])
 	assert_eq(def.housing_beds, 10)
 
@@ -80,7 +80,7 @@ func test_greenhouse_data_matches_the_town_table() -> void:
 	assert_not_null(def)
 	assert_eq([def.era, def.category], ["town", "food"])
 	assert_eq([def.size, def.cost],
-			[Vector2i(2, 1), {"materials": 50, "gold": 10, "lumen": 10, "planks": 10}])
+			[Vector2i(2, 1), {"wood": 35, "stone": 15, "gold": 10, "lumen": 10, "planks": 10}])
 	assert_eq([def.worker_slots, def.upkeep_lumen], [3, 1.0])
 	assert_eq(def.recipe.inputs, {})
 	assert_eq(def.recipe.outputs, {"greenhouse": 16.0})

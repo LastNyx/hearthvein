@@ -9,10 +9,10 @@ extends SimSystem
 ## when one is added put it in at its place between refining and civic. Categories not listed (housing, sky,
 ## landmark) rank last.
 ## "build" (design.md section 6 gives no rank, ticket 11 decided): builder slots rank right after hauling and before
-## materials, because a site only starts once haulers have delivered, and building is what makes everything below
+## resources, because a site only starts once haulers have delivered, and building is what makes everything below
 ## it possible. Builder slots only open while sites are ready to build (see _cap_builders).
 const CATEGORY_ORDER: Array[String] = [
-	"food", "water", "lumen", "logistics", "build", "materials", "refining", "gold", "civic",
+	"food", "water", "lumen", "logistics", "build", "resources", "refining", "gold", "civic",
 ]
 ## Builder slots (def.builder_slots) always rank as the building tier, whatever the building's own category.
 const BUILD_CATEGORY := "build"
@@ -41,7 +41,7 @@ func on_hour(settlement: Settlement) -> void:
 
 
 ## Same ranks as CATEGORY_ORDER / PRIORITY_ORDER as dictionary lookups (the refresh runs per building).
-const _CATEGORY_RANK := {"food": 0, "water": 1, "lumen": 2, "logistics": 3, "build": 4, "materials": 5, "refining": 6,
+const _CATEGORY_RANK := {"food": 0, "water": 1, "lumen": 2, "logistics": 3, "build": 4, "resources": 5, "refining": 6,
 	"gold": 7, "civic": 8}
 const _KIND_CODE := {Citizen.JOB_WORK: 1, Citizen.JOB_HAUL: 2, Citizen.JOB_BUILD: 3}
 const _PRIORITY_RANK := {"high": 0, "normal": 1, "low": 2}

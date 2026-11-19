@@ -82,7 +82,7 @@ func _factor(id: String) -> float:
 func test_shrine_data_matches_the_village_row() -> void:
 	var d := reg.get_building("shrine")
 	assert_not_null(d)
-	assert_eq([d.era, d.size, d.cost, d.worker_slots], ["village", Vector2i(1, 1), {"materials": 30, "lumen": 5}, 0])
+	assert_eq([d.era, d.size, d.cost, d.worker_slots], ["village", Vector2i(1, 1), {"wood": 12, "stone": 18, "lumen": 5}, 0])
 	assert_eq(d.coverage_radius, 6, "design section 16: Spirit coverage r6")
 	assert_eq(d.category, "civic", "the build bar's civic category holds the Shrine")
 	assert_true(d.blocked_by_blight, "design section 12: blighted ground cannot hold a Shrine")

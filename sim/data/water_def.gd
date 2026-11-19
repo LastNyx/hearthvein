@@ -11,8 +11,8 @@ extends Resource
 @export var farm_wet_fraction: float = 0.5
 ## Farm output multiplier when the wet share is met (design.md: x1.25).
 @export var farm_wet_bonus: float = 1.25
-## Materials one Irrigation Channel tile costs, taken from storage when it is dug (design.md: 1 materials/tile).
-@export var channel_cost_materials: float = 0.0
+## Stone one Irrigation Channel tile costs, taken from storage when it is dug.
+@export var channel_cost_stone: float = 0.0
 ## Fouling (design.md section 9): a river tile next to a blighted tile is a source, and the fouling front moves this
 ## many river tiles downstream per hour.
 @export var foul_spread_tiles_per_hour: int = 1

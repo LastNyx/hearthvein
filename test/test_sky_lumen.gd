@@ -67,7 +67,7 @@ func _blighted() -> int:
 func test_data_row() -> void:
 	var d := reg.get_building("aether_collector")
 	assert_eq([d.era, d.size, d.layers, d.category], ["skyborne", Vector2i(2, 2), "island", "lumen"])
-	assert_eq(d.cost, {"materials": 150, "gold": 60, "cut_stone": 30, "tools": 20})
+	assert_eq(d.cost, {"wood": 60, "stone": 90, "gold": 60, "cut_stone": 30, "tools": 20})
 	assert_eq([d.worker_slots, d.upkeep_lumen], [3, 0.0])
 	assert_eq(d.recipe.outputs, {"lumen": 6.0})
 	assert_false(d.vein_extractor)

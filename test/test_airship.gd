@@ -49,7 +49,8 @@ func _setup(staff_a: bool = true, staff_b: bool = true, rail: bool = false, home
 	for x in range(bx - 14, bx + 50):
 		for y in range(y0 - 3, y0 + 6):
 			s.set_terrain(Vector2i(x, y), "grass")
-	s.hearth.inventory.add("materials", 500.0)
+	s.hearth.inventory.add("wood", 500.0)
+	s.hearth.inventory.add("stone", 500.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	dock_a = s.place_building_instant("airship_dock", Vector2i(bx - 6, y0))
 	dock_b = s.place_building_instant("airship_dock", Vector2i(bx + 3, y0))
@@ -67,7 +68,7 @@ func _setup(staff_a: bool = true, staff_b: bool = true, rail: bool = false, home
 		s.add_citizen()
 	assert_eq(s.citizens.size(), homes + 4, "exactly the planned citizens")
 	for g in s.hearth.inventory.goods():
-		if g != "materials" and g != "cut_stone":
+		if g != "wood" and g != "stone" and g != "cut_stone":
 			s.hearth.inventory.remove(g, 1000000.0)
 	store_a.inventory.add("food", 300.0)
 	_staff(staff_a, staff_b, rail)
@@ -135,7 +136,7 @@ func test_dock_data() -> void:
 	assert_not_null(def)
 	assert_eq(def.era, "conflux")
 	assert_eq(def.size, Vector2i(3, 3))
-	assert_eq(def.cost, {"materials": 200, "gold": 120, "planks": 40, "tools": 20})
+	assert_eq(def.cost, {"wood": 140, "stone": 60, "gold": 120, "planks": 40, "tools": 20})
 	assert_eq(def.worker_slots, 3)
 	assert_eq(def.upkeep_lumen, 4.0)
 	assert_true(def.airship_dock)

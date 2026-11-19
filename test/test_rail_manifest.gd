@@ -46,7 +46,8 @@ func _setup(gap: int = 0, staff_a: bool = true, staff_b: bool = true) -> void:
 	for x in range(bx - 14, bx + 30):
 		for y in range(y0 - 3, y0 + 5):
 			s.set_terrain(Vector2i(x, y), "grass")
-	s.hearth.inventory.add("materials", 500.0)
+	s.hearth.inventory.add("wood", 500.0)
+	s.hearth.inventory.add("stone", 500.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	depot_a = s.place_building_instant("rail_depot", Vector2i(bx - 5, y0))
 	depot_b = s.place_building_instant("rail_depot", Vector2i(bx + 2 + gap, y0))
@@ -60,7 +61,7 @@ func _setup(gap: int = 0, staff_a: bool = true, staff_b: bool = true) -> void:
 		s.add_citizen()
 	# The Hearth's own stock must not take part: empty it of everything but the building materials.
 	for g in s.hearth.inventory.goods():
-		if g != "materials" and g != "cut_stone":
+		if g != "wood" and g != "stone" and g != "cut_stone":
 			s.hearth.inventory.remove(g, 1000000.0)
 	store_a.inventory.add("food", 300.0)
 	_staff(staff_a, staff_b)

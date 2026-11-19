@@ -80,7 +80,7 @@ func _staffed(b: Building) -> bool:
 func test_data_row() -> void:
 	var d := reg.get_building("observatory")
 	assert_eq([d.era, d.size, d.layers], ["skyborne", Vector2i(2, 2), "either"])
-	assert_eq(d.cost, {"materials": 120, "gold": 80, "cut_stone": 30, "tools": 10})
+	assert_eq(d.cost, {"wood": 48, "stone": 72, "gold": 80, "cut_stone": 30, "tools": 10})
 	assert_eq([d.worker_slots, d.upkeep_lumen, d.coverage_radius, d.forecast_lead_seasons], [1, 1.0, 8, 2])
 	assert_eq(reg.planet.dimming_forecast_seasons, 1, "default lead unchanged")
 

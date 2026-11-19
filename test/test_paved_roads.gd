@@ -1,5 +1,5 @@
 extends GutTest
-## Ticket 30b: Paved roads (design.md sections 6 and 8). Town-only, 1 materials + 0.2 cut stone per tile, walkers
+## Ticket 30b: Paved roads (design.md sections 6 and 8). Town-only, 1 wood + 0.2 cut stone per tile, walkers
 ## at 2.0 tiles/s. Cut stone is charged in whole units through a running debt, so five tiles cost one stone.
 
 const SEED := 42
@@ -16,7 +16,8 @@ func before_all() -> void:
 func before_each() -> void:
 	s = Settlement.new_game(SEED, reg)
 	s.era_override = "town"
-	s.hearth.inventory.add("materials", 100.0)
+	s.hearth.inventory.add("wood", 100.0)
+	s.hearth.inventory.add("stone", 100.0)
 	s.hearth.inventory.add("cut_stone", 10.0)
 
 
@@ -39,7 +40,7 @@ func test_paved_row_matches_design() -> void:
 	assert_not_null(paved)
 	assert_eq([paved.level, paved.walk_speed], [2, 2.0])
 	assert_eq(paved.era, "town")
-	assert_eq(paved.cost, {"materials": 1.0, "cut_stone": 0.2})
+	assert_eq(paved.cost, {"wood": 1.0, "cut_stone": 0.2})
 	var dirt := reg.get_road("dirt")
 	assert_eq([dirt.level, dirt.walk_speed, dirt.era, dirt.cost], [1, 1.5, "", {}])
 
@@ -50,10 +51,10 @@ func test_paving_needs_town() -> void:
 	var t := _free_tiles(1)[0]
 	assert_false(s.paved_roads_unlocked())
 	assert_eq(s.can_pave_road(t)["reason"], "era_locked")
-	var m: float = s.totals().get("materials", 0.0)
+	var m: float = s.totals().get("wood", 0.0)
 	assert_false(s.pave_road(t))
 	assert_eq(s.road_at(t), Settlement.ROAD_NONE, "nothing was laid")
-	assert_eq(s.totals().get("materials", 0.0), m, "nothing was spent")
+	assert_eq(s.totals().get("wood", 0.0), m, "nothing was spent")
 	s.era_override = "town"
 	assert_true(s.paved_roads_unlocked())
 	assert_true(s.can_pave_road(t)["ok"])
@@ -61,15 +62,15 @@ func test_paving_needs_town() -> void:
 	assert_eq(s.road_at(t), Settlement.ROAD_PAVED)
 
 
-# AC1c: one materials per tile; five tiles use one whole cut stone (0.2 each, charged as the debt fills).
-func test_five_tiles_cost_five_materials_and_one_cut_stone() -> void:
+# AC1c: one wood per tile; five tiles use one whole cut stone (0.2 each, charged as the debt fills).
+func test_five_tiles_cost_five_wood_and_one_cut_stone() -> void:
 	var tiles := _free_tiles(5)
 	assert_eq(tiles.size(), 5, "the map has five free tiles")
-	var m0: float = s.totals().get("materials", 0.0)
+	var m0: float = s.totals().get("wood", 0.0)
 	var st0: float = s.totals().get("cut_stone", 0.0)
 	for t in tiles:
 		assert_true(s.pave_road(t), "paved %s" % t)
-	assert_almost_eq(m0 - s.totals().get("materials", 0.0), 5.0, 0.0001)
+	assert_almost_eq(m0 - s.totals().get("wood", 0.0), 5.0, 0.0001)
 	assert_almost_eq(st0 - s.totals().get("cut_stone", 0.0), 1.0, 0.0001, "five tiles x 0.2 = one stone")
 	for t in tiles:
 		assert_eq(s.road_at(t), Settlement.ROAD_PAVED)
@@ -89,7 +90,7 @@ func test_paving_upgrades_dirt() -> void:
 	assert_false(s.pave_road(t))
 
 
-# AC1e: the command refuses, and spends nothing, when the materials or the owed stone are short.
+# AC1e: the command refuses, and spends nothing, when the wood or the owed stone are short.
 func test_short_goods_refuse_the_tile() -> void:
 	var tiles := _free_tiles(6)
 	s.spend_good("cut_stone", 10.0)  # no stone at all
@@ -100,8 +101,8 @@ func test_short_goods_refuse_the_tile() -> void:
 	assert_false(s.pave_road(tiles[4]))
 	s.hearth.inventory.add("cut_stone", 2.0)
 	assert_true(s.pave_road(tiles[4]), "the fifth tile pays the whole stone")
-	s.spend_good("materials", s.totals().get("materials", 0.0))
-	assert_eq(s.can_pave_road(tiles[5])["reason"], "materials")
+	s.spend_good("wood", s.totals().get("wood", 0.0))
+	assert_eq(s.can_pave_road(tiles[5])["reason"], "wood")
 	assert_false(s.pave_road(tiles[5]))
 
 

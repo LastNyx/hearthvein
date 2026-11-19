@@ -5,18 +5,18 @@
 
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
-inputs = {"materials": 6.0}
+inputs = {"wood": 6.0}
 outputs = {"planks": 3.0}
 
 [resource]
 script = ExtResource("1")
 id = "sawmill"
-description = "Turns raw materials into planks for sturdier buildings."
+description = "Turns wood into planks for sturdier buildings."
 display_name = "Sawmill"
 era = "village"
 category = "refining"
 size = Vector2i(2, 1)
-cost = {"materials": 35}
+cost = {"wood": 14, "stone": 21}
 worker_slots = 2
 hauler_slots = 0
 builder_slots = 0

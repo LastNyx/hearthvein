@@ -44,7 +44,7 @@ func test_data_matches_the_town_table() -> void:
 	var d := reg.get_building("handcart_shed")
 	assert_not_null(d)
 	assert_eq([d.era, d.category], ["town", "logistics"])
-	assert_eq([d.size, d.cost], [Vector2i(2, 1), {"materials": 40, "planks": 20}])
+	assert_eq([d.size, d.cost], [Vector2i(2, 1), {"wood": 28, "stone": 12, "planks": 20}])
 	assert_eq([d.worker_slots, d.upkeep_lumen], [0, 1.0])
 	assert_eq([d.region_haul_load, d.paved_haul_speed_factor], [15.0, 1.25])
 	assert_false(d.upgradable)

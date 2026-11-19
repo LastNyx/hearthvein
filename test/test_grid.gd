@@ -20,7 +20,7 @@ func before_all() -> void:
 	d.id = UP_ID
 	d.display_name = "Test grid consumer"
 	d.era = "town"
-	d.category = "materials"
+	d.category = "resources"
 	d.size = Vector2i(2, 1)
 	d.upkeep_lumen = UPKEEP
 	reg.buildings[d.id] = d
@@ -66,7 +66,7 @@ func test_pylon_and_nexus_data() -> void:
 	var p := reg.get_building("lumen_pylon")
 	assert_eq(p.era, "conflux")
 	assert_eq(p.size, Vector2i(1, 1))
-	assert_eq(p.cost, {"materials": 30, "cut_stone": 10, "tools": 5})
+	assert_eq(p.cost, {"wood": 21, "stone": 9, "cut_stone": 10, "tools": 5})
 	assert_eq(p.grid_feed_radius, 8)
 	assert_eq(p.grid_link_range, 12)
 	var n := reg.get_building("lumen_nexus")

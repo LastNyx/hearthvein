@@ -7,7 +7,7 @@ extends RefCounted
 ## A file older than CURRENT_VERSION is upgraded by MIGRATIONS, one step per version and in order (see
 ## migrate_chain). A file from a newer build, or one that fails _validate, is refused: load returns null.
 
-const CURRENT_VERSION := 3
+const CURRENT_VERSION := 4
 
 ## Migration steps: source version -> Callable(state: Dictionary) -> Dictionary of the next version.
 ## The chain is run by version number, so the dictionary order does not matter. To add a version: write the step,
@@ -18,6 +18,7 @@ static var MIGRATIONS: Dictionary = {
 	0: migrate_v0_to_v1,
 	1: migrate_v1_to_v2,
 	2: migrate_v2_to_v3,
+	3: migrate_v3_to_v4,
 }
 
 ## Keys Settlement.from_dict reads from a state dictionary.
@@ -186,6 +187,55 @@ static func migrate_v2_to_v3(state: Variant) -> Variant:
 				"ended_seen": false}
 	d["systems"] = systems
 	return d
+
+
+## v3 -> v4 (ticket 99): the raw good "materials" became wood and stone. Every amount of it anywhere in the state
+## (storage, door, input, site and upgrade buffers, trips in flight, reservations, totals, daily marks) becomes half
+## wood, half stone, wood taking the odd unit. A trip carries one good, so a trip in flight becomes wood. Site needs
+## are not saved: they are recomputed from the def (Settlement.from_dict resets a site buffer's cap).
+static func migrate_v3_to_v4(state: Variant) -> Variant:
+	if typeof(state) != TYPE_DICTIONARY:
+		push_error("SaveGame migration 3 -> 4: state is not a dictionary")
+		return null
+	_split_materials(state)
+	return state
+
+
+## Walks `v` in place. A Dictionary key "materials" splits into "wood" and "stone"; in an Array the string
+## "materials" and a [good, amount] pair of it are replaced by one entry each for wood and stone.
+static func _split_materials(v: Variant) -> void:
+	if typeof(v) == TYPE_DICTIONARY:
+		var d: Dictionary = v
+		if d.has("planned") and str(d.get("good", "")) == "materials":
+			d["good"] = "wood"
+		var m: Variant = d.get("materials")
+		if (typeof(m) == TYPE_FLOAT or typeof(m) == TYPE_INT) and d.has("materials"):
+			d.erase("materials")
+			var amount := float(m)
+			var stone := floorf(amount / 2.0)
+			d["wood"] = float(d.get("wood", 0.0)) + amount - stone
+			d["stone"] = float(d.get("stone", 0.0)) + stone
+		for k in d.keys():
+			_split_materials(d[k])
+	elif typeof(v) == TYPE_ARRAY:
+		var a: Array = v
+		var i := 0
+		while i < a.size():
+			var e: Variant = a[i]
+			if typeof(e) == TYPE_STRING and e == "materials":
+				a[i] = "wood"
+				a.insert(i + 1, "stone")
+				i += 1
+			elif typeof(e) == TYPE_ARRAY and (e as Array).size() == 2 and typeof(e[0]) == TYPE_STRING \
+					and e[0] == "materials" and (typeof(e[1]) == TYPE_FLOAT or typeof(e[1]) == TYPE_INT):
+				var amount := float(e[1])
+				var stone := floorf(amount / 2.0)
+				a[i] = ["wood", amount - stone]
+				a.insert(i + 1, ["stone", stone])
+				i += 1
+			else:
+				_split_materials(e)
+			i += 1
 
 
 # ---------------------------------------------------------------- validation

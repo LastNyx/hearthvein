@@ -94,7 +94,7 @@ func test_apartment_block_data_matches_the_city_table() -> void:
 	assert_not_null(def)
 	assert_eq([def.era, def.category], ["city", "housing"])
 	assert_eq([def.size, def.cost],
-			[Vector2i(2, 2), {"materials": 90, "gold": 20, "planks": 30, "cut_stone": 20}])
+			[Vector2i(2, 2), {"wood": 63, "stone": 27, "gold": 20, "planks": 30, "cut_stone": 20}])
 	assert_eq([def.worker_slots, def.upkeep_lumen, def.housing_beds], [0, 1.0, 24])
 	assert_true(def.needs_water, "design row: needs well")
 	assert_null(def.recipe)
@@ -128,7 +128,7 @@ func test_lumen_reactor_data_matches_the_city_table() -> void:
 	var def := reg.get_building("lumen_reactor")
 	assert_not_null(def)
 	assert_eq([def.era, def.category, def.size], ["city", "lumen", Vector2i(2, 2)])
-	assert_eq(def.cost, {"materials": 150, "gold": 60, "cut_stone": 30})
+	assert_eq(def.cost, {"wood": 60, "stone": 90, "gold": 60, "cut_stone": 30})
 	assert_eq([def.worker_slots, def.upkeep_lumen], [4, 0.0])
 	assert_eq([def.placement_rule, def.blight_radius, def.blight_period_days], ["on_vein", 6, 2])
 	assert_true(def.vein_extractor)
@@ -149,7 +149,7 @@ func test_grand_bazaar_data_matches_the_city_table() -> void:
 	assert_not_null(def)
 	assert_eq([def.era, def.category], ["city", "gold"])
 	assert_eq([def.size, def.cost],
-			[Vector2i(3, 2), {"materials": 120, "gold": 30, "planks": 30}])
+			[Vector2i(3, 2), {"wood": 48, "stone": 72, "gold": 30, "planks": 30}])
 	assert_eq([def.worker_slots, def.upkeep_lumen], [4, 1.0])
 	assert_eq(def.gold_per_worker_day, 1.5)
 	assert_true(def.counts_as_food_type, "design row: counts as a food type")

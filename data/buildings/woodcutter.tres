@@ -7,7 +7,7 @@
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
 inputs = {}
-outputs = {"materials": 5}
+outputs = {"wood": 5}
 
 [sub_resource type="Resource" id="Tier2"]
 script = ExtResource("3")
@@ -26,12 +26,12 @@ cost = {"tools": 2, "lumen_cells": 1, "cut_stone": 3}
 [resource]
 script = ExtResource("1")
 id = "woodcutter"
-description = "Workers fell trees for raw materials. The forest around it thins out."
+description = "Workers fell trees and bring back wood. The forest around it thins out."
 display_name = "Woodcutter"
 era = "camp"
-category = "materials"
+category = "resources"
 size = Vector2i(1, 1)
-cost = {"materials": 10}
+cost = {"wood": 10}
 worker_slots = 2
 hauler_slots = 0
 builder_slots = 0

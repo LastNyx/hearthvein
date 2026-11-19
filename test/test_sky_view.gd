@@ -21,7 +21,7 @@ func before_all() -> void:
 	d.category = "food"
 	d.size = Vector2i(2, 2)
 	d.layers = "island"
-	d.cost = {"materials": 10}
+	d.cost = {"wood": 10}
 	reg.buildings[d.id] = d
 
 
@@ -93,7 +93,8 @@ func test_sky_view_falls_back_to_ground_when_the_last_island_goes() -> void:
 
 func test_placement_follows_the_active_layer() -> void:
 	_raise_island()
-	s.hearth.inventory.add("materials", 200.0)
+	s.hearth.inventory.add("wood", 200.0)
+	s.hearth.inventory.add("stone", 200.0)
 	var c := _controller()
 	var sky_tile := isl.rect.position + Vector2i(8, 6)
 	# Sky view: the island building goes on layer 1 at the clicked tile.
@@ -134,7 +135,8 @@ func test_roads_follow_the_active_layer() -> void:
 
 func test_sky_lift_places_through_the_ground_api_from_the_sky_view() -> void:
 	_raise_island()
-	s.hearth.inventory.add("materials", 200.0)
+	s.hearth.inventory.add("wood", 200.0)
+	s.hearth.inventory.add("stone", 200.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	s.hearth.inventory.add("tools", 50.0)
 	s.gold = 500.0

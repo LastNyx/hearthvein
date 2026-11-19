@@ -89,7 +89,7 @@ func test_data_matches_the_town_row() -> void:
 	var d := reg.get_building("cleanser")
 	assert_not_null(d, "data/buildings/cleanser.tres exists")
 	assert_eq([d.era, d.size, d.cost], ["village", Vector2i(2, 1),
-			{"materials": 60, "gold": 20, "lumen": 10}])
+			{"wood": 24, "stone": 36, "gold": 20, "lumen": 10}])
 	assert_eq([d.worker_slots, d.upkeep_lumen], [2, 2.0])
 	assert_eq([d.clean_radius, d.clean_interval_days], [5, 2], "section 12: 1 tile every 2 days in r5")
 	assert_almost_eq(d.health_per_day, 0.01, 0.0000001, "section 13: Cleanser +0.01/day")

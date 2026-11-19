@@ -41,7 +41,7 @@ func test_beacon_row_matches_the_design() -> void:
 	var b := reg.get_building("dawn_beacon")
 	assert_not_null(b)
 	assert_eq([b.era, b.category, b.size, b.layers], ["skyborne", "landmark", Vector2i(2, 2), "ground"])
-	assert_eq(b.cost, {"materials": 800, "gold": 800, "lumen": 600, "cut_stone": 150, "tools": 120, "lumen_cells": 100})
+	assert_eq(b.cost, {"wood": 320, "stone": 480, "gold": 800, "lumen": 600, "cut_stone": 150, "tools": 120, "lumen_cells": 100})
 	assert_eq([b.worker_slots, b.upkeep_lumen, b.light_need_per_citizen], [0, 0.0, 0.35])
 	var asc := reg.get_era("ascendant")
 	assert_eq([asc.gate_pop, asc.gate_gold, asc.gate_landmark], [450, 4000, "dawn_beacon"])

@@ -36,7 +36,7 @@ func test_start_stock_in_hearth() -> void:
 	var s := _new()
 	var t := s.totals()
 	assert_eq(t["food"], 60.0)
-	assert_eq(t["materials"], 40.0)
+	assert_eq(t["wood"], 40.0)
 	assert_eq(t["lumen"], 10.0)
 	assert_eq(s.gold, 0.0)
 	assert_eq(s.hearth.inventory.amount_of("food"), 60.0)
@@ -56,7 +56,7 @@ func test_storehouse_caps_total_at_400() -> void:
 	var s := _new()
 	var inv := _storehouse(s).inventory
 	assert_eq(inv.add("food", 300.0), 300.0)
-	assert_eq(inv.add("materials", 300.0), 100.0)
+	assert_eq(inv.add("wood", 300.0), 100.0)
 	assert_eq(inv.total(), 400.0)
 	assert_eq(inv.add("lumen", 1.0), 0.0)
 	assert_eq(inv.remove("food", 50.0), 50.0)
@@ -68,11 +68,13 @@ func test_storehouse_respects_filter() -> void:
 	var s := _new()
 	var b := _storehouse(s)
 	assert_true(s.set_storage_filter(b.id, ["food", "lumen"]))
-	assert_eq(b.inventory.add("materials", 10.0), 0.0)
+	assert_eq(b.inventory.add("wood", 10.0), 0.0)
+	assert_eq(b.inventory.add("stone", 10.0), 0.0)
 	assert_eq(b.inventory.add("food", 10.0), 10.0)
 	assert_eq(b.inventory.add("lumen", 10.0), 10.0)
 	assert_true(s.set_storage_filter(b.id, []))
-	assert_eq(b.inventory.add("materials", 10.0), 10.0)
+	assert_eq(b.inventory.add("wood", 10.0), 10.0)
+	assert_eq(b.inventory.add("stone", 10.0), 10.0)
 	assert_false(s.set_storage_filter(b.id, ["nonsense"]))
 	assert_false(s.set_storage_filter(999, ["food"]))
 
@@ -100,7 +102,7 @@ func test_totals_equal_sum_of_inventories() -> void:
 	var t := s.totals()
 	assert_eq(t["food"], 60.0 + 30.0 + 12.5)
 	assert_eq(t["planks"], 7.0)
-	assert_eq(t["materials"], 40.0)
+	assert_eq(t["wood"], 40.0)
 	var sum := 0.0
 	for g in t:
 		sum += t[g]
@@ -128,7 +130,8 @@ func test_nearest_storage_with_room() -> void:
 	var from := near.origin + Vector2i(0, -1)
 	assert_eq(s.find_storage_with_room("food", from), near)
 	# Full or filtered out -> next nearest.
-	near.inventory.add("materials", 400.0)
+	near.inventory.add("wood", 400.0)
+	near.inventory.add("stone", 400.0)
 	assert_ne(s.find_storage_with_room("food", from), near)
 	var h := s.find_storage_with_room("food", s.hearth.origin)
 	assert_eq(h, s.hearth)

@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1")
-id = "materials"
-display_name = "Materials"
+id = "wood"
+display_name = "Wood"
 kind = "base"
 food_type = ""

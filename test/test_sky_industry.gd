@@ -81,7 +81,7 @@ func _staffed(b: Building) -> int:
 func test_data_rows() -> void:
 	var g := reg.get_building("sky_garden")
 	assert_eq([g.era, g.size, g.layers, g.category], ["skyborne", Vector2i(3, 2), "island", "food"])
-	assert_eq(g.cost, {"materials": 120, "gold": 40, "planks": 30, "tools": 10})
+	assert_eq(g.cost, {"wood": 84, "stone": 36, "gold": 40, "planks": 30, "tools": 10})
 	assert_eq([g.worker_slots, g.upkeep_lumen, g.dimming_factor], [3, 1.0, 1.0])
 	assert_true(g.work_needs_wet)
 	assert_eq(g.recipe.outputs, {"sky_produce": 3.5})
@@ -91,7 +91,7 @@ func test_data_rows() -> void:
 	assert_true(reg.get_building("kitchen").recipe.any_input_goods.has("sky_produce"))
 	var f := reg.get_building("skyforge")
 	assert_eq([f.era, f.size, f.layers, f.category], ["skyborne", Vector2i(2, 2), "island", "refining"])
-	assert_eq(f.cost, {"materials": 140, "gold": 60, "cut_stone": 40})
+	assert_eq(f.cost, {"wood": 56, "stone": 84, "gold": 60, "cut_stone": 40})
 	assert_eq([f.worker_slots, f.upkeep_lumen], [3, 2.0])
 	assert_eq(f.recipe.inputs, {"planks": 3.0, "lumen_cells": 3.0})
 	assert_eq(f.recipe.outputs, {"tools": 3.0})

@@ -28,7 +28,7 @@ func before_all() -> void:
 	u.id = UP_ID
 	u.display_name = "Test battery consumer"
 	u.era = "town"
-	u.category = "materials"
+	u.category = "resources"
 	u.size = Vector2i(2, 1)
 	u.upkeep_lumen = 2.0
 	reg.buildings[u.id] = u
@@ -77,7 +77,7 @@ func test_battery_data() -> void:
 	var d := reg.get_building("grid_battery")
 	assert_eq(d.era, "conflux")
 	assert_eq(d.size, Vector2i(2, 1))
-	assert_eq(d.cost, {"materials": 60, "gold": 30, "cut_stone": 20, "lumen_cells": 20})
+	assert_eq(d.cost, {"wood": 42, "stone": 18, "gold": 30, "cut_stone": 20, "lumen_cells": 20})
 	assert_eq(d.battery_capacity, 600.0)
 
 

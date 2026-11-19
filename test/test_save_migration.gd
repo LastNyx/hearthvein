@@ -88,6 +88,61 @@ func test_a_missing_step_stops_the_chain() -> void:
 	assert_push_error_count(1)
 
 
+# ---------------------------------------------------------------- ticket 99: materials -> wood and stone
+
+func test_v0_fixture_materials_become_half_wood_half_stone() -> void:
+	var s := SaveGame.load(V0_FIXTURE, reg)
+	assert_not_null(s)
+	if s == null:
+		return
+	var inv := s.hearth.inventory
+	assert_eq([inv.amount_of("wood"), inv.amount_of("stone")], [20.0, 20.0], "the old 40 materials split in half")
+	assert_eq(inv.amount_of("materials"), 0.0)
+
+
+func test_migration_splits_every_materials_amount_and_rebuilds_a_sites_need() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	s.era_override = "village"
+	var h := s.map.hearth_spot
+	var site: Building = null
+	for dx in range(4, 20):
+		var id := s.place_building("cottage", Vector2i(h.x + dx, h.y + 1))
+		if id >= 0:
+			site = s.buildings[id]
+			break
+	assert_not_null(site, "a cottage site was placed")
+	if site == null:
+		return
+	var state := s.to_dict()
+	# Rewrite the state the way a version-3 build wrote it: one "materials" good, odd amounts, a trip in flight.
+	for pair in state["buildings"]:
+		var b: Dictionary = pair[1]
+		if int(b["id"]) == site.id:
+			b["input_buffer"] = {"mode": "per_good", "cap": 15.0, "accept": [], "amounts": [["materials", 7.0]]}
+		elif int(b["id"]) == s.hearth.id:
+			b["inventory"]["amounts"] = [["food", 60.0], ["materials", 41.0], ["lumen", 10.0]]
+			b["inventory"]["accept"] = ["materials"]
+	var hs: Dictionary = state["systems"]["hauling"]
+	hs["trips"] = [[7, {"citizen_id": 7, "good": "materials", "src": 1, "src_door": false, "dst": site.id,
+			"dst_input": true, "dst_upgrade": false, "planned": 3.0, "carried": 0.0, "picked_up": false}]]
+	hs["reserved"] = {"i": {site.id: {"materials": 3.0}}}
+	var v3 := SaveGame.migrate_v3_to_v4(state) as Dictionary
+	var path := _write_payload({"version": 3, "state": v3})
+	var loaded := SaveGame.load(path, reg)
+	assert_not_null(loaded, "a version-3 save loads")
+	if loaded == null:
+		return
+	var inv := loaded.hearth.inventory
+	assert_eq([inv.amount_of("wood"), inv.amount_of("stone")], [21.0, 20.0], "41 materials: wood takes the odd unit")
+	assert_true(inv.accept.has("wood") and inv.accept.has("stone"), "a filter on materials now lets both through")
+	var ls: Building = loaded.buildings[site.id]
+	assert_eq([ls.input_buffer.amount_of("wood"), ls.input_buffer.amount_of("stone")], [4.0, 3.0])
+	assert_eq(ls.input_buffer.cap, 10.0, "the site's cap is rebuilt from the cottage's 10 wood 5 stone")
+	assert_eq(HaulingSystem.need_of(reg, ls), {"wood": 10.0, "stone": 5.0}, "the need comes from the def")
+	assert_eq((loaded.get_system(HaulingSystem) as HaulingSystem).trips[7].good, "wood")
+	loaded.step_days(1)  # runs on without errors
+
+
 # ---------------------------------------------------------------- bad saves
 
 func test_missing_file_returns_null() -> void:

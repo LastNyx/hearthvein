@@ -167,8 +167,8 @@ func _save_path() -> String:
 # ---------------------------------------------------------------- fixture
 
 ## A small played settlement: roads, an instant forager and storehouse, a tent and a meeting hall as sites, and
-## plenty of materials so the haulers deliver and the builders start. Two days later the hall is half built; a
-## second hall site and fresh materials are then put down and the clock moved to the 06:00 shift, where a few small
+## plenty of wood and stone so the haulers deliver and the builders start. Two days later the hall is half built; a
+## second hall site and fresh wood and stone are then put down and the clock moved to the 06:00 shift, where a few small
 ## frame-sized steps leave haulers mid-trip (and therefore walking), production batches partly collected and
 ## _hour_acc non-zero.
 func _fixture() -> Settlement:
@@ -183,11 +183,13 @@ func _fixture() -> Settlement:
 	assert_true(s.place_building_instant("storehouse", Vector2i(h.x + 6, h.y - 1)) >= 0, "storehouse placed")
 	assert_true(s.place_building("tent", Vector2i(h.x + 9, h.y - 1)) >= 0, "tent site placed")
 	assert_true(s.place_building("meeting_hall", Vector2i(h.x + 11, h.y - 2)) >= 0, "hall site placed")
-	s.hearth.inventory.add("materials", 200.0)  # the hall alone takes 60; enough for all three sites
+	s.hearth.inventory.add("wood", 200.0)  # the hall alone takes 60; enough for all three sites
+	s.hearth.inventory.add("stone", 200.0)  # the hall alone takes 60; enough for all three sites
 	s.step_days(2)
 	# A second hall is placed just before the save point so haulers are still delivering it at 06:00.
 	assert_true(s.place_building("meeting_hall", Vector2i(h.x + 14, h.y - 2)) >= 0, "second hall site placed")
-	s.hearth.inventory.add("materials", 200.0)
+	s.hearth.inventory.add("wood", 200.0)
+	s.hearth.inventory.add("stone", 200.0)
 	s.step_hours(6)
 	for i in 40:
 		s.step_seconds(0.2)
@@ -429,7 +431,7 @@ func test_save_file_is_compressed_and_carries_a_version() -> void:
 	f.close()
 	assert_eq(typeof(payload), TYPE_DICTIONARY)
 	assert_eq(int((payload as Dictionary)["version"]), SaveGame.CURRENT_VERSION)
-	assert_eq(SaveGame.CURRENT_VERSION, 3)
+	assert_eq(SaveGame.CURRENT_VERSION, 4)
 	assert_true((payload as Dictionary).has("state"))
 	# The data on disk is smaller than the payload it decodes to, and the file does not start with the raw Variant
 	# bytes: it is a compressed container around them (a plain FileAccess.get_var cannot parse it).

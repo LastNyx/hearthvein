@@ -94,7 +94,7 @@ func test_market_data_matches_the_village_row() -> void:
 	var m := reg.get_building("market")
 	assert_not_null(m)
 	assert_eq([m.era, m.category], ["camp", "gold"])
-	assert_eq([m.size, m.cost, m.worker_slots], [Vector2i(2, 2), {"materials": 40}, 2])
+	assert_eq([m.size, m.cost, m.worker_slots], [Vector2i(2, 2), {"wood": 40}, 2])
 	assert_eq(m.gold_per_worker_day, 1.5)
 	assert_eq(m.market_reach, 12, "design gives no reach; ticket 23 chose 12 tiles")
 	assert_null(m.recipe, "gold is a counter, not a recipe output")

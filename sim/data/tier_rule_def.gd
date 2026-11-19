@@ -10,7 +10,7 @@ extends Resource
 @export var output_factors: Array[float] = []
 ## Extra worker slots over the base building.
 @export var extra_worker_slots: Array[int] = []
-## good id -> fraction of the building's base materials cost.
+## good id -> fraction of the building's base wood + stone cost.
 @export var cost_fractions: Array[Dictionary] = []
 
 
@@ -46,7 +46,7 @@ func extra_slots(def: BuildingDef, tier: int) -> int:
 
 
 ## Whole-good cost of `tier`: the TierDef's cost when it has one (per-def override wins), else each fraction of
-## the default rule times the base materials cost, rounded up.
+## the default rule times the base wood + stone cost, rounded up.
 func cost_of(def: BuildingDef, tier: int) -> Dictionary:
 	var td := tier_def_of(def, tier)
 	if td != null and not td.cost.is_empty():
@@ -54,7 +54,7 @@ func cost_of(def: BuildingDef, tier: int) -> Dictionary:
 	var i := tier - 2
 	if def == null or i < 0 or i >= cost_fractions.size():
 		return {}
-	var base := float(def.cost.get("materials", 0))
+	var base := float(def.cost.get("wood", 0)) + float(def.cost.get("stone", 0))
 	var out := {}
 	for g in cost_fractions[i]:
 		var amount := int(ceil(base * float(cost_fractions[i][g]) - 0.000001))

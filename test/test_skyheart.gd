@@ -19,7 +19,7 @@ func before_all() -> void:
 	u.id = UP_ID
 	u.display_name = "Test sky consumer"
 	u.era = "town"
-	u.category = "materials"
+	u.category = "resources"
 	u.size = Vector2i(1, 1)
 	u.upkeep_lumen = 8.0
 	reg.buildings[u.id] = u
@@ -104,7 +104,7 @@ func test_row_matches_the_design() -> void:
 	assert_eq(d.worker_slots, 0)
 	assert_eq(d.upkeep_lumen, 0.0)
 	assert_eq(d.stages.size(), 4)
-	assert_eq(d.stages[0]["cost"], {"materials": 800, "cut_stone": 300})
+	assert_eq(d.stages[0]["cost"], {"wood": 320, "stone": 480, "cut_stone": 300})
 	assert_eq(d.stages[1]["cost"], {"planks": 300, "tools": 200})
 	assert_eq(d.stages[2]["cost"], {"lumen_cells": 400, "lumen": 1000})
 	assert_eq(d.stages[3]["cost"], {"gold": 1500, "tools": 200, "lumen_cells": 200})
@@ -122,12 +122,12 @@ func test_only_one_skyheart_per_map() -> void:
 
 
 func test_stage_one_cost_is_the_site_cost() -> void:
-	assert_eq(s.cost_for("skyheart"), {"materials": 800, "cut_stone": 300})
+	assert_eq(s.cost_for("skyheart"), {"wood": 320, "stone": 480, "cut_stone": 300})
 	var b := _site()
 	assert_true(b.site)
 	assert_eq(b.stage, 0)
-	assert_eq(b.effective_cost(), {"materials": 800, "cut_stone": 300})
-	assert_eq(HaulingSystem.need_of(reg, b), {"materials": 800.0, "cut_stone": 300.0})
+	assert_eq(b.effective_cost(), {"wood": 320, "stone": 480, "cut_stone": 300})
+	assert_eq(HaulingSystem.need_of(reg, b), {"wood": 320.0, "stone": 480.0, "cut_stone": 300.0})
 	assert_false(b.site_delivered())
 
 
@@ -144,7 +144,7 @@ func test_stages_open_in_order_with_their_own_cost() -> void:
 		assert_eq(events[i]["data"]["name"], names[i])
 		assert_eq(b.build_work, 0.0)
 		assert_false(b.site_delivered(), "the old stage's goods do not count")
-		assert_eq(b.input_buffer.amount_of("materials"), 0.0)
+		assert_eq(b.input_buffer.amount_of("wood"), 0.0)
 		if i < 2:
 			assert_eq(b.effective_cost(), want[i])
 	assert_eq(b.effective_cost(), {"gold": 1500, "tools": 200, "lumen_cells": 200})
@@ -195,12 +195,12 @@ func test_demolish_refunds_only_the_current_stage() -> void:
 	b.input_buffer.add("planks", 100.0)
 	s.gold = 0.0
 	var id := b.id
-	var mats := float(s.totals().get("materials", 0.0))
+	var mats := float(s.totals().get("wood", 0.0))
 	var planks := float(s.totals().get("planks", 0.0))
 	assert_true(s.demolish(id))
 	# no stage-1 refund: only the 100 planks delivered for stage 2 come back at 50%
 	assert_almost_eq(float(s.totals().get("planks", 0.0)) - planks, 50.0, 0.001)
-	assert_almost_eq(float(s.totals().get("materials", 0.0)) - mats, 0.0, 0.001)
+	assert_almost_eq(float(s.totals().get("wood", 0.0)) - mats, 0.0, 0.001)
 
 
 func test_badge_text_in_the_hud_model() -> void:

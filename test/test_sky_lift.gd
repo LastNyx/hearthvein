@@ -23,7 +23,7 @@ func before_all() -> void:
 	d.size = Vector2i(2, 2)
 	d.layers = "island"
 	d.worker_slots = 2
-	d.cost = {"materials": 10}
+	d.cost = {"wood": 10}
 	d.recipe = RecipeDef.new()
 	d.recipe.outputs = {"food": 2.0}
 	reg.buildings[d.id] = d
@@ -94,7 +94,7 @@ func test_data_row_and_ride_numbers() -> void:
 	var d := reg.get_building("sky_lift")
 	assert_eq(d.era, "skyborne")
 	assert_eq(d.size, Vector2i(1, 1))
-	assert_eq(d.cost, {"materials": 80, "gold": 30, "cut_stone": 20, "tools": 10})
+	assert_eq(d.cost, {"wood": 32, "stone": 48, "gold": 30, "cut_stone": 20, "tools": 10})
 	assert_eq(d.upkeep_lumen, 2.0)
 	assert_eq(d.worker_slots, 0)
 	assert_true(d.sky_lift)
@@ -305,35 +305,37 @@ func test_walker_reaches_an_island_job_through_a_dock_pair() -> void:
 	assert_false(farm.connected)
 
 
-func test_hauler_carries_materials_to_a_sky_site_over_the_lift() -> void:
+func test_hauler_carries_wood_to_a_sky_site_over_the_lift() -> void:
 	var lift := _lift()
-	var farm := _farm_by(lift, false)  # a construction site on the island needing 10 materials
+	var farm := _farm_by(lift, false)  # a construction site on the island needing 10 wood
 	assert_true(farm.site)
 	var delivered := []
 	s.events.subscribe("haul_delivered", func(e: Dictionary) -> void:
 		if int(e["data"]["to"]) == farm.id:
 			delivered.append(e["data"]))
-	s.hearth.inventory.add("materials", 50.0)
+	s.hearth.inventory.add("wood", 50.0)
+	s.hearth.inventory.add("stone", 50.0)
 	for hour in 48:
 		s.step_hours(1)
 		if farm.site_delivered():
 			break
-	assert_true(farm.site_delivered(), "the site got its materials")
+	assert_true(farm.site_delivered(), "the site got its wood")
 	assert_gt(delivered.size(), 0, "a hauler delivered across the lift")
-	assert_almost_eq(farm.input_buffer.amount_of("materials"), 10.0, 0.001)
+	assert_almost_eq(farm.input_buffer.amount_of("wood"), 10.0, 0.001)
 
 
 func test_no_lift_no_delivery_to_a_sky_site() -> void:
 	var farm := _farm_by(_fake_lift_tile(), false)
-	s.hearth.inventory.add("materials", 50.0)
+	s.hearth.inventory.add("wood", 50.0)
+	s.hearth.inventory.add("stone", 50.0)
 	s.step_days(3)
-	assert_almost_eq(farm.input_buffer.amount_of("materials"), 0.0, 0.001, "nothing crosses without a lift")
+	assert_almost_eq(farm.input_buffer.amount_of("wood"), 0.0, 0.001, "nothing crosses without a lift")
 
 
 func test_hauler_carries_island_output_down_to_storage() -> void:
 	var lift := _lift()
 	var farm := _farm_by(lift)
-	s.set_storage_filter(s.hearth.id, ["food", "lumen", "materials"])
+	s.set_storage_filter(s.hearth.id, ["food", "lumen", "wood", "stone"])
 	var food0 := float(s.totals().get("food", 0.0))
 	var best := 0.0
 	for hour in 96:

@@ -48,7 +48,7 @@ func test_refinery_data_matches_the_town_table() -> void:
 	var r := reg.get_building("refinery")
 	assert_not_null(r)
 	assert_eq([r.era, r.category], ["town", "refining"])
-	assert_eq([r.size, r.cost, r.worker_slots], [Vector2i(2, 2), {"materials": 60, "gold": 20, "planks": 15}, 2])
+	assert_eq([r.size, r.cost, r.worker_slots], [Vector2i(2, 2), {"wood": 24, "stone": 36, "gold": 20, "planks": 15}, 2])
 	assert_eq(r.upkeep_lumen, 0.0)
 	assert_eq(r.recipe.inputs, {RAW: 12.0}, "6 Lumen per cell x 2 a worker-day")
 	assert_eq(r.recipe.outputs, {CELL: 2.0})

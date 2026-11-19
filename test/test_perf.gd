@@ -512,6 +512,7 @@ func test_water_day_hook_and_channel_dig_under_one_ms() -> void:
 	var no_tile := false
 	for attempt in REPEATS:
 		var world := _world()
+		world.hearth.inventory.add("stone", 10.0)  # a channel costs stone
 		_to_hour(world, 5)
 		var ws := world.get_system(WaterSystem) as WaterSystem
 		ws.on_day(world)  # warm the base mask; later calls only copy it and stamp channels

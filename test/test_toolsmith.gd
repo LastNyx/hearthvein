@@ -25,7 +25,7 @@ func test_data_matches_the_city_table() -> void:
 	var t := reg.get_building("toolsmith")
 	assert_not_null(t)
 	assert_eq([t.era, t.category, t.size], ["city", "refining", Vector2i(2, 1)])
-	assert_eq(t.cost, {"materials": 80, "gold": 30, "cut_stone": 20})
+	assert_eq(t.cost, {"wood": 32, "stone": 48, "gold": 30, "cut_stone": 20})
 	assert_eq([t.worker_slots, t.upkeep_lumen], [2, 1.0])
 	assert_eq(t.recipe.inputs, {"planks": 1.5, "lumen_cells": 1.5}, "1 P + 1 C per tool, 1.5 tools a worker-day")
 	assert_eq(t.recipe.outputs, {"tools": 1.5})

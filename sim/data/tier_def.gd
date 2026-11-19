@@ -20,5 +20,5 @@ extends Resource
 @export var wet_bonus: float = 1.0
 ## art_manifest building id drawn for this tier (e.g. "cottage_shingle"). "" or an id without art = the base sprite.
 @export var art_id: String = ""
-## good id -> int. Empty = use the default costs (TierRuleDef): fractions of the base materials cost.
+## good id -> int. Empty = use the default costs (TierRuleDef): fractions of the base wood + stone cost.
 @export var cost: Dictionary = {}

@@ -5,12 +5,12 @@
 [resource]
 script = ExtResource("1")
 id = "builders_yard"
-description = "Adds builders who raise new buildings faster, and haulers to carry their materials."
+description = "Adds builders who raise new buildings faster, and haulers to carry their supplies."
 display_name = "Builder's Yard"
 era = "village"
 category = "logistics"
 size = Vector2i(2, 1)
-cost = {"materials": 30}
+cost = {"wood": 21, "stone": 9}
 worker_slots = 0
 hauler_slots = 2
 builder_slots = 4

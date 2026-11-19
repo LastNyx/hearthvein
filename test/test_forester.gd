@@ -93,8 +93,8 @@ func _far_tile(o: Vector2i, min_d: int) -> Vector2i:
 func test_forester_is_the_design_building() -> void:
 	var def := reg.get_building("forester")
 	assert_not_null(def)
-	assert_eq([def.era, def.size, def.cost, def.worker_slots], ["village", Vector2i(1, 1), {"materials": 20}, 1])
-	assert_eq(def.category, "materials")
+	assert_eq([def.era, def.size, def.cost, def.worker_slots], ["village", Vector2i(1, 1), {"wood": 20}, 1])
+	assert_eq(def.category, "resources")
 	assert_true(def.plants_forest)
 	assert_eq(def.placement_radius, 5)
 

@@ -115,7 +115,8 @@ func test_rail_links_three_regions() -> void:
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
 	s.era_override = "conflux"
-	s.hearth.inventory.add("materials", 900.0)
+	s.hearth.inventory.add("wood", 900.0)
+	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 300.0)
 	var r0 := MapState.region_at(h.x, h.y)
 	var base := (r0 / MapState.REGION_COLS) * MapState.REGION_COLS

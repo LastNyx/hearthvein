@@ -53,7 +53,7 @@ func test_row_matches_the_conflux_table() -> void:
 	var d := reg.get_building("vein_bore")
 	assert_eq(d.era, "conflux")
 	assert_eq(d.size, Vector2i(2, 2))
-	assert_eq(d.cost, {"materials": 200, "gold": 80, "cut_stone": 40, "tools": 20})
+	assert_eq(d.cost, {"wood": 80, "stone": 120, "gold": 80, "cut_stone": 40, "tools": 20})
 	assert_eq(d.worker_slots, 4)
 	assert_eq(d.upkeep_lumen, 0.0)
 	assert_eq(d.placement_rule, "on_vein")

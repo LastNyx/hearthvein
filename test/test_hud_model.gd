@@ -16,7 +16,7 @@ func before_all() -> void:
 	up.id = "test_hud_grid_consumer"
 	up.display_name = "Test HUD grid consumer"
 	up.era = "town"
-	up.category = "materials"
+	up.category = "resources"
 	up.size = Vector2i(2, 1)
 	up.upkeep_lumen = 2.0
 	reg.buildings[up.id] = up
@@ -45,12 +45,16 @@ func _site_free_spot() -> Vector2i:
 
 func test_resources_show_values_and_daily_deltas() -> void:
 	s.step_days(1)
-	s.hearth.inventory.add("materials", 7.0)
+	s.hearth.inventory.add("wood", 7.0)
+	s.hearth.inventory.add("stone", 7.0)
 	s.step_days(1)
-	var r := _res("materials")
+	var r := _res("wood")
 	assert_eq(r["delta"], 7)
 	assert_eq(r["value"], 47)
 	assert_eq(r["text"], "47 +7")
+	var st := _res("stone")
+	assert_eq([st["value"], st["delta"], st["icon"]], [7, 7, "stone"])
+	assert_eq(m.resources().map(func(x: Dictionary) -> String: return x["id"]), ["food", "wood", "stone", "lumen", "gold"])
 	assert_eq(_res("food")["icon"], "food")
 	s.gold = 12.0
 	s.step_days(1)
@@ -233,7 +237,7 @@ func test_selection_names_the_made_good_and_skips_empty_output() -> void:
 	var id := s.place_building_instant("woodcutter", _site_free_spot())
 	m.select(id)
 	var lines: Array = m.selection()["lines"]
-	assert_true("Makes: Materials" in lines)
+	assert_true("Makes: Wood" in lines)
 	for l in lines:
 		assert_false(String(l).begins_with("Output:"), "empty output buffer is not listed")
 
@@ -259,8 +263,8 @@ func test_roads_category_offers_channel_from_village() -> void:
 	s.era_override = "village"
 	assert_true(kinds.call(m.build_bar()).has("channel"))
 	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "channel")[0]
-	assert_eq(e["cost"], "1 Materials")
-	assert_eq(HudModel.channel_refusal_text("materials"), "Not enough materials")
+	assert_eq(e["cost"], "1 Stone")
+	assert_eq(HudModel.channel_refusal_text("stone"), "Not enough stone")
 
 
 func test_roads_category_offers_paved_in_town() -> void:
@@ -271,7 +275,7 @@ func test_roads_category_offers_paved_in_town() -> void:
 	s.era_override = "town"
 	assert_true(kinds.call(m.build_bar()).has("paved"))
 	var e: Dictionary = m.build_bar()[0]["entries"].filter(func(x: Dictionary) -> bool: return x["kind"] == "paved")[0]
-	assert_eq(e["cost"], "1 Materials, 0.2 Cut stone")
+	assert_eq(e["cost"], "1 Wood, 0.2 Cut stone")
 	assert_false(e["cost"].contains("_") or e["cost"].contains("  "))
 	assert_eq(HudModel.paved_refusal_text("cut_stone"), "Not enough cut stone")
 
@@ -285,7 +289,7 @@ func test_roads_category_offers_rail_track_from_conflux() -> void:
 	s.era_override = "conflux"
 	var found: Array = track_entries.call(m.build_bar())
 	assert_eq(found.size(), 1, "track in Conflux")
-	assert_eq(found[0]["cost"], "2 Materials, 1 Cut stone")
+	assert_eq(found[0]["cost"], "1 Wood, 1 Stone, 1 Cut stone")
 	assert_eq(found[0]["label"], "Rail track (J)")
 	assert_eq(HudModel.track_refusal_text("cut_stone"), "Not enough cut stone")
 	assert_eq(HudModel.track_refusal_text("road"), "A road is here")

@@ -46,7 +46,7 @@ func test_kitchen_data_matches_the_town_table() -> void:
 	var k := reg.get_building("kitchen")
 	assert_not_null(k)
 	assert_eq([k.era, k.category], ["town", "refining"])
-	assert_eq([k.size, k.cost, k.worker_slots], [Vector2i(1, 1), {"materials": 30, "planks": 10}, 2])
+	assert_eq([k.size, k.cost, k.worker_slots], [Vector2i(1, 1), {"wood": 12, "stone": 18, "planks": 10}, 2])
 	assert_eq(k.upkeep_lumen, 0.0)
 	assert_eq(k.recipe.outputs, {"meals": 4.0}, "4 meals per worker-day")
 	assert_eq(k.recipe.inputs, {}, "the two types are flexible, not fixed goods")

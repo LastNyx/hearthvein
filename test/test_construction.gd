@@ -39,8 +39,8 @@ func _deliver(b: Building) -> void:
 			b.input_buffer.add(g, float(cost[g]))
 
 
-func _hearth_materials() -> float:
-	return s.hearth.inventory.amount_of("materials")
+func _hearth_wood() -> float:
+	return s.hearth.inventory.amount_of("wood")
 
 
 ## Game hours until the site turns into a building (-1 when it did not within `max_days`).
@@ -67,23 +67,23 @@ func test_place_building_makes_a_site_instant_path_is_explicit() -> void:
 
 
 func test_site_only_progresses_once_full_cost_is_delivered() -> void:
-	s.hearth.inventory.remove("materials", 1000.0)
-	s.hearth.inventory.add("materials", 10.0)  # storehouse needs 25
+	s.hearth.inventory.remove("wood", 1000.0)
+	s.hearth.inventory.add("wood", 10.0)  # storehouse needs 25
 	var b := _site("storehouse", 4)
 	s.step_days(3)
 	assert_true(b.site)
 	assert_eq(b.build_work, 0.0, "no progress with part of the cost")
-	assert_between(b.input_buffer.amount_of("materials"), 9.99, 10.01, "what exists was delivered")
+	assert_between(b.input_buffer.amount_of("wood"), 9.99, 10.01, "what exists was delivered")
 	assert_eq(s.events.log_of("building_completed").size(), 0)
-	s.hearth.inventory.add("materials", 15.0)
+	s.hearth.inventory.add("wood", 15.0)
 	s.step_days(1)
 	assert_true(b.site_delivered())
-	assert_between(b.input_buffer.amount_of("materials"), 24.99, 25.01)
+	assert_between(b.input_buffer.amount_of("wood"), 24.99, 25.01)
 	assert_true(_hours_to_finish(b, 4) >= 0, "builds once everything arrived")
 	assert_false(b.site)
 	assert_not_null(b.inventory)
 	assert_eq(s.events.log_of("building_completed").size(), 1)
-	assert_between(_hearth_materials(), -0.01, 0.01, "the cost left the hearth")
+	assert_between(_hearth_wood(), -0.01, 0.01, "the cost left the hearth")
 
 
 func test_build_time_follows_size_and_era() -> void:
@@ -100,7 +100,8 @@ func test_build_time_follows_size_and_era() -> void:
 	late.era = "city"
 	assert_almost_eq(s.build_days(late), 1.15, 0.001, "era adds days")
 	# Played out: a tent is done long before a meeting hall (same delivery, a full crew).
-	s.hearth.inventory.add("materials", 100.0)
+	s.hearth.inventory.add("wood", 100.0)
+	s.hearth.inventory.add("stone", 100.0)
 	s.hearth.inventory.add("lumen", 10.0)
 	var t := _site("tent", 4)
 	var tent_h := _hours_to_finish(t, 6)
@@ -108,7 +109,8 @@ func test_build_time_follows_size_and_era() -> void:
 	s = Settlement.new_game(SEED, reg)
 	for x in range(h.x + 2, h.x + 16):
 		s.place_road(Vector2i(x, h.y))
-	s.hearth.inventory.add("materials", 100.0)
+	s.hearth.inventory.add("wood", 100.0)
+	s.hearth.inventory.add("stone", 100.0)
 	s.hearth.inventory.add("lumen", 10.0)
 	var m := _site("meeting_hall", 4)
 	var hall_h := _hours_to_finish(m, 10)
@@ -163,29 +165,29 @@ func test_demolish_refunds_half_the_cost_to_nearest_storehouse() -> void:
 	assert_gt(near, -1)
 	var t := s.place_building_instant("storehouse", Vector2i(h.x + 10, h.y - 1))
 	var store := s.buildings[near] as Building
-	assert_eq(store.inventory.amount_of("materials"), 0.0)
-	var hearth_before := _hearth_materials()
+	assert_eq(store.inventory.amount_of("wood"), 0.0)
+	var hearth_before := _hearth_wood()
 	assert_true(s.demolish(t))
-	assert_almost_eq(store.inventory.amount_of("materials"), 12.5, 0.001, "half of 25, to the nearest storehouse")
-	assert_eq(_hearth_materials(), hearth_before, "not to the farther hearth")
+	assert_almost_eq(store.inventory.amount_of("wood"), 12.5, 0.001, "half of 25, to the nearest storehouse")
+	assert_eq(_hearth_wood(), hearth_before, "not to the farther hearth")
 	# A storehouse that is full: the refund goes to the next nearest with room.
 	store.inventory.add("lumen", 400.0 - 12.5)
 	var tent := s.place_building_instant("tent", Vector2i(h.x + 12, h.y - 1))
 	assert_true(s.demolish(tent))
-	assert_almost_eq(_hearth_materials(), hearth_before + 2.5, 0.001)
+	assert_almost_eq(_hearth_wood(), hearth_before + 2.5, 0.001)
 
 
 func test_demolished_site_refunds_half_of_what_was_delivered() -> void:
 	var b := _site("storehouse", 4)
 	s.step_hours(30)
-	var delivered := b.input_buffer.amount_of("materials") if b.site else 25.0
+	var delivered := b.input_buffer.amount_of("wood") if b.site else 25.0
 	assert_gt(delivered, 0.0)
 	if not b.site:
 		pending("site finished too early for this check")
 		return
-	var before := _hearth_materials()
+	var before := _hearth_wood()
 	assert_true(s.demolish(b.id))
-	assert_almost_eq(_hearth_materials(), before + delivered * 0.5, 0.001)
+	assert_almost_eq(_hearth_wood(), before + delivered * 0.5, 0.001)
 	s.step_days(2)  # haulers whose destination vanished put their load back, nothing crashes
 	assert_eq(s.events.log_of("building_demolished").size(), 1)
 
@@ -235,9 +237,11 @@ func test_site_wait_line_says_what_is_missing() -> void:
 	s.era_override = "village"
 	var model := HudModel.new(s)
 	var b := _site("cleanser", 4)
-	b.input_buffer.add("materials", 12.0)
-	assert_eq(model.wait_text(b), "Waiting for materials: 12/60 materials, 0/10 lumen")
-	b.input_buffer.add("materials", 48.0)
+	b.input_buffer.add("wood", 12.0)
+	b.input_buffer.add("stone", 12.0)
+	assert_eq(model.wait_text(b), "Waiting for materials: 12/24 wood, 12/36 stone, 0/10 lumen")
+	b.input_buffer.add("wood", 12.0)
+	b.input_buffer.add("stone", 24.0)
 	assert_eq(model.wait_text(b), "Waiting for materials: 0/10 lumen", "only the goods still missing")
 	model.select(b.id)
 	var sel := model.selection()
@@ -250,7 +254,8 @@ func test_site_wait_line_for_builders_shows_the_place_in_line() -> void:
 	var sites: Array[Building] = []
 	for dx in [4, 6, 8]:
 		var b := _site("tent", dx)
-		b.input_buffer.add("materials", 5.0)
+		b.input_buffer.add("wood", 5.0)
+		b.input_buffer.add("stone", 5.0)
 		sites.append(b)
 	assert_eq(model.wait_text(sites[0]), "Waiting for builders (1st in line)")
 	assert_eq(model.wait_text(sites[1]), "Waiting for builders (2nd in line)")

@@ -16,7 +16,8 @@ func test_track_tiles_autotile_and_clear() -> void:
 	await get_tree().process_frame
 	var s: Settlement = main.settlement
 	s.era_override = "conflux"
-	s.hearth.inventory.add("materials", 100.0)
+	s.hearth.inventory.add("wood", 100.0)
+	s.hearth.inventory.add("stone", 100.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)

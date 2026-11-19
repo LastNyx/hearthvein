@@ -34,7 +34,8 @@ func before_each() -> void:
 	for x in range(bx - 12, bx + 8):
 		for y in range(y0 - 2, y0 + 4):
 			s.set_terrain(Vector2i(x, y), "grass")
-	s.hearth.inventory.add("materials", 500.0)
+	s.hearth.inventory.add("wood", 500.0)
+	s.hearth.inventory.add("stone", 500.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 
 
@@ -140,31 +141,33 @@ func test_building_connected_to_a_depot_counts_as_connected() -> void:
 
 func test_track_cost_and_rules() -> void:
 	var lg := reg.logistics
-	assert_eq(lg.track_cost_materials, 2.0)
-	assert_eq(lg.track_cost_cut_stone, 1.0)
-	var m0 := float(s.totals()["materials"])
+	assert_eq([lg.track_cost_wood, lg.track_cost_stone, lg.track_cost_cut_stone], [1.0, 1.0, 1.0])
+	var m0 := float(s.totals()["wood"])
+	var st0 := float(s.totals()["stone"])
 	var c0 := float(s.totals()["cut_stone"])
 	assert_true(s.place_track(Vector2i(bx, y0)))
-	assert_almost_eq(float(s.totals()["materials"]), m0 - 2.0, 0.001)
+	assert_almost_eq(float(s.totals()["wood"]), m0 - 1.0, 0.001)
+	assert_almost_eq(float(s.totals()["stone"]), st0 - 1.0, 0.001)
 	assert_almost_eq(float(s.totals()["cut_stone"]), c0 - 1.0, 0.001)
 	assert_eq(s.can_place_track(Vector2i(bx, y0))["reason"], "track", "no double track")
 	assert_eq(s.can_place("tent", Vector2i(bx, y0))["reason"], "track", "nor a building")
 	assert_eq(s.can_place_channel(Vector2i(bx, y0))["reason"], "track", "nor a channel")
 	s.remove_track(Vector2i(bx, y0))
-	assert_almost_eq(float(s.totals()["materials"]), m0 - 1.0, 0.001, "half the materials come back")
+	assert_almost_eq(float(s.totals()["wood"]), m0 - 0.5, 0.001, "half the wood comes back")
+	assert_almost_eq(float(s.totals()["stone"]), st0 - 0.5, 0.001, "half the stone comes back")
 	# Short of cut stone: refused and nothing spent.
 	s.spend_good("cut_stone", float(s.totals()["cut_stone"]))
 	assert_eq(s.can_place_track(Vector2i(bx, y0))["reason"], "cut_stone")
-	var m1 := float(s.totals()["materials"])
+	var m1 := float(s.totals()["wood"])
 	assert_false(s.place_track(Vector2i(bx, y0)))
-	assert_almost_eq(float(s.totals()["materials"]), m1, 0.001)
+	assert_almost_eq(float(s.totals()["wood"]), m1, 0.001)
 
 
 func test_depot_def_numbers() -> void:
 	var def := reg.get_building("rail_depot")
 	assert_eq(def.era, "conflux")
 	assert_eq(def.size, Vector2i(3, 1))
-	assert_eq(def.cost, {"materials": 120, "gold": 60, "cut_stone": 30, "tools": 15})
+	assert_eq(def.cost, {"wood": 84, "stone": 36, "gold": 60, "cut_stone": 30, "tools": 15})
 	assert_eq(def.hauler_slots, 2)
 	assert_eq(def.upkeep_lumen, 1.0)
 
@@ -189,10 +192,10 @@ func test_track_on_road_is_a_crossing_for_both_layers() -> void:
 	assert_true(s.place_road(Vector2i(bx, y0)), "a road may cover track")
 	assert_true(s.place_road(t))
 	assert_true(s.place_road(Vector2i(bx, y0 - 1)))
-	var m0 := float(s.totals()["materials"])
+	var m0 := float(s.totals()["wood"])
 	assert_true(s.can_place_track(Vector2i(bx, y0 + 1))["ok"], "track may cross a road")
 	assert_true(s.place_track(Vector2i(bx, y0 + 1)))
-	assert_almost_eq(float(s.totals()["materials"]), m0 - 2.0, 0.001, "the added layer is charged")
+	assert_almost_eq(float(s.totals()["wood"]), m0 - 1.0, 0.001, "the added layer is charged")
 	assert_true(s.track_at(t) and s.road_at(t) > 0, "both layers stay set")
 	assert_true(s.place_track(Vector2i(bx + 1, y0)) and s.place_track(Vector2i(bx, y0)))
 	assert_true(s.road_at(Vector2i(bx, y0)) > 0 and s.track_at(Vector2i(bx, y0)), "road laid first then track")

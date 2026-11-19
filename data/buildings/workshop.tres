@@ -6,17 +6,17 @@
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
 inputs = {"lumen": 2.0}
-outputs = {"materials": 3.0}
+outputs = {"stone": 3.0}
 
 [resource]
 script = ExtResource("1")
 id = "workshop"
-description = "Turns Lumen into raw materials, so a settlement can build without wood or stone."
+description = "Turns Lumen into stone, so a settlement can build where rock is scarce."
 display_name = "Workshop"
 era = "town"
 category = "refining"
 size = Vector2i(2, 1)
-cost = {"materials": 50, "gold": 10}
+cost = {"wood": 50, "gold": 10}
 worker_slots = 3
 hauler_slots = 0
 builder_slots = 0

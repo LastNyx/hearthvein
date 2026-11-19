@@ -19,13 +19,13 @@ func before_all() -> void:
 	d.id = DEF_ID
 	d.display_name = "Test workshop"
 	d.era = "town"
-	d.category = "materials"
+	d.category = "resources"
 	d.size = Vector2i(2, 1)
 	d.worker_slots = 1
 	d.upkeep_lumen = UPKEEP
 	d.recipe = RecipeDef.new()
 	d.recipe.inputs = {}
-	d.recipe.outputs = {"materials": 2.0}
+	d.recipe.outputs = {"wood": 2.0}
 	reg.buildings[d.id] = d
 
 
@@ -111,9 +111,9 @@ func _second_day_output(fed: bool) -> float:
 	if fed:
 		b.input_buffer.add("lumen", UPKEEP * reg.logistics.input_buffer_days)  # two days at the buffer cap
 	settlement.step_days(1)  # the first check sets the flag the measured day runs on
-	var before := b.door_buffer.amount_of("materials")
+	var before := b.door_buffer.amount_of("wood")
 	settlement.step_days(1)
-	return b.door_buffer.amount_of("materials") - before
+	return b.door_buffer.amount_of("wood") - before
 
 
 # Upkeep waits for the Town era even when a debug-placed building has an upkeep: nothing is spent and nothing runs
@@ -127,4 +127,4 @@ func test_upkeep_waits_for_the_town_era() -> void:
 	assert_almost_eq(b.input_buffer.amount_of("lumen"), UPKEEP * 2.0, 0.001, "nothing is spent before Town")
 	var us := s.get_system(UpkeepSystem) as UpkeepSystem
 	assert_true(us.is_paid(b.id), "no unpaid flag before Town")
-	assert_gt(b.door_buffer.amount_of("materials"), 0.0, "production runs before Town")
+	assert_gt(b.door_buffer.amount_of("wood"), 0.0, "production runs before Town")

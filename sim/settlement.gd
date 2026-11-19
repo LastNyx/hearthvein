@@ -43,7 +43,7 @@ var gold: float = 0.0
 var citizens: Dictionary = {}  # int -> Citizen
 var _next_citizen_id: int = 0
 ## New-game stock (design.md section 5), put in the Hearth.
-const START_STOCK := {"food": 60.0, "materials": 40.0, "lumen": 10.0}
+const START_STOCK := {"food": 60.0, "wood": 40.0, "lumen": 10.0}
 const START_CITIZENS := 8
 const PRIORITIES: Array[String] = ["low", "normal", "high", "paused"]
 var _next_building_id: int = 0
@@ -490,6 +490,12 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Settlement:
 		if b == null:
 			return null
 		s.buildings[b.id] = b
+		if b.site and b.input_buffer != null:  # the site's need comes from the def, not the save (ticket 99)
+			var cap := 0.0
+			for g in b.effective_cost():
+				if g != BuildingDef.GOLD:
+					cap = maxf(cap, float(b.effective_cost()[g]))
+			b.input_buffer.cap = cap
 	for pair in d["citizens"]:
 		var c := Citizen.from_dict(pair[1])
 		s.citizens[c.id] = c
@@ -1122,7 +1128,7 @@ func set_building_priority(building_id: int, priority: String) -> bool:
 # ---------------------------------------------------------------- upgrade tiers (ticket 31)
 
 ## Why a building cannot start an in-place upgrade: {"ok": bool, "reason": String}, shaped like can_pave_road.
-## Reasons: unknown_building, site (still under construction), category (not housing/food/materials/lumen),
+## Reasons: unknown_building, site (still under construction), category (not housing/food/resources/lumen),
 ## not_upgradable (the def carries no tiers), in_progress, max_tier, era_locked (tier II needs Town, tier III City;
 ## the eras live in data/tiers/tiers.tres), needs_wet (the target tier only works on wet ground and the footprint
 ## is not half wet, e.g. the Irrigated Farm).
@@ -1407,12 +1413,11 @@ func _pave_stone_units(cost: Dictionary) -> int:
 
 
 ## Why a tile cannot be paved: {"ok": bool, "reason": String}, shaped like can_place_channel. Paving works on a new
-## tile or upgrades a dirt road. The cost is the paved RoadDef's `cost` (design.md section 6: 1 materials + 0.2 cut
-## stone, Town). Cut stone is charged in whole units: each tile adds its 0.2 to a running debt and a whole unit is
+## tile or upgrades a dirt road. The cost is the paved RoadDef's `cost` (1 wood + 0.2 cut stone, Town). Cut stone is charged in whole units: each tile adds its 0.2 to a running debt and a whole unit is
 ## spent as the debt fills, so five tiles cost one stone and storage never holds a fraction of a good.
 ## On a water tile the paved bridge cost (RoadDef.bridge_cost) is added to the paved cost (ticket 91).
 ## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, already_paved, era_locked,
-## materials, cut_stone.
+## wood, stone, cut_stone.
 func can_pave_road(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
 		return {"ok": false, "reason": "out_of_bounds"}
@@ -1434,14 +1439,15 @@ func can_pave_road(tile: Vector2i) -> Dictionary:
 	var rd := registry.get_road_by_level(ROAD_PAVED)
 	var cost: Dictionary = rd.cost if rd != null else {}
 	var bridge := bridge_cost(tile, ROAD_PAVED)  # a stone bridge tile pays the paved cost and the bridge cost again
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < float(cost.get("materials", 0.0)) + float(bridge.get("materials", 0.0)):
-		return {"ok": false, "reason": "materials"}
+	for g in ["wood", "stone"]:
+		if float(totals().get(g, 0.0)) + Inventory.EPS < float(cost.get(g, 0.0)) + float(bridge.get(g, 0.0)):
+			return {"ok": false, "reason": g}
 	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < float(_pave_stone_units(cost)):
 		return {"ok": false, "reason": "cut_stone"}
 	return {"ok": true, "reason": ""}
 
 
-## Paves one tile, or upgrades a dirt road to paved, paying the paved RoadDef cost from storage at once (materials)
+## Paves one tile, or upgrades a dirt road to paved, paying the paved RoadDef cost from storage at once (wood, stone)
 ## and in whole cut-stone units as the debt fills. Returns false when can_pave_road says no; nothing is spent then.
 ## Bumps grid_version and structure_version through place_road, so walker paths re-plan with the faster tiles.
 func pave_road(tile: Vector2i) -> bool:
@@ -1449,12 +1455,15 @@ func pave_road(tile: Vector2i) -> bool:
 		return false
 	var rd := registry.get_road_by_level(ROAD_PAVED)
 	var cost: Dictionary = rd.cost if rd != null else {}
-	var materials := float(cost.get("materials", 0.0))
+	var raw := {}
+	for g in ["wood", "stone"]:
+		if float(cost.get(g, 0.0)) > 0.0:
+			raw[g] = float(cost[g])
 	var stone_units := _pave_stone_units(cost)
-	if not spend_good("materials", materials):
+	if not _spend_cost(raw):
 		return false
 	if stone_units > 0 and not spend_good("cut_stone", float(stone_units)):
-		_return_goods({"materials": materials}, tile)  # can_pave_road checked both already, so this is defensive
+		_return_goods(raw, tile)  # can_pave_road checked both already, so this is defensive
 		return false
 	_pave_stone_debt = _pave_stone_debt + float(cost.get("cut_stone", 0.0)) - float(stone_units)
 	place_road(tile, ROAD_PAVED)
@@ -1472,8 +1481,8 @@ func track_at(tile: Vector2i) -> bool:
 ## Why a rail track tile cannot be laid here: {"ok": bool, "reason": String}, shaped like can_place_channel. Track is
 ## its own layer, placed like road: on owned, buildable land, never under a building. A track tile and a road tile are
 ## different overlays and cannot share a tile (reason "road"; the same goes for a channel). The cost is
-## LogisticsDef.track_cost_materials + track_cost_cut_stone per tile (design.md section 8: 2 materials + 1 cut stone).
-## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, track, materials, cut_stone.
+## LogisticsDef.track_cost_wood + track_cost_stone + track_cost_cut_stone per tile (1 wood, 1 stone, 1 cut stone).
+## Reasons: out_of_bounds, locked_region, blocked_terrain, overlap, channel, track, wood, stone, cut_stone.
 ## Track on a water tile is a rail bridge at LogisticsDef.track_bridge_multiplier (3x) the track cost (ticket 91).
 ## A road tile takes track too (ticket 67, a level crossing): both layers stay set, and lifting one leaves the other.
 func can_place_track(tile: Vector2i) -> Dictionary:
@@ -1494,8 +1503,10 @@ func can_place_track(tile: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "track"}
 	var lg := registry.logistics
 	var k := _track_factor(tile)
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < lg.track_cost_materials * k:
-		return {"ok": false, "reason": "materials"}
+	if float(totals().get("wood", 0.0)) + Inventory.EPS < lg.track_cost_wood * k:
+		return {"ok": false, "reason": "wood"}
+	if float(totals().get("stone", 0.0)) + Inventory.EPS < lg.track_cost_stone * k:
+		return {"ok": false, "reason": "stone"}
 	if float(totals().get("cut_stone", 0.0)) + Inventory.EPS < lg.track_cost_cut_stone * k:
 		return {"ok": false, "reason": "cut_stone"}
 	return {"ok": true, "reason": ""}
@@ -1508,10 +1519,11 @@ func place_track(tile: Vector2i) -> bool:
 		return false
 	var lg := registry.logistics
 	var k := _track_factor(tile)
-	if not spend_good("materials", lg.track_cost_materials * k):
+	var raw := {"wood": lg.track_cost_wood * k, "stone": lg.track_cost_stone * k}
+	if not _spend_cost(raw):
 		return false
 	if lg.track_cost_cut_stone > 0.0 and not spend_good("cut_stone", lg.track_cost_cut_stone * k):
-		_return_goods({"materials": lg.track_cost_materials * k}, tile)  # defensive: can_place_track checked both
+		_return_goods(raw, tile)  # defensive: can_place_track checked both
 		return false
 	track[MapState.idx(tile.x, tile.y)] = 1
 	grid_version += 1
@@ -1548,10 +1560,13 @@ func remove_track(tile: Vector2i) -> bool:
 	if lg != null:
 		var refund := {}
 		var k := _track_factor(tile)
-		var m := lg.track_cost_materials * k * lg.demolish_refund
+		var w := lg.track_cost_wood * k * lg.demolish_refund
+		var st := lg.track_cost_stone * k * lg.demolish_refund
 		var c := lg.track_cost_cut_stone * k * lg.demolish_refund
-		if m > Inventory.EPS:
-			refund["materials"] = m
+		if w > Inventory.EPS:
+			refund["wood"] = w
+		if st > Inventory.EPS:
+			refund["stone"] = st
 		if c > Inventory.EPS:
 			refund["cut_stone"] = c
 		if not refund.is_empty():
@@ -1578,8 +1593,8 @@ func channel_at(tile: Vector2i) -> bool:
 
 ## Why an Irrigation Channel cannot be dug here: {"ok": bool, "reason": String}, shaped like can_place(). Channels
 ## are dug like roads: on owned, buildable land, never under a building or on a road (a channel and a road are
-## different overlays of the same tile; pick one). They do not block walking. The last reason is "materials" when the
-## settlement's storage holds less than WaterDef.channel_cost_materials of materials.
+## different overlays of the same tile; pick one). They do not block walking. The last reason is "stone" when the
+## settlement's storage holds less than WaterDef.channel_cost_stone of stone.
 func can_place_channel(tile: Vector2i) -> Dictionary:
 	if not MapState.in_bounds(tile.x, tile.y):
 		return {"ok": false, "reason": "out_of_bounds"}
@@ -1601,22 +1616,22 @@ func can_place_channel(tile: Vector2i) -> Dictionary:
 	if track[i] != 0:
 		return {"ok": false, "reason": "track"}
 	var def := registry.water
-	var cost := def.channel_cost_materials if def != null else 0.0
-	if float(totals().get("materials", 0.0)) + Inventory.EPS < cost:
-		return {"ok": false, "reason": "materials"}
+	var cost := def.channel_cost_stone if def != null else 0.0
+	if float(totals().get("stone", 0.0)) + Inventory.EPS < cost:
+		return {"ok": false, "reason": "stone"}
 	return {"ok": true, "reason": ""}
 
 
-## Digs one Irrigation Channel tile, paying WaterDef.channel_cost_materials from storage at once (design.md section 9:
-## 1 materials per tile). Returns false when the tile is invalid or the materials are short; nothing is spent then.
+## Digs one Irrigation Channel tile, paying WaterDef.channel_cost_stone from storage at once (1 stone per tile).
+## Returns false when the tile is invalid or the stone is short; nothing is spent then.
 ## Wetness is rebuilt immediately so the player sees the effect without waiting for the day, and the daily pass
 ## (WaterSystem.on_day) still runs. Whether the channel flows is derived (WaterSystem.flowing_channels).
 func place_channel(tile: Vector2i) -> bool:
 	if not can_place_channel(tile)["ok"]:
 		return false
 	var def := registry.water
-	var cost := def.channel_cost_materials if def != null else 0.0
-	if not spend_good("materials", cost):
+	var cost := def.channel_cost_stone if def != null else 0.0
+	if not spend_good("stone", cost):
 		return false
 	channels[MapState.idx(tile.x, tile.y)] = CHANNEL_DUG
 	grid_version += 1
@@ -1638,9 +1653,9 @@ func remove_channel(tile: Vector2i) -> bool:
 	events.emit("channel_changed", {"tile": tile, "level": CHANNEL_NONE})
 	var def := registry.water
 	if def != null and registry.logistics != null:
-		var refund := def.channel_cost_materials * registry.logistics.demolish_refund
+		var refund := def.channel_cost_stone * registry.logistics.demolish_refund
 		if refund > Inventory.EPS:
-			_return_goods({"materials": refund}, tile)
+			_return_goods({"stone": refund}, tile)
 	WaterSystem.recompute(self)
 	return true
 

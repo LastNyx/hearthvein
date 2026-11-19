@@ -79,7 +79,7 @@ func test_row_matches_the_conflux_table() -> void:
 	var d := reg.get_building("hydroponic_hall")
 	assert_eq(d.era, "conflux")
 	assert_eq(d.size, Vector2i(3, 2))
-	assert_eq(d.cost, {"materials": 150, "gold": 50, "planks": 30, "tools": 20})
+	assert_eq(d.cost, {"wood": 105, "stone": 45, "gold": 50, "planks": 30, "tools": 20})
 	assert_eq(d.worker_slots, 4)
 	assert_eq(d.upkeep_lumen, 3.0)
 	assert_eq(d.recipe.outputs, {"greenhouse": 4.0})

@@ -22,7 +22,7 @@ func _has_error(fragment: String) -> bool:
 # AC1: registry loads all data and fails loudly on a missing reference.
 func test_real_data_loads_clean() -> void:
 	_load_real()
-	assert_eq(reg.goods.size(), 14)
+	assert_eq(reg.goods.size(), 15)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
 	assert_eq(reg.buildings.size(), 63)
@@ -72,35 +72,35 @@ func test_camp_buildings_match_design() -> void:
 	assert_eq([hearth.hauler_slots, hearth.builder_slots, hearth.housing_beds], [2, 4, 8])
 	assert_eq([hearth.storage_mode, hearth.storage_cap], ["per_good", 150])
 	var tent := reg.get_building("tent")
-	assert_eq(tent.cost, {"materials": 5})
+	assert_eq(tent.cost, {"wood": 5})
 	assert_eq(tent.housing_beds, 2)
 	assert_true(tent.upgradable)
 	assert_eq([tent.tiers[0].display_name, tent.tiers[1].display_name], ["Hut", "Lodge"])
 	assert_eq(tent.housing_beds * tent.tiers[0].multiplier, 3.0)
 	assert_eq(tent.housing_beds * tent.tiers[1].multiplier, 4.0)
 	var forager := reg.get_building("forager")
-	assert_eq([forager.cost, forager.worker_slots], [{"materials": 10}, 2])
+	assert_eq([forager.cost, forager.worker_slots], [{"wood": 10}, 2])
 	assert_eq(forager.recipe.outputs, {"food": 8.0})
 	var wc := reg.get_building("woodcutter")
-	assert_eq([wc.cost, wc.worker_slots], [{"materials": 10}, 2])
-	assert_eq(wc.recipe.outputs, {"materials": 5})
+	assert_eq([wc.cost, wc.worker_slots], [{"wood": 10}, 2])
+	assert_eq(wc.recipe.outputs, {"wood": 5})
 	var sh := reg.get_building("storehouse")
 	assert_eq(sh.size, Vector2i(2, 1))
-	assert_eq(sh.cost, {"materials": 25})
+	assert_eq(sh.cost, {"wood": 25})
 	assert_eq([sh.hauler_slots, sh.storage_mode, sh.storage_cap], [2, "total", 400])
 	var tap := reg.get_building("lumen_tap")
-	assert_eq([tap.cost, tap.worker_slots, tap.placement_rule], [{"materials": 20}, 2, "on_vein"])
+	assert_eq([tap.cost, tap.worker_slots, tap.placement_rule], [{"wood": 20}, 2, "on_vein"])
 	assert_eq(tap.recipe.outputs, {"lumen": 8.0})
 	var mh := reg.get_building("meeting_hall")
 	assert_eq(mh.size, Vector2i(2, 2))
-	assert_eq(mh.cost, {"materials": 60, "lumen": 10})
+	assert_eq(mh.cost, {"wood": 60, "lumen": 10})
 	assert_eq(mh.category, "landmark")
 	assert_false(mh.upgradable)
 
 
 func test_default_tier_costs_follow_design() -> void:
 	_load_real()
-	var tap := reg.get_building("lumen_tap")  # base 20 materials
+	var tap := reg.get_building("lumen_tap")  # base 20 wood
 	assert_eq(tap.tiers[0].cost, {"planks": 10, "cut_stone": 5})
 	assert_eq(tap.tiers[0].extra_worker_slots, 1)
 	assert_eq(tap.tiers[1].cost, {"tools": 4, "lumen_cells": 2, "cut_stone": 5})
@@ -127,9 +127,9 @@ func test_seven_eras() -> void:
 # AC4: a recipe expresses inputs -> outputs per worker per day.
 func test_recipe_inputs_to_outputs() -> void:
 	var r := RecipeDef.new()
-	r.inputs = {"materials": 2}
+	r.inputs = {"wood": 2}
 	r.outputs = {"planks": 1}
-	assert_eq(r.inputs["materials"], 2)
+	assert_eq(r.inputs["wood"], 2)
 	assert_eq(r.outputs["planks"], 1)
 	_load_real()
 	assert_eq(reg.get_building("forager").recipe.inputs, {})
@@ -140,7 +140,40 @@ func test_terrain_and_goods_present() -> void:
 	_load_real()
 	for id in ["grass", "fertile_soil", "forest", "rock", "water", "lumen_vein", "stump", "skystone"]:
 		assert_not_null(reg.get_terrain(id), id)
-	for id in ["food", "crops", "fish", "materials", "lumen", "gold", "planks", "cut_stone", "lumen_cells", "meals", "tools"]:
+	for id in ["food", "crops", "fish", "wood", "stone", "lumen", "gold", "planks", "cut_stone", "lumen_cells", "meals", "tools"]:
 		assert_not_null(reg.get_good(id), id)
 	assert_eq(reg.get_good("planks").kind, "refined")
 	assert_eq(reg.get_good("food").kind, "base")
+	assert_null(reg.get_good("materials"), "ticket 99: wood and stone replaced the raw good materials")
+	assert_eq([reg.get_good("wood").kind, reg.get_good("stone").kind], ["base", "base"])
+
+
+# Ticket 99: no def, recipe or road names "materials"; the producers and refiners use wood and stone.
+func test_wood_and_stone_replace_materials_in_the_data() -> void:
+	_load_real()
+	for id in reg.buildings:
+		var d: BuildingDef = reg.buildings[id]
+		assert_false(d.cost.has("materials"), "%s cost" % id)
+		if d.recipe != null:
+			assert_false(d.recipe.inputs.has("materials") or d.recipe.outputs.has("materials"), "%s recipe" % id)
+	assert_eq(reg.get_building("woodcutter").recipe.outputs, {"wood": 5})
+	assert_eq(reg.get_building("quarry").recipe.outputs, {"stone": 12.0})
+	assert_eq(reg.get_building("workshop").recipe.outputs, {"stone": 3.0})
+	assert_eq([reg.get_building("sawmill").recipe.inputs, reg.get_building("sawmill").recipe.outputs], [{"wood": 6.0}, {"planks": 3.0}])
+	assert_eq([reg.get_building("mason").recipe.inputs, reg.get_building("mason").recipe.outputs], [{"stone": 6.0}, {"cut_stone": 2.0}])
+
+
+# Ticket 99: before any stone source exists (Camp) a building costs no stone; later ones split wood and stone.
+func test_camp_era_costs_are_wood_only() -> void:
+	_load_real()
+	var seen := 0
+	for id in reg.buildings:
+		var d: BuildingDef = reg.buildings[id]
+		if d.era != "camp":
+			continue
+		seen += 1
+		assert_false(d.cost.has("stone"), "%s is Camp: no stone in its cost" % id)
+		assert_false(d.stages.size() > 0, "%s has no stages" % id)
+	assert_gt(seen, 3)
+	assert_eq(reg.get_building("cottage").cost, {"wood": 10, "stone": 5}, "housing is 70% wood, 30% stone")
+	assert_eq(reg.get_building("shrine").cost, {"wood": 12, "stone": 18, "lumen": 5}, "civic is 40% wood, 60% stone")

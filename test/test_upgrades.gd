@@ -1,5 +1,5 @@
 extends GutTest
-## Ticket 31: upgrade tiers, core rules (design.md section 10). Only housing/food/materials/Lumen buildings upgrade;
+## Ticket 31: upgrade tiers, core rules (design.md section 10). Only housing/food/resources/Lumen buildings upgrade;
 ## an upgrade is a construction job on a running building, which keeps its old tier until the work is done.
 
 const SEED := 42
@@ -69,7 +69,7 @@ func _workers_on(b: Building) -> int:
 	return n
 
 
-# AC1: only housing, food, materials and Lumen buildings can upgrade.
+# AC1: only housing, food, resources and Lumen buildings can upgrade.
 func test_only_the_four_categories_can_upgrade() -> void:
 	# One of each allowed category, placed wherever its rule allows (the Lumen Tap needs a vein).
 	for id in ["tent", "forager", "woodcutter", "lumen_tap"]:

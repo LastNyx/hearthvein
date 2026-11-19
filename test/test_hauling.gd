@@ -87,7 +87,7 @@ func test_haulers_pick_nearest_storehouse_with_room() -> void:
 	assert_gt(near.inventory.amount_of("food"), 0.0)
 	assert_eq(far.inventory.amount_of("food"), 0.0)
 	# Fill the near one: the next load goes to the far one.
-	near.inventory.add("materials", 400.0 - near.inventory.total())
+	near.inventory.add("wood", 400.0 - near.inventory.total())
 	s.step_days(2)
 	assert_gt(far.inventory.amount_of("food"), 0.0)
 
@@ -166,7 +166,7 @@ func test_woodcutter_turns_forest_into_stumps() -> void:
 	assert_gt(stumps.size(), 0)
 	for t in stumps:
 		assert_lte(Vector2(t - w.origin).length(), 4.0, "stump %s inside radius 4" % t)
-	var made: float = s.totals().get("materials", 0.0) - 40.0 + w.door_buffer.amount_of("materials")
+	var made: float = s.totals().get("wood", 0.0) - 40.0 + w.door_buffer.amount_of("wood")
 	assert_almost_eq(float(stumps.size()), made / reg.logistics.units_per_felled_tile, 3.0)
 	assert_eq(s.events.log_of("terrain_changed").size() - before, stumps.size(), "one event per stump")
 
@@ -182,9 +182,9 @@ func test_site_last_delivery_may_be_below_min_pickup() -> void:
 	var store := _put("storehouse", 7)
 	var site := _site_for("woodcutter", 4)
 	var cost: Dictionary = site.effective_cost()
-	var need: float = float(cost["materials"])
-	site.input_buffer.add("materials", need - 0.4)  # 0.4 left, min_pickup is 1.0
-	store.inventory.add("materials", 50.0)
+	var need: float = float(cost["wood"])
+	site.input_buffer.add("wood", need - 0.4)  # 0.4 left, min_pickup is 1.0
+	store.inventory.add("wood", 50.0)
 	s.step_hours(1)
 	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
 	assert_not_null(t, "a trip for the last 0.4 units")
@@ -197,7 +197,8 @@ func test_site_is_served_before_a_full_door_buffer() -> void:
 	var fg := _put("forager", 3, -1)
 	fg.door_buffer.add("food", 15.0)
 	var site := _site_for("woodcutter", 10)
-	store.inventory.add("materials", 50.0)
+	store.inventory.add("wood", 50.0)
+	store.inventory.add("stone", 50.0)
 	s.step_hours(1)
 	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
 	assert_not_null(t)
@@ -209,7 +210,8 @@ func test_consumer_inputs_are_not_starved_by_a_busy_door_buffer() -> void:
 	var store := _put("storehouse", 7)
 	var fg := _put("forager", 3, -1)
 	var saw := _put("sawmill", 10, -1)
-	store.inventory.add("materials", 50.0)
+	store.inventory.add("wood", 50.0)
+	store.inventory.add("stone", 50.0)
 	s.step_hours(1)
 	fg.door_buffer.add("food", 15.0)
 	var served := false
@@ -222,11 +224,11 @@ func test_consumer_inputs_are_not_starved_by_a_busy_door_buffer() -> void:
 
 
 func _fill_store(store: Building) -> void:
-	for g in ["materials", "planks", "cut_stone", "tools", "lumen_cells", "lumen"]:
+	for g in ["wood", "stone", "planks", "cut_stone", "tools", "lumen_cells", "lumen"]:
 		store.inventory.add(g, 100.0)
 
 
-func test_new_site_gets_materials_before_a_workshops_input_refill() -> void:
+func test_new_site_gets_its_goods_before_a_workshops_input_refill() -> void:
 	var store := _put("storehouse", 7)
 	var saw := _put("sawmill", 3, -1)  # older building, input buffer empty
 	_fill_store(store)

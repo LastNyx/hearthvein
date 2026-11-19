@@ -36,14 +36,14 @@ func test_tooltip_text_carries_the_numbers_from_data() -> void:
 	assert_eq(f["title"], "Forager")
 	assert_eq(f["description"], reg.get_building("forager").description)
 	var t: String = f["text"]
-	assert_string_contains(t, "10 Materials")
+	assert_string_contains(t, "10 Wood")
 	assert_string_contains(t, "Workers 2")
 	assert_string_contains(t, "8 Food")
 	var tap := m.tooltip_for("lumen_tap")["text"] as String
 	assert_string_contains(tap, "8 Lumen")
 	var saw := m.tooltip_for("sawmill")["text"] as String
-	assert_string_contains(saw, "35 Materials")
-	assert_string_contains(saw, "6 Materials")
+	assert_string_contains(saw, "14 Wood")
+	assert_string_contains(saw, "6 Wood")
 	assert_string_contains(saw, "3 Planks")
 	var store := m.tooltip_for("storehouse")["text"] as String
 	assert_string_contains(store, "Haulers 2")

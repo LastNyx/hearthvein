@@ -1,6 +1,6 @@
 extends GutTest
 ## Ticket 27c: Workshop and Lumen Pump (design.md sections 12, 13 and 16 Town).
-## The two Town data rows, the Workshop's 2 Lumen -> 3 materials through haulers, and the Pump's blight.
+## The two Town data rows, the Workshop's 2 Lumen -> 3 stone through haulers, and the Pump's blight.
 
 const SEED := 42
 const DAY := GameClock.HOURS_PER_DAY
@@ -89,15 +89,15 @@ func _connected_pump_spot() -> Vector2i:
 func test_data_matches_the_town_table() -> void:
 	var shop := reg.get_building("workshop")
 	assert_not_null(shop)
-	assert_eq([shop.era, shop.size, shop.cost], ["town", Vector2i(2, 1), {"materials": 50, "gold": 10}])
+	assert_eq([shop.era, shop.size, shop.cost], ["town", Vector2i(2, 1), {"wood": 50, "gold": 10}])
 	assert_eq([shop.worker_slots, shop.upkeep_lumen], [3, 1.0])
 	assert_eq(shop.recipe.inputs, {"lumen": 2.0}, "2 Lumen per worker-day")
-	assert_eq(shop.recipe.outputs, {"materials": 3.0}, "3 materials per worker-day")
+	assert_eq(shop.recipe.outputs, {"stone": 3.0}, "3 stone per worker-day")
 	assert_false(shop.upgradable, "design section 10: refiners do not upgrade")
 	var pump := reg.get_building("lumen_pump")
 	assert_not_null(pump)
 	assert_eq([pump.era, pump.category, pump.size], ["town", "lumen", Vector2i(1, 1)])
-	assert_eq(pump.cost, {"materials": 60, "gold": 15, "planks": 10})
+	assert_eq(pump.cost, {"wood": 24, "stone": 36, "gold": 15, "planks": 10})
 	assert_eq([pump.worker_slots, pump.upkeep_lumen], [3, 0.0])
 	assert_eq(pump.placement_rule, "on_vein")
 	assert_eq(pump.recipe.inputs, {})
@@ -106,8 +106,8 @@ func test_data_matches_the_town_table() -> void:
 	assert_true(pump.vein_extractor and pump.health_per_day < 0.0, "section 13: a vein extractor")
 
 
-# AC1b: haulers bring Lumen in, the Workshop makes 3 materials per 2 Lumen, and the materials reach storage.
-func test_workshop_turns_hauled_lumen_into_materials() -> void:
+# AC1b: haulers bring Lumen in, the Workshop makes 3 stone per 2 Lumen, and the stone reaches storage.
+func test_workshop_turns_hauled_lumen_into_stone() -> void:
 	s.systems.erase(s.get_system(StorageSystem))  # no 1%/day Lumen leak: it would blur the 2:3 ratio
 	_strip()
 	s.hearth.inventory.add("lumen", 120.0)
@@ -120,15 +120,15 @@ func test_workshop_turns_hauled_lumen_into_materials() -> void:
 	assert_gt(shop.input_buffer.amount_of("lumen"), 8.0, "haulers keep the Workshop in Lumen")
 	var us := s.get_system(UpkeepSystem) as UpkeepSystem
 	assert_true(us.is_paid(shop.id), "the day's Lumen upkeep was paid")
-	var before_m := s.hearth.inventory.amount_of("materials")
+	var before_m := s.hearth.inventory.amount_of("stone")
 	var before_l := s.hearth.inventory.amount_of("lumen")
 	s.step_days(5)
-	var materials := s.hearth.inventory.amount_of("materials") - before_m
+	var made := s.hearth.inventory.amount_of("stone") - before_m
 	var lumen := before_l - s.hearth.inventory.amount_of("lumen")
-	assert_gt(materials, 0.0, "materials reached the Hearth's storage")
-	assert_between(materials / 5.0, 7.0, 9.6, "three workers x 3 materials a day, got %f" % (materials / 5.0))
-	# 3 materials per 2 Lumen of recipe input, plus the 1 Lumen a day of upkeep.
-	assert_between(materials / lumen, 1.2, 1.4, "%f materials per Lumen" % (materials / lumen))
+	assert_gt(made, 0.0, "stone reached the Hearth's storage")
+	assert_between(made / 5.0, 7.0, 9.6, "three workers x 3 stone a day, got %f" % (made / 5.0))
+	# 3 stone per 2 Lumen of recipe input, plus the 1 Lumen a day of upkeep.
+	assert_between(made / lumen, 1.2, 1.4, "%f stone per Lumen" % (made / lumen))
 	assert_eq(shop.halt, "", "the Workshop kept running")
 
 

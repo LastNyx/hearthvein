@@ -25,7 +25,8 @@ func before_each() -> void:
 	s.era_override = "conflux"
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
-	s.hearth.inventory.add("materials", 500.0)
+	s.hearth.inventory.add("wood", 500.0)
+	s.hearth.inventory.add("stone", 500.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	assert_true(_find_crossing(), "the generated river has a one-tile-wide crossing between two land tiles")
 
@@ -69,7 +70,11 @@ func _water(t: Vector2i) -> bool:
 
 
 func _mat() -> float:
-	return float(s.totals().get("materials", 0.0))
+	return float(s.totals().get("wood", 0.0))
+
+
+func _stn() -> float:
+	return float(s.totals().get("stone", 0.0))
 
 
 func _stone() -> float:
@@ -78,8 +83,8 @@ func _stone() -> float:
 
 # AC1: dragging a road over the river lays a bridge tile and charges RoadDef.bridge_cost for it only.
 func test_road_on_water_is_a_bridge_and_charges_the_bridge_cost() -> void:
-	var cost: float = reg.get_road("dirt").bridge_cost["materials"]
-	assert_eq(cost, 5.0, "data: 5 materials per water tile")
+	var cost: float = reg.get_road("dirt").bridge_cost["wood"]
+	assert_eq(cost, 5.0, "data: 5 wood per water tile")
 	var m0 := _mat()
 	assert_true(s.can_place_road(river))
 	assert_true(s.place_road(west))
@@ -95,8 +100,8 @@ func test_road_on_water_is_a_bridge_and_charges_the_bridge_cost() -> void:
 
 func test_unaffordable_bridge_is_refused_and_spends_nothing() -> void:
 	var inv := s.hearth.inventory
-	inv.remove("materials", inv.amount_of("materials"))
-	inv.add("materials", 4.0)
+	inv.remove("wood", inv.amount_of("wood"))
+	inv.add("wood", 4.0)
 	assert_false(s.can_place_road(river))
 	assert_false(s.place_road(river))
 	assert_eq(s.road_at(river), Settlement.ROAD_NONE)
@@ -107,29 +112,38 @@ func test_unaffordable_bridge_is_refused_and_spends_nothing() -> void:
 func test_paving_a_bridge_pays_paved_and_bridge_cost() -> void:
 	var m0 := _mat()
 	var st0 := _stone()
+	var sn0 := _stn()
 	assert_true(s.can_pave_road(river)["ok"])
 	assert_true(s.pave_road(river))
 	assert_eq(s.road_at(river), Settlement.ROAD_PAVED)
-	assert_almost_eq(m0 - _mat(), 1.0 + 5.0, 0.0001, "paved 1 + bridge 5")
-	assert_almost_eq(st0 - _stone(), 0.0, 0.0001, "the stone debt of one tile is below a whole stone")
+	assert_almost_eq(m0 - _mat(), 1.0 + 4.0, 0.0001, "paved 1 wood + bridge 4 wood")
+	assert_almost_eq(sn0 - _stn(), 1.0, 0.0001, "the bridge takes 1 stone")
+	assert_almost_eq(st0 - _stone(), 0.0, 0.0001, "the cut stone debt of one tile is below a whole cut stone")
 	var s2 := Settlement.new_game(SEED, reg)  # a dirt bridge, then paved over
 	s2.era_override = "town"
 	for r in MapState.REGION_COUNT:
 		s2.map.set_region_owned(r, true)
-	s2.hearth.inventory.add("materials", 100.0)
+	s2.hearth.inventory.add("wood", 100.0)
+	s2.hearth.inventory.add("stone", 100.0)
 	assert_true(s2.place_road(river))
-	var m1: float = s2.totals()["materials"]
+	var m1: float = s2.totals()["wood"]
 	assert_true(s2.pave_road(river))
-	assert_almost_eq(m1 - float(s2.totals()["materials"]), 6.0, 0.0001, "upgrading pays paved + bridge again")
+	assert_almost_eq(m1 - float(s2.totals()["wood"]), 5.0, 0.0001, "upgrading pays paved + bridge again")
 
 
-func test_paved_bridge_needs_materials_for_both() -> void:
+func test_paved_bridge_needs_wood_and_stone_for_both() -> void:
 	s.era_override = "town"
 	var inv := s.hearth.inventory
-	inv.remove("materials", inv.amount_of("materials"))
-	inv.add("materials", 5.5)
-	assert_eq(s.can_pave_road(river)["reason"], "materials", "5.5 is under paved 1 + bridge 5")
-	inv.add("materials", 1.0)
+	inv.remove("wood", inv.amount_of("wood"))
+	inv.remove("stone", inv.amount_of("stone"))
+	inv.add("wood", 4.5)
+	inv.add("stone", 5.0)
+	assert_eq(s.can_pave_road(river)["reason"], "wood", "4.5 is under paved 1 + bridge 4")
+	inv.add("wood", 1.0)
+	inv.remove("stone", 5.0)
+	inv.add("stone", 0.5)
+	assert_eq(s.can_pave_road(river)["reason"], "stone", "0.5 is under the bridge's 1 stone")
+	inv.add("stone", 1.0)
 	assert_true(s.can_pave_road(river)["ok"])
 
 
@@ -142,7 +156,7 @@ func test_walkers_cross_only_by_bridge() -> void:
 	var m0 := _mat()
 	for t in run:
 		assert_true(s.place_road(t), "bridge tile %s" % t)
-	assert_almost_eq(m0 - _mat(), 5.0 * run.size(), 0.0001, "5 materials per water tile")
+	assert_almost_eq(m0 - _mat(), 5.0 * run.size(), 0.0001, "5 wood per water tile")
 	assert_true(s.place_road(east))
 	assert_false(ws.find_path(west, east).is_empty(), "a bridge joins the banks")
 	assert_almost_eq(ws.tile_speed(river), reg.get_road("dirt").walk_speed, 0.0001)
@@ -162,14 +176,14 @@ func test_rail_bridge_costs_three_times_and_links_depots() -> void:
 	assert_true(s.place_track(river))
 	assert_true(s.track_at(river))
 	assert_true(s.is_bridge(river))
-	assert_almost_eq(m0 - _mat(), lg.track_cost_materials * 3.0, 0.0001)
+	assert_almost_eq(m0 - _mat(), lg.track_cost_wood * 3.0, 0.0001)
 	assert_almost_eq(st0 - _stone(), lg.track_cost_cut_stone * 3.0, 0.0001)
 	m0 = _mat()
 	assert_true(s.place_track(west))
-	assert_almost_eq(m0 - _mat(), lg.track_cost_materials, 0.0001, "land track costs the plain price")
+	assert_almost_eq(m0 - _mat(), lg.track_cost_wood, 0.0001, "land track costs the plain price")
 	m0 = _mat()
 	assert_true(s.remove_track(river))
-	assert_almost_eq(_mat() - m0, lg.track_cost_materials * 3.0 * lg.demolish_refund, 0.0001, "refund is of the 3x cost")
+	assert_almost_eq(_mat() - m0, lg.track_cost_wood * 3.0 * lg.demolish_refund, 0.0001, "refund is of the 3x cost")
 	assert_false(s.track_at(river))
 
 
@@ -194,7 +208,7 @@ func test_trains_cross_a_rail_bridge() -> void:
 	var m0 := _mat()
 	for x in range(bx - 2, bx + 2):
 		assert_true(s.place_track(Vector2i(x, y0)), "track at x=%d" % x)
-	assert_almost_eq(m0 - _mat(), reg.logistics.track_cost_materials * (2.0 + 2.0 * 3.0), 0.0001, "two land + two water tiles")
+	assert_almost_eq(m0 - _mat(), reg.logistics.track_cost_wood * (2.0 + 2.0 * 3.0), 0.0001, "two land + two water tiles")
 	assert_true(s.is_bridge(gap))
 	assert_true(rail.linked(s, a, b), "the depots are linked across the rail bridge")
 	assert_true(s.remove_track(gap))
@@ -259,7 +273,8 @@ func test_bridge_art_layers() -> void:
 	await get_tree().process_frame
 	var st: Settlement = main.settlement
 	st.era_override = "conflux"
-	st.hearth.inventory.add("materials", 200.0)
+	st.hearth.inventory.add("wood", 200.0)
+	st.hearth.inventory.add("stone", 200.0)
 	st.hearth.inventory.add("cut_stone", 50.0)
 	for r in MapState.REGION_COUNT:
 		st.map.set_region_owned(r, true)

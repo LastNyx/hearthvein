@@ -23,6 +23,6 @@ placement_radius = 0
 upgradable = false
 layers = "ground"
 unique = true
-stages = Array[Dictionary]([{"name": "Foundation", "cost": {"materials": 800, "cut_stone": 300}}, {"name": "Lattice", "cost": {"planks": 300, "tools": 200}}, {"name": "Core", "cost": {"lumen_cells": 400, "lumen": 1000}}, {"name": "Crown", "cost": {"gold": 1500, "tools": 200, "lumen_cells": 200}}])
+stages = Array[Dictionary]([{"name": "Foundation", "cost": {"wood": 320, "stone": 480, "cut_stone": 300}}, {"name": "Lattice", "cost": {"planks": 300, "tools": 200}}, {"name": "Core", "cost": {"lumen_cells": 400, "lumen": 1000}}, {"name": "Crown", "cost": {"gold": 1500, "tools": 200, "lumen_cells": 200}}])
 reservoir_capacity = 3000.0
 reservoir_fill_per_hour = 40.0

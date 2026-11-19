@@ -31,7 +31,8 @@ extends Resource
 ## Share of its Lumen upkeep a building on the Lumen grid pays (design.md section 7: grid upkeep -25%, so 0.75).
 @export var grid_upkeep_factor: float = 1.0
 ## Rail track (design.md section 8, ticket 37): cost of one track tile, paid at once from storage. Whole units.
-@export var track_cost_materials: float = 0.0
+@export var track_cost_wood: float = 0.0
+@export var track_cost_stone: float = 0.0
 @export var track_cost_cut_stone: float = 0.0
 ## Track on a water tile is a rail bridge: the tile costs this many times the track cost (ticket 91).
 @export var track_bridge_multiplier: float = 1.0

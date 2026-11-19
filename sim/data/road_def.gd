@@ -9,7 +9,7 @@ extends Resource
 @export var walk_speed: float = 1.0
 ## Era id needed to build this road ("" = every era). design.md section 6: paved roads need Town.
 @export var era: String = ""
-## Cost per tile, good id -> amount. Empty = free (dirt). design.md section 6: paved is 1 materials + 0.2 cut stone.
+## Cost per tile, good id -> amount. Empty = free (dirt). paved is 1 wood + 0.2 cut stone.
 @export var cost: Dictionary = {}
 ## Extra cost per water tile when this road crosses the river as a bridge (ticket 91), good id -> amount. Charged on top of
 ## `cost`; paving a bridge tile pays the paved cost and this again. The road tile still counts as water underneath.

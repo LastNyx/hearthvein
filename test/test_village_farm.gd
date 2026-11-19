@@ -64,7 +64,7 @@ func test_cottage_houses_four() -> void:
 	var def := reg.get_building("cottage")
 	assert_eq(def.era, "village")
 	assert_eq(def.size, Vector2i(1, 1))
-	assert_eq(def.cost, {"materials": 15})
+	assert_eq(def.cost, {"wood": 10, "stone": 5})
 	assert_eq(def.housing_beds, 4)
 	var before := s.beds_total()
 	var o := _free_spot("cottage")
@@ -91,7 +91,7 @@ func test_farm_output_follows_footprint_fertility() -> void:
 	_strip()
 	s.systems.erase(s.get_system(HaulingSystem))  # read the door buffers as filled, nobody empties them
 	var farm := reg.get_building("farm")
-	assert_eq([farm.size, farm.cost, farm.worker_slots], [Vector2i(2, 2), {"materials": 30}, 3])
+	assert_eq([farm.size, farm.cost, farm.worker_slots], [Vector2i(2, 2), {"wood": 21, "stone": 9}, 3])
 	assert_eq(farm.recipe.outputs, {"crops": 6.0})
 	var rich := _farm(-1, "grass", [100, 100, 100, 100])
 	var mixed := _farm(1, "grass", [100, 100, 0, 0])  # mean 50, half of the rich farm

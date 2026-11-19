@@ -91,7 +91,7 @@ func test_well_data_matches_the_town_table() -> void:
 	var d := reg.get_building("well")
 	assert_not_null(d)
 	assert_eq([d.era, d.category], ["town", "water"])
-	assert_eq([d.size, d.cost], [Vector2i(1, 1), {"materials": 25, "cut_stone": 5}])
+	assert_eq([d.size, d.cost], [Vector2i(1, 1), {"wood": 10, "stone": 15, "cut_stone": 5}])
 	assert_eq([d.worker_slots, d.upkeep_lumen], [0, 0.0])
 	assert_eq([d.placement_rule, d.water_radius], ["on_wet", 8])
 	assert_false(d.needs_water, "a Well supplies water, it does not need it")

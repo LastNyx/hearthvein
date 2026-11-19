@@ -59,11 +59,11 @@ func _terraces_spot() -> Vector2i:
 func test_rows_match_the_conflux_table() -> void:
 	var t := reg.get_building("conduit_terraces")
 	assert_eq([t.era, t.category, t.size], ["conflux", "housing", Vector2i(3, 2)])
-	assert_eq(t.cost, {"materials": 140, "gold": 40, "planks": 40, "cut_stone": 40, "tools": 10})
+	assert_eq(t.cost, {"wood": 98, "stone": 42, "gold": 40, "planks": 40, "cut_stone": 40, "tools": 10})
 	assert_eq([t.upkeep_lumen, t.worker_slots, t.housing_beds, t.needs_water], [2.0, 0, 36, true])
 	var w := reg.get_building("water_tower")
 	assert_eq([w.era, w.category, w.size], ["conflux", "water", Vector2i(1, 1)])
-	assert_eq(w.cost, {"materials": 80, "gold": 20, "cut_stone": 30})
+	assert_eq(w.cost, {"wood": 32, "stone": 48, "gold": 20, "cut_stone": 30})
 	assert_eq([w.upkeep_lumen, w.water_radius, w.wet_radius, w.needs_water], [1.0, 16, 3, false])
 	assert_ne(w.placement_rule, "on_wet", "a pumped tower needs no wet tile")
 

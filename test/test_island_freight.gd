@@ -41,7 +41,8 @@ func _setup(keep_islands: bool = false) -> void:
 		for y in range(h.y - 5, h.y + 6):
 			if s.map.terrain_id_at(x, y) == "forest":
 				s.set_terrain(Vector2i(x, y), "grass")
-	s.hearth.inventory.add("materials", 500.0)
+	s.hearth.inventory.add("wood", 500.0)
+	s.hearth.inventory.add("stone", 500.0)
 	s.hearth.inventory.add("cut_stone", 100.0)
 	s.place_building_instant("lumen_pylon", Vector2i(h.x + 3, h.y - 1))
 	var aid := s.place_building_instant("lift_anchor", Vector2i(h.x + 4, h.y - 3))
@@ -77,7 +78,7 @@ func _setup(keep_islands: bool = false) -> void:
 		elif i >= 4:
 			c.home_id = tent.id
 	for g in s.hearth.inventory.goods():
-		if g != "materials" and g != "cut_stone":
+		if g != "wood" and g != "stone" and g != "cut_stone":
 			s.hearth.inventory.remove(g, 1000000.0)
 	if not keep_islands:
 		s.systems.erase(isys)

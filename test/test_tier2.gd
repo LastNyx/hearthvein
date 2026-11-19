@@ -1,6 +1,6 @@
 extends GutTest
 ## Ticket 31b: tier II costs, effects and the Hut (design.md section 10). The default rule (x1.5, +1 slot, planks 50%
-## and cut stone 25% of the base materials cost) lives in data/tiers/tiers.tres; a TierDef overrides it per building.
+## and cut stone 25% of the base wood + stone cost) lives in data/tiers/tiers.tres; a TierDef overrides it per building.
 
 const SEED := 42
 
@@ -46,13 +46,13 @@ func _workers_on(b: Building) -> int:
 
 
 ## A throwaway def with two empty-cost tiers, to check the default-cost fractions.
-func _synthetic_def(base_materials: int) -> BuildingDef:
+func _synthetic_def(base_wood: int) -> BuildingDef:
 	var d := BuildingDef.new()
 	d.id = "synthetic"
 	d.display_name = "Synthetic"
 	d.era = "camp"
-	d.category = "materials"
-	d.cost = {"materials": base_materials}
+	d.category = "resources"
+	d.cost = {"wood": base_wood}
 	d.worker_slots = 1
 	d.upgradable = true
 	var t2 := TierDef.new()
@@ -77,7 +77,7 @@ func test_default_rule_matches_design() -> void:
 	assert_eq(rule.cost_fractions[1], {"tools": 0.2, "lumen_cells": 0.1, "cut_stone": 0.25})
 
 
-# AC1: costs are the fractions of the base materials cost, rounded up; per-def TierDef costs win.
+# AC1: costs are the fractions of the base wood + stone cost, rounded up; per-def TierDef costs win.
 func test_default_costs_and_per_def_overrides() -> void:
 	var d := _synthetic_def(20)
 	assert_eq(reg.tiers.cost_of(d, 2), {"planks": 10, "cut_stone": 5})
