@@ -302,6 +302,25 @@ func test_refresh_tile_updates_the_batched_instance_data() -> void:
 				"the felled %s is gone from the batch" % p["name"])
 
 
+# Ticket 111: a stump at half way draws the sapling instead of the stump, only after refresh_stumps, terrain unchanged.
+func test_refresh_stumps_swaps_the_stump_prop_for_a_sapling() -> void:
+	var v := _mapview()
+	var tile := Vector2i(10, 10)
+	v.map.set_terrain(tile.x, tile.y, v.map.terrain_index("stump"))
+	var progress := [0.0]
+	v.stump_progress = func(_t: Vector2i) -> float: return progress[0]
+	v.refresh_tile(tile)
+	var open := PropBatch.open_dir(v.map, tile.x, tile.y)
+	var stump: Dictionary = ArtLibrary.scatter("stump", tile.x, tile.y, open)[0]
+	var sapling: Dictionary = ArtLibrary.scatter("stump", tile.x, tile.y, open, 0.5)[0]
+	assert_true(_has_instance(v, "stump_0", _prop_center(stump)), "a fresh stump draws the stump")
+	progress[0] = 0.5
+	v.refresh_stumps()
+	assert_true(_has_instance(v, "sapling_0", _prop_center(sapling)), "half way draws the sapling")
+	assert_false(_has_instance(v, "stump_0", _prop_center(stump)), "the bare stump is gone")
+	assert_eq(v.map.terrain_id_at(tile.x, tile.y), "stump", "render only: terrain stays stump")
+
+
 func test_set_props_visible_updates_the_batch() -> void:
 	var v := _mapview()
 	var tile := Vector2i(-1, -1)

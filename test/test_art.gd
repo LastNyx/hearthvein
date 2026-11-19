@@ -339,6 +339,20 @@ func test_forest_edge_trees_jitter_and_thin_deterministically() -> void:
 	assert_gt(moved, 50, "edge trees are offset")
 
 
+# Ticket 111: a stump scatters the sapling prop from half way, same spot, bare stump before.
+func test_stump_scatter_picks_the_prop_by_progress() -> void:
+	for i in 20:
+		var bare := ArtLibrary.scatter("stump", i, 3)
+		assert_eq(bare[0]["name"], "stump_0")
+		assert_eq(ArtLibrary.scatter("stump", i, 3, Vector2i.ZERO, 0.49)[0]["name"], "stump_0")
+		var young := ArtLibrary.scatter("stump", i, 3, Vector2i.ZERO, 0.5)
+		assert_eq(young[0]["name"], "sapling_0")
+		assert_eq(young[0]["pos"], bare[0]["pos"], "same position")
+		assert_eq(ArtLibrary.scatter("stump", i, 3, Vector2i.ZERO, 1.0)[0]["name"], "sapling_0")
+	assert_eq(ArtLibrary.scatter("forest", 4, 4, Vector2i.ZERO, 1.0), ArtLibrary.scatter("forest", 4, 4), "other terrain ignores it")
+	assert_true(ArtLibrary.prop_names().has("sapling_0"))
+
+
 func test_grass_confetti_is_dense() -> void:
 	var img := ArtLibrary.texture(ArtLibrary.manifest()["terrain"]["grass"]["file"]).get_image()
 	var palette := [Color8(0xf0, 0x7a, 0xa8), Color8(0xf6, 0xf0, 0xe0), Color8(0x8a, 0xb8, 0xf8), Color8(0xf4, 0xd0, 0x50)]
