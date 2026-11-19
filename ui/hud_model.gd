@@ -367,17 +367,15 @@ func has_jobs(b: Building) -> bool:
 ## ("3/3", "builders 4/4"), short, ok, has_jobs, priority, paused, note}; rows without jobs get no buttons.
 func workforce() -> Dictionary:
 	var header := {"workers": 0, "idle": 0, "haulers": 0, "builders": 0}
-	var filled := {}  # building id -> citizens with a job there (any kind)
+	var filled := {}  # building id -> {work, haul, build} citizens with a job there
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
-		if c.job_id < 0:
-			header["idle"] += 1
+		if c.job_id < 0 or not s.buildings.has(c.job_id):
+			header["idle"] += 1  # same test as role_of, so it matches the people tooltip
 			continue
-		filled[c.job_id] = int(filled.get(c.job_id, 0)) + 1
-		match c.job_kind:
-			Citizen.JOB_WORK: header["workers"] += 1
-			Citizen.JOB_HAUL: header["haulers"] += 1
-			Citizen.JOB_BUILD: header["builders"] += 1
+		if not filled.has(c.job_id):
+			filled[c.job_id] = {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0}
+		filled[c.job_id][c.job_kind] += 1
 	var crew := {}  # site id -> builders on its crew
 	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
 	if cs != null:
@@ -390,9 +388,11 @@ func workforce() -> Dictionary:
 	ids.sort()
 	for id in ids:
 		var b: Building = s.buildings[id]
+		if not b.site and b.def.category == "housing":
+			continue  # houses have no jobs and no row
 		var row := {"id": b.id, "name": b.display_name(s.registry), "site": b.site, "priority": b.priority,
 				"paused": b.paused, "has_jobs": b.site or has_jobs(b), "filled": 0, "slots": 0, "short": 0,
-				"ok": true, "note": "", "count_text": ""}
+				"ok": true, "note": "", "count_text": "", "work": 0}
 		if b.site:
 			row["name"] += " (site)"
 			row["filled"] = int(crew.get(b.id, 0))
@@ -403,20 +403,26 @@ func workforce() -> Dictionary:
 			row["note"] = wait_text(b)
 			sites.append(row)
 			continue
+		var f: Dictionary = filled.get(b.id, {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0})
 		var w := b.effective_worker_slots(s.registry)
-		var slots := w + b.def.hauler_slots + b.def.builder_slots
-		row["filled"] = mini(int(filled.get(b.id, 0)), slots)
-		row["slots"] = slots
-		row["short"] = slots - row["filled"]
+		var kinds := [["workers", w, mini(f[Citizen.JOB_WORK], w)],
+				["haulers", b.def.hauler_slots, mini(f[Citizen.JOB_HAUL], b.def.hauler_slots)],
+				["builders", b.def.builder_slots, mini(f[Citizen.JOB_BUILD], b.def.builder_slots)]]
+		var parts: Array[String] = []
+		var only := kinds.filter(func(k: Array) -> bool: return k[1] > 0)
+		for k: Array in only:
+			row["slots"] += k[1]
+			row["filled"] += k[2]
+			parts.append(("%d/%d" if only.size() == 1 and k[0] == "workers" else {"workers": "work", "haulers": "haul", "builders": "build"}[k[0]] + " %d/%d") % [k[2], k[1]])
+		header["workers"] += kinds[0][2]
+		header["haulers"] += kinds[1][2]
+		header["builders"] += kinds[2][2]
+		row["work"] = kinds[0][2]
+		row["short"] = row["slots"] - row["filled"]
 		row["ok"] = row["short"] == 0
-		var kind := ""
-		if w == 0 and b.def.hauler_slots > 0 and b.def.builder_slots == 0:
-			kind = "haulers "
-		elif w == 0 and b.def.builder_slots > 0 and b.def.hauler_slots == 0:
-			kind = "builders "
-		row["count_text"] = "%s%d/%d" % [kind, row["filled"], slots]
+		row["count_text"] = ", ".join(parts) if not parts.is_empty() else "0/0"
 		var notes: Array[String] = []
-		if slots == 0:
+		if row["slots"] == 0:
 			notes.append("no workers needed")
 		if b.paused:
 			notes.append("paused")

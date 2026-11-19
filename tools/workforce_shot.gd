@@ -20,11 +20,17 @@ func _init() -> void:
 	s.place_building_instant("storehouse", Vector2i(h.x + 10, h.y + 1))
 	var wc := s.place_building_instant("woodcutter", Vector2i(h.x + 5, h.y + 1))
 	s.place_building_instant("woodcutter", Vector2i(h.x + 13, h.y + 1))
-	s.place_building("storehouse", Vector2i(h.x + 16, h.y - 3))
+	s.place_building("storehouse", Vector2i(h.x + 16, h.y - 3))  # a construction site
+	s.place_building("forager", Vector2i(h.x + 8, h.y + 4))
+	s.place_building_instant("fishing_dock", Vector2i(h.x + 12, h.y + 4))  # food, may stay short of workers
+	var q := s.place_building_instant("quarry", Vector2i(h.x + 15, h.y + 4))
+	s.place_building_instant("well", Vector2i(h.x + 18, h.y - 3))
 	s.hearth.inventory.add("food", 300.0)
 	for i in 5 * 24:
 		s.step_hours(1)
 	s.set_building_priority(wc, "paused")
+	if q >= 0:
+		s.set_building_priority(q, "paused")
 	var hud: Hud = main.get_node("Hud")
 	hud.workforce_page.open()
 	for i in 6:

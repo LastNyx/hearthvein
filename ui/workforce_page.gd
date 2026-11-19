@@ -6,8 +6,8 @@ extends PanelContainer
 ## the buttons call Settlement.set_building_priority.
 
 const SIZE := Vector2(900, 560)
-const COL_NAME := 270
-const COL_COUNT := 130
+const COL_NAME := 230
+const COL_COUNT := 170
 const COL_PRIO := 200
 const COL_PAUSE := 76
 
@@ -22,7 +22,7 @@ var _key := ""
 func setup(h: Hud, m: HudModel) -> void:
 	hud = h
 	model = m
-	add_theme_stylebox_override("panel", hud._style())
+	add_theme_stylebox_override("panel", hud._style(Color(0.094, 0.078, 0.071, 1.0)))
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	custom_minimum_size = SIZE
 	visible = false
@@ -121,17 +121,36 @@ func _add_row(row: Dictionary) -> void:
 	if row["has_jobs"]:
 		var id: int = row["id"]
 		for p in ["low", "normal", "high"]:
-			var b := hud._button(prio, HudModel.PRIORITY_LABELS[p], 13)
+			var b := _small_button(prio, HudModel.PRIORITY_LABELS[p])
 			b.name = "Prio_" + p
 			b.pressed.connect(func() -> void: _command(id, p))
-			hud._style_button(b, row["priority"] == p and not row["paused"])
-		var pb := hud._button(prio, "Resume" if row["paused"] else "Pause", 13)
+			_lit(b, row["priority"] == p and not row["paused"])
+		var pb := _small_button(prio, "Resume" if row["paused"] else "Pause")
 		pb.name = "Pause"
 		pb.pressed.connect(func() -> void: _command(id, row["priority"] if row["paused"] else "paused"))
-		hud._style_button(pb, row["paused"])
+		_lit(pb, row["paused"])
 	var nl := _cell(h, row["note"], 0, Hud.RED if (not row["ok"] and not row["paused"]) else Hud.DIM)
 	if row["note"].ends_with("Dimming"):
 		nl.add_theme_color_override("font_color", Hud.GOLD)
+
+
+## A compact button (about 22 px tall) so rows with and without buttons are the same height.
+func _small_button(parent: Node, text: String) -> Button:
+	var b := hud._button(parent, text, 13)
+	b.custom_minimum_size = Vector2(0, 22)
+	_lit(b, false)
+	return b
+
+
+## Lit like the selection panel's buttons, with thin margins to stay compact.
+func _lit(b: Button, on: bool) -> void:
+	hud._style_button(b, on)
+	for st in ["normal", "hover", "pressed"]:
+		var sb := b.get_theme_stylebox(st) as StyleBoxFlat
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
 
 
 func _command(id: int, priority: String) -> void:

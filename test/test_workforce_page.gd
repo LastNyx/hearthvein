@@ -115,10 +115,18 @@ func test_job_less_rows_have_no_buttons() -> void:
 	var hud: Hud = main.get_node("Hud")
 	var s: Settlement = main.settlement
 	var tent := s.place_building_instant("tent", _free_spot(s, "tent", 4))
+	var h := s.map.hearth_spot
+	for x in range(h.x + 2, h.x + 16):
+		for y in range(h.y - 5, h.y + 4):
+			if s.map.terrain_id_at(x, y) == "forest":
+				s.set_terrain(Vector2i(x, y), "grass")
+	var well := s.place_building_instant("park", Vector2i(h.x + 12, h.y - 4))
 	var wc := s.place_building_instant("woodcutter", _free_spot(s, "woodcutter", 8))
-	assert_false(_row(main.hud_model, tent)["has_jobs"])
+	assert_true(tent >= 0 and well >= 0)
+	assert_eq(_row(main.hud_model, tent), {}, "houses have no row")
+	assert_false(_row(main.hud_model, well)["has_jobs"])
 	hud.workforce_page.open()
-	var row := hud.workforce_page.row_node(tent)
+	var row := hud.workforce_page.row_node(well)
 	assert_not_null(row, "the row is there")
 	assert_null(row.find_child("Prio_low", true, false))
 	assert_null(row.find_child("Pause", true, false))
@@ -137,3 +145,31 @@ func test_q_toggles_and_esc_closes() -> void:
 	assert_true(hud.has_cancelable(), "Esc belongs to the page, not the menu")
 	_key(hud, KEY_ESCAPE)
 	assert_false(hud.workforce_page.visible)
+
+
+func test_header_matches_rows_and_people_tooltip() -> void:
+	var main: Node = await _game()
+	var s: Settlement = main.settlement
+	var m: HudModel = main.hud_model
+	var h := s.map.hearth_spot
+	for x in range(h.x + 2, h.x + 16):
+		for y in range(h.y - 4, h.y + 4):
+			if s.map.terrain_id_at(x, y) == "forest":
+				s.set_terrain(Vector2i(x, y), "grass")
+		s.place_road(Vector2i(x, h.y))
+	s.place_building_instant("woodcutter", Vector2i(h.x + 5, h.y + 1))
+	s.place_building_instant("woodcutter", Vector2i(h.x + 9, h.y + 1))
+	s.hearth.inventory.add("food", 300.0)
+	for i in 3 * 24:
+		s.step_hours(1)
+	var wf := m.workforce()
+	var work := 0
+	for g: Dictionary in wf["groups"]:
+		for r: Dictionary in g["rows"]:
+			if not r["site"]:
+				work += int(r["work"])
+	assert_gt(work, 0, "somebody works")
+	assert_eq(wf["header"]["workers"], work, "header workers = filled worker slots over the rows")
+	var rx := RegEx.create_from_string("(\\d+) idle")
+	var hit := rx.search(m.people_text())
+	assert_eq(wf["header"]["idle"], int(hit.get_string(1)) if hit != null else 0, "idle matches the people tooltip")
