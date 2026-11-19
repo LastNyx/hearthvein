@@ -276,7 +276,7 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Cottage | 1x1 | 10W 5St | - | - | houses 4 |
 | Farm | 2x2 | 21W 9St | 3 | - | +2 food x fertility; x1.25 wet |
 | Fishing Dock | 1x1, shore | 14W 6St | 2 | - | +1.5 food; x0.5 fouled |
-| Quarry | 1x1, rock | 25W | 2 | - | +1.5 M |
+| Quarry | 1x1, rock | 25W | 2 | - | +12 St |
 | Market | 2x2 | 40W | 2 | - | +1 G; food variety needs a Market in reach of homes |
 | Shrine | 1x1 | 12W 18St 5L | - | - | Spirit coverage r6 |
 | Sawmill | 2x1 | 14W 21St | 2 | - | 6 W -> 3 P, 3/worker/day |
