@@ -1,0 +1,63 @@
+{
+ "url": "https://api.github.com/repos/LastNyx/hearthvein/releases/450842913",
+ "assets_url": "https://api.github.com/repos/LastNyx/hearthvein/releases/450842913/assets",
+ "upload_url": "https://uploads.github.com/repos/LastNyx/hearthvein/releases/450842913/assets{?name,label}",
+ "html_url": "https://github.com/LastNyx/hearthvein/releases/tag/v1.1.2",
+ "id": 450842913,
+ "tag_name": "v1.1.2",
+ "target_commitish": "main",
+ "name": "Hearthvein 1.1.2",
+ "draft": false,
+ "immutable": false,
+ "prerelease": false,
+ "created_at": "2026-11-19T03:29:28Z",
+ "updated_at": "2026-11-19T03:30:47Z",
+ "published_at": "2026-11-19T03:30:41Z",
+ "assets": [
+  {
+   "url": "https://api.github.com/repos/LastNyx/hearthvein/releases/assets/766058678",
+   "id": 766058678,
+   "name": "Hearthvein-1.1.2-linux-x86_64.tar.gz",
+   "label": "",
+   "content_type": "application/x-gtar",
+   "state": "uploaded",
+   "size": 30295677,
+   "digest": "sha256:3a6e979196bab6383c29027584cd70bb335ffb890c7cbea8ab4601e6e8637ff0",
+   "download_count": 0,
+   "created_at": "2026-11-19T03:29:34Z",
+   "updated_at": "2026-11-19T03:30:40Z",
+   "browser_download_url": "https://github.com/LastNyx/hearthvein/releases/download/v1.1.2/Hearthvein-1.1.2-linux-x86_64.tar.gz"
+  },
+  {
+   "url": "https://api.github.com/repos/LastNyx/hearthvein/releases/assets/766058679",
+   "id": 766058679,
+   "name": "Hearthvein-1.1.2-setup.exe",
+   "label": "",
+   "content_type": "application/octet-stream",
+   "state": "uploaded",
+   "size": 28854277,
+   "digest": "sha256:568df3de896c00f4e208bbfcce98189b1f55cd938e009e55afd7083066f9ef7d",
+   "download_count": 0,
+   "created_at": "2026-11-19T03:29:34Z",
+   "updated_at": "2026-11-19T03:30:39Z",
+   "browser_download_url": "https://github.com/LastNyx/hearthvein/releases/download/v1.1.2/Hearthvein-1.1.2-setup.exe"
+  },
+  {
+   "url": "https://api.github.com/repos/LastNyx/hearthvein/releases/assets/766058677",
+   "id": 766058677,
+   "name": "Hearthvein-1.1.2-x86_64.AppImage",
+   "label": "",
+   "content_type": "application/vnd.appimage",
+   "state": "uploaded",
+   "size": 28355064,
+   "digest": "sha256:19b90ccd05383082d56b9e51789fd04d9cdb11b53764389fd75545b9570d7114",
+   "download_count": 0,
+   "created_at": "2026-11-19T03:29:34Z",
+   "updated_at": "2026-11-19T03:30:38Z",
+   "browser_download_url": "https://github.com/LastNyx/hearthvein/releases/download/v1.1.2/Hearthvein-1.1.2-x86_64.AppImage"
+  }
+ ],
+ "tarball_url": "https://api.github.com/repos/LastNyx/hearthvein/tarball/v1.1.2",
+ "zipball_url": "https://api.github.com/repos/LastNyx/hearthvein/zipball/v1.1.2",
+ "body": "### Added\n- Tools tab in the bottom-left corner: pause and 1x / 2x / 3x speed (the current speed is always shown, even when\n  the tab is collapsed), Demolish, Upgrade, Region map and Help.\n- Bridges. Drag a road across the river to build a bridge (5 Materials per water tile); pave it for a stone\n  bridge. Track can cross water too, at three times the track cost.\n- Moving water and chimney smoke: rivers and lakes shimmer, and chimneys puff smoke while the building is\n  working.\n- What's new on the title screen: this list in the game, opened once by itself after an update. The\n  version number shows in the corner of the title screen.\n\n### Changed\n- Faster early game: producers make more, construction is quicker, the growth bar fills sooner and immigrants\n  arrive from Spirit 50.\n- Markets pay 1.5 gold per worker a day (was 4), so gold matters again at the Town and City gates.\n- Immigration starts at Spirit 40 (was 50) and brings a newcomer every day (was every two days), so a busy\n  City keeps growing.\n- Smoother play in big settlements: a 600-citizen town now costs about a fifth of the frame time it did, the work\n  at the end of each in-game hour is spread over several frames, and the autosave at each season start is written\n  in the background.\n\n### Fixed\n- Hauling no longer starves: a fifth of the citizens always haul, so food and goods leave full doors.\n- Builders live at their builders' yard and take the nearest site; a site no yard can reach in a work day says\n  \"too far from a builders' yard\".\n- There was no way to cross the river, so half the map was out of reach on foot.\n\n### Downloads\n- Windows: Hearthvein-1.1.2-setup.exe\n- Linux: Hearthvein-1.1.2-x86_64.AppImage (chmod +x, then run it), or the tar.gz\n\nFull history: [CHANGELOG.md](https://github.com/LastNyx/hearthvein/blob/main/CHANGELOG.md)\n"
+}

@@ -24,6 +24,11 @@ var mute_in_background: bool = true
 var tools_open: bool = true
 ## The version the What's new panel was last offered for (ticket 92); empty before the first launch.
 var last_seen_version: String = ""
+## Auto-update (ticket 94): ask GitHub for a newer release on launch, when it last asked (unix time), and the version the
+## player chose to skip.
+var check_updates: bool = true
+var update_last_check: int = 0
+var update_skipped_version: String = ""
 
 
 func to_dict() -> Dictionary:
@@ -33,6 +38,8 @@ func to_dict() -> Dictionary:
 		"volume_master": volume_master, "volume_effects": volume_effects, "volume_ambience": volume_ambience,
 		"mute_in_background": mute_in_background, "tools_open": tools_open,
 		"last_seen_version": last_seen_version,
+		"check_updates": check_updates, "update_last_check": update_last_check,
+		"update_skipped_version": update_skipped_version,
 	}
 
 
@@ -46,6 +53,11 @@ func load_file() -> void:
 	tutorial_first_run_done = _bool(cf, "tutorial_first_run_done", tutorial_first_run_done)
 	mute_in_background = _bool(cf, "mute_in_background", mute_in_background)
 	tools_open = _bool(cf, "tools_open", tools_open)
+	check_updates = _bool(cf, "check_updates", check_updates)
+	var ulc: Variant = cf.get_value(SECTION, "update_last_check", 0)
+	update_last_check = int(ulc) if ulc is int or ulc is float else 0
+	var usv: Variant = cf.get_value(SECTION, "update_skipped_version", "")
+	update_skipped_version = usv if usv is String else ""
 	volume_master = _vol(cf, "volume_master", volume_master)
 	volume_effects = _vol(cf, "volume_effects", volume_effects)
 	volume_ambience = _vol(cf, "volume_ambience", volume_ambience)
