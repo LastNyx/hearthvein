@@ -72,7 +72,7 @@ const TAX_OFFICES_MAX := 3
 const TAX_BUILD_BELOW := 0.9
 const TAX_DROP_AT := 1.25
 ## Days a site may stay too far from every yard before the bot takes it back (102).
-const FAR_SITE_DAYS := 10
+const FAR_SITE_DAYS := 5
 ## Longest one-way walk (game hours) from a yard to a site before the bot builds a yard closer to it (102).
 const YARD_WALK_MAX := 1.5
 const SEARCH_RADIUS := 26
