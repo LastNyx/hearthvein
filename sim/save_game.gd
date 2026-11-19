@@ -7,7 +7,7 @@ extends RefCounted
 ## A file older than CURRENT_VERSION is upgraded by MIGRATIONS, one step per version and in order (see
 ## migrate_chain). A file from a newer build, or one that fails _validate, is refused: load returns null.
 
-const CURRENT_VERSION := 4
+const CURRENT_VERSION := 5
 
 ## Migration steps: source version -> Callable(state: Dictionary) -> Dictionary of the next version.
 ## The chain is run by version number, so the dictionary order does not matter. To add a version: write the step,
@@ -19,6 +19,7 @@ static var MIGRATIONS: Dictionary = {
 	1: migrate_v1_to_v2,
 	2: migrate_v2_to_v3,
 	3: migrate_v3_to_v4,
+	4: migrate_v4_to_v5,
 }
 
 ## Keys Settlement.from_dict reads from a state dictionary.
@@ -198,6 +199,15 @@ static func migrate_v3_to_v4(state: Variant) -> Variant:
 		push_error("SaveGame migration 3 -> 4: state is not a dictionary")
 		return null
 	_split_materials(state)
+	return state
+
+
+## v4 -> v5 (ticket 109): the resource ledger joined the systems. A save from before it has no "ledger" section and
+## loads with an empty ledger (no counters, no history): there is nothing to convert.
+static func migrate_v4_to_v5(state: Variant) -> Variant:
+	if typeof(state) != TYPE_DICTIONARY:
+		push_error("SaveGame migration 4 -> 5: state is not a dictionary")
+		return null
 	return state
 
 

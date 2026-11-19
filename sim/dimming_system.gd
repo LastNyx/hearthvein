@@ -252,12 +252,14 @@ func _light(s: Settlement) -> void:
 			var took := b.inventory.remove("lumen", need)
 			need -= took
 			lumen += took
+			ResourceLedgerSystem.record_used(s, "lumen", took, "light")
 		for b in stores:
 			if need <= Inventory.EPS:
 				break
 			var took := b.inventory.remove("lumen_cells", need / pd.lumen_per_cell)
 			need -= took * pd.lumen_per_cell
 			cells += took
+			ResourceLedgerSystem.record_used(s, "lumen_cells", took, "light")
 		if need > Inventory.EPS:
 			short += need
 	var reservoir := 0.0

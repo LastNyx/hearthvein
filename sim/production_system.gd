@@ -200,12 +200,14 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	f *= minf(1.0, b.door_buffer.free_for(first_out) / out_total)  # never overfill the buffer
 	_set_halt(s, b, "")
 	for g in recipe.inputs:
-		b.input_buffer.remove(g, float(recipe.inputs[g]) * f)
+		ResourceLedgerSystem.record_used(s, g, b.input_buffer.remove(g, float(recipe.inputs[g]) * f), "production")
 	for g in flex:
-		b.input_buffer.remove(g, float(recipe.any_input_amount) * f)
+		ResourceLedgerSystem.record_used(s, g, b.input_buffer.remove(g, float(recipe.any_input_amount) * f), "production")
 	var made := 0.0
 	for g in recipe.outputs:
-		made += b.door_buffer.add(g, float(recipe.outputs[g]) * f)
+		var put := b.door_buffer.add(g, float(recipe.outputs[g]) * f)
+		made += put
+		ResourceLedgerSystem.record_made(s, g, put, b.def.id)
 	produced_total += made
 	if b.def.fells_forest:
 		_fell(s, b, made)

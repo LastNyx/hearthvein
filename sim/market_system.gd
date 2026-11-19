@@ -40,7 +40,9 @@ func on_day(s: Settlement) -> void:
 			continue
 		# Gold is not a recipe output, so the Lumen-upkeep factor is applied here (neither a Market nor a Tax
 		# Office has upkeep in data, but a gold building with one would run at x0.5 while unpaid).
-		s.gold += made * UpkeepSystem.output_modifier(s, b)
+		var paid := made * UpkeepSystem.output_modifier(s, b)
+		s.gold += paid
+		ResourceLedgerSystem.record_made(s, BuildingDef.GOLD, paid, b.def.id)
 
 
 ## Building id -> number of citizens the JobSystem assigned to it as workers (assigned JOB_WORK, whether or not they

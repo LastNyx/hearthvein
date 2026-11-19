@@ -527,6 +527,8 @@ func _advance(s: Settlement, ws: WalkerSystem, t: Trip, in_shift: bool) -> bool:
 	var inv: Inventory = dst.upgrade_buffer if t.dst_upgrade else (dst.input_buffer if t.dst_input else dst.inventory)
 	_reserve(_dst_kind(t), t.dst, t.good, -t.planned)
 	var put := inv.add(t.good, t.carried) if inv != null else 0.0
+	if dst.site or t.dst_upgrade:  # goods built into a site or an upgrade are used, not moved
+		ResourceLedgerSystem.record_used(s, t.good, put, "construction")
 	s.events.emit("haul_delivered", {"hauler": cid, "good": t.good, "amount": put, "from": t.src, "to": t.dst})
 	t.carried -= put
 	if (dst.site and dst.site_delivered()) or (dst.upgrading() and dst.upgrade_delivered()):

@@ -145,6 +145,9 @@ func roads_for_layer(layer: int) -> PackedByteArray:
 func add_default_systems() -> void:
 	add_system(EraSystem.new())
 	add_system(StorageSystem.new())
+	var ledger := ResourceLedgerSystem.new()  # made/used per good per day (ticket 109); rolls on day_started
+	add_system(ledger)
+	events.subscribe("day_started", ledger.on_day_started.bind(self))
 	add_system(GridSystem.new())  # Lumen grid membership cache (ticket 36); no hooks, queried by Upkeep, Production, Hauling
 	add_system(IslandSystem.new())  # sky island list (ticket 40) and the hourly island Lumen draw and still state (40b); after GridSystem
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
@@ -689,6 +692,7 @@ func place_building(def_id: String, origin: Vector2i, layer: int = Building.LAYE
 	if g > gold + Inventory.EPS:
 		return -1
 	gold -= g
+	ResourceLedgerSystem.record_used(self, BuildingDef.GOLD, g, "placement")
 	if free:
 		free_anchor_used = true
 	var b := _insert_building(def, origin, true, layer, free)
@@ -772,8 +776,10 @@ func _open_stage(b: Building) -> void:
 ## (only the first stage is), so the stage waits for it like it waits for hauled goods.
 func pay_stage_gold(b: Building) -> void:
 	if b.gold_due > 0 and gold >= float(b.gold_due) - Inventory.EPS:
-		gold -= float(b.gold_due)
+		var due := float(b.gold_due)
+		gold -= due
 		b.gold_due = 0
+		ResourceLedgerSystem.record_used(self, BuildingDef.GOLD, due, "placement")
 
 
 func _init_buffers(b: Building) -> void:

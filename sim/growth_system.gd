@@ -119,6 +119,7 @@ func on_day(settlement: Settlement) -> void:
 				var took := st.inventory.remove(g, need)
 				need -= took
 				report["eaten"] += took
+				ResourceLedgerSystem.record_used(s, g, took, "eaten")
 				if took > Inventory.EPS:
 					types[food_type_of(s.registry, g)] = true
 			if _food_in(st, goods) <= Inventory.EPS:  # empty store: leave the list so nobody scans it again
