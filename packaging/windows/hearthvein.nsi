@@ -3,7 +3,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.1.1"
+  !define VERSION "1.1.2"
 !endif
 !ifndef SRC_DIR
   !define SRC_DIR "..\..\build\windows"

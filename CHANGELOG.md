@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.2 - 2026-11-19
 
 ### Added
 - Tools tab in the bottom-left corner: pause and 1x / 2x / 3x speed (the current speed is always shown, even when
