@@ -184,6 +184,8 @@ func _fixture() -> Settlement:
 	s.set_terrain(Vector2i(h.x + 5, h.y + 2), "forest")  # marked for clearing (ticket 100): the compare covers the marks
 	s.set_terrain(Vector2i(h.x + 12, h.y + 2), "rock")
 	assert_true(s.mark_clear(Vector2i(h.x + 5, h.y + 2)) and s.mark_clear(Vector2i(h.x + 12, h.y + 2)), "tiles marked")
+	s.set_terrain(Vector2i(h.x + 6, h.y + 3), "grass")  # marked for planting (ticket 101)
+	assert_true(s.mark_plant(Vector2i(h.x + 6, h.y + 3)), "tile marked for planting")
 	assert_true(s.place_building("tent", Vector2i(h.x + 9, h.y - 1)) >= 0, "tent site placed")
 	assert_true(s.place_building("meeting_hall", Vector2i(h.x + 11, h.y - 2)) >= 0, "hall site placed")
 	s.hearth.inventory.add("wood", 200.0)  # the hall alone takes 60; enough for all three sites

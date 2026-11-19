@@ -1677,6 +1677,8 @@ func can_mark_clear(tile: Vector2i) -> Dictionary:
 	var tdef := registry.get_terrain(map.terrain_id_at(tile.x, tile.y))
 	if tdef == null or tdef.clear_hours <= 0.0:
 		return {"ok": false, "reason": "not_clearable"}
+	if is_plant_marked(tile):
+		return {"ok": false, "reason": "plant_marked"}  # a tile carries one mark at most
 	if is_clear_marked(tile):
 		return {"ok": false, "reason": "marked"}
 	return {"ok": true, "reason": ""}
@@ -1718,6 +1720,75 @@ func clear_marked_tiles() -> Array[Vector2i]:
 	if cs == null:
 		return out
 	var idxs: Array = cs.clear_marks.keys()
+	idxs.sort()
+	for i: int in idxs:
+		out.append(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
+	return out
+
+
+# ---------------------------------------------------------------- plant marks (ticket 101)
+
+## Why a tile cannot be marked for planting: {"ok": bool, "reason": String}. Marks go on plain grass of owned regions
+## with no blight and no building, road, channel or track; a tile with a clear mark is refused (not possible on grass,
+## but the rule is the spec's); no cost.
+func can_mark_plant(tile: Vector2i) -> Dictionary:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return {"ok": false, "reason": "out_of_bounds"}
+	if not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return {"ok": false, "reason": "locked_region"}
+	var i := MapState.idx(tile.x, tile.y)
+	if occupancy[i] >= 0:
+		return {"ok": false, "reason": "overlap"}
+	if roads[i] != ROAD_NONE or channels[i] != CHANNEL_NONE or track[i] != 0:
+		return {"ok": false, "reason": "road"}
+	if is_clear_marked(tile):
+		return {"ok": false, "reason": "clear_marked"}
+	if map.terrain_id_at(tile.x, tile.y) != "grass":
+		return {"ok": false, "reason": "not_plantable"}
+	if map.blight[i] != 0:
+		return {"ok": false, "reason": "blighted"}
+	if is_plant_marked(tile):
+		return {"ok": false, "reason": "marked"}
+	return {"ok": true, "reason": ""}
+
+
+## Command: mark a tile for Foresters to plant. False (nothing changes) when can_mark_plant refuses.
+func mark_plant(tile: Vector2i) -> bool:
+	var fs := get_system(ForestSystem) as ForestSystem
+	if fs == null or not can_mark_plant(tile)["ok"]:
+		return false
+	fs.plant_marks[MapState.idx(tile.x, tile.y)] = true
+	events.emit("plant_marks_changed", {"tile": tile, "marked": true, "planted": false})
+	return true
+
+
+## Command: take the plant mark off a tile. False when it was not marked.
+func unmark_plant(tile: Vector2i) -> bool:
+	var fs := get_system(ForestSystem) as ForestSystem
+	if fs == null or not is_plant_marked(tile):
+		return false
+	fs.plant_marks.erase(MapState.idx(tile.x, tile.y))
+	events.emit("plant_marks_changed", {"tile": tile, "marked": false, "planted": false})
+	return true
+
+
+func is_plant_marked(tile: Vector2i) -> bool:
+	var fs := get_system(ForestSystem) as ForestSystem
+	return fs != null and MapState.in_bounds(tile.x, tile.y) and fs.plant_marks.has(MapState.idx(tile.x, tile.y))
+
+
+## True when a plant-marked tile lies outside every Forester's radius (the "no Forester reaches it" hint).
+func plant_mark_unreached(tile: Vector2i) -> bool:
+	return is_plant_marked(tile) and not ForestSystem.reached(self, tile)
+
+
+## Every plant-marked tile, in tile index order.
+func plant_marked_tiles() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var fs := get_system(ForestSystem) as ForestSystem
+	if fs == null:
+		return out
+	var idxs: Array = fs.plant_marks.keys()
 	idxs.sort()
 	for i: int in idxs:
 		out.append(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
