@@ -71,6 +71,8 @@ const TAX_OFFICES_MAX := 3
 ## Tax Offices are built below this many times the next gate's gold and pulled down above TAX_DROP_AT times it.
 const TAX_BUILD_BELOW := 0.9
 const TAX_DROP_AT := 1.25
+## Days a site may stay too far from every yard before the bot takes it back (102).
+const FAR_SITE_DAYS := 10
 ## Longest one-way walk (game hours) from a yard to a site before the bot builds a yard closer to it (102).
 const YARD_WALK_MAX := 1.5
 const SEARCH_RADIUS := 26
@@ -428,6 +430,10 @@ func _dump_map() -> void:
 func _on_built(entry: Dictionary) -> void:
 	var data: Dictionary = entry["data"]
 	var id := int(data.get("id", -1))
+	if _placed_hour.has(id) and s.buildings.has(id) and LANDMARKS.values().has(s.buildings[id].def.id):
+		var dh: int = int(_m_deliv.get(id, -1))
+		print("  landmark %s: placed to delivered %s h, delivered to built %s h" % [s.buildings[id].def.id,
+			(str(dh - int(_placed_hour[id])) if dh >= 0 else "?"), (str(s.clock.total_hours - dh) if dh >= 0 else "?")])
 	if _placed_hour.has(id) and s.buildings.has(id):
 		var took := s.clock.total_hours - int(_placed_hour[id])
 		if s.buildings[id].def.size == Vector2i(1, 1):
@@ -473,6 +479,20 @@ func _report(stalled: bool, secs: float) -> void:
 		_refresh_stock()
 		var lm := _landmark_id()
 		print("  landmark ", lm, " cost ", s.registry.get_building(lm).entry_cost(), " stock ", _stock, " count ", _count(lm), " reserve ", _reserve())
+		var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+		var rows: Array[String] = []
+		for b: Building in s.buildings.values():
+			if b.site:
+				var crew := 0
+				for cid in cs.crews:
+					if cs.crews[cid] == b.id:
+						crew += 1
+				rows.append("%s#%d %.0f%% %s walk %.1fh crew %d%s" % [b.def.id, b.id, 100.0 * b.build_progress(), ("delivered" if b.site_delivered() else "waiting"), _walk_hours(b), crew, (" " + b.halt if b.halt != "" else "")])
+		print("  open sites: ", "; ".join(rows))
+		var kinds := {}
+		for c: Citizen in s.citizens.values():
+			kinds[c.job_kind] = int(kinds.get(c.job_kind, 0)) + 1
+		print("  citizens by job kind: ", kinds, ", yards ", _count("builders_yard"), ", builder slots wanted ", ConstructionSystem.builders_wanted(s))
 		print("STALL: no progress for ", _stall_years, " years at ", _stamp(), ", era ", s.era_id())
 		if g["next"] == "":
 			print("  last era: the Skyheart is not finished (", _skyheart_state(), ")")
@@ -742,6 +762,8 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 		_refresh_stock()
 		_placed_day[bid] = s.clock.total_days()
 		_placed_hour[bid] = s.clock.total_hours
+		if id == "builders_yard" or LANDMARKS.values().has(id):
+			s.set_building_priority(bid, "high")  # a player raises the era's landmark and the yards that serve the work
 		if _verbose:
 			print("   d%d place %s pop %d idle %d jobs_free %d" % [s.clock.total_days(), id, s.citizens.size(), s.idle_citizens().size(), _jobs_free()])
 		return b
@@ -1267,6 +1289,10 @@ func _yard_reachable(site: Building) -> bool:
 func _cancel_stale_yards() -> void:
 	for b: Building in s.buildings.values().duplicate():
 		if b.site and b.def.id == "builders_yard" and b.halt == "too_far" and s.clock.total_days() - int(_placed_day.get(b.id, s.clock.total_days())) > 25:
+			s.demolish(b.id)
+		# any other site no yard reaches holds a crew of builders walking all day: a player takes it back after a while (102)
+		elif b.site and b.def.id != "builders_yard" and not LANDMARKS.values().has(b.def.id) and b.halt == "too_far" \
+				and s.clock.total_days() - int(_placed_day.get(b.id, s.clock.total_days())) > FAR_SITE_DAYS:
 			s.demolish(b.id)
 
 
