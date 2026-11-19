@@ -766,7 +766,7 @@ func _act() -> void:
 		_place("storehouse", _hearth_near(), 14)
 	if _opening(pop) and s.homeless_count() == 0:
 		return
-	if _open_sites() < site_cap + 2:
+	if _open_sites() < site_cap + 2 or (s.beds_total() <= pop + 2 and s.registry.get_era(s.era_current).order >= CITY_ORDER):  # stuck far sites must not hold housing back (growth stalled at full beds)
 		_housing(pop, reserve)
 	if saving:
 		if _slots_for("gold") < 2:
