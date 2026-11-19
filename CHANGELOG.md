@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.4 - 2026-11-19
 
 ### Added
 - Upgrade is a tool like Demolish: switch it on (U) and click buildings to upgrade them one after another; hovering
