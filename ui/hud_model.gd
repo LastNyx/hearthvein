@@ -5,12 +5,12 @@ extends RefCounted
 ## priority and pause the selected-building panel offers.
 
 const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage", "grid"]
-const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "materials", "lumen", "refining", "gold",
+const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "resources", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
-const RESOURCES: Array[String] = ["food", "materials", "lumen", "gold"]
+const RESOURCES: Array[String] = ["food", "wood", "stone", "lumen", "gold"]
 const REWARD_LABELS := {"rich_vein": "Rich vein", "ruins": "Ruins", "fertile_valley": "Fertile valley",
 		"old_forest": "Old forest", "spring": "Spring"}
-const COST_ORDER: Array[String] = ["materials", "planks", "cut_stone", "tools", "lumen_cells"]
+const COST_ORDER: Array[String] = ["wood", "stone", "planks", "cut_stone", "tools", "lumen_cells"]
 const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 
 var s: Settlement
@@ -21,7 +21,7 @@ var overlays := {"blight": false, "roads": false, "water": false, "coverage": fa
 ## and the render (MapView.set_active_layer, via layer_changed) read. Tab toggles it; sky only while an island exists.
 var active_layer: int = Building.LAYER_GROUND
 signal layer_changed(layer: int)
-var _deltas := {"food": 0, "materials": 0, "lumen": 0, "gold": 0}
+var _deltas := {"food": 0, "wood": 0, "stone": 0, "lumen": 0, "gold": 0}
 var _mark: Dictionary = {}
 
 
@@ -49,12 +49,12 @@ func _stock() -> Dictionary:
 	var gs := s.get_system(GridSystem) as GridSystem
 	if gs != null:
 		lumen += gs.total_charge()  # battery charge is Lumen the player owns, even though it is not in storage
-	return {"food": food, "materials": float(t.get("materials", 0.0)), "lumen": lumen, "gold": s.gold}
+	return {"food": food, "wood": float(t.get("wood", 0.0)), "stone": float(t.get("stone", 0.0)), "lumen": lumen, "gold": s.gold}
 
 
 # ---------------------------------------------------------------- top bar
 
-## [{id, icon, value, delta, text}] for food, materials, lumen, gold. delta = change over the last full day.
+## [{id, icon, value, delta, text}] for food, wood, stone, lumen, gold. delta = change over the last full day.
 func resources() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var now := _stock()
@@ -253,7 +253,7 @@ func _blight_near(b: Building) -> int:
 	return n
 
 
-## "Makes: Materials" (the real good names of the recipe outputs), "" for buildings without a recipe.
+## "Makes: Wood" (the real good names of the recipe outputs), "" for buildings without a recipe.
 func _makes_line(b: Building) -> String:
 	if b.def.recipe == null or b.def.recipe.outputs.is_empty():
 		return ""
@@ -408,7 +408,7 @@ func upgrade_reason_text(reason: String, next_tier: int = 0) -> String:
 	return UPGRADE_REASONS.get(reason, reason.capitalize().replace("_", " "))
 
 
-## "3 Planks, 2 Cut Stone": real good names, materials first then by id.
+## "3 Planks, 2 Cut Stone": real good names, wood and stone first then by id.
 func goods_cost_text(cost: Dictionary) -> String:
 	var ids: Array = cost.keys()
 	ids.sort_custom(func(a: String, c: String) -> bool:
@@ -422,7 +422,7 @@ func goods_cost_text(cost: Dictionary) -> String:
 	return ", ".join(parts)
 
 
-## Upgrade part of the panel: tier, next_tier (0 = none), next_name, next_cost (text, materials first), can_upgrade,
+## Upgrade part of the panel: tier, next_tier (0 = none), next_name, next_cost (text, wood and stone first), can_upgrade,
 ## upgrade_reason (text), upgrading, upgrade_progress, show_upgrade (whether the panel offers the button).
 func upgrade_info(b: Building) -> Dictionary:
 	var info := {"tier": b.tier, "next_tier": 0, "next_name": "", "next_cost": "", "can_upgrade": false,
@@ -474,7 +474,7 @@ func _good_name(g: String) -> String:
 	return gd.display_name if gd != null else g
 
 
-## "6 Materials, 2 Lumen" from a recipe side (good id -> float, per worker per day).
+## "6 Wood, 2 Lumen" from a recipe side (good id -> float, per worker per day).
 func _amounts_text(d: Dictionary) -> String:
 	var parts: Array[String] = []
 	for g in d:
@@ -630,39 +630,43 @@ func channel_help_text() -> String:
 	return s.registry.water.channel_help() if s.registry.water != null else ""
 
 
-## "1 Materials" per channel tile, from WaterDef.
+## "1 Stone" per channel tile, from WaterDef.
 func channel_cost_text() -> String:
-	var c := s.registry.water.channel_cost_materials if s.registry.water != null else 0.0
-	return goods_cost_text({"materials": roundi(c)}) if c > 0.0 else ""
+	var c := s.registry.water.channel_cost_stone if s.registry.water != null else 0.0
+	return goods_cost_text({"stone": roundi(c)}) if c > 0.0 else ""
 
 
-## "2 Materials, 1 Cut stone" per track tile, from LogisticsDef.
+## "1 Wood, 1 Stone, 1 Cut stone" per track tile, from LogisticsDef.
 func track_cost_text() -> String:
 	var lg := s.registry.logistics
 	if lg == null:
 		return ""
 	var c := {}
-	if lg.track_cost_materials > 0.0:
-		c["materials"] = lg.track_cost_materials
+	if lg.track_cost_wood > 0.0:
+		c["wood"] = lg.track_cost_wood
+	if lg.track_cost_stone > 0.0:
+		c["stone"] = lg.track_cost_stone
 	if lg.track_cost_cut_stone > 0.0:
 		c["cut_stone"] = lg.track_cost_cut_stone
 	return goods_cost_text(c)
 
 
-## "5 Materials" extra for one water tile of road at `level` (a bridge), "" when the road has no bridge cost.
+## "5 Wood" extra for one water tile of road at `level` (a bridge), "" when the road has no bridge cost.
 func bridge_cost_text(level: int) -> String:
 	var rd := s.registry.get_road_by_level(level)
 	return goods_cost_text(rd.bridge_cost) if rd != null and not rd.bridge_cost.is_empty() else ""
 
 
-## "6 Materials, 3 Cut stone" for one rail bridge tile (track on water).
+## "3 Wood, 3 Stone, 3 Cut stone" for one rail bridge tile (track on water).
 func track_bridge_cost_text() -> String:
 	var lg := s.registry.logistics
 	if lg == null:
 		return ""
 	var c := {}
-	if lg.track_cost_materials > 0.0:
-		c["materials"] = lg.track_cost_materials * lg.track_bridge_multiplier
+	if lg.track_cost_wood > 0.0:
+		c["wood"] = lg.track_cost_wood * lg.track_bridge_multiplier
+	if lg.track_cost_stone > 0.0:
+		c["stone"] = lg.track_cost_stone * lg.track_bridge_multiplier
 	if lg.track_cost_cut_stone > 0.0:
 		c["cut_stone"] = lg.track_cost_cut_stone * lg.track_bridge_multiplier
 	return goods_cost_text(c)
@@ -670,13 +674,13 @@ func track_bridge_cost_text() -> String:
 
 ## Player-facing reason a track tile cannot be laid.
 static func track_refusal_text(reason: String) -> String:
-	return {"materials": "Not enough materials", "cut_stone": "Not enough cut stone", "locked_region": "Region not owned",
+	return {"wood": "Not enough wood", "stone": "Not enough stone", "cut_stone": "Not enough cut stone", "locked_region": "Region not owned",
 			"water": "Cannot lay track on water", "out_of_bounds": "Off the map", "blocked_terrain": "Blocked",
 			"road": "A road is here", "overlap": "A building is here", "channel": "A channel is here",
 			"track": "Already laid"}.get(reason, "Blocked")
 
 
-## "1 Materials, 0.2 Cut Stone" for one paved tile, from the paved RoadDef (stone shown per whole tile as the data
+## "1 Wood, 0.2 Cut Stone" for one paved tile, from the paved RoadDef (stone shown per whole tile as the data
 ## states it, e.g. 0.2).
 func paved_cost_text() -> String:
 	var rd := s.registry.get_road_by_level(Settlement.ROAD_PAVED)
@@ -698,7 +702,7 @@ func paved_cost_text() -> String:
 
 ## Player-facing reason a paved tile cannot be laid ("" is never asked for).
 static func paved_refusal_text(reason: String) -> String:
-	return {"materials": "Not enough materials", "cut_stone": "Not enough cut stone", "era_locked": "Needs the Town era",
+	return {"wood": "Not enough wood", "stone": "Not enough stone", "cut_stone": "Not enough cut stone", "era_locked": "Needs the Town era",
 			"already_paved": "Already paved", "locked_region": "Region not owned", "water": "Cannot pave water",
 			"out_of_bounds": "Off the map", "blocked_terrain": "Blocked", "overlap": "A building is here",
 			"channel": "A channel is here"}.get(reason, "Blocked")
@@ -706,7 +710,7 @@ static func paved_refusal_text(reason: String) -> String:
 
 ## Player-facing reason a channel cannot be dug on a tile ("" when it can).
 static func channel_refusal_text(reason: String) -> String:
-	return {"materials": "Not enough materials", "locked_region": "Region not owned", "water": "Cannot dig in water",
+	return {"stone": "Not enough stone", "locked_region": "Region not owned", "water": "Cannot dig in water",
 			"out_of_bounds": "Off the map", "blocked_terrain": "Blocked", "road": "A road is here",
 			"overlap": "A building is here", "channel": "Already a channel"}.get(reason, "Blocked")
 

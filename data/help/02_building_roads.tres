@@ -11,7 +11,7 @@ body = "Open a category on the bottom bar (or press B), pick a building and clic
 
 The Hearth gives {building.hearth.builder_slots} builder jobs. Each Builder's Yard adds {building.builders_yard.builder_slots} more.
 
-Roads: press R, then click or drag. Dirt roads are free. Paved roads need the Town era and cost Materials and Cut stone. Citizens walk at {road.dirt.walk_speed} tiles a second on dirt, {road.paved.walk_speed} on paved, and slower on bare ground. A road dragged across the river becomes a bridge: it costs {bridge_materials} extra Materials for every water tile, and track over water costs {logistics.track_bridge_multiplier} times as much.
+Roads: press R, then click or drag. Dirt roads are free. Paved roads need the Town era and cost Wood and Cut stone. Citizens walk at {road.dirt.walk_speed} tiles a second on dirt, {road.paved.walk_speed} on paved, and slower on bare ground. A road dragged across the river becomes a bridge: it costs {bridge_wood} extra Wood for every water tile, and track over water costs {logistics.track_bridge_multiplier} times as much.
 
 Workers walk from home to work, so keep homes, jobs and Storehouses close together. A building with no road to the Hearth gets no workers.
 

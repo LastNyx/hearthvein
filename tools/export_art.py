@@ -1360,8 +1360,8 @@ FLAT = {"park"}
 # Not on a sheet: generic gable house (same generator as the cottage), tinted by category. id: (category, fw, fh).
 GENERIC = {
     "forager": ("food", 1, 1), "storehouse": ("logistics", 2, 1),
-    "fishing_dock": ("food", 1, 1), "quarry": ("materials", 1, 1), "sawmill": ("materials", 2, 1),
-    "forester": ("materials", 1, 1), "builders_yard": ("logistics", 2, 1),
+    "fishing_dock": ("food", 1, 1), "quarry": ("resources", 1, 1), "sawmill": ("resources", 2, 1),
+    "forester": ("resources", 1, 1), "builders_yard": ("logistics", 2, 1),
     "workshop": ("refining", 2, 1), "tax_office": ("civic", 1, 1), "well": ("water", 1, 1),
     "mason": ("refining", 2, 1), "refinery": ("refining", 2, 2), "kitchen": ("food", 1, 1),
     "handcart_shed": ("logistics", 2, 1),
@@ -1378,7 +1378,7 @@ GENERIC = {
 # category -> (roof, wall, shutter colour, window light)
 TINT = {
     "housing": ("thatch", "plaster", M.TEAL[2], M.WARM), "food": ("thatch", "plaster", M.LEAF["green"][2], M.WARM),
-    "materials": ("thatch", "planks", None, M.WARM), "lumen": ("slate", "stone", M.CRYSTAL[2], M.GLOW),
+    "resources": ("thatch", "planks", None, M.WARM), "lumen": ("slate", "stone", M.CRYSTAL[2], M.GLOW),
     "refining": ("shingle", "stone", None, M.WARM), "water": ("teal", "plaster", M.hexc("3a6a9a"), M.WARM),
     "logistics": ("thatch", "planks", M.hexc("a83a3a"), M.WARM), "civic": ("slate", "plaster", M.hexc("a83a3a"), M.WARM),
     "sky": ("teal", "plaster", M.hexc("9ab0d0"), M.GLOW), "landmark": ("slate", "stone", None, M.WARM),
@@ -1479,7 +1479,7 @@ def export_walkers(manifest):
 
 def export_icons(manifest):
     """12x12 HUD icons (outlined, drawn at 3x by the UI with nearest filtering) into assets/ui/."""
-    names = ["food", "materials", "lumen", "gold", "pop", "spirit", "moon"]
+    names = ["food", "wood", "stone", "lumen", "gold", "pop", "spirit", "moon"]
     for k in names:
         save(MV.icon(k), OUT / "ui" / f"icon_{k}.png")
     im = Image.new("RGBA", (12, 12))

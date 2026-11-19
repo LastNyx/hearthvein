@@ -877,10 +877,13 @@ def icon(kind):
         d.ellipse([3, 4, 5, 6], fill=hexc("f08a7a"))
         d.line([(6, 3), (7, 0)], fill=P["wood_d"])
         d.point((8, 1), fill=P["grass_l"])
-    elif kind == "materials":
+    elif kind == "wood":  # placeholder: a log with a cut end (the real icon set is 1.1.6)
         R(d, 0, 4, 11, 9, P["wood"])
         d.ellipse([8, 4, 11, 9], fill=P["dirt_l"])
-        R(d, 2, 1, 7, 4, P["stone"])
+    elif kind == "stone":  # placeholder: two grey blocks
+        R(d, 1, 5, 6, 10, P["stone"])
+        R(d, 5, 2, 10, 7, P["stone"])
+        R(d, 2, 6, 3, 7, P["stone_l"])
     elif kind == "lumen":
         crystal(d, 3, 11, 10, 6)
     elif kind == "gold":
@@ -903,7 +906,7 @@ def hud(img, s, dimming=False):
     d.rectangle([0, 0, W, 52], fill=(24, 20, 18, 225))
     f = font(20)
     x = 16
-    vals = [("food", "142  +6"), ("materials", "88  +4"), ("lumen", "36  +9" if not dimming else "36  -3"),
+    vals = [("food", "142  +6"), ("wood", "88  +4"), ("lumen", "36  +9" if not dimming else "36  -3"),
             ("gold", "51  +2"), ("pop", "23 / 28")]
     for k, v in vals:
         img.alpha_composite(upscale(icon(k), 3), (x, 6))

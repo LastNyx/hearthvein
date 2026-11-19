@@ -236,8 +236,8 @@ func _channel_hint(cost: String) -> String:
 
 
 func _channel_cost() -> String:
-	var c := settlement.registry.water.channel_cost_materials if settlement.registry.water != null else 0.0
-	return "%d materials" % roundi(c)
+	var c := settlement.registry.water.channel_cost_stone if settlement.registry.water != null else 0.0
+	return "%d stone" % roundi(c)
 
 
 func _track_cost() -> String:

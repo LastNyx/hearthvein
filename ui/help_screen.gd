@@ -173,9 +173,9 @@ static func _token(tok: String, reg: DataRegistry) -> String:
 			lines.append("%s: %d citizens, %d gold, and the %s built." % [e.display_name, e.gate_pop, e.gate_gold,
 					lm.display_name if lm != null else e.gate_landmark])
 		return "\n".join(lines)
-	if tok == "bridge_materials":  # Materials per water tile of a dirt bridge (RoadDef.bridge_cost, ticket 91)
+	if tok == "bridge_wood":  # Wood per water tile of a dirt bridge (RoadDef.bridge_cost, ticket 91)
 		var dirt := reg.get_road("dirt")
-		return _num(float(dirt.bridge_cost.get("materials", 0.0))) if dirt != null else "?"
+		return _num(float(dirt.bridge_cost.get("wood", 0.0))) if dirt != null else "?"
 	if tok == "channel_help":  # what an Irrigation Channel does, numbers from WaterDef (ticket 95)
 		return reg.water.channel_help() if reg.water != null else "?"
 	if tok == "dimming_days":

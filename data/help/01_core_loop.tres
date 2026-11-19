@@ -10,7 +10,7 @@ title = "Core loop"
 body = "You never move citizens yourself. You place buildings and roads, and citizens find their own work.
 
 1. Build a road out from the Hearth and put buildings beside it. A building with no road to the Hearth gets no workers.
-2. Foragers and farms make food. Woodcutters fell trees and make Materials. Lumen Taps make Lumen. Markets earn gold for each worker in them.
+2. Foragers and farms make food. Woodcutters fell trees and make Wood. Quarries cut Stone from rock. Lumen Taps make Lumen. Markets earn gold for each worker in them.
 3. Haulers carry goods from the buildings to Storehouses.
 4. Food left over after everyone has eaten fills the growth bar. When it is full and a bed is free, a new citizen arrives.
 5. Enough citizens and gold, plus the landmark building, open the next era.

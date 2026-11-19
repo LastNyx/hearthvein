@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = "woodcutter"
 order = 5
-text = "Build a Woodcutter near trees.\nIt fells trees for Materials, which pay for almost everything you build."
+text = "Build a Woodcutter near trees.\nIt fells trees for Wood, which pays for almost everything you build early on."
 kind = "built"
 def_id = "woodcutter"
 amount = 1

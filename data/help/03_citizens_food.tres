@@ -15,6 +15,6 @@ If Spirit is {growth.immigration_spirit} or more and a bed is free, a newcomer a
 
 If food runs out, {growth.leave_per_day} citizen leaves each day until the food balances.
 
-Citizens with no job take free job slots on their own, in this order: food, water, Lumen, hauling, building, Materials, refined goods, gold, then the rest. You can set one building to high, normal or low priority, or pause it. You never choose people.
+Citizens with no job take free job slots on their own, in this order: food, water, Lumen, hauling, building, Wood and Stone, refined goods, gold, then the rest. You can set one building to high, normal or low priority, or pause it. You never choose people.
 
 Eating more than one kind of food raises Spirit."

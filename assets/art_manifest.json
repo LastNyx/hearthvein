@@ -594,7 +594,7 @@
     16,
     47
    ],
-   "category": "materials",
+   "category": "resources",
    "file": "buildings/forester.png",
    "footprint": [
     1,
@@ -1439,7 +1439,7 @@
     16,
     47
    ],
-   "category": "materials",
+   "category": "resources",
    "file": "buildings/quarry.png",
    "footprint": [
     1,
@@ -1612,7 +1612,7 @@
     31,
     58
    ],
-   "category": "materials",
+   "category": "resources",
    "file": "buildings/sawmill.png",
    "footprint": [
     2,
@@ -2233,11 +2233,12 @@
   "food": "ui/icon_food.png",
   "gold": "ui/icon_gold.png",
   "lumen": "ui/icon_lumen.png",
-  "materials": "ui/icon_materials.png",
   "moon": "ui/icon_moon.png",
   "planet": "ui/icon_planet.png",
   "pop": "ui/icon_pop.png",
-  "spirit": "ui/icon_spirit.png"
+  "spirit": "ui/icon_spirit.png",
+  "stone": "ui/icon_stone.png",
+  "wood": "ui/icon_wood.png"
  },
  "logo": {
   "chunk": 4,
