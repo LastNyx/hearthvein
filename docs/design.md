@@ -201,7 +201,7 @@ Below 20 for 5 days in a row: one citizen leaves every 2 days.
 - Blighted tile: farm fertility counted half, forest doesn't regrow, can't hold Park/Shrine/Orchard, homes
   within 2 tiles lower Spirit, fouls adjacent river tiles.
 - Removing the extractor stops spread; existing blight stays.
-- Cleaners: Cleanser 1 tile / 2 days in r5. Purifier Tower 1 tile/day in r8 and blocks new blight in r4.
+- Cleaners: Cleanser (Village, 96) 1 tile / 2 days in r5. Purifier Tower 1 tile/day in r8 and blocks new blight in r4.
   Park blocks blight in its footprint. Verdant Spring turns 1 blighted tile/day in r10 into fertile soil.
 - Blight never ends the game; it costs food, Spirit and planet health.
 
@@ -265,7 +265,7 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Forager | 1x1 | 10M | 2 | - | +1.5 food; needs grass/forest in r3 |
 | Woodcutter | 1x1 | 10M | 2 | - | +1 M; cuts forest in r4 |
 | Storehouse | 2x1 | 25M | 2 haul | - | 400 units any goods |
-| Lumen Tap | 1x1, vein | 20M | 2 | - | +4.5 L; blight r2/6d |
+| Lumen Tap | 1x1, vein | 20M | 2 | - | +4.5 L; blight r2/6d (tooltip says so) |
 | Meeting Hall* | 2x2 | 60M 10L | - | - | Village gate |
 
 ### Village
@@ -281,6 +281,7 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Forester | 1x1 | 20M | 1 | - | plants forest r5, halves regrowth |
 | Builder's Yard | 2x1 | 30M | 4 build, 2 haul | - | more builders |
 | Irrigation Channel | tile | 1M | - | - | carries water |
+| Cleanser | 2x1 | 60M 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01; Village (96), upkeep from Town |
 | Bell Tower* | 1x1 | 120M 20G 20L 20P | - | - | Town gate |
 
 ### Town (Lumen upkeep starts)
@@ -291,7 +292,6 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Workshop | 2x1 | 50M 10G | 3 | 1 | 2 L -> 3 M |
 | Lumen Pump | 1x1, vein | 60M 15G 10P | 3 | 0 | +7 L; blight r4/3d |
 | Tax Office | 1x1 | 40M | 1 | 0 | +0.2 G per citizen/day; Spirit -5 |
-| Cleanser | 2x1 | 60M 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01 |
 | Well | 1x1, wet | 25M 5S | - | 0 | drinking water r8 |
 | Mason | 2x1 | 45M 10P | 2 | 0 | 3 M -> 1 S, 2/worker/day |
 | Refinery | 2x2 | 60M 20G 15P | 2 | 0 | 6 L -> 1 C, 2/worker/day |
