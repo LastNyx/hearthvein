@@ -178,16 +178,19 @@ func set_layer(layer: int) -> void:
 	layer_changed.emit(layer)
 
 
-## Tab: ground <-> sky. With no island it stays on the ground and raises a short toast. Returns the layer now active.
+## Tab: ground <-> sky. With no island it stays on the ground and does nothing (ticket 98: the button is hidden
+## then too). Returns the layer now active.
 func toggle_layer() -> int:
 	if active_layer == Building.LAYER_SKY:
 		set_layer(Building.LAYER_GROUND)
 	elif has_islands():
 		set_layer(Building.LAYER_SKY)
-	else:
-		notifications.clear("no_islands")
-		notifications.raise("no_islands", "info", "No islands yet")
 	return active_layer
+
+
+## The top-bar Ground/Sky button shows only once a sky island exists (or while the sky is shown).
+func layer_tag_visible() -> bool:
+	return has_islands() or active_layer == Building.LAYER_SKY
 
 
 ## Falls back to the ground when the last island is gone while the sky is shown.

@@ -67,11 +67,13 @@ func test_tab_does_nothing_without_an_island() -> void:
 	assert_eq(m.active_layer, Building.LAYER_GROUND)
 	assert_eq(m.toggle_layer(), Building.LAYER_GROUND)
 	assert_eq(m.active_layer, Building.LAYER_GROUND)
-	assert_true(m.notifications.items.any(func(it: Dictionary) -> bool: return it["text"] == "No islands yet"), "a short toast")
+	assert_false(m.notifications.items.any(func(it: Dictionary) -> bool: return it["text"] == "No islands yet"), "no toast (98)")
+	assert_false(m.layer_tag_visible(), "no Ground/Sky button before the first island (98)")
 	assert_eq(m.layer_name(), "Ground")
 
 
 func test_tab_toggles_the_layer_with_an_island() -> void:
+	assert_true(m.layer_tag_visible() or not m.has_islands(), "button shown once an island exists")
 	_raise_island()
 	var seen: Array[int] = []
 	m.layer_changed.connect(func(l: int) -> void: seen.append(l))

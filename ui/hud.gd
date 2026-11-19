@@ -611,7 +611,8 @@ func _refresh_layer_tag() -> void:
 	var sky := model.active_layer == Building.LAYER_SKY
 	_layer_tag.text = "%s (Tab)" % model.layer_name()
 	_style_button(_layer_tag, sky)
-	_layer_tag.tooltip_text = "Tab switches between the ground and the sky islands" if model.has_islands() else "No islands yet"
+	_layer_tag.tooltip_text = "Tab switches between the ground and the sky islands"
+	_layer_tag.visible = model.layer_tag_visible()
 
 
 func toggle_region_map() -> void:
@@ -657,9 +658,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_L: _on_overlay("grid")
 			KEY_M: _region_map.toggle()
 			KEY_TAB:
-				model.toggle_layer()
-				refresh()
-				get_viewport().set_input_as_handled()
+				if model.layer_tag_visible():  # no island yet: Tab is not ours (98)
+					model.toggle_layer()
+					refresh()
+					get_viewport().set_input_as_handled()
 			KEY_U:
 				pass  # BuildController: upgrade mode
 			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)

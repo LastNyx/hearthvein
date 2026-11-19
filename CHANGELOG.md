@@ -2,6 +2,24 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Added
+- Upgrade is a tool like Demolish: switch it on (U) and click buildings to upgrade them one after another; hovering
+  shows the cost or why a building cannot be upgraded.
+- The irrigation channel explains itself: it wets the ground next to it while connected to water, farms with at
+  least half their tiles wet grow 25% more, and higher farm tiers need wet ground. Tiles it would wet are tinted
+  while you place it.
+- A construction site says why it is waiting: the materials still missing, its place in line for builders, or that
+  no Builder's Yard can reach it.
+
+### Changed
+- The active tool is lit (Demolish, Upgrade, the building or road being placed).
+- The Cleanser unlocks at Village, so early blight can be cleaned; the Lumen Tap's description warns that it
+  spreads blight.
+- Construction sites get their materials by priority, then oldest first; paused sites wait.
+- The Ground/Sky button and the Tab key only appear once you have a sky island.
+
 ## 1.1.3 - 2026-11-19
 
 ### Added
