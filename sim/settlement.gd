@@ -729,6 +729,8 @@ func complete_site(b: Building) -> void:
 		if gd != null:
 			gd.schedule(self)
 	b.site = false
+	b.priority = "normal"  # the site's build priority is not the building's work priority (ticket 104)
+	b.paused = false
 	b.gold_due = 0
 	b.input_buffer = null
 	_init_buffers(b)
@@ -1195,6 +1197,7 @@ func complete_upgrade(b: Building) -> void:
 	if not b.upgrading():
 		return
 	b.tier = b.upgrade_tier
+	b.priority = "normal"
 	b.upgrade_tier = 0
 	b.upgrade_cost.clear()
 	b.upgrade_buffer = null

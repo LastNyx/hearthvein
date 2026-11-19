@@ -288,3 +288,27 @@ func test_site_wait_line_for_paused_and_unreachable() -> void:
 	assert_eq(model.wait_text(b), "No Builder's Yard can reach it")
 	var done := s.place_building_instant("storehouse", Vector2i(h.x + 9, h.y + 1))
 	assert_eq(model.wait_text(s.buildings[done]), "", "a finished building has none")
+
+
+## Ticket 104: the build priority of a site is not the finished building's work priority.
+func test_site_at_high_priority_finishes_at_normal_and_not_paused() -> void:
+	var b := _site("tent", 4)
+	s.set_building_priority(b.id, "high")
+	s.set_building_priority(b.id, "paused")
+	assert_true(b.paused)
+	assert_eq(b.priority, "high", "pausing keeps the priority")
+	s.complete_site(b)
+	assert_false(b.site)
+	assert_eq(b.priority, "normal")
+	assert_false(b.paused)
+
+
+func test_upgrade_at_high_priority_finishes_at_normal() -> void:
+	s.era_override = "town"
+	var b := s.buildings[s.place_building_instant("tent", Vector2i(h.x + 4, h.y - 2))] as Building
+	s.set_building_priority(b.id, "high")
+	assert_true(s.upgrade(b.id))
+	assert_eq(b.priority, "high", "still high while the upgrade runs")
+	s.complete_upgrade(b)
+	assert_eq(b.tier, 2)
+	assert_eq(b.priority, "normal")
