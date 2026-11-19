@@ -900,6 +900,183 @@ def icon(kind):
     return outline(im)
 
 
+# 1.1.6 icon set (ticket 106): hand-placed 12x12 maps, one char per pixel, "." is clear. export_icons() still uses
+# icon() until the set is approved and wired (ticket 112).
+ICON_V2_KINDS = ["wood", "stone", "planks", "cut_stone", "tools", "food", "lumen", "gold", "people", "cells"]
+_BR_D = hexc("8a6a20")
+_ICON_KEY = {
+    "L": P["wood_l"], "W": P["wood"], "D": P["wood_d"], "r": P["dirt_l"], "c": P["dirt"], "o": P["dirt_d"],
+    "g": P["stone_l"], "s": P["stone"], "d": P["stone_d"],
+    "t": P["thatch_l"], "u": P["thatch"], "v": P["thatch_d"],
+    "m": P["pave_l"], "n": P["pave"], "k": P["pave_d"],
+    "i": P["iron_l"], "j": P["iron"], "h": P["iron_d"],
+    "R": hexc("c84a3a"), "H": hexc("f08a7a"), "E": hexc("8a2c26"), "G": P["grass_l"], "T": P["grass_d"],
+    "C": P["lumen"], "A": P["lumen_l"], "B": P["lumen_d"],
+    "Y": P["brass"], "X": P["brass_l"], "Z": _BR_D,
+    "S": P["skin"], "F": P["skin_d"], "N": hexc("4a7a9a"), "M": hexc("356080"), "Q": P["hair"], "P": hexc("c0702e"),
+}
+_ICON_V2 = {
+    "wood": [  # a log with growth rings on the cut end, two bark ticks
+        "............",
+        "............",
+        "..LLLLLLoor.",
+        ".LWWWWWWcrco",
+        ".LWDWWWWcrco",
+        ".WWWWWDWcooc",
+        ".WWWWWWWcrco",
+        ".WDWWWWWcrco",
+        ".DWWWWDWoccr",
+        ".DDDDDDDDooo",
+        "............",
+        "............",
+    ],
+    "stone": [  # a rough grey block with chipped corners
+        "............",
+        "....gggg....",
+        "..ggssssg...",
+        ".gssssssssd.",
+        ".gsssdssssd.",
+        "gssssssdsssd",
+        "gsssssssssdd",
+        "gssdsssssdsd",
+        ".sssssssssdd",
+        ".ssssdsssddd",
+        "..dddddddd..",
+        "............",
+    ],
+    "planks": [  # four stacked boards, end grain on the left
+        "............",
+        ".rLLLLLLLLL.",
+        ".cWWWWWWWWW.",
+        ".oDDDDDDDDD.",
+        "..rLLLLLLLLL",
+        "..cWWWWWWWWW",
+        "..oDDDDDDDDD",
+        ".rLLLLLLLLL.",
+        ".cWWWWWWWWW.",
+        ".oDDDDDDDDD.",
+        "............",
+        "............",
+    ],
+    "cut_stone": [  # a dressed block: bevelled face, mortar courses of bricks
+        "............",
+        ".mmmmmmmmmm.",
+        ".mnnknnnnnk.",
+        ".mnnknnnnnk.",
+        ".kkkkkkkkkk.",
+        ".mnnnnknnnk.",
+        ".mnnnnknnnk.",
+        ".kkkkkkkkkk.",
+        ".mnnknnnnnk.",
+        ".mnnknnnnnk.",
+        ".kkkkkkkkkk.",
+        "............",
+    ],
+    "tools": None,  # built below from point sets
+    "food": [  # an apple with a stem and a leaf
+        "......D.GG..",
+        "......DGGG..",
+        "..RRR.DRRR..",
+        ".RHHRRRRRRR.",
+        ".RHRRRRRRRE.",
+        "RRRRRRRRRRRE",
+        "RRRRRRRRRRRE",
+        "RRRRRRRRRRER",
+        ".RRRRRRRRRE.",
+        ".RRRRRRRREE.",
+        "..ERRRRREE..",
+        "............",
+    ],
+    "lumen": [  # a cluster of cyan crystals, one tall
+        ".....AA.....",
+        "....ACCB....",
+        "....ACCB..A.",
+        "..A.ACCB.ACB",
+        ".ACBACCBBACB",
+        ".ACBACCCBCCB",
+        ".ACCCCCCCCCB",
+        ".CCCCCCCCCCB",
+        ".BCCCCCCCCBB",
+        "..BBCCCCCBB.",
+        "...BBBBBBB..",
+        "............",
+    ],
+    "gold": [  # a stack of three coins seen from the side, top coin face up
+        "............",
+        "...XXXXXX...",
+        "..XYYYYYYX..",
+        "..XYXYYXYZ..",
+        "..ZZZZZZZZ..",
+        ".XYYYYYYYYX.",
+        ".YYXXXXXYYZ.",
+        ".ZZZZZZZZZZ.",
+        "XYYYYYYYYYYX",
+        "YYYXXXXXXYYZ",
+        ".ZZZZZZZZZZ.",
+        "............",
+    ],
+    "people": [  # two citizens, the nearer one in front
+        "............",
+        "..QQQQ......",
+        "..QSSQ......",
+        "..SSSS..QQQQ",
+        "..FSSF..QSSQ",
+        ".MNNNNM.SSSS",
+        "MNNNNNNMFSSF",
+        "MNNNNNNMPPPP",
+        "MNNNNNNMPPPP",
+        "MNNNNNNMPPPM",
+        "MMMMMMMMMMMM",
+        "............",
+    ],
+    "cells": [  # a lumen cell: brass capped glass cylinder with a bright core
+        "............",
+        "....hhhh....",
+        "...YXXXXY...",
+        "...ZZZZZZ...",
+        "..BAACCCCB..",
+        "..BACCCCCB..",
+        "..BACCCCCB..",
+        "..BACCCCCB..",
+        "..BCCCCCBB..",
+        "...ZZZZZZ...",
+        "...YYYYYY...",
+        "............",
+    ],
+}
+
+
+def _tools_rows():
+    """Hammer (handle x+y=11, block head top right) crossed with a pick (handle x=y, head band x+y in 4..5)."""
+    g = [["."] * 12 for _ in range(12)]
+    for x in range(12):
+        for y in range(12):
+            if x + y == 11 and 2 <= x <= 8 or x == y and 3 <= x <= 10:
+                g[y][x] = "W"
+            if 7 <= x <= 11 and 0 <= y <= 3:
+                g[y][x] = "i" if y == 0 else "j"
+            if x + y in (4, 5) and x <= 5 and y <= 5:
+                g[y][x] = "i" if x + y == 4 else "j"
+    g[10][1] = g[9][1] = "W"
+    return ["".join(r) for r in g]
+
+
+_ICON_V2["tools"] = _tools_rows()
+
+
+def icon_v2(kind):
+    """The 1.1.6 pixel icon for a good (12x12 art, 14x14 with the 1 px dark outline, like icon())."""
+    rows = _ICON_V2[kind]
+    assert len(rows) == 12 and all(len(r) == 12 for r in rows), kind
+    im = Image.new("RGBA", (12, 12))
+    px = im.load()
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != ".":
+                px[x, y] = _ICON_KEY[ch]
+    return outline(im)
+
+
 def hud(img, s, dimming=False):
     d = ImageDraw.Draw(img, "RGBA")
     W, H = img.size
