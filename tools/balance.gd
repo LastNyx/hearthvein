@@ -39,7 +39,7 @@ const PRODUCERS := {
 const THROTTLE := {"food": [6.0, 60.0], "wood": [1.8, 120.0], "stone": [1.2, 80.0], "lumen": [4.0, 150.0], "planks": [0.0, 120.0],
 	"cut_stone": [0.0, 100.0], "lumen_cells": [0.0, 60.0], "tools": [0.0, 50.0]}
 ## From City on, food producers pause above this many units per citizen (see _throttle).
-const FOOD_THROTTLE_CITY := 12.0
+const FOOD_THROTTLE_CITY := 3.0
 const CITY_ORDER := 4
 ## The raw goods (ticket 99 split the old "materials" into these two).
 const RAW: Array[String] = ["wood", "stone"]
@@ -48,7 +48,7 @@ const GOLD_HOLD := {"wood": 90.0, "stone": 60.0}
 ## From this era on a new workplace needs as many idle citizens (not promised to open sites) as it has slots (47h).
 const LABOUR_ERA := 3
 ## Share of a landmark's goods that must be in stock before its site is placed (City on).
-const NEAR_READY := 0.5
+const NEAR_READY := 0.0
 ## From City on, wood and stone producers are held while a landmark good is short and the raw stock is over this share of its cost.
 const REFINED_HOLD_CITY := 0.5
 ## Stock above which a good stops being built for.
@@ -860,6 +860,35 @@ func _reserve() -> Dictionary:
 	return out
 
 
+## The era's landmark while its site is open (placed, not finished), else null (102: the site goes down early, so the
+## chain for the goods it still waits for keeps its priority until the site is built).
+func _lm_site() -> Building:
+	var lm := _landmark_id()
+	if lm == "":
+		return null
+	for b: Building in s.buildings.values():
+		if b.site and b.def.id == lm:
+			return b
+	return null
+
+
+## How much of `good` the era's landmark still lacks: its cost less the stock (and, once the site is placed, less what the
+## site already holds). 0 when there is no landmark in the making.
+func _lm_lacks(good: String) -> float:
+	var lm := _landmark_id()
+	if lm == "":
+		return 0.0
+	var cost := s.registry.get_building(lm).entry_cost()
+	if not cost.has(good):
+		return 0.0
+	var site := _lm_site()
+	if site != null:
+		return maxf(0.0, float(cost[good]) - site.input_buffer.amount_of(good) - maxf(0.0, float(_stock.get(good, 0.0))))
+	if not _lm_open():
+		return 0.0
+	return maxf(0.0, float(cost[good]) - float(_stock.get(good, 0.0)))
+
+
 ## True until the era's landmark is placed (a placed site is paid for from the stock; the bot stops saving then).
 func _lm_open() -> bool:
 	var lm := _landmark_id()
@@ -1037,11 +1066,9 @@ func _gold_unstaffed() -> bool:
 ## Producers of a refined good the era's landmark still lacks (and of the planks and cells a missing Tool eats) get high
 ## priority: they rank behind food, Lumen, hauling, builders and the raw producers, so a busy town leaves them empty (47g).
 func _chain_priority() -> void:
-	var lm := _landmark_id()
-	var cost := {} if lm == "" or not _lm_open() else s.registry.get_building(lm).entry_cost()
 	var short := {}
 	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
-		short[g] = cost.has(g) and float(_stock.get(g, 0.0)) < float(cost[g])
+		short[g] = _lm_lacks(g) > 0.0
 	if short["tools"]:
 		short["planks"] = true
 		short["lumen_cells"] = true
@@ -1058,7 +1085,7 @@ func _chain_priority() -> void:
 ## stone) already covers what the landmark needs of it.
 func _refined_short(raw: String) -> bool:
 	var lm := _landmark_id()
-	if lm == "" or not _lm_open():
+	if lm == "" or (not _lm_open() and _lm_site() == null):
 		return false
 	var cost := s.registry.get_building(lm).entry_cost()
 	var raw_cost := float(cost.get(raw, 0))
@@ -1069,7 +1096,7 @@ func _refined_short(raw: String) -> bool:
 		return false
 	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()
 	for g in ["planks", "cut_stone", "lumen_cells", "tools"]:
-		if not cost.has(g) or float(_stock.get(g, 0.0)) >= float(cost[g]):
+		if not cost.has(g) or _lm_lacks(g) <= 0.0:
 			continue
 		# the raw producers give way only while a producer of the short good has empty slots (47h: with every refiner staffed the
 		# hold only kept the wood and stone stock under the landmark's cost)
@@ -1102,6 +1129,8 @@ func _landmark() -> bool:
 	if ready and _place(lm, _hearth_near(), 20) != null:
 		_gate_seen["lm_placed"] = [s.clock.total_days(), int(s.gold)]
 		return false
+	if _verbose and ready:
+		print("   d%d landmark %s ready but no spot within 20 tiles" % [s.clock.total_days(), lm])
 	return true
 
 
@@ -1333,7 +1362,7 @@ func _yards(pop: int, era: int) -> void:
 				if _place_yard_for(b) != null:
 					break
 	# a player puts a yard next to where the work is: a site over YARD_WALK_MAX hours' walk from every yard gets one (102)
-	if _count("builders_yard") < 2 + pop / 20 and s.is_unlocked(yard_def) and _afford("builders_yard") and not _yard_site_open():
+	if _count("builders_yard") < 1 + pop / 30 and s.is_unlocked(yard_def) and _afford("builders_yard") and not _yard_site_open():
 		for b: Building in s.buildings.values():
 			if b.site and b.def.id != "builders_yard" and b.halt != "too_far" and _walk_hours(b) > YARD_WALK_MAX:
 				if _place_yard_for(b) != null:
