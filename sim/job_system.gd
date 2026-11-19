@@ -170,6 +170,7 @@ static func _cap_builders(s: Settlement, c: JobSystem, entries: Array) -> Array:
 		for b: Building in c._lc_works:
 			if ConstructionSystem.is_ready(b):
 				demand += s.registry.logistics.builder_crew
+		demand += ConstructionSystem.clear_job_indices(s).size()  # one builder per marked tile (ticket 100)
 	var out: Array = []
 	for e in entries:
 		if e["kind"] == Citizen.JOB_BUILD:

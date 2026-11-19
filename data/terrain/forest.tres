@@ -9,3 +9,6 @@ display_name = "Forest"
 buildable = false
 fertility_start = 0.0
 walk_speed = 0.5
+clear_hours = 4.0
+clear_good = "wood"
+clear_amount = 4.0

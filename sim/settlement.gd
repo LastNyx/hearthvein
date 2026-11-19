@@ -1660,6 +1660,70 @@ func remove_channel(tile: Vector2i) -> bool:
 	return true
 
 
+# ---------------------------------------------------------------- clear marks (ticket 100)
+
+## Why a tile cannot be marked for clearing: {"ok": bool, "reason": String}. Marks go on forest, stump and rock tiles
+## (terrain with clear hours) of owned regions that no building, road, channel or track covers; no cost.
+func can_mark_clear(tile: Vector2i) -> Dictionary:
+	if not MapState.in_bounds(tile.x, tile.y):
+		return {"ok": false, "reason": "out_of_bounds"}
+	if not map.is_region_owned(map.get_region(tile.x, tile.y)):
+		return {"ok": false, "reason": "locked_region"}
+	var i := MapState.idx(tile.x, tile.y)
+	if occupancy[i] >= 0:
+		return {"ok": false, "reason": "overlap"}
+	if roads[i] != ROAD_NONE or channels[i] != CHANNEL_NONE or track[i] != 0:
+		return {"ok": false, "reason": "road"}
+	var tdef := registry.get_terrain(map.terrain_id_at(tile.x, tile.y))
+	if tdef == null or tdef.clear_hours <= 0.0:
+		return {"ok": false, "reason": "not_clearable"}
+	if is_clear_marked(tile):
+		return {"ok": false, "reason": "marked"}
+	return {"ok": true, "reason": ""}
+
+
+## Command: mark a tile for builders to clear. False (nothing changes) when can_mark_clear refuses.
+func mark_clear(tile: Vector2i) -> bool:
+	var cs := get_system(ConstructionSystem) as ConstructionSystem
+	if cs == null or not can_mark_clear(tile)["ok"]:
+		return false
+	cs.clear_marks[MapState.idx(tile.x, tile.y)] = 0.0
+	events.emit("clear_marks_changed", {"tile": tile, "marked": true, "cleared": false})
+	refresh_population()  # builders' slots open for it
+	return true
+
+
+## Command: take the mark off a tile (work already done on it is lost). False when it was not marked.
+func unmark_clear(tile: Vector2i) -> bool:
+	var cs := get_system(ConstructionSystem) as ConstructionSystem
+	if cs == null or not is_clear_marked(tile):
+		return false
+	var i := MapState.idx(tile.x, tile.y)
+	cs.clear_marks.erase(i)
+	cs.clear_far.erase(i)
+	events.emit("clear_marks_changed", {"tile": tile, "marked": false, "cleared": false})
+	refresh_population()
+	return true
+
+
+func is_clear_marked(tile: Vector2i) -> bool:
+	var cs := get_system(ConstructionSystem) as ConstructionSystem
+	return cs != null and MapState.in_bounds(tile.x, tile.y) and cs.clear_marks.has(MapState.idx(tile.x, tile.y))
+
+
+## Every marked tile, in tile index order.
+func clear_marked_tiles() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var cs := get_system(ConstructionSystem) as ConstructionSystem
+	if cs == null:
+		return out
+	var idxs: Array = cs.clear_marks.keys()
+	idxs.sort()
+	for i: int in idxs:
+		out.append(Vector2i(i % MapState.WIDTH, i / MapState.WIDTH))
+	return out
+
+
 # ---------------------------------------------------------------- regions
 
 ## Regions bought since the start. The start region is free and not counted, so this indexes RegionsDef.prices.

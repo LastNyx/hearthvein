@@ -8,3 +8,6 @@ id = "rock"
 display_name = "Rock"
 buildable = true
 fertility_start = 0.0
+clear_hours = 8.0
+clear_good = "stone"
+clear_amount = 6.0

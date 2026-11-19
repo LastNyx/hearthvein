@@ -10,3 +10,8 @@ extends Resource
 @export var fertility_start: float = 0.0
 ## Walking speed in tiles per second at 1x on this terrain without a road. 0 = impassable (design.md section 6).
 @export var walk_speed: float = 1.0
+## Clear tool (ticket 100): builders clear a marked tile of this terrain. clear_hours = builder work hours (0 = cannot be
+## cleared); the tile then becomes grass and clear_amount of clear_good goes to the nearest storage.
+@export var clear_hours: float = 0.0
+@export var clear_good: String = ""
+@export var clear_amount: float = 0.0
