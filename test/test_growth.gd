@@ -24,7 +24,7 @@ func before_each() -> void:
 	s = Settlement.new_game(SEED, reg)
 	h = s.map.hearth_spot
 	g = s.get_system(GrowthSystem)
-	s.spirit_override = 40.0  # below the immigration threshold (50): only the growth bar adds people unless a test says otherwise
+	s.spirit_override = 39.0  # below the immigration threshold (40): only the growth bar adds people unless a test says otherwise
 	for x in range(h.x + 2, h.x + 16):
 		for y in range(h.y - 3, h.y + 3):
 			if s.map.terrain_id_at(x, y) == "forest":
@@ -157,28 +157,26 @@ func test_citizens_cannot_eat_from_another_region() -> void:
 		assert_almost_eq((s.buildings[near] as Building).inventory.amount_of("food"), 43.0, 0.001)
 
 
-func test_immigration_every_2_days_at_spirit_50_with_free_beds() -> void:
+func test_immigration_every_day_at_spirit_40_with_free_beds() -> void:
 	_tent(4)
 	s.hearth.inventory.add("food", 90.0)
 	s.spirit_override = 60.0
 	s.step_days(1)
-	assert_eq(s.citizens.size(), 8)
+	assert_eq(s.citizens.size(), 9, "one newcomer on day 1")
 	s.step_days(1)
-	assert_eq(s.citizens.size(), 9, "one newcomer on day 2")
-	s.step_days(2)
-	assert_eq(s.citizens.size(), 10, "and one more 2 days later (10 beds)")
+	assert_eq(s.citizens.size(), 10, "and one more on day 2 (10 beds)")
 	s.step_days(2)
 	assert_eq(s.citizens.size(), 10, "no free bed left")
 
 
-func test_no_immigration_below_spirit_50() -> void:
+func test_no_immigration_below_spirit_40() -> void:
 	_tent(4)
 	s.hearth.inventory.add("food", 90.0)
-	s.spirit_override = 49.0
+	s.spirit_override = 39.0
 	s.step_days(1)
 	s.step_days(8)
 	assert_eq(s.citizens.size(), 8)
-	assert_eq(s.spirit(), 49.0)
+	assert_eq(s.spirit(), 39.0)
 
 
 func test_bar_multiplier_above_600_and_no_immigration() -> void:
