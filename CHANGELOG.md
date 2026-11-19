@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.3 - 2026-11-19
 
 ### Added
 - Updates from inside the game: the title screen shows "Update x.y.z available" when a new release is out, with
