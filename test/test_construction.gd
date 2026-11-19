@@ -312,3 +312,84 @@ func test_upgrade_at_high_priority_finishes_at_normal() -> void:
 	s.complete_upgrade(b)
 	assert_eq(b.tier, 2)
 	assert_eq(b.priority, "normal")
+
+
+## Ticket 105: a site with its cost delivered, a crew standing at its door.
+func _crew_at_site(b: Building) -> Array:
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var out: Array = []
+	for cid in cs.crews:
+		var w := ws.walker_of(cid)
+		if cs.crews[cid] == b.id and w.path.is_empty() and w.at_building == b.id:
+			out.append(cid)
+	return out
+
+
+func test_a_crew_stays_at_the_site_between_shifts() -> void:
+	var b := _site("meeting_hall", 4)
+	_deliver(b)
+	s.step_hours(12)  # a few hours into a shift, the crew has arrived
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	for i in 48:
+		s.step_hours(1)
+		if _crew_at_site(b).size() == 4 and s.clock.hour() == 21:
+			break
+	assert_true(b.site, "still unfinished")
+	assert_eq(s.clock.hour(), 21, "night")
+	assert_eq(_crew_at_site(b).size(), 4, "the crew rests at the site at 21:00")
+	var night := b.build_work
+	s.step_hours(7)  # to 04:00
+	assert_eq(_crew_at_site(b).size(), 4, "still there before dawn, no walk to the yard")
+	assert_eq(b.build_work, night, "no work at night")
+	s.step_hours(4)  # 08:00
+	assert_gt(b.build_work, night, "work resumes with the shift, nobody had to walk back")
+	assert_eq(cs.crews.size(), 4)
+	assert_not_null(ws)
+
+
+func test_builders_work_06_to_20_and_haulers_keep_06_to_18() -> void:
+	var lg := reg.logistics
+	assert_eq(lg.builder_shift_start, 6)
+	assert_eq(lg.builder_shift_end, 20)
+	assert_eq(WalkerSystem.WORK_START_HOUR, 6)
+	assert_eq(WalkerSystem.WORK_END_HOUR, 18)
+	var b := _site("meeting_hall", 4)
+	_deliver(b)
+	s.step_hours(12)
+	while s.clock.hour() != 18:
+		s.step_hours(1)
+	var at18 := b.build_work
+	s.step_hours(1)  # 18-19: builders still work
+	assert_gt(b.build_work, at18, "work at 18:00")
+	s.step_hours(1)  # 19-20
+	var at20 := b.build_work
+	assert_gt(at20, at18, "work at 19:00")
+	s.step_hours(1)  # 20-21: shift over
+	assert_eq(b.build_work, at20, "no work after 20:00")
+
+
+func test_a_paused_or_demolished_site_releases_the_crew() -> void:
+	var a := _site("meeting_hall", 4)
+	var c := _site("meeting_hall", 10)
+	_deliver(a)
+	_deliver(c)
+	s.step_hours(12)
+	while s.clock.hour() != 21:
+		s.step_hours(1)
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	assert_true(a.site and c.site)
+	var crew_a: Array = _crew_at_site(a)
+	assert_gt(crew_a.size(), 0)
+	assert_true(s.set_building_priority(a.id, "paused"))
+	s.step_seconds(1.0)
+	for cid in crew_a:
+		assert_false(cs.crews.has(cid), "paused: the crew is released")
+	var crew_c: Array = _crew_at_site(c)
+	if crew_c.size() > 0:
+		assert_true(s.demolish(c.id))
+		s.step_seconds(1.0)
+		for cid in crew_c:
+			assert_false(cs.crews.has(cid), "demolished: the crew is released")
+	assert_true(cs.crews.is_empty() or not cs.crews.values().has(a.id))

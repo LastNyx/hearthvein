@@ -11,13 +11,16 @@ extends SimSystem
 ## Building.upgrade_work while the building keeps running at its old tier; completion calls Settlement.complete_upgrade.
 ## Both kinds are "works" below; sites sort before upgrades at the same priority (they still take a spot in the world).
 ##
-## During the work shift (WalkerSystem 06-18) builders are spread over ready works in site order, up to
+## During the builder shift (LogisticsDef.builder_shift_start/end, 06-20) builders are spread over ready works in site order, up to
 ## LogisticsDef.builder_crew per site; site order is priority high, normal, low, then lowest id (paused sites get
 ## nobody). So the highest-priority site gets builders first. Each builder is a controlled walker sent to the
 ## site's door. Work counts only while a builder stands at the site door (not walking), pro-rated over time like
 ## production: a builder at the door for the whole shift does one builder-day. A site needs build_days x crew
 ## builder-days (Settlement.build_days), so a full crew finishes in build_days and fewer builders take longer.
-## Outside the shift builders are released to the normal schedule.
+## A crew walks to its work once and stays there until the work is done (ticket 105): at night it rests at the site
+## (standing at the door, no work) and carries on at shift start; it goes back to the yard only when the work is finished,
+## paused, demolished or no longer wanted, or the builder loses the job. Needs (food, Spirit) do not depend on where a
+## citizen stands in the sim, so staying out overnight costs nothing else.
 ##
 ## Clear jobs (ticket 100): a tile the player marked with the Clear tool (Settlement.mark_clear) is a small work of one
 ## builder. It ranks after the ready sites and upgrades of Normal priority (before Low ones), is worked standing on the
@@ -120,8 +123,9 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	if ws == null or s.registry.logistics == null:
 		return
+	var lg := s.registry.logistics
 	var h := s.clock.hour()
-	var in_shift := h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
+	var in_shift := h >= lg.builder_shift_start and h < lg.builder_shift_end
 	var builders: Array = []
 	for cid in s.citizen_ids_of_kind(Citizen.JOB_BUILD):
 		if s.citizens.has(cid) and (s.citizens[cid] as Citizen).job_kind == Citizen.JOB_BUILD:
@@ -131,10 +135,12 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var wanted := {}  # citizen id -> work entry (see _work_list)
 	if in_shift:
 		wanted = _assign_crews(s, builders, _work_list(s))
+	elif not crews.is_empty():
+		wanted = _keep_crews(builders, _work_list(s))  # at night: whoever is on a crew rests at the site, nobody new goes
 	for cid in crews.keys():
 		if not wanted.has(cid) or wanted[cid]["id"] != crews[cid]:
 			_release(s, ws, cid, in_shift)
-	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
+	var shift := builder_shift_seconds(lg)
 	var work := {}  # work id -> work done this tick: builder-days on a building, builder hours on a clear job
 	for cid in wanted:
 		var e: Dictionary = wanted[cid]
@@ -151,7 +157,7 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 					ws.walk_to_tile(cid, e["tile"])
 				else:
 					ws.walk_to_building(cid, e["id"])
-		elif here:
+		elif here and in_shift:
 			var done_now := seconds / GameClock.REAL_SECONDS_PER_HOUR if is_clear else seconds / shift
 			work[e["id"]] = work.get(e["id"], 0.0) + done_now * SpiritSystem.work_multiplier(s)
 	var done: Array[Building] = []
@@ -190,6 +196,23 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 			if crews[cid] == clear_work_id(idx):
 				_release(s, ws, cid, in_shift)
 		_finish_clear(s, idx)
+
+
+## Real seconds of one builder-day (the builder shift).
+static func builder_shift_seconds(lg: LogisticsDef) -> float:
+	return float(lg.builder_shift_end - lg.builder_shift_start) * GameClock.REAL_SECONDS_PER_HOUR
+
+
+## Night: builders on a crew whose work is still on the list keep it (citizen id -> entry); the rest get nothing.
+func _keep_crews(builders: Array, works: Array) -> Dictionary:
+	var by_id := {}
+	for e: Dictionary in works:
+		by_id[e["id"]] = e
+	var out := {}
+	for cid in builders:
+		if crews.has(cid) and by_id.has(crews[cid]):
+			out[cid] = by_id[crews[cid]]
+	return out
 
 
 ## The tile is cleared: it becomes grass, the mark goes and the yield (TerrainDef.clear_good) goes to the nearest storage.
@@ -302,7 +325,7 @@ func on_hour(s: Settlement) -> void:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	if ws == null:
 		return
-	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
+	var shift := builder_shift_seconds(s.registry.logistics)
 	var yards: Array[Building] = []
 	for id in s.buildings:
 		var y: Building = s.buildings[id]

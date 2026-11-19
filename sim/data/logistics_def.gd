@@ -27,6 +27,10 @@ extends Resource
 @export var build_days_max: float = 0.0
 ## Builders that work one site at once. The days above are for this many; fewer builders take proportionally longer.
 @export var builder_crew: int = 0
+## Builders work from this hour to this hour (other jobs keep WalkerSystem.WORK_START_HOUR to WORK_END_HOUR). A crew stays
+## at its site until the work is done, so the long day is not eaten by the walk.
+@export var builder_shift_start: int = 6
+@export var builder_shift_end: int = 20
 ## Share of the cost (or of the goods already delivered to a site) given back on demolish.
 @export var demolish_refund: float = 0.0
 ## Output factor of a building that could not pay the day's Lumen upkeep (design.md sections 8, 14 and 16: x0.5).

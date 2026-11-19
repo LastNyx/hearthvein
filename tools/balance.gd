@@ -526,7 +526,7 @@ func _sample() -> void:
 	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var h := s.clock.hour()
-	var in_shift := h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
+	var in_shift := h >= s.registry.logistics.builder_shift_start and h < s.registry.logistics.builder_shift_end  # the builders' shift (105)
 	var staff := {}
 	for c: Citizen in s.citizens.values():
 		if c.job_kind == Citizen.JOB_WORK:
@@ -1312,7 +1312,7 @@ func _place_yard_for(site: Building) -> Building:
 func _yard_reachable(site: Building) -> bool:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
-	var shift := float(WalkerSystem.WORK_END_HOUR - WalkerSystem.WORK_START_HOUR) * GameClock.REAL_SECONDS_PER_HOUR
+	var shift := ConstructionSystem.builder_shift_seconds(s.registry.logistics)
 	for y: Building in s.buildings.values():
 		if y.def.builder_slots > 0 and not y.site and 2.0 * cs._trip_seconds(s, ws, y, site) <= shift:
 			return true
