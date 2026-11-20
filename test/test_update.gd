@@ -115,8 +115,7 @@ func test_throttle_toggle_and_skipped() -> void:
 	var s := _settings()
 	assert_true(UpdateCheck.should_check(s, 1_000_000), "never checked")
 	s.update_last_check = 1_000_000
-	assert_false(UpdateCheck.should_check(s, 1_000_000 + 24 * 3600 - 1))
-	assert_true(UpdateCheck.should_check(s, 1_000_000 + 24 * 3600))
+	assert_true(UpdateCheck.should_check(s, 1_000_000 + 60), "checks on every launch, even a minute after the last")
 	s.check_updates = false
 	assert_false(UpdateCheck.should_check(s, 1_000_000 + 99 * 3600), "toggle off")
 	s.check_updates = true

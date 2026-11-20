@@ -170,7 +170,7 @@ func close_whats_new() -> void:
 	whats_new_panel = null
 
 
-## Once on launch, at most every 24 h, toggle permitting; never in a headless run (tests) unless HV_UPDATE_URL points
+## Once on every launch, toggle permitting; never in a headless run (tests) unless HV_UPDATE_URL points
 ## somewhere (then it always asks: the override is for local checks).
 func _start_update_check() -> void:
 	var override := OS.get_environment("HV_UPDATE_URL")

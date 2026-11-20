@@ -2,6 +2,11 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Changed
+- The game looks for an update every time it starts, not once a day, so a new release shows up right away.
+
 ## 1.1.7 - 2026-11-20
 
 ### Changed

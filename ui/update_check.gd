@@ -9,7 +9,6 @@ signal progress(fraction: float)
 signal download_done(error: String)
 
 const API_URL := "https://api.github.com/repos/LastNyx/hearthvein/releases/latest"
-const THROTTLE_SECONDS := 24 * 3600
 const TIMEOUT := 10.0
 
 var _http: HTTPRequest
@@ -107,11 +106,11 @@ static func offer_from_text(text: String, current: String, kind: String) -> Dict
 	return offer
 
 
-## Whether to ask GitHub now: the toggle is on and the last check was 24 h or more ago (a clock set back counts as due).
-static func should_check(settings: GameSettings, now: int) -> bool:
-	if not settings.check_updates:
-		return false
-	return now < settings.update_last_check or now - settings.update_last_check >= THROTTLE_SECONDS
+## Whether to ask GitHub now: on every launch while the toggle is on. There was a 24 h throttle until 1.1.8; releases
+## come several a day, so it hid them (one launch is one request, far under GitHub's 60 an hour). `now` is unused and
+## kept so callers need not change; update_last_check is still recorded for diagnosis.
+static func should_check(settings: GameSettings, _now: int) -> bool:
+	return settings.check_updates
 
 
 static func is_skipped(offer: Dictionary, settings: GameSettings) -> bool:
