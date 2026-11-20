@@ -903,7 +903,7 @@ func _amounts_text(d: Dictionary) -> String:
 func _def_tooltip_lines(def: BuildingDef, b: Building) -> Array[String]:
 	var lines: Array[String] = []
 	if b == null or b.site:
-		var cost := goods_cost_text(def.entry_cost())
+		var cost := goods_cost_text(s.cost_for(def.id) if b == null else def.entry_cost())
 		lines.append("Cost: %s" % (cost if cost != "" else "free"))
 	var jobs: Array[String] = []
 	if b != null and not b.site:
@@ -1095,7 +1095,7 @@ func _have_all() -> Dictionary:
 func cost_rows(def: BuildingDef, have: Dictionary = {}) -> Array[Dictionary]:
 	if have.is_empty():
 		have = _have_all()
-	var cost := def.entry_cost()
+	var cost := s.cost_for(def.id, have)
 	var out: Array[Dictionary] = []
 	for g: String in _sorted_goods(cost.keys()):
 		var need := int(cost[g])
@@ -1197,7 +1197,7 @@ func build_bar() -> Array[Dictionary]:
 		var block := layer_block_reason(def)
 		var costs := cost_rows(def, have)
 		by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
-				"cost": goods_cost_text(def.entry_cost()), "size": "%dx%d" % [def.size.x, def.size.y],
+				"cost": goods_cost_text(s.cost_for(def.id, have)), "size": "%dx%d" % [def.size.x, def.size.y],
 				"reason": block, "enabled": block == "", "locked": false, "unlock": "", "costs": costs,
 				"short": costs.any(func(c: Dictionary) -> bool: return c["short"])})
 	# Ticket 116: the next era's buildings show locked (greyed, with the reason) next to the unlocked ones of their category.

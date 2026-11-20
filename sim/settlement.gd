@@ -665,13 +665,26 @@ func _can_place_sky(def: BuildingDef, origin: Vector2i) -> Dictionary:
 
 ## The cost placing `def_id` would charge now: the def's cost, or nothing for the free first Lift Anchor (the def names
 ## a free_first_with building, a finished one stands, and free_anchor_used is still false). The build UI shows this.
-func cost_for(def_id: String) -> Dictionary:
+func cost_for(def_id: String, have: Dictionary = {}) -> Dictionary:
 	var def := registry.get_building(def_id)
 	if def == null:
 		return {}
-	if _free_anchor_available(def):
+	if _free_anchor_available(def) or _free_when_dry(def, have):
 		return {}
 	return def.entry_cost()
+
+
+## The wood dead end rule (BuildingDef.free_when_dry): the stock of the good (`have`, goods totals; computed when left
+## out) is below the def's cost of it and no site of the def is open.
+func _free_when_dry(def: BuildingDef, have: Dictionary = {}) -> bool:
+	if def.free_when_dry == "":
+		return false
+	for b: Building in buildings.values():
+		if b.site and b.def == def:
+			return false
+	if have.is_empty():
+		have = totals()
+	return float(have.get(def.free_when_dry, 0.0)) + Inventory.EPS < float(def.entry_cost().get(def.free_when_dry, 0.0))
 
 
 func _free_anchor_available(def: BuildingDef) -> bool:
@@ -690,13 +703,14 @@ func place_building(def_id: String, origin: Vector2i, layer: int = Building.LAYE
 	if not can_place(def_id, origin, false, layer)["ok"]:
 		return -1
 	var def := registry.get_building(def_id)
-	var free := _free_anchor_available(def)
+	var anchor_free := _free_anchor_available(def)
+	var free := anchor_free or _free_when_dry(def)
 	var g := float(cost_for(def_id).get(BuildingDef.GOLD, 0))
 	if g > gold + Inventory.EPS:
 		return -1
 	gold -= g
 	ResourceLedgerSystem.record_used(self, BuildingDef.GOLD, g, "placement")
-	if free:
+	if anchor_free:
 		free_anchor_used = true
 	var b := _insert_building(def, origin, true, layer, free)
 	events.emit("building_placed", {"id": b.id, "def": def.id, "origin": origin, "site": true})

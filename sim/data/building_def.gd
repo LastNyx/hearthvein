@@ -187,6 +187,9 @@ const GOLD := "gold"
 ## Id of a building that, once finished, makes the first placement of this def free (Lift Anchor: "sky_foundry").
 ## "" = never free. Settlement.cost_for answers with the effective cost.
 @export var free_first_with: String = ""
+## Good id for the wood dead end (ticket 121): while the stock of this good is below this def's cost of it and no site of
+## this def is open, placing it costs nothing (Woodcutter and Forester: "wood"). "" = never. Settlement.cost_for answers.
+@export var free_when_dry: String = ""
 ## True when only one building of this def may exist at a time, sites counting (Placement reason "unique").
 @export var unique: bool = false
 ## Staged landmark (Skyheart, design.md section 18, ticket 45): [{"name": String, "cost": {good: int}}] in order. A

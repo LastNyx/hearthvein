@@ -18,6 +18,7 @@ extra_worker_slots = 2
 [resource]
 script = ExtResource("1")
 id = "forester"
+free_when_dry = "wood"
 description = "Workers plant new grass where trees were cut so forests can grow back."
 display_name = "Forester"
 era = "village"
