@@ -192,14 +192,15 @@ func add_cards(settings: GameSettings) -> void:
 
 # ---------------------------------------------------------------- building blocks
 
-func _style(bg: Color = PANEL_BG, edge: Color = PANEL_EDGE, radius: int = 6, border: int = 2) -> StyleBoxFlat:
+func _style(bg: Color = PANEL_BG, edge: Color = PANEL_EDGE, radius: int = 6, border: int = 2,
+		pad: int = 12) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = edge
 	sb.set_border_width_all(border)
 	sb.set_corner_radius_all(radius)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
+	sb.content_margin_left = pad
+	sb.content_margin_right = pad
 	sb.content_margin_top = 7
 	sb.content_margin_bottom = 7
 	return sb
@@ -300,11 +301,11 @@ func _button(parent: Node, text: String, size: int = 15) -> Button:
 	return b
 
 
-func _style_button(b: Button, on: bool) -> void:
+func _style_button(b: Button, on: bool, pad: int = 12) -> void:
 	var edge := GOLD if on else Color(0, 0, 0, 0)
-	b.add_theme_stylebox_override("normal", _style(Color(0.275, 0.235, 0.2) if on else Color(0.173, 0.149, 0.133), edge, 5, 2))
-	b.add_theme_stylebox_override("hover", _style(Color(0.33, 0.28, 0.23), GOLD if on else PANEL_EDGE, 5, 2))
-	b.add_theme_stylebox_override("pressed", _style(Color(0.33, 0.28, 0.23), GOLD, 5, 2))
+	b.add_theme_stylebox_override("normal", _style(Color(0.275, 0.235, 0.2) if on else Color(0.173, 0.149, 0.133), edge, 5, 2, pad))
+	b.add_theme_stylebox_override("hover", _style(Color(0.33, 0.28, 0.23), GOLD if on else PANEL_EDGE, 5, 2, pad))
+	b.add_theme_stylebox_override("pressed", _style(Color(0.33, 0.28, 0.23), GOLD, 5, 2, pad))
 
 
 # ---------------------------------------------------------------- top bar
@@ -590,6 +591,8 @@ const CARD_SIZE := Vector2(146, 200)
 const CARD_COLUMNS := 5
 const CARD_ROWS := 2
 const CARD_GAP := 6
+## Category buttons use a slim style so all of them (12 with every era unlocked) share one row at 1280 px (ticket 122).
+const CAT_BUTTON_PAD := 6
 
 
 func _build_bar(parent: Node) -> void:
@@ -629,11 +632,13 @@ func _rebuild_categories() -> void:
 		c.queue_free()
 	_cat_buttons.clear()
 	var cats := model.build_bar()
-	# Up to 8 categories share one row; more wrap into two so 10-12 fit at 1280 px.
-	_cat_box.columns = cats.size() if cats.size() <= 8 else ceili(cats.size() / 2.0)
+	# Ticket 122: every category stays on one row at 1280 px; the buttons shrink (slim padding, no fixed width)
+	# instead of wrapping into a second row.
+	_cat_box.columns = maxi(cats.size(), 1)
 	for cat in cats:
 		var b := _button(_cat_box, cat["label"], 16)
-		b.custom_minimum_size = Vector2(96, 34)
+		b.custom_minimum_size = Vector2(0, 34)
+		_style_button(b, false, CAT_BUTTON_PAD)
 		b.pressed.connect(open_category.bind(cat["id"]))
 		_cat_buttons[cat["id"]] = b
 	_show_flyout()
@@ -649,7 +654,7 @@ func _show_flyout() -> void:
 		_fly_box.remove_child(c)
 		c.queue_free()
 	for id in _cat_buttons:
-		_style_button(_cat_buttons[id], id == _open_cat)
+		_style_button(_cat_buttons[id], id == _open_cat, CAT_BUTTON_PAD)
 	_fly_panel.visible = false
 	_fly_key = ""
 	for cat in model.build_bar():

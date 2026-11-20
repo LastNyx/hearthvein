@@ -6,7 +6,8 @@ var cfg: String
 
 
 func before_each() -> void:
-	cfg = "/tmp/hearthvein_build_menu_%d.cfg" % OS.get_process_id()
+	var tmp := OS.get_environment("TMPDIR")
+	cfg = (tmp if tmp != "" else "/tmp").path_join("hearthvein_build_menu_%d.cfg" % OS.get_process_id())
 
 
 func after_each() -> void:
@@ -89,6 +90,42 @@ func test_cards_show_state_icons_and_numbers() -> void:
 	assert_not_null(tool.find_child("Lock", true, false))
 	assert_eq((tool.find_child("UnlockReason", true, false) as Label).text, "Needs City era")
 	assert_null(saw.find_child("Lock", true, false))
+
+
+## Ticket 122: with every era unlocked all 12 categories share one row that fits inside 1280 px at UI scale 1.0.
+func test_twelve_categories_fit_on_one_row_at_1280() -> void:
+	var hud := await _hud("ascendant")
+	hud._rebuild_categories()
+	var old := get_window().size
+	get_window().size = Vector2i(1280, 720)  # the headless window is tiny
+	await wait_process_frames(3)
+	var bar := hud.model.build_bar()
+	assert_eq(bar.size(), 12, "every category is unlocked in the Ascendant era")
+	var panel := hud._cat_box.get_parent() as Control
+	var r := panel.get_global_rect()
+	assert_gte(r.position.x, 0.0, "the bar starts inside 1280: %s" % r)
+	assert_lte(r.end.x, 1280.0, "the bar ends inside 1280: %s" % r)
+	var row_y := -1.0
+	for cat in bar:
+		var br := (hud._cat_buttons[cat["id"]] as Button).get_global_rect()
+		if row_y < 0.0:
+			row_y = br.position.y
+		assert_almost_eq(br.position.y, row_y, 0.5, "%s sits on the one row" % cat["id"])
+	get_window().size = old
+
+
+## Ticket 122: the category buttons keep their labels and their pressed signal (tests and the tutorial find them by name).
+func test_category_names_and_pressed_signals_stay() -> void:
+	var hud := await _hud("ascendant")
+	hud._rebuild_categories()
+	for cat in hud.model.build_bar():
+		var b: Button = hud._cat_buttons[cat["id"]]
+		assert_eq(b.text, cat["label"], "%s keeps its name" % cat["id"])
+	var housing: Button = hud._cat_buttons["housing"]
+	housing.pressed.emit()
+	assert_eq(hud._open_cat, "housing", "a press opens its category")
+	housing.pressed.emit()
+	assert_eq(hud._open_cat, "", "a second press closes it")
 
 
 func test_road_tools_stay_buttons_and_the_flyout_fits() -> void:
