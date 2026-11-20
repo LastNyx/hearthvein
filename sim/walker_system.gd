@@ -14,7 +14,7 @@ extends SimSystem
 ## (lowest path_seconds) wins; sky to sky across two islands goes down one link and up another. An island that is
 ## still (40b) offers no links, no link means no path ([]).
 ## Speed comes from data: RoadDef.walk_speed on a road tile, else TerrainDef.walk_speed (0 = impassable).
-## Time: speeds are tiles per game second at 1x; one game hour is GameClock.REAL_SECONDS_PER_HOUR (2.5) seconds.
+## Time: speeds are tiles per game second at 1x; one game hour is GameClock.REAL_SECONDS_PER_HOUR (5) seconds.
 ## Entering a tile takes 1 / speed(entered tile) seconds.
 ##
 ## Buildings: every footprint tile is solid except the building's door, which is only opened for the walks that

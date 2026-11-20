@@ -81,9 +81,9 @@ func test_step_hours_moves_walkers() -> void:
 	var o := _strip(10)
 	ws.place_walker(0, o)
 	ws.walk_to_tile(0, o + Vector2i(10, 0))
-	s.step_hours(1)  # 2.5 s
+	s.step_hours(1)  # 5 s
 	var w := ws.walker_of(0)
-	assert_almost_eq(w.position().x - (o.x + 0.5), 2.5, 0.02)
+	assert_almost_eq(w.position().x - (o.x + 0.5), 5.0, 0.02)
 	s.step_hours(4)
 	assert_false(w.is_walking())
 

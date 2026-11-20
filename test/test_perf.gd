@@ -3,7 +3,7 @@ extends GutTest
 ## Ticket 55: no commute tick above 8 ms and batched prop drawing.
 
 const SEED := 42
-## Game seconds in one frame at 1x, 60 fps (one game hour is 2.5 game seconds).
+## Game seconds in one test frame: 1/150 of a game hour (30 fps at 1x, coarser than a real 60 fps frame, so a stricter test).
 const CHUNK := GameClock.REAL_SECONDS_PER_HOUR / 150.0
 
 ## A timing check is measured up to this many times and judged on the best (smallest) value of each metric, stopping
@@ -50,7 +50,7 @@ func test_frame_sized_steps_stay_cheap_over_the_morning_commute() -> void:
 	while s.clock.hour() != 5 and guard < 48:
 		s.step_hours(1)
 		guard += 1
-	var frames := 150  # one game hour at 1x in 1/60 s frames
+	var frames := 150  # one game hour in test frames
 	var hour := func() -> Array:
 		while s.clock.hour() != 5:
 			s.step_hours(1)

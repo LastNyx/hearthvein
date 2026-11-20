@@ -235,13 +235,12 @@ func test_builders_take_the_nearest_ready_site_first() -> void:
 
 
 func test_site_too_far_from_every_builders_yard_shows_a_status() -> void:
-	var far_x := 40
+	var far_x := 42  # the 12 h shift is 60 s now: grass (1 tile/s, no road laid) puts the site past the 60 s round trip
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
 	for x in range(h.x + 16, h.x + far_x + 4):
 		for y in range(h.y - 3, h.y + 1):
 			s.set_terrain(Vector2i(x, y), "grass")
-		s.place_road(Vector2i(x, h.y))
 	var b := _site("tent", far_x)
 	var near := _site("tent", 4)
 	var model := HudModel.new(s)

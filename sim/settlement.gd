@@ -271,7 +271,7 @@ func _step_seconds(seconds: float) -> void:
 					return
 
 
-## Steps shorter than this (game seconds, 0.25 s = a frame at 15 fps and 1x) spread the hour end over several steps.
+## Steps shorter than this (game seconds, 0.5 s = a frame at 7 fps and 1x) spread the hour end over several steps.
 const DEFER_BELOW_SECONDS := GameClock.REAL_SECONDS_PER_HOUR / 10.0
 ## Wall time one frame-sized step spends on pending hour-end work (at least one item runs).
 const SPREAD_BUDGET_USEC := 1000

@@ -7,8 +7,8 @@ const DAYS_PER_SEASON := 8
 const SEASONS_PER_YEAR := 4
 const DAYS_PER_YEAR := DAYS_PER_SEASON * SEASONS_PER_YEAR
 const SEASON_NAMES: Array[String] = ["spring", "summer", "autumn", "winter"]
-## 1 day = 60 real seconds at 1x.
-const REAL_SECONDS_PER_DAY := 60.0
+## 1 day = 120 real seconds at 1x (one game hour = 5 s).
+const REAL_SECONDS_PER_DAY := 120.0
 const REAL_SECONDS_PER_HOUR := REAL_SECONDS_PER_DAY / HOURS_PER_DAY
 
 var total_hours: int = 0

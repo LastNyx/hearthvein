@@ -73,14 +73,29 @@ func test_driver_speeds() -> void:
 		var d := SimDriver.new()
 		d.settlement = Settlement.new_game(1, reg)
 		d.set_speed(sp)
-		for i in 120:
-			d.advance(0.5)  # 60 real seconds
+		for i in 240:
+			d.advance(0.5)  # 120 real seconds, one day at 1x
 		results[sp] = d.settlement.clock.total_hours
 		d.free()
 	assert_eq(results[0], 0)
 	assert_eq(results[1], 24)
 	assert_eq(results[2], 48)
 	assert_eq(results[3], 72)
+
+
+# 119: a day is 120 real seconds at 1x, so one game hour is 5 s.
+func test_an_hour_is_five_seconds_at_1x() -> void:
+	assert_eq(GameClock.REAL_SECONDS_PER_DAY, 120.0)
+	assert_eq(GameClock.REAL_SECONDS_PER_HOUR, 5.0)
+	var d := SimDriver.new()
+	d.settlement = Settlement.new_game(1, reg)
+	d.set_speed(1)
+	for i in 9:
+		d.advance(0.5)
+	assert_eq(d.settlement.clock.total_hours, 0, "4.5 s is not yet an hour")
+	d.advance(0.5)
+	assert_eq(d.settlement.clock.total_hours, 1)
+	d.free()
 
 
 func test_driver_pause_toggle() -> void:

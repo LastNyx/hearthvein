@@ -98,11 +98,11 @@ func test_greenhouse_food_reaches_storage() -> void:
 	var gh: Building = s.buildings.get(s.place_building_instant("greenhouse", o))
 	assert_not_null(gh)
 	assert_true(gh.connected, "the Greenhouse door sits on the road")
-	s.step_days(3)  # the crew walks to work and the haulers fill the upkeep buffer
+	s.step_days(1)  # the crew walks to work and the haulers fill the upkeep buffer
 	var before := s.hearth.inventory.amount_of("greenhouse")
-	s.step_days(5)
-	var per_day := (s.hearth.inventory.amount_of("greenhouse") - before) / 5.0
-	assert_between(per_day, 4.0, 14.0, "three workers x 16 food a day, hauling-limited, got %f" % per_day)
+	s.step_days(2)  # (a 5 s game hour: walks are short and the haulers keep up, so the Hearth is full from day 3 on)
+	var per_day := (s.hearth.inventory.amount_of("greenhouse") - before) / 2.0
+	assert_between(per_day, 4.0, 50.0, "three workers x 16 food a day, got %f" % per_day)
 	assert_gt(s.totals().get("greenhouse", 0.0), 0.0, "greenhouse food is a real stored good")
 	assert_true(["", "door_full"].has(gh.halt), "the Greenhouse kept running (at 48 food a day a full door buffer is the only halt)")
 

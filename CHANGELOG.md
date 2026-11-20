@@ -5,6 +5,7 @@ All notable changes to Hearthvein. Newest first.
 ## Unreleased
 
 ### Changed
+- A day now lasts 2 minutes at normal speed (it was 1), so dusk and night no longer flicker past. People walk the same distance in half the game time, so builders and haulers get more done each day.
 - The first days are easier: you start with 100 wood, builders work in crews of 2 (two sites go up at once) and walk straight to the next site, and in a town under 20 people every workplace gets one worker and the builders get their crew before anyone takes a second job.
 
 ## 1.1.8 - 2026-11-20

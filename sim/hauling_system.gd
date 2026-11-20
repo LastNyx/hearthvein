@@ -181,10 +181,10 @@ func is_hauling(citizen_id: int) -> bool:
 ## used to plan every one of them in a single frame, about 0.6 ms each at 600 citizens. The allowance grows with
 ## `seconds`, so a coarse step (step_hours) is not throttled; a leftover hauler is simply planned a frame later.
 const PLAN_PER_SECOND := 120.0
-## After a plan finds no trip, idle haulers wait this many game seconds (a tenth of a game hour: 15 frames at
+## After a plan finds no trip, idle haulers wait this many game seconds (a tenth of a game hour: 30 frames at
 ## 1x) before the next plan scans every building again (ticket 89b: a failed plan took 1-5 ms and ran every frame).
 ## on_hour clears it, so a new hour always starts with a fresh look. Saved, so a load continues the same way.
-const PLAN_RETRY_SECONDS := 0.25
+const PLAN_RETRY_SECONDS := GameClock.REAL_SECONDS_PER_HOUR / 10.0
 var _retry_left: float = 0.0
 
 
