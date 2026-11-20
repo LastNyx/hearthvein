@@ -2,6 +2,11 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Changed
+- A new game starts at 06:00 in daylight instead of at midnight.
+
 ## 1.1.6 - 2026-11-20
 
 ### Added

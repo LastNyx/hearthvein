@@ -121,7 +121,9 @@ func start_new_game(new_seed: int = -1, endless: bool = false, tutorial: bool = 
 	if tutorial and not settings.tutorial_first_run_done:
 		settings.tutorial_first_run_done = true
 		settings.save()
-	swap_settlement(Settlement.new_game(sd, registry, endless or endless_start, tutorial))
+	var s := Settlement.new_game(sd, registry, endless or endless_start, tutorial)
+	s.clock.total_hours = Settlement.PLAYER_START_HOUR  # open in daylight (day and night, 1.1.6)
+	swap_settlement(s)
 
 
 ## The title's New game button: the options panel over the title (Back closes it, Start begins the game).
