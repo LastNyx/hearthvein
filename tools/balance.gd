@@ -67,6 +67,17 @@ const OPENING: Array = [["forager", 1, 0], ["woodcutter", 1, 0], ["forager", 2, 
 ## Ascendant healing buildings: id -> count wanted.
 const HEALERS := {"verdant_spring": 2, "rewilding_grove": 2, "vein_mender": 2, "clearwater_works": 1}
 const CLEANERS: Array[String] = ["purifier_tower", "cleanser"]
+## Cleaners the bot builds at most, and the uncovered blighted tiles that call for one more (121).
+const CLEANERS_MAX := 16
+const CLEAN_MIN := 3
+## A region's food producers keep working to this stock, so a region with a storehouse can become a fed region (121).
+const FOOD_REGION_FLOOR := 330.0
+## Markets give way to the cleaners from this era (Skyborne).
+const GOLD_THROTTLE_ORDER := 6
+const LUMEN_FLOOR := 100.0
+const LUMEN_BACK := 250.0
+## Citizens gained that count as progress for the stall check.
+const POP_PROGRESS := 30
 const TAX_OFFICES_MAX := 3
 ## Tax Offices are built below this many times the next gate's gold and pulled down above TAX_DROP_AT times it.
 const TAX_BUILD_BELOW := 0.9
@@ -99,6 +110,12 @@ var _log_dimming: Array[String] = []
 var _health_year: Array[String] = []
 var _eras: Array[String] = []
 var _last_progress_day: int = 0
+var _pop_mark: int = 0
+var _lumen_short: bool = false
+var _why: Dictionary = {}
+## False: homes only in the Hearth's region. A far region once held 12 days of food and later ran dry; its people were
+## hungry every day and any hunger stops all growth (seeds 42 and 7 sat under the Ascendant gate, 121).
+var _homes_elsewhere: bool = false
 var _skyheart_done_day: int = -1
 var _great_end: String = ""
 var _verbose: bool = false
@@ -304,11 +321,83 @@ func _init() -> void:
 						if s.map.is_region_owned(s.map.get_region(xx, yy)):
 							forest_owned += 1
 			print("    diag wood: forest tiles %d (owned %d) woodcutters %d foresters %d health %.1f" % [forest_n, forest_owned, _count("woodcutter"), _count("forester"), s.planet_health()])
+			var phs := s.get_system(PlanetHealthSystem) as PlanetHealthSystem
+			var bd := phs.daily_breakdown(s)
+			var cnt := {}
+			for b: Building in s.buildings.values():
+				if not b.site and b.def.health_per_day != 0.0:
+					cnt[b.def.id] = int(cnt.get(b.def.id, 0)) + (1 if PlanetHealthSystem.is_working(s, b) else 0) * 1000 + 1
+			var cl_work := 0
+			var cl_reach := 0
+			var cl_n := 0
+			var cs_ := s.get_system(CleaningSystem) as CleaningSystem
+			for b: Building in s.buildings.values():
+				if not b.site and b.def.clean_radius > 0 and b.layer == Building.LAYER_GROUND:
+					cl_n += 1
+					if PlanetHealthSystem.is_working(s, b):
+						cl_work += 1
+					if cs_.next_tile(s, b).x >= 0:
+						cl_reach += 1
+			var cl_unpaid := 0
+			var cl_staffed := 0
+			var us_ := s.get_system(UpkeepSystem) as UpkeepSystem
+			var jobs_at := {}
+			for c: Citizen in s.citizens.values():
+				if c.job_kind == Citizen.JOB_WORK:
+					jobs_at[c.job_id] = true
+			for b: Building in s.buildings.values():
+				if not b.site and b.def.clean_radius > 0 and b.layer == Building.LAYER_GROUND and jobs_at.has(b.id):
+					cl_staffed += 1
+					if not us_.is_paid(b.id):
+						cl_unpaid += 1
+			print("    diag cleaners: built %d staffed %d unpaid upkeep %d working %d with blight in reach %d; spawn/day %.1f; lumen %d cells %d" % [cl_n, cl_staffed, cl_unpaid, cl_work, cl_reach, _spawn_rate(), int(s.totals().get("lumen", 0.0)), int(s.totals().get("lumen_cells", 0.0))])
+			print("    diag health/day: blight %.4f (%d tiles) forest %.4f buildings %.4f total %.4f = %.1f/yr; working*1000+built %s" % [bd["blight"], BlightSystem.count(s), bd["forest"], bd["buildings"], bd["total"], bd["total"] * 32.0, cnt])
+			var reg_prod := {}
+			for b: Building in s.buildings.values():
+				if not b.site and ["forager", "farm", "fishing_dock", "greenhouse", "hydroponic_hall", "bloom_orchard"].has(b.def.id):
+					var rr := s.map.get_region(b.origin.x, b.origin.y)
+					var row: Array = reg_prod.get(rr, [0, 0])
+					row[0] += 1
+					row[1] += 1 if b.paused else 0
+					reg_prod[rr] = row
+			var by_cat := {}
+			for c: Citizen in s.citizens.values():
+				var jb: Building = s.buildings.get(c.job_id)
+				var key := "idle" if jb == null else ("%s/%s" % [jb.def.category, jb.def.id] if c.job_kind == Citizen.JOB_WORK else ("haul" if c.job_kind == Citizen.JOB_HAUL else "build"))
+				by_cat[key] = int(by_cat.get(key, 0)) + 1
+			print("    diag jobs: ", by_cat)
+			var hw := []
+			for hid in HOUSING:
+				var hd := s.registry.get_building(hid)
+				if s.is_unlocked(hd):
+					var spots := 0
+					for off: Vector2i in _offsets:
+						if off.length_squared() > 324:
+							break
+						if s.can_place(hid, s.hearth.origin + off)["ok"]:
+							spots += 1
+					hw.append("%s afford %s spots %d" % [hid, str(_afford(hid)), spots])
+			print("    diag housing: ", hw, " why ", _why)
+			_why = {}
+			var led := s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
+			var ly := led.yesterday("lumen")
+			var upk := 0.0
+			var upk_clean := 0.0
+			for b: Building in s.buildings.values():
+				if not b.site and not b.paused and b.def.upkeep_lumen > 0.0:
+					upk += b.def.upkeep_lumen
+					if b.def.clean_radius > 0:
+						upk_clean += b.def.upkeep_lumen
+			print("    diag lumen/day: made %d used by recipes %d upkeep demand %d (cleaners %d) vein factor %.2f; made by %s" % [int(ly["made"]), int(ly["used"]), int(upk), int(upk_clean), PlanetHealthSystem.vein_factor_at(s, s.planet_health()), str(ly["made_by"])])
+			print("    diag food producers [n, paused] by region: ", reg_prod)
 			print("    diag regions: pop ", reg_pop, " beds ", reg_beds, " food in stores ", reg_food)
 		if _skyheart_done_day < 0 and _skyheart_finished():
 			_skyheart_done_day = day
 			_progress()
 			print("Skyheart finished: ", _stamp())
+		if s.citizens.size() >= _pop_mark + POP_PROGRESS:
+			_pop_mark = s.citizens.size()  # a town that still grows is not stalled (the pop gates are a 1/day clock, 121)
+			_progress()
 		if day - _last_progress_day >= _stall_years * GameClock.DAYS_PER_YEAR:
 			stalled = true
 			break
@@ -786,9 +875,13 @@ func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false
 		if not def.fells_forest and not def.fertility_output and off.length_squared() > r2:
 			break
 		var t := near + off
-		if int(_bad_tiles.get(t, -1)) > s.clock.total_days() or not s.can_place(id, t)["ok"]:
+		if int(_bad_tiles.get(t, -1)) > s.clock.total_days():
+			_why["bad"] = int(_why.get("bad", 0)) + 1
+			continue
+		if not s.can_place(id, t)["ok"]:
 			continue
 		if fed_only and not _fed_region(s.map.get_region(t.x, t.y)):
+			_why["unfed"] = int(_why.get("unfed", 0)) + 1
 			continue
 		if def.fertility_output and _mean_fertility(t, def.size) < 0.55:
 			continue  # a farm on forest or stumps makes next to nothing: a player picks soil
@@ -796,6 +889,7 @@ func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false
 		if checks > 250:
 			break  # a road search that fails floods the map: do not run it for hundreds of spots
 		if not _road_affordable(Rect2i(t, def.size)):
+			_why["road"] = int(_why.get("road", 0)) + 1
 			_bad_tiles[t] = s.clock.total_days() + 20
 			continue
 		pick = t
@@ -809,6 +903,7 @@ func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false
 		L.connect_road(s, b)
 		if not _hearth_exits_joined() or not _reachable(b):
 			# the building (or the road for it) shut a road tile at the Hearth in, so walkers cannot get through
+			_why["joined"] = int(_why.get("joined", 0)) + 1
 			s.demolish(b.id)
 			_bad_tiles[t] = s.clock.total_days() + 30
 			_cooldown[id] = s.clock.total_days() + 1
@@ -1060,6 +1155,8 @@ func _act() -> void:
 ## Pauses producers of a good that is plentiful and resumes them when it runs low: a full door buffer keeps the haulers
 ## busy ferrying surplus and construction sites then starve (haulers always take door buffers first).
 func _throttle(pop: int) -> void:
+	if s.registry.get_era(s.era_current).order >= GOLD_THROTTLE_ORDER:
+		_gold_throttle()
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
 		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
@@ -1078,16 +1175,63 @@ func _throttle(pop: int) -> void:
 			high = minf(high, stock - 1.0)  # people are needed at the Mason and Sawmill: hold the raw producers until they have caught up
 		if RAW.has(good) and stock >= float(GOLD_HOLD[good]) and _gold_unstaffed():
 			high = minf(high, stock - 1.0)  # Markets rank below the raw producers: hold them while the gate's gold waits for hands (47h)
+		if good == "lumen_cells" and _lumen_low():
+			high = minf(high, stock - 1.0)  # the Lumen upkeep (Cleansers, Purifiers) is paid before cells are made (121)
 		var ids: Array = PRODUCERS.get(good, [])
 		if good == "food":
 			ids = ["forager", "farm", "fishing_dock", "greenhouse", "hydroponic_hall", "bloom_orchard"]
+		var by_region := {}
+		if good == "food":
+			by_region = _food_by_region()
 		for b: Building in s.buildings.values():
 			if b.site or not ids.has(b.def.id):
+				continue
+			if good == "food":
+				# food is eaten in the region it is stored in (growth step 1): judge each producer by its own region (121)
+				var rr := s.map.get_region(b.origin.x, b.origin.y)
+				var row: Array = by_region.get(rr, [0.0, 0])
+				var r_high := FOOD_THROTTLE_CITY * float(row[1]) + float(THROTTLE[good][1]) if s.registry.get_era(s.era_current).order >= CITY_ORDER \
+						else float(THROTTLE[good][0]) * float(row[1]) + float(THROTTLE[good][1])
+				r_high = maxf(r_high, FOOD_REGION_FLOOR)
+				if float(row[0]) > r_high and not b.paused:
+					s.set_building_priority(b.id, "paused")
+				elif float(row[0]) < r_high * 0.6 and b.paused:
+					s.set_building_priority(b.id, "normal")
 				continue
 			if stock > high and not b.paused:
 				s.set_building_priority(b.id, "paused")
 			elif stock < high * 0.6 and b.paused:
 				s.set_building_priority(b.id, "normal")
+
+
+## Markets rank just above the cleaners: once the treasury covers the next gate, the landmark's gold and a margin, their
+## hands are better spent on the Cleansers and Purifiers (blight kept the planet from healing in Skyborne, 121).
+## True from Conflux while the Lumen stock is under LUMEN_FLOOR (until it is back over LUMEN_BACK): with none left the
+## buildings with Lumen upkeep stop working, the Cleansers first, and planet health falls to 0 (121).
+func _lumen_low() -> bool:
+	if s.registry.get_era(s.era_current).order < 5:
+		return false
+	var lumen := float(s.totals().get("lumen", 0.0))
+	if lumen < LUMEN_FLOOR:
+		_lumen_short = true
+	elif lumen > LUMEN_BACK:
+		_lumen_short = false
+	return _lumen_short
+
+
+func _gold_throttle() -> void:
+	var need := float(s.era_gate().get("gold_need", 0))
+	var lm := _landmark_id()
+	if lm != "" and _lm_active():
+		need += float(_lm_cost(lm).get("gold", 0.0))
+	need = need * 1.2 + 400.0
+	for b: Building in s.buildings.values():
+		if b.site or not PRODUCERS["gold"].has(b.def.id):
+			continue
+		if s.gold > need and not b.paused:
+			s.set_building_priority(b.id, "paused")
+		elif s.gold < need * 0.75 and b.paused:
+			s.set_building_priority(b.id, "normal")
 
 
 ## True when the stock of a raw good cannot pay for the open sites: the old 0.8 * pop + 40 materials mark, split by the
@@ -1236,7 +1380,7 @@ func _housing(pop: int, reserve: Dictionary) -> void:
 			continue
 		if not _afford(id, res):
 			continue
-		if _place(id, _hearth_near(), 18, true) != null:
+		if _place(id, _hearth_near(), SEARCH_RADIUS, true) != null:
 			return
 	if s.registry.get_era(s.era_current).order >= CITY_ORDER:
 		_upgrade_home(res)
@@ -1261,7 +1405,7 @@ func _fed_region(r: int) -> bool:
 					food[br] = float(food.get(br, 0.0)) + b.inventory.amount_of(g)
 			beds[br] = int(beds.get(br, 0)) + b.effective_beds(s.registry)
 		for br in food:
-			if float(food[br]) >= 12.0 * float(int(beds.get(br, 0)) + 24):
+			if float(food[br]) >= 12.0 * float(int(beds.get(br, 0)) + 24) and _homes_elsewhere:
 				_fed[br] = true
 		_fed[s.map.get_region(s.hearth.origin.x, s.hearth.origin.y)] = true
 	return _fed.has(r)
@@ -1551,11 +1695,14 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	for v in s.map.blight:
 		blight += int(v)
 	var cleaners := _count("cleanser") + _count("purifier_tower")
-	if era >= 2 and cleaners < clampi(blight / 10, mini(1, blight), 10) and _jobs_free() >= 2:
-		for id in CLEANERS:
-			if s.is_unlocked(s.registry.get_building(id)) and _afford(id, res):
-				if _place(id, _hearth_near(), 18) != null:
-					break
+	var cleaners_cap := CLEANERS_MAX if era >= CITY_ORDER else clampi(blight / 10, mini(1, blight), CLEANERS_MAX)
+	if era >= 2 and cleaners < cleaners_cap and _jobs_free() >= 2:
+		var spot := _uncovered_blight()
+		if spot.x >= 0:
+			for id in CLEANERS:
+				if s.is_unlocked(s.registry.get_building(id)) and _afford(id, res):
+					if _place(id, spot, 6) != null:
+						break
 	# regional storehouses
 	_regional_storehouses()
 	# healing in the last era
@@ -1566,6 +1713,69 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	# Lumen cells and tools matter for the big landmarks: keep one refinery and toolsmith early
 	if era >= 5 and _count("lumen_pylon") < 0:
 		pass
+
+
+## The blighted tile with the most blighted neighbours (r5) among those no cleaner, built or planned, reaches; (-1, -1)
+## when fewer than CLEAN_MIN tiles lie uncovered. A player puts the cleaner where the blight is, next to the extractor.
+func _uncovered_blight() -> Vector2i:
+	var cleaners: Array[Building] = []
+	for b: Building in s.buildings.values():
+		if b.def.clean_radius > 0 and b.layer == Building.LAYER_GROUND:
+			cleaners.append(b)
+	var open: Array[Vector2i] = []
+	for y in MapState.HEIGHT:
+		for x in MapState.WIDTH:
+			if not s.map.is_blighted(x, y) or not s.map.is_region_owned(s.map.get_region(x, y)):
+				continue
+			var covered := false
+			for c in cleaners:
+				if CleaningSystem._dist2(c, x, y) <= c.def.clean_radius * c.def.clean_radius:
+					covered = true
+					break
+			if not covered:
+				open.append(Vector2i(x, y))
+	if open.size() < CLEAN_MIN:
+		return Vector2i(-1, -1)
+	var best := open[0]
+	var best_n := -1
+	for t in open:
+		var n := 0
+		for u in open:
+			if (u - t).length_squared() <= 25:
+				n += 1
+		if n > best_n:
+			best_n = n
+			best = t
+	return best
+
+
+## Region -> [food in its storage, citizens living in it]: people eat only from storage in their own region.
+func _food_by_region() -> Dictionary:
+	var out := {}
+	for b: Building in s.buildings.values():
+		if b.site or b.inventory == null:
+			continue
+		var r := s.map.get_region(b.origin.x, b.origin.y)
+		var row: Array = out.get(r, [0.0, 0])
+		for g in GrowthSystem.food_goods(s.registry):
+			row[0] += b.inventory.amount_of(g)
+		out[r] = row
+	for c: Citizen in s.citizens.values():
+		var hb: Building = s.buildings.get(c.home_id)
+		var o: Vector2i = hb.origin if hb != null else s.hearth.origin
+		var r := s.map.get_region(o.x, o.y)
+		var row: Array = out.get(r, [0.0, 0])
+		row[1] += 1
+		out[r] = row
+	return out
+
+
+func _spawn_rate() -> float:
+	var r := 0.0
+	for b: Building in s.buildings.values():
+		if not b.site and b.layer == Building.LAYER_GROUND and b.def.blight_radius > 0 and b.def.blight_period_days > 0:
+			r += 1.0 / float(b.def.blight_period_days)
+	return r
 
 
 ## A Well beside a home that has no drinking water (Rowhouse and up): each home without water costs Spirit, and Spirit
@@ -1602,6 +1812,14 @@ func _regional_storehouses() -> void:
 				homes[r] = b
 		if b.def.id == "storehouse" or b.def.id == "hearth":
 			stores[r] = true
+	# a region with food producers and no storehouse: its food goes elsewhere and no home is ever safe there (121)
+	var farms := {}
+	for b: Building in s.buildings.values():
+		if not b.site and b.layer == Building.LAYER_GROUND and PRODUCERS["food"].has(b.def.id):
+			var fr := s.map.get_region(b.origin.x, b.origin.y)
+			farms[fr] = int(farms.get(fr, 0)) + 1
+			if int(farms[fr]) >= 3 and not homes.has(fr):
+				homes[fr] = b
 	for r in homes:
 		if not stores.has(r) and _afford("storehouse") and _hauler_slots() < HAULER_SHARE_MAX * float(s.citizens.size()) + 6.0:
 			var home: Building = homes[r]
