@@ -86,6 +86,8 @@ func test_start_hearth_houses_8_citizens() -> void:
 
 
 func test_higher_category_fills_first_when_short() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0  # the small-town first hand (118) has its own test below
 	var s := _new()
 	var wood := _put(s, "woodcutter", true)
 	var food := _put(s, "forager", true)
@@ -102,6 +104,7 @@ func test_higher_category_fills_first_when_short() -> void:
 	_keep_citizens(s, 3)
 	assert_eq(_workers(s, food), 2)
 	assert_eq(_workers(s, lumen), 1)
+	reg.logistics.small_town_pop = small
 
 
 func test_priority_high_beats_normal_and_paused_gets_none() -> void:
@@ -185,3 +188,21 @@ func test_hauler_reserve_is_filled_before_food_slots() -> void:
 		if b.def.id == "forager":
 			fed += _workers(s, b)
 	assert_eq(fed, 8)
+
+
+func _woodcutter_hands(s: Settlement, pop: int) -> int:
+	var wood := _put(s, "woodcutter", true)
+	for i in 10:
+		assert_not_null(_put(s, "forager", true))
+	while s.citizens.size() < pop:
+		s.add_citizen()
+	s.refresh_population()
+	return _workers(s, wood)
+
+
+# 118: a small town (under small_town_pop people) gives a raw-goods workplace its first hand before the food slots
+# take everyone; from small_town_pop up the usual order holds.
+func test_small_town_gives_the_woodcutter_a_first_hand() -> void:
+	assert_eq(reg.logistics.small_town_pop, 20)
+	assert_eq(_woodcutter_hands(_new(), 19), 1, "19 people: hauler reserve, one woodcutter hand, then food")
+	assert_eq(_woodcutter_hands(_new(), 20), 0, "20 people: food slots outrank the woodcutter")

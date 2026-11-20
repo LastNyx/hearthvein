@@ -261,8 +261,8 @@ func test_every_village_building_can_be_built() -> void:
 	var s := Settlement.new_game(SEED, reg)
 	s.era_current = "village"  # the real progression state; the Meeting Hall test reaches it normally
 	s.gold = 2000.0
-	# Storage for the whole Village set: the Hearth holds 150 per good, each storehouse 400 units shared.
-	for i in 3:
+	# Storage for the whole Village set: the Hearth holds 150 per good, each storehouse 400 units shared (four, the start stock is bigger since 118).
+	for i in 4:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)

@@ -43,7 +43,7 @@ var gold: float = 0.0
 var citizens: Dictionary = {}  # int -> Citizen
 var _next_citizen_id: int = 0
 ## New-game stock (design.md section 5), put in the Hearth.
-const START_STOCK := {"food": 60.0, "wood": 40.0, "lumen": 10.0}
+const START_STOCK := {"food": 60.0, "wood": 100.0, "stone": 20.0, "lumen": 10.0}
 const START_CITIZENS := 8
 ## Hour a player's new game opens at (main.start_new_game), so the first screen is daylight, not night. new_game()
 ## itself stays at hour 0 so sim tests and the balance bot keep their clock.

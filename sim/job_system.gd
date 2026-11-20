@@ -18,6 +18,8 @@ const CATEGORY_ORDER: Array[String] = [
 const BUILD_CATEGORY := "build"
 ## Hauler slots (def.hauler_slots) always rank as the hauling tier, whatever the building's own category.
 const HAUL_CATEGORY := "logistics"
+## Workplaces of this category (Woodcutter, Quarry) get one hand first in a small town.
+const RAW_CATEGORY := "resources"
 ## Within a category: high first, then normal, then low. Paused buildings get no workers at all.
 const PRIORITY_ORDER: Array[String] = ["high", "normal", "low"]
 
@@ -206,6 +208,13 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 			reserve -= n
 		e["want"] = n
 		left -= n
+	# A small town (under small_town_pop people) gives every raw-goods workplace its first hand before builders and
+	# second hands: one woodcutter hand is what pays for the next site (ticket 118).
+	if s.registry.logistics != null and s.citizens.size() < s.registry.logistics.small_town_pop:
+		for e in entries:
+			if e["kind"] == Citizen.JOB_WORK and e["building"].def.category == RAW_CATEGORY and left > 0:
+				e["want"] += 1
+				left -= 1
 	for e in entries:
 		var n := mini(e["slots"] - e["want"], left)
 		e["want"] += n

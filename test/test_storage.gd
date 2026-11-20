@@ -36,7 +36,7 @@ func test_start_stock_in_hearth() -> void:
 	var s := _new()
 	var t := s.totals()
 	assert_eq(t["food"], 60.0)
-	assert_eq(t["wood"], 40.0)
+	assert_eq(t["wood"], 100.0)
 	assert_eq(t["lumen"], 10.0)
 	assert_eq(s.gold, 0.0)
 	assert_eq(s.hearth.inventory.amount_of("food"), 60.0)
@@ -102,7 +102,7 @@ func test_totals_equal_sum_of_inventories() -> void:
 	var t := s.totals()
 	assert_eq(t["food"], 60.0 + 30.0 + 12.5)
 	assert_eq(t["planks"], 7.0)
-	assert_eq(t["wood"], 40.0)
+	assert_eq(t["wood"], 100.0)
 	var sum := 0.0
 	for g in t:
 		sum += t[g]

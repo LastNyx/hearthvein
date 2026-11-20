@@ -50,10 +50,10 @@ func test_resources_show_values_and_daily_deltas() -> void:
 	s.step_days(1)
 	var r := _res("wood")
 	assert_eq(r["delta"], 7)
-	assert_eq(r["value"], 47)
-	assert_eq(r["text"], "47 +7")
+	assert_eq(r["value"], 107)
+	assert_eq(r["text"], "107 +7")
 	var st := _res("stone")
-	assert_eq([st["value"], st["delta"], st["icon"]], [7, 7, "stone"])
+	assert_eq([st["value"], st["delta"], st["icon"]], [27, 7, "stone"])
 	assert_eq(m.resources().map(func(x: Dictionary) -> String: return x["id"]),
 			["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"])
 	assert_eq(_res("food")["icon"], "food")
@@ -723,7 +723,7 @@ func test_house_shows_residents_and_their_roles() -> void:
 	_set_job(ids[1], wc, Citizen.JOB_WORK)
 	m.select(tent)
 	var lines: Array = m.selection()["lines"]
-	assert_true("Residents 2/2" in lines, str(lines))
+	assert_true("Residents 2/3" in lines, str(lines))
 	assert_true("1 hauler, 1 woodcutter" in lines, str(lines))
 	_set_job(ids[0], -1, Citizen.JOB_NONE)
 	_set_job(ids[1], -1, Citizen.JOB_NONE)

@@ -166,7 +166,7 @@ func test_woodcutter_turns_forest_into_stumps() -> void:
 	assert_gt(stumps.size(), 0)
 	for t in stumps:
 		assert_lte(Vector2(t - w.origin).length(), 4.0, "stump %s inside radius 4" % t)
-	var made: float = s.totals().get("wood", 0.0) - 40.0 + w.door_buffer.amount_of("wood")
+	var made: float = s.totals().get("wood", 0.0) - 100.0 + w.door_buffer.amount_of("wood")
 	assert_almost_eq(float(stumps.size()), made / reg.logistics.units_per_felled_tile, 3.0)
 	assert_eq(s.events.log_of("terrain_changed").size() - before, stumps.size(), "one event per stump")
 

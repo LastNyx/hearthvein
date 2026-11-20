@@ -16,6 +16,9 @@ extends Resource
 ## Share of all citizens kept as haulers before any producer slot is filled (floored, so tiny settlements keep
 ## none). Without it food slots take every citizen and nothing is carried.
 @export var min_hauler_share: float = 0.0
+## Below this many citizens a town is small: every raw-goods workplace (category resources) gets its first hand
+## before builders and second hands (JobSystem). 0 turns the rule off.
+@export var small_town_pop: int = 0
 ## A woodcutter (BuildingDef.fells_forest) turns one forest tile into a stump per this many units produced.
 @export var units_per_felled_tile: float = 0.0
 

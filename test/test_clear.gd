@@ -145,6 +145,8 @@ func test_clearing_rock_gives_stone_and_ends_the_quarry_spot() -> void:
 
 
 func test_a_ready_site_of_the_same_priority_goes_before_a_clear_job() -> void:
+	var crew := reg.logistics.builder_crew
+	reg.logistics.builder_crew = 4  # one crew takes all four builders (the data has 2 since 118)
 	var t := _tile(8, 1, "forest")
 	assert_true(s.mark_clear(t))
 	var bid := s.place_building("tent", Vector2i(h.x + 4, h.y - 1))
@@ -164,6 +166,7 @@ func test_a_ready_site_of_the_same_priority_goes_before_a_clear_job() -> void:
 	assert_true(s.is_clear_marked(t), "the clear job waited")
 	assert_lt(float(_cs().clear_marks[idx]), 1.0, "and was barely started when the site finished")
 	assert_true(_hours_until_cleared(t, 3) >= 0, "then the builders cleared it")
+	reg.logistics.builder_crew = crew
 
 
 func test_a_mark_no_yard_can_reach_is_flagged_and_left_alone() -> void:

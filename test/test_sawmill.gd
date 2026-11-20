@@ -122,6 +122,8 @@ func test_sawmill_consumes_hauled_wood_and_planks_reach_storage() -> void:
 # AC2: two ready sites take about twice as long with only the Hearth's four builders; a Builder's Yard adds four
 # more, so both sites get a full crew and are built at the same time.
 func test_builders_yard_builds_two_sites_in_parallel() -> void:
+	var crew := reg.logistics.builder_crew
+	reg.logistics.builder_crew = 4  # a crew of 4 fills the Hearth; the data has 2 since 118, which two sites fit on the Hearth alone
 	var plain := Settlement.new_game(SEED, reg)
 	plain.era_override = "village"
 	_strip(plain)
@@ -145,3 +147,4 @@ func test_builders_yard_builds_two_sites_in_parallel() -> void:
 	assert_gt(yard_hours, 0, "both sites finish with a Yard")
 	assert_lt(float(yard_hours), float(plain_hours) * 0.7,
 			"a Yard builds the two sites together (%d h vs %d h)" % [yard_hours, plain_hours])
+	reg.logistics.builder_crew = crew

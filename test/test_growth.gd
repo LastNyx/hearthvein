@@ -164,9 +164,11 @@ func test_immigration_every_day_at_spirit_40_with_free_beds() -> void:
 	s.step_days(1)
 	assert_eq(s.citizens.size(), 9, "one newcomer on day 1")
 	s.step_days(1)
-	assert_eq(s.citizens.size(), 10, "and one more on day 2 (10 beds)")
+	assert_eq(s.citizens.size(), 10, "and one more on day 2")
+	s.step_days(1)
+	assert_eq(s.citizens.size(), 11, "and one more on day 3 (11 beds)")
 	s.step_days(2)
-	assert_eq(s.citizens.size(), 10, "no free bed left")
+	assert_eq(s.citizens.size(), 11, "no free bed left")
 
 
 func test_no_immigration_below_spirit_40() -> void:

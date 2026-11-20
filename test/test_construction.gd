@@ -8,12 +8,21 @@ var s: Settlement
 var h: Vector2i
 
 
+var _crew: int
+
+
 func before_all() -> void:
 	reg = DataRegistry.new()
 	reg.load_all()
+	_crew = reg.logistics.builder_crew
+
+
+func after_all() -> void:
+	reg.logistics.builder_crew = _crew  # the resource is cached and shared with the other test files
 
 
 func before_each() -> void:
+	reg.logistics.builder_crew = 4  # these tests are about one crew of 4 (the data has 2 since 118: test_data pins it)
 	s = Settlement.new_game(SEED, reg)
 	h = s.map.hearth_spot
 	for x in range(h.x + 2, h.x + 16):
