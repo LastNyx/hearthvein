@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.9 - 2026-11-21
 
 ### Added
 - The Resources page says what each good was used for yesterday: eaten, building, light, or which workshop took it.

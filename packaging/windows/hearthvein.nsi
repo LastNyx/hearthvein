@@ -3,7 +3,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.1.8"
+  !define VERSION "1.1.9"
 !endif
 !ifndef NUMVER
   !define NUMVER "${VERSION}"   ; numeric x.y.z for VIProductVersion (build.sh strips a -suffix)
