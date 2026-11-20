@@ -4,7 +4,13 @@ All notable changes to Hearthvein. Newest first.
 
 ## Unreleased
 
+### Added
+- The Resources page says what each good was used for yesterday: eaten, building, light, or which workshop took it.
+
 ### Changed
+- The build bar keeps every category on one row.
+- The Workforce page says "no road" for a building that is not joined to the road, instead of counting it as short
+  of workers.
 - A day now lasts 2 minutes at normal speed (it was 1), so dusk and night no longer flicker past. People walk the same distance in half the game time, so builders and haulers get more done each day.
 - The first days are easier: you start with 100 wood, builders work in crews of 2 (two sites go up at once) and walk straight to the next site, and in a town under 20 people every workplace gets one worker and the builders get their crew before anyone takes a second job.
 - A Woodcutter or Forester costs nothing to place when you are out of wood (one at a time), so a town with no wood can always start cutting trees again.
