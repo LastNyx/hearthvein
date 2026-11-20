@@ -76,6 +76,9 @@ const FAR_SITE_DAYS := 5
 ## Longest one-way walk (game hours) from a yard to a site before the bot builds a yard closer to it (102).
 const YARD_WALK_MAX := 1.5
 const SEARCH_RADIUS := 26
+const LM_RADIUS := 34
+const WOOD_KEEP := 330.0
+const WOOD_KEEP_ERA := 6
 ## Landmark saving starts at this share of the gate population.
 const LANDMARK_AT := 0.6
 ## Producers of the landmark's refined goods (planks, cut stone, cells, tools) are built from this share on.
@@ -271,6 +274,37 @@ func _init() -> void:
 		if day % GameClock.DAYS_PER_YEAR == 0:
 			print("  year %2d end: planet health %.1f%%, pop %d, gold %d, buildings %d, era %s" % [
 				day / GameClock.DAYS_PER_YEAR, s.planet_health(), s.citizens.size(), int(s.gold), s.buildings.size(), s.era_id()])
+			var gy := s.get_system(GrowthSystem) as GrowthSystem
+			var ty := s.totals()
+			var fy := 0.0
+			for g in GrowthSystem.food_goods(s.registry):
+				fy += float(ty.get(g, 0.0))
+			print("    diag: beds %d idle %d homeless %d food %d spirit %.0f bar %.1f/%.1f last_day %s" % [s.beds_total(), s.idle_citizens().size(), s.homeless_count(), int(fy), s.spirit(), gy.bar, gy.bar_size_now(s), gy.last_day])
+			var reg_pop := {}
+			var reg_food := {}
+			var reg_beds := {}
+			for c: Citizen in s.citizens.values():
+				var hb: Building = s.buildings.get(c.home_id)
+				var ot: Vector2i = hb.origin if hb != null else s.hearth.origin
+				var rr := s.map.get_region(ot.x, ot.y)
+				reg_pop[rr] = int(reg_pop.get(rr, 0)) + 1
+			for b: Building in s.buildings.values():
+				var rr := s.map.get_region(b.origin.x, b.origin.y)
+				if b.inventory != null:
+					for g in GrowthSystem.food_goods(s.registry):
+						reg_food[rr] = int(reg_food.get(rr, 0)) + int(b.inventory.amount_of(g))
+				if b.def.housing_beds > 0 and not b.site:
+					reg_beds[rr] = int(reg_beds.get(rr, 0)) + b.def.housing_beds
+			var forest_n := 0
+			var forest_owned := 0
+			for yy in MapState.HEIGHT:
+				for xx in MapState.WIDTH:
+					if s.map.terrain_id_at(xx, yy) == "forest":
+						forest_n += 1
+						if s.map.is_region_owned(s.map.get_region(xx, yy)):
+							forest_owned += 1
+			print("    diag wood: forest tiles %d (owned %d) woodcutters %d foresters %d health %.1f" % [forest_n, forest_owned, _count("woodcutter"), _count("forester"), s.planet_health()])
+			print("    diag regions: pop ", reg_pop, " beds ", reg_beds, " food in stores ", reg_food)
 		if _skyheart_done_day < 0 and _skyheart_finished():
 			_skyheart_done_day = day
 			_progress()
@@ -680,6 +714,8 @@ func _slots_for(good: String) -> int:
 
 func _afford(id: String, reserve: Dictionary = {}) -> bool:
 	var cost := s.cost_for(id)
+	if cost.has("wood") and not _wood_free(id, float(cost["wood"])):
+		return false
 	for g in cost:
 		var have: float = s.gold if g == "gold" else float(_stock.get(g, 0.0))
 		if have + 0.0001 < float(cost[g]) + float(reserve.get(g, 0.0)):
@@ -687,8 +723,19 @@ func _afford(id: String, reserve: Dictionary = {}) -> bool:
 	return true
 
 
+## From Conflux on a stock of wood is kept for the Skyheart's Foundation (320): the forests die back as planet health
+## falls under 60, the Woodcutters run out of trees, and a Woodcutter itself costs wood (seed 1234 sat at 0 wood for years
+## with 260 idle citizens). Woodcutters, Foresters and landmarks may dip into it.
+func _wood_free(id: String, need: float) -> bool:
+	if s.registry.get_era(s.era_current).order < WOOD_KEEP_ERA or _count("skyheart") > 0:
+		return true
+	if id == "woodcutter" or id == "forester" or LANDMARKS.values().has(id):
+		return true
+	return float(_stock.get("wood", 0.0)) >= need + WOOD_KEEP
+
+
 ## Places `id` on the free spot nearest `near` that a road can reach, as a real construction site, then lays the road.
-func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
+func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false) -> Building:
 	if int(_cooldown.get(id, -1)) > s.clock.total_days():
 		return null
 	var def := s.registry.get_building(id)
@@ -740,6 +787,8 @@ func _place(id: String, near: Vector2i, radius: int = 16) -> Building:
 			break
 		var t := near + off
 		if int(_bad_tiles.get(t, -1)) > s.clock.total_days() or not s.can_place(id, t)["ok"]:
+			continue
+		if fed_only and not _fed_region(s.map.get_region(t.x, t.y)):
 			continue
 		if def.fertility_output and _mean_fertility(t, def.size) < 0.55:
 			continue  # a farm on forest or stumps makes next to nothing: a player picks soil
@@ -877,13 +926,36 @@ func _lm_site() -> Building:
 	return null
 
 
+## What the era's landmark still needs in all: its cost, or for the staged Skyheart the stages from the one being built
+## on (every stage's goods have to be made, not only the first one's).
+func _lm_cost(lm: String) -> Dictionary:
+	var def := s.registry.get_building(lm)
+	if def.stages.is_empty():
+		return def.entry_cost()
+	var from := 0
+	var site := _lm_site()
+	if site != null:
+		from = site.stage
+	var out := {}
+	for i in range(from, def.stages.size()):
+		var c: Dictionary = def.stages[i].get("cost", {})
+		for g in c:
+			out[g] = float(out.get(g, 0.0)) + float(c[g])
+	return out
+
+
+## True while the era's landmark is not placed, or is a staged one still under construction.
+func _lm_active() -> bool:
+	return _lm_open() or (_lm_site() != null and not s.registry.get_building(_landmark_id()).stages.is_empty())
+
+
 ## How much of `good` the era's landmark still lacks: its cost less the stock (and, once the site is placed, less what the
 ## site already holds). 0 when there is no landmark in the making.
 func _lm_lacks(good: String) -> float:
 	var lm := _landmark_id()
 	if lm == "":
 		return 0.0
-	var cost := s.registry.get_building(lm).entry_cost()
+	var cost := _lm_cost(lm)
 	if not cost.has(good):
 		return 0.0
 	var site := _lm_site()
@@ -951,11 +1023,11 @@ func _act() -> void:
 		return
 	if _open_sites() < site_cap + 2 or (s.beds_total() <= pop + 2 and s.registry.get_era(s.era_current).order >= CITY_ORDER):  # stuck far sites must not hold housing back (growth stalled at full beds)
 		_housing(pop, reserve)
-	if saving:
+	if saving or (_lm_active() and _lm_site() != null):
 		if _slots_for("gold") < 2:
 			_produce(float(pop) * 1.15 + 10.0, pop, "gold")
 		# also whatever refined good the landmark needs and the settlement does not make yet
-		var lcost := s.registry.get_building(_landmark_id()).entry_cost()
+		var lcost := _lm_cost(_landmark_id())
 		for good in lcost:
 			var short: float = float(lcost[good]) - float(_stock.get(good, 0.0))
 			# the more a good is short, the more producers it gets (Lumen is eaten by upkeep and Dimmings while saved)
@@ -993,8 +1065,8 @@ func _throttle(pop: int) -> void:
 		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
 			high = FOOD_THROTTLE_CITY * float(pop) + float(THROTTLE[good][1])  # growth needs a rising stock: pausing the fields stops it (47g)
 		var lm := _landmark_id()
-		if lm != "" and _lm_open():
-			var lcost := s.registry.get_building(lm).entry_cost()
+		if lm != "" and _lm_active():
+			var lcost := _lm_cost(lm)
 			var want_n := float(lcost.get(good, 0))
 			if good == "lumen_cells":
 				want_n += maxf(float(lcost.get("tools", 0)) - float(_stock.get("tools", 0.0)), 0.0)  # every Tool still to make eats a cell
@@ -1092,7 +1164,7 @@ func _refined_short(raw: String) -> bool:
 	var lm := _landmark_id()
 	if lm == "" or (not _lm_open() and _lm_site() == null):
 		return false
-	var cost := s.registry.get_building(lm).entry_cost()
+	var cost := _lm_cost(lm)
 	var raw_cost := float(cost.get(raw, 0))
 	var hold := raw_cost + 50.0
 	if s.registry.get_era(s.era_current).order >= CITY_ORDER:
@@ -1131,12 +1203,17 @@ func _landmark() -> bool:
 			var have: float = s.gold if good == "gold" else float(_stock.get(good, 0.0))
 			if have + 0.0001 < float(cost[good]) * (1.0 if good == "gold" else NEAR_READY):
 				ready = false
-	if ready and _place(lm, _hearth_near(), 20) != null:
+	# the town fills the ground around the Hearth by the last era: the nearest 4x4 spot out to 34 tiles (a player builds on)
+	if ready and _place(lm, _hearth_near(), LM_RADIUS) != null:
 		_gate_seen["lm_placed"] = [s.clock.total_days(), int(s.gold)]
 		return false
 	if _verbose and ready:
 		print("   d%d landmark %s ready but no spot within 20 tiles" % [s.clock.total_days(), lm])
 	return true
+
+
+var _fed_day: int = -1
+var _fed: Dictionary = {}
 
 
 func _housing(pop: int, reserve: Dictionary) -> void:
@@ -1159,8 +1236,68 @@ func _housing(pop: int, reserve: Dictionary) -> void:
 			continue
 		if not _afford(id, res):
 			continue
-		if _place(id, _hearth_near(), 18) != null:
+		if _place(id, _hearth_near(), 18, true) != null:
 			return
+	if s.registry.get_era(s.era_current).order >= CITY_ORDER:
+		_upgrade_home(res)
+
+
+## Regions where a new home gets fed: the Hearth's, or one whose storehouses hold a dozen days of food for its homes
+## plus one more block (food in another region is out of reach, so homes elsewhere starve, and any hunger stops all
+## growth: a far apartment block pinned seed 1234 at 206 for years).
+func _fed_region(r: int) -> bool:
+	var day := s.clock.total_days()
+	if _fed_day != day:
+		_fed_day = day
+		_fed = {}
+		var food := {}
+		var beds := {}
+		for b: Building in s.buildings.values():
+			if b.site or b.layer != Building.LAYER_GROUND:
+				continue
+			var br := s.map.get_region(b.origin.x, b.origin.y)
+			if b.inventory != null:
+				for g in GrowthSystem.food_goods(s.registry):
+					food[br] = float(food.get(br, 0.0)) + b.inventory.amount_of(g)
+			beds[br] = int(beds.get(br, 0)) + b.effective_beds(s.registry)
+		for br in food:
+			if float(food[br]) >= 12.0 * float(int(beds.get(br, 0)) + 24):
+				_fed[br] = true
+		_fed[s.map.get_region(s.hearth.origin.x, s.hearth.origin.y)] = true
+	return _fed.has(r)
+
+
+## No room left for a new home: raise a home one tier (x1.5, x2 beds). The biggest gain per cost first, three at a time.
+func _upgrade_home(res: Dictionary) -> void:
+	var open := 0
+	var best: Building = null
+	var best_score := 0.0
+	for b: Building in s.buildings.values():
+		if b.def.housing_beds <= 0 or b.site:
+			continue
+		if b.upgrading():
+			open += 1
+			continue
+		if not s.can_upgrade(b.id)["ok"]:
+			continue
+		var cost := b.tier_cost(s.registry, b.tier + 1)
+		var ok := true
+		var total := 0.0
+		for g in cost:
+			var have: float = s.gold if g == "gold" else float(_stock.get(g, 0.0))
+			total += float(cost[g])
+			if g == "wood" and not _wood_free("upgrade", float(cost[g])):
+				ok = false
+			if have + 0.0001 < float(cost[g]) + float(res.get(g, 0.0)):
+				ok = false
+		if not ok:
+			continue
+		var gain := float(roundi(float(b.def.housing_beds) * s.registry.tiers.output_factor(b.def, b.tier + 1)) - b.effective_beds(s.registry))
+		if gain / maxf(total, 1.0) > best_score:
+			best_score = gain / maxf(total, 1.0)
+			best = b
+	if best != null and open < 3:
+		s.upgrade(best.id)
 
 
 ## Places the next unmet row of the opening order. Returns true while the opening still holds the stock back (a row is
