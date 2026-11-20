@@ -126,6 +126,39 @@ func made_breakdown(id: String) -> Array[Dictionary]:
 	return out
 
 
+## Player words for the reasons a good is used (ticket 124); a "production:<def id>" key reads as the building's name.
+const USED_LABELS := {"eaten": "Eaten", "construction": "Building", "light": "Light", "placement": "Placing",
+		"region": "Land"}
+
+
+## What used `id` yesterday: [{label, amount, raw}] biggest first, zero rows hidden. Production reads as the building
+## that consumed it ("Sawmill"), the rest as the player's word for the reason ("Eaten").
+func used_breakdown(id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var ledger := _ledger()
+	if ledger == null:
+		return out
+	var by: Dictionary = ledger.used_breakdown(LEDGER_GOOD.get(id, id))
+	for key: String in by:
+		var amount := float(by[key])
+		if roundi(amount) <= 0:
+			continue
+		out.append({"label": _used_label(key), "amount": roundi(amount), "raw": amount})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["raw"] > b["raw"])
+	return out
+
+
+func _used_label(key: String) -> String:
+	if USED_LABELS.has(key):
+		return USED_LABELS[key]
+	if key.begins_with("production:"):
+		var def := s.registry.get_building(key.trim_prefix("production:"))
+		if def != null:
+			return def.display_name
+		return key.trim_prefix("production:").capitalize()
+	return key.capitalize()
+
+
 ## The chart series for `id`: the day-start stock samples (oldest first) and today's stock last, at most 60 values.
 func resource_history(id: String) -> Array[float]:
 	var ledger := _ledger()

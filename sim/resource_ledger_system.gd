@@ -5,7 +5,8 @@ extends SimSystem
 ##
 ## Made = goods added at a producer's door (ProductionSystem outputs, Market/Tax Office gold). Used = production
 ## inputs eaten by a recipe, food eaten by citizens, goods delivered into a construction site or an in-place upgrade,
-## Lumen and Lumen cells drawn for the Dimming's light, and gold paid for placement and upgrade stages.
+## Lumen and Lumen cells drawn for the Dimming's light, and gold paid for placement and upgrade stages. Both keep a
+## breakdown (which building made it; which reason, and for a recipe which building, used it) per day, saved with it.
 ## Hauling a good from a door to storage or from storage to an input buffer is not a use: only the consumption is.
 ##
 ## Every day start (the day_started event, which fires before any on_day hook) rolls today's counters into
@@ -22,9 +23,11 @@ const HISTORY_DAYS := 60
 var made_today: Dictionary = {}  # good id -> amount
 var used_today: Dictionary = {}  # good id -> amount
 var made_by_today: Dictionary = {}  # good id -> {building def id -> amount}
+var used_by_today: Dictionary = {}  # good id -> {reason or "production:<def id>" -> amount}
 var made_yesterday: Dictionary = {}
 var used_yesterday: Dictionary = {}
 var made_by_yesterday: Dictionary = {}
+var used_by_yesterday: Dictionary = {}
 var _history: Dictionary = {}  # good id -> Array[float], oldest first, at most HISTORY_DAYS
 
 
@@ -33,9 +36,11 @@ func save_state() -> Dictionary:
 		"made_today": SaveGame.pairs(made_today),
 		"used_today": SaveGame.pairs(used_today),
 		"made_by_today": SaveGame.pairs(made_by_today),
+		"used_by_today": SaveGame.pairs(used_by_today),
 		"made_yesterday": SaveGame.pairs(made_yesterday),
 		"used_yesterday": SaveGame.pairs(used_yesterday),
 		"made_by_yesterday": SaveGame.pairs(made_by_yesterday),
+		"used_by_yesterday": SaveGame.pairs(used_by_yesterday),
 		"history": SaveGame.pairs(_history),
 	}
 
@@ -44,9 +49,11 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	made_today = SaveGame.unpairs(d.get("made_today", []))
 	used_today = SaveGame.unpairs(d.get("used_today", []))
 	made_by_today = SaveGame.unpairs(d.get("made_by_today", []))
+	used_by_today = SaveGame.unpairs(d.get("used_by_today", []))
 	made_yesterday = SaveGame.unpairs(d.get("made_yesterday", []))
 	used_yesterday = SaveGame.unpairs(d.get("used_yesterday", []))
 	made_by_yesterday = SaveGame.unpairs(d.get("made_by_yesterday", []))
+	used_by_yesterday = SaveGame.unpairs(d.get("used_by_yesterday", []))
 	_history = SaveGame.unpairs(d.get("history", []))
 
 
@@ -66,11 +73,15 @@ func note_made(good: String, amount: float, def_id: String) -> void:
 
 
 ## One good left the world (eaten, consumed by a recipe, built in, burned for light, paid away). `reason` names the
-## call site for a reader; the ledger groups by good only.
-func note_used(good: String, amount: float, _reason: String) -> void:
+## call site for a reader; a recipe passes the consuming building's `def_id`, kept so the page can say "Sawmill".
+func note_used(good: String, amount: float, reason: String, def_id: String = "") -> void:
 	if amount <= Inventory.EPS:
 		return
 	used_today[good] = float(used_today.get(good, 0.0)) + amount
+	var key := reason if def_id == "" else "%s:%s" % [reason, def_id]
+	var by: Dictionary = used_by_today.get(good, {})
+	by[key] = float(by.get(key, 0.0)) + amount
+	used_by_today[good] = by
 
 
 ## One-line call site form: record at the ledger of `s` when the settlement runs one.
@@ -80,10 +91,10 @@ static func record_made(s: Settlement, good: String, amount: float, def_id: Stri
 		ledger.note_made(good, amount, def_id)
 
 
-static func record_used(s: Settlement, good: String, amount: float, reason: String) -> void:
+static func record_used(s: Settlement, good: String, amount: float, reason: String, def_id: String = "") -> void:
 	var ledger := s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
 	if ledger != null:
-		ledger.note_used(good, amount, reason)
+		ledger.note_used(good, amount, reason, def_id)
 
 
 # ---------------------------------------------------------------- day roll
@@ -94,9 +105,11 @@ func on_day_started(_e: Dictionary, s: Settlement) -> void:
 	made_yesterday = made_today
 	used_yesterday = used_today
 	made_by_yesterday = made_by_today
+	used_by_yesterday = used_by_today
 	made_today = {}
 	used_today = {}
 	made_by_today = {}
+	used_by_today = {}
 	_sample_stock(s)
 
 
@@ -137,6 +150,12 @@ func today(good: String) -> Dictionary:
 func yesterday(good: String) -> Dictionary:
 	return {"made": float(made_yesterday.get(good, 0.0)), "used": float(used_yesterday.get(good, 0.0)),
 			"made_by": (made_by_yesterday.get(good, {}) as Dictionary).duplicate()}
+
+
+## What used `good` yesterday, grouped by reason: {reason -> amount}, or {"production:<def id>" -> amount} for a
+## recipe's inputs. Empty for an old save with no breakdown.
+func used_breakdown(good: String) -> Dictionary:
+	return (used_by_yesterday.get(good, {}) as Dictionary).duplicate()
 
 
 ## Stock samples for `good`, oldest first, at most HISTORY_DAYS.

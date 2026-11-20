@@ -117,6 +117,40 @@ func test_save_round_trip_keeps_the_ledger() -> void:
 	assert_eq(l.history("wood"), ledger.history("wood"), "the wood history")
 
 
+# AC1 (ticket 124): what used each good, by reason, and for production the building that ate it; all of it survives a
+# save, and an old save loads with no breakdown.
+func test_used_by_reason_and_building_survive_a_save() -> void:
+	s.era_override = "village"
+	s.hearth.inventory.add("wood", 150.0)
+	s.hearth.inventory.add("food", 200.0)
+	var saw := _put("sawmill", 4)
+	assert_true(saw.connected, "the sawmill is road-connected")
+	s.step_days(8)
+	var by: Dictionary = ledger.used_breakdown("wood")
+	assert_gt(float(by.get("production:sawmill", 0.0)), 0.0, "the sawmill's wood use is attributed to it")
+	assert_gt(float(ledger.used_breakdown("food").get("eaten", 0.0)), 0.0, "eating is a reason")
+	var path := dir.path_join("used.dat")
+	assert_eq(SaveGame.save(s, path), OK)
+	var loaded := SaveGame.load(path, reg)
+	assert_not_null(loaded, "the save loads")
+	if loaded == null:
+		return
+	var lb: Dictionary = (loaded.get_system(ResourceLedgerSystem) as ResourceLedgerSystem).used_breakdown("wood")
+	assert_eq(lb.keys(), by.keys(), "the same reasons survive the save")
+	for k: String in by:
+		assert_almost_eq(float(lb.get(k, 0.0)), float(by[k]), 0.001, "the amount for %s survives" % k)
+	var state := s.to_dict()
+	(state["systems"] as Dictionary).erase("ledger")
+	var old_path := dir.path_join("old.dat")
+	assert_eq(SaveGame.write_payload({"version": 4, "state": state}, old_path), OK)
+	var old := SaveGame.load(old_path, reg)
+	assert_not_null(old, "the old save loads")
+	if old == null:
+		return
+	assert_eq((old.get_system(ResourceLedgerSystem) as ResourceLedgerSystem).used_breakdown("wood"), {},
+			"an old save has no used-by breakdown")
+
+
 func test_a_v4_save_loads_with_an_empty_ledger() -> void:
 	s.step_days(1)
 	var state := s.to_dict()

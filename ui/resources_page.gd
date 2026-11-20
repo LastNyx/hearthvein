@@ -2,8 +2,9 @@ class_name ResourcesPage
 extends PanelContainer
 ## The Resources page (key E or a click on a top-bar resource, D7): a table of every good (stock, change per day, made
 ## and used yesterday), a click on a row charts it for 60 days under the table, hovering a made number lists what made
-## it. Centred, opaque like the Workforce page; the sim keeps running. Thin: rows, breakdown and series come from
-## HudModel (resource_rows, made_breakdown, resource_history), which reads the ResourceLedgerSystem.
+## it and what used it. Centred, opaque like the Workforce page; the sim keeps running. Thin: rows, breakdowns and
+## series come from HudModel (resource_rows, made_breakdown, used_breakdown, resource_history), which reads the
+## ResourceLedgerSystem.
 
 const SIZE := Vector2(900, 590)
 const COL_NAME := 150
@@ -193,7 +194,7 @@ func _add_row(r: Dictionary) -> void:
 	_cell(h, str(r["used"]), COL_WIDE, Hud.INK if r["used"] > 0 else Hud.DIM, true)
 
 
-## Lists what made `id` yesterday beside the table (hover on the made number).
+## Lists what made and what used `id` yesterday beside the table (hover on the made number).
 func show_breakdown(id: String) -> void:
 	_hover = id
 	for c in _tip_box.get_children():
@@ -206,17 +207,31 @@ func show_breakdown(id: String) -> void:
 			made = r["made"]
 	var t := hud._label(_tip_box, 16, Hud.GOLD)
 	t.text = "%s made yesterday: %d" % [_name_of(rows, id), made]
+	var made_lines := 0
 	for e: Dictionary in model.made_breakdown(id):
-		var line := HBoxContainer.new()
-		_tip_box.add_child(line)
-		var n := _cell(line, e["label"], 170, Hud.INK, false, 15)
-		n.name = "Label"
-		var a := _cell(line, str(e["amount"]), 60, Hud.INK, true, 15)
-		a.name = "Amount"
-	if _tip_box.get_child_count() == 1:
+		_add_line(e, "Label", "Amount")
+		made_lines += 1
+	if made_lines == 0:
 		var none := hud._label(_tip_box, 14, Hud.DIM)
 		none.text = "Nothing made yesterday"
+	var used := model.used_breakdown(id)
+	if not used.is_empty():
+		var head := hud._label(_tip_box, 15, Hud.GOLD)
+		head.name = "UsedHeading"
+		head.text = "Used yesterday"
+		for e: Dictionary in used:
+			_add_line(e, "UsedLabel", "UsedAmount")
 	_tip.modulate.a = 1.0
+
+
+## One breakdown line: its label on the left, its amount right.
+func _add_line(e: Dictionary, label_name: String, amount_name: String) -> void:
+	var line := HBoxContainer.new()
+	_tip_box.add_child(line)
+	var n := _cell(line, e["label"], 170, Hud.INK, false, 15)
+	n.name = label_name
+	var a := _cell(line, str(e["amount"]), 60, Hud.INK, true, 15)
+	a.name = amount_name
 
 
 func hide_breakdown() -> void:
@@ -231,12 +246,21 @@ func row_node(id: String) -> Control:
 
 ## The breakdown lines currently shown: [[label, amount text]].
 func breakdown_lines() -> Array:
+	return _lines_named("Label", "Amount")
+
+
+## The used-by lines currently shown: [[label, amount text]].
+func used_lines() -> Array:
+	return _lines_named("UsedLabel", "UsedAmount")
+
+
+func _lines_named(label_name: String, amount_name: String) -> Array:
 	var out: Array = []
 	if _tip.modulate.a <= 0.0:
 		return out
 	for c in _tip_box.get_children():
-		var l := c.find_child("Label", true, false) as Label
-		var a := c.find_child("Amount", true, false) as Label
+		var l := c.find_child(label_name, true, false) as Label
+		var a := c.find_child(amount_name, true, false) as Label
 		if l != null and a != null:
 			out.append([l.text, a.text])
 	return out

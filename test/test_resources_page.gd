@@ -163,6 +163,28 @@ func test_hovering_made_shows_the_breakdown() -> void:
 	assert_eq(hud.resources_page.breakdown_lines(), [])
 
 
+# AC2 (ticket 124): the hover breakdown also lists what used the good yesterday, in player words, largest first, with
+# zero rows hidden.
+func test_hovering_made_lists_used_by_in_player_words() -> void:
+	var main: Node = await _game()
+	var s: Settlement = main.settlement
+	var hud: Hud = main.get_node("Hud")
+	_ledger(s).made_yesterday = {"wood": 48.0}
+	_ledger(s).used_yesterday = {"wood": 40.0}
+	_ledger(s).used_by_yesterday = {"wood": {"eaten": 25.0, "production:sawmill": 12.0, "construction": 3.0,
+			"region": 0.0}, "lumen_cells": {"light": 4.0}, "gold": {"region": 50.0, "placement": 2.0}}
+	hud.resources_page.open()
+	assert_eq(hud.resources_page.used_lines(), [], "nothing before the hover")
+	(hud.resources_page.row_node("wood").find_child("Made", true, false) as Label).mouse_entered.emit()
+	assert_eq(hud.resources_page.used_lines(), [["Eaten", "25"], ["Sawmill", "12"], ["Building", "3"]])
+	(hud.resources_page.row_node("cells").find_child("Made", true, false) as Label).mouse_entered.emit()
+	assert_eq(hud.resources_page.used_lines(), [["Light", "4"]], "Dimming light")
+	(hud.resources_page.row_node("gold").find_child("Made", true, false) as Label).mouse_entered.emit()
+	assert_eq(hud.resources_page.used_lines(), [["Land", "50"], ["Placing", "2"]], "land bought, buildings placed")
+	(hud.resources_page.row_node("gold").find_child("Made", true, false) as Label).mouse_exited.emit()
+	assert_eq(hud.resources_page.used_lines(), [], "hidden with the rest of the breakdown")
+
+
 # Ledger gap 1: a Clear-tool yield is made wood, attributed to the clearing.
 func test_a_cleared_tile_is_made_by_clearing() -> void:
 	var main: Node = await _game()
