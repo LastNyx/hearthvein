@@ -445,9 +445,11 @@ func has_jobs(b: Building) -> bool:
 ## The Workforce page (Q): {"header": {workers, idle, haulers, builders}, "groups": [{id, label, rows}]}. One pass over
 ## the citizens counts the header and every building's filled slots. The first group is the construction sites
 ## ("sites"), then the buildings by category in build bar order. A row: {id, name, site, filled, slots, count_text
-## ("3/3", "builders 4/4"), short, ok, has_jobs, priority, paused, note}; rows without jobs get no buttons.
+## ("3/3", "builders 4/4"), short, ok, has_jobs, priority, paused, no_road, note}; rows without jobs get no buttons.
+## A building with no road to the Hearth (JobSystem skips it) gets "no road" instead of "N short" and stays out of the
+## header's short total; paused rows keep their own text.
 func workforce() -> Dictionary:
-	var header := {"workers": 0, "idle": 0, "haulers": 0, "builders": 0}
+	var header := {"workers": 0, "idle": 0, "haulers": 0, "builders": 0, "short": 0}
 	var filled := {}  # building id -> {work, haul, build} citizens with a job there
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
@@ -473,7 +475,7 @@ func workforce() -> Dictionary:
 			continue  # houses have no jobs and no row
 		var row := {"id": b.id, "name": b.display_name(s.registry), "site": b.site, "priority": b.priority,
 				"paused": b.paused, "has_jobs": b.site or has_jobs(b), "filled": 0, "slots": 0, "short": 0,
-				"ok": true, "note": "", "count_text": "", "work": 0}
+				"ok": true, "no_road": false, "note": "", "count_text": "", "work": 0}
 		if b.site:
 			row["name"] += " (site)"
 			row["filled"] = int(crew.get(b.id, 0))
@@ -482,6 +484,12 @@ func workforce() -> Dictionary:
 			row["count_text"] = "builders %d/%d" % [row["filled"], crew_size]
 			row["ok"] = row["short"] == 0
 			row["note"] = wait_text(b)
+			if not b.connected and not b.paused:
+				row["no_road"] = true
+				row["ok"] = false
+				row["note"] = "no road"
+			elif not b.paused:
+				header["short"] += row["short"]
 			sites.append(row)
 			continue
 		var f: Dictionary = filled.get(b.id, {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0})
@@ -507,8 +515,14 @@ func workforce() -> Dictionary:
 			notes.append("no workers needed")
 		if b.paused:
 			notes.append("paused")
-		elif row["short"] > 0:
-			notes.append("%d short" % row["short"])
+		elif not b.connected:
+			row["no_road"] = true
+			row["ok"] = false
+			notes.append("no road")
+		else:
+			header["short"] += row["short"]
+			if row["short"] > 0:
+				notes.append("%d short" % row["short"])
 		var dim := dimming_building_text(b)
 		if dim != "":
 			notes.append(dim)

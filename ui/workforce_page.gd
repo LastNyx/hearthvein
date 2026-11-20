@@ -79,6 +79,8 @@ func refresh() -> void:
 	_key = key
 	var hd: Dictionary = data["header"]
 	_head.text = "Workers %d, idle %d, haulers %d, builders %d" % [hd["workers"], hd["idle"], hd["haulers"], hd["builders"]]
+	if int(hd["short"]) > 0:
+		_head.text += ", %d short" % hd["short"]
 	var keep := _scroll.scroll_vertical
 	for c in _list.get_children():
 		_list.remove_child(c)
@@ -129,7 +131,7 @@ func _add_row(row: Dictionary) -> void:
 		pb.name = "Pause"
 		pb.pressed.connect(func() -> void: _command(id, row["priority"] if row["paused"] else "paused"))
 		_lit(pb, row["paused"])
-	var nl := _cell(h, row["note"], 0, Hud.RED if (not row["ok"] and not row["paused"]) else Hud.DIM)
+	var nl := _cell(h, row["note"], 0, Hud.GOLD if row["no_road"] else (Hud.RED if (not row["ok"] and not row["paused"]) else Hud.DIM))
 	if row["note"].ends_with("Dimming"):
 		nl.add_theme_color_override("font_color", Hud.GOLD)
 

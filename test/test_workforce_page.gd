@@ -81,10 +81,61 @@ func test_model_groups_counts_and_notes() -> void:
 	assert_eq(row["slots"], slots)
 	assert_eq(row["count_text"], "%d/%d" % [row["filled"], slots])
 	assert_eq(row["short"], slots - int(row["filled"]))
-	if row["short"] > 0:
-		assert_eq(row["note"], "%d short" % row["short"])
+	assert_false(s.buildings[wc].connected, "no road was laid to it")
+	assert_eq(row["note"], "no road")
 	s.set_building_priority(wc, "paused")
-	assert_eq(_row(m, wc)["note"], "paused")
+	assert_eq(_row(m, wc)["note"], "paused", "paused rows keep their text")
+
+
+func test_unconnected_row_says_no_road_and_skips_the_short_total() -> void:
+	var main: Node = await _game()
+	var s: Settlement = main.settlement
+	var m: HudModel = main.hud_model
+	var wc := s.place_building_instant("woodcutter", _free_spot(s, "woodcutter", 4))
+	assert_true(wc >= 0)
+	assert_false(s.buildings[wc].connected, "no road was laid to it")
+	var row := _row(m, wc)
+	assert_gt(int(row["short"]), 0, "the row is short of hands")
+	assert_eq(row["note"], "no road")
+	var wf := m.workforce()
+	var others := 0
+	for g: Dictionary in wf["groups"]:
+		for r: Dictionary in g["rows"]:
+			if r["id"] != wc:
+				others += int(r["short"])
+	assert_eq(int(wf["header"]["short"]), others, "an unconnected row adds nothing to the short total")
+	var hud: Hud = main.get_node("Hud")
+	hud.workforce_page.open()
+	var node := hud.workforce_page.row_node(wc)
+	var note := node.get_child(node.get_child_count() - 1) as Label
+	assert_eq(note.text, "no road", "the page's short column says it")
+	assert_eq(note.get_theme_color("font_color"), Hud.GOLD, "in the warning colour")
+
+
+func test_connected_short_row_says_n_short() -> void:
+	var main: Node = await _game()
+	var s: Settlement = main.settlement
+	var m: HudModel = main.hud_model
+	var h := s.map.hearth_spot
+	for x in range(h.x + 2, h.x + 16):
+		for y in range(h.y - 4, h.y + 4):
+			if s.map.terrain_id_at(x, y) == "forest":
+				s.set_terrain(Vector2i(x, y), "grass")
+		s.place_road(Vector2i(x, h.y))
+	var wc := s.place_building_instant("woodcutter", Vector2i(h.x + 5, h.y + 1))
+	assert_true(wc >= 0)
+	assert_true(s.buildings[wc].connected, "the road reaches it")
+	for cid in s.citizens.keys():
+		s.remove_citizen(cid)
+	var row := _row(m, wc)
+	assert_gt(int(row["short"]), 0, "nobody is left to take the jobs")
+	assert_eq(row["note"], "%d short" % row["short"])
+	var wf := m.workforce()
+	var all := 0
+	for g: Dictionary in wf["groups"]:
+		for r: Dictionary in g["rows"]:
+			all += int(r["short"])
+	assert_eq(int(wf["header"]["short"]), all, "a connected short row counts")
 
 
 func test_buttons_call_the_settlement_command() -> void:
