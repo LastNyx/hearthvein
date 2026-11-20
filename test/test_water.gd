@@ -225,11 +225,11 @@ func test_a_storehouse_can_pay_for_a_channel() -> void:
 		return
 	var st: Building = s.buildings[sid]
 	var moved := s.hearth.inventory.remove("stone", 1000.0)
-	assert_almost_eq(moved, 60.0, 0.001, "the starting stock came out of the Hearth")
+	assert_almost_eq(moved, 40.0, 0.001, "the starting stock came out of the Hearth")
 	assert_almost_eq(st.inventory.add("stone", moved), moved, 0.001, "and went into the storehouse")
 	var c := b + Vector2i(3, 1)
 	assert_true(s.place_channel(c), "the storehouse's stone paid for the channel")
-	assert_almost_eq(float(s.totals().get("stone", 0.0)), 60.0 - s.registry.water.channel_cost_stone, 0.001)
+	assert_almost_eq(float(s.totals().get("stone", 0.0)), 40.0 - s.registry.water.channel_cost_stone, 0.001)
 
 
 # Round 2: removing a channel gives back LogisticsDef.demolish_refund of its cost (into the nearest storage).

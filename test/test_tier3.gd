@@ -103,9 +103,9 @@ func test_tent_iii_is_the_lodge() -> void:
 	tent.tier = 3
 	s.refresh_population()
 	assert_eq(tent.display_name(reg), "Lodge")
-	assert_eq(tent.effective_beds(reg), 5)
+	assert_eq(tent.effective_beds(reg), 4)
 	assert_eq(s.beds_total(), beds + 2, "a Lodge houses two more than a Tent")
-	assert_eq(reg.get_building("tent").housing_beds, 3, "the base is still 3 beds")
+	assert_eq(reg.get_building("tent").housing_beds, 2, "the base is still 2 beds")
 
 
 # AC2: extractor tiers raise output, never the blight radius or period (every upgradable vein extractor).

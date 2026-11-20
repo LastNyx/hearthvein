@@ -5,7 +5,7 @@ All notable changes to Hearthvein. Newest first.
 ## Unreleased
 
 ### Changed
-- The first days are easier: you start with 100 wood and 20 stone, a tent holds 3 people, builders work in crews of 2 (two sites go up at once), and in a town under 20 people every woodcutter and quarry gets a worker before the builders take the rest.
+- The first days are easier: you start with 100 wood, builders work in crews of 2 (two sites go up at once) and walk straight to the next site, and in a town under 20 people every workplace gets one worker and the builders get their crew before anyone takes a second job.
 
 ## 1.1.8 - 2026-11-20
 

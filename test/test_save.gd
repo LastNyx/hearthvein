@@ -151,9 +151,18 @@ const SKIP := {
 }
 
 
+var _small: int
+
+
 func before_all() -> void:
 	reg = DataRegistry.new()
 	reg.load_all()
+	_small = reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0  # the fixture needs a site that stays half built: with the small-town rule (118) builders finish all sites in a day
+
+
+func after_all() -> void:
+	reg.logistics.small_town_pop = _small  # the resource is cached and shared with the other test files
 
 
 func after_each() -> void:

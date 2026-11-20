@@ -73,11 +73,11 @@ func test_camp_buildings_match_design() -> void:
 	assert_eq([hearth.storage_mode, hearth.storage_cap], ["per_good", 150])
 	var tent := reg.get_building("tent")
 	assert_eq(tent.cost, {"wood": 5})
-	assert_eq(tent.housing_beds, 3)
+	assert_eq(tent.housing_beds, 2)
 	assert_true(tent.upgradable)
 	assert_eq([tent.tiers[0].display_name, tent.tiers[1].display_name], ["Hut", "Lodge"])
-	assert_eq(roundi(tent.housing_beds * tent.tiers[0].multiplier), 4)
-	assert_eq(roundi(tent.housing_beds * tent.tiers[1].multiplier), 5)
+	assert_eq(tent.housing_beds * tent.tiers[0].multiplier, 3.0)
+	assert_eq(tent.housing_beds * tent.tiers[1].multiplier, 4.0)
 	var forager := reg.get_building("forager")
 	assert_eq([forager.cost, forager.worker_slots], [{"wood": 10}, 2])
 	assert_eq(forager.recipe.outputs, {"food": 8.0})
@@ -179,10 +179,10 @@ func test_camp_era_costs_are_wood_only() -> void:
 	assert_eq(reg.get_building("shrine").cost, {"wood": 12, "stone": 18, "lumen": 5}, "civic is 40% wood, 60% stone")
 
 
-# 118: a new game starts with 100 wood and 20 stone (the eager opening costs ~100 wood), tents hold 3, a ready site
+# 118: a new game starts with 100 wood (the eager opening costs ~100 wood), a ready site
 # takes a crew of 2 builders (two sites at once on the Hearth's 4 builder slots).
 func test_early_game_numbers() -> void:
 	_load_real()
 	var s := Settlement.new_game(42, reg)
-	assert_eq([s.hearth.inventory.amount_of("wood"), s.hearth.inventory.amount_of("stone")], [100.0, 20.0])
+	assert_eq([s.hearth.inventory.amount_of("wood"), s.hearth.inventory.amount_of("stone")], [100.0, 0.0])
 	assert_eq([reg.logistics.builder_crew, reg.logistics.small_town_pop], [2, 20])

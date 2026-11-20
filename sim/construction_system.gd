@@ -183,10 +183,12 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 			b.build_work += work[wid]
 			if b.build_work >= b.build_work_needed - Inventory.EPS:
 				done.append(b)
+	var freed: Array = []  # builders whose work just ended: they go straight to the next waiting work (below)
 	for b in done:
 		for cid in crews.keys():
 			if crews[cid] == b.id:
-				_release(s, ws, cid, in_shift)
+				crews.erase(cid)
+				freed.append(cid)
 		if b.upgrading():
 			b.upgrade_work = b.upgrade_work_needed
 			s.complete_upgrade(b)
@@ -196,13 +198,45 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	for idx in cleared:
 		for cid in crews.keys():
 			if crews[cid] == clear_work_id(idx):
-				_release(s, ws, cid, in_shift)
+				crews.erase(cid)
+				freed.append(cid)
 		_finish_clear(s, idx)
+	_hand_on(s, ws, freed, builders, in_shift)
+	# a builder left controlled with no crew (nothing for them to do) goes back to the yard
+	for cid in builders:
+		var bw := ws.walker_of(cid)
+		if bw != null and bw.controlled and not crews.has(cid) and not wanted.has(cid):
+			_release(s, ws, cid, in_shift)
 
 
 ## Real seconds of one builder-day (the builder shift).
 static func builder_shift_seconds(lg: LogisticsDef) -> float:
 	return float(lg.builder_shift_end - lg.builder_shift_start) * GameClock.REAL_SECONDS_PER_HOUR
+
+
+## Builders whose work just finished walk straight to the next waiting work (same pick as _assign_crews: priority tier,
+## then the nearest to the yard, far sites already filtered by the hourly too_far halt); when nothing waits, or the
+## shift is over, they go back to the yard as before (ticket 118).
+func _hand_on(s: Settlement, ws: WalkerSystem, freed: Array, builders: Array, in_shift: bool) -> void:
+	if freed.is_empty():
+		return
+	var next := {}
+	if in_shift:
+		next = _assign_crews(s, builders, _work_list(s))
+	for cid in freed:
+		if not s.citizens.has(cid):
+			continue
+		var e: Dictionary = next.get(cid, {})
+		var w := ws.walker_of(cid)
+		if e.is_empty() or w == null:
+			_release(s, ws, cid, in_shift)
+			continue
+		crews[cid] = e["id"]
+		w.controlled = true
+		if e["b"] == null:
+			ws.walk_to_tile(cid, e["tile"])
+		else:
+			ws.walk_to_building(cid, e["id"])
 
 
 ## Night: builders on a crew whose work is still on the list keep it (citizen id -> entry); the rest get nothing.

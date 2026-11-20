@@ -108,6 +108,8 @@ func test_higher_category_fills_first_when_short() -> void:
 
 
 func test_priority_high_beats_normal_and_paused_gets_none() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0  # the small-town first hand (118) has its own test below
 	var s := _new()
 	var a := _put(s, "forager", true)
 	var b := _put(s, "forager", true)
@@ -123,6 +125,7 @@ func test_priority_high_beats_normal_and_paused_gets_none() -> void:
 	assert_false(s.set_building_priority(b.id, "bogus"))
 	assert_true(s.set_building_priority(b.id, "low"))
 	assert_false(b.paused)
+	reg.logistics.small_town_pop = small
 
 
 func test_disconnected_building_gets_no_workers() -> void:
@@ -206,3 +209,28 @@ func test_small_town_gives_the_woodcutter_a_first_hand() -> void:
 	assert_eq(reg.logistics.small_town_pop, 20)
 	assert_eq(_woodcutter_hands(_new(), 19), 1, "19 people: hauler reserve, one woodcutter hand, then food")
 	assert_eq(_woodcutter_hands(_new(), 20), 0, "20 people: food slots outrank the woodcutter")
+
+
+# 118: in a small town the builders of a ready site get their crew before the food slots take second hands.
+func test_small_town_builders_come_before_second_hands() -> void:
+	var s := _new()
+	var h := s.map.hearth_spot
+	for x in range(h.x + 2, h.x + 16):
+		s.place_road(Vector2i(x, h.y))
+	for i in 4:
+		assert_not_null(_put(s, "forager", true))
+	var bid := -1
+	for x in range(h.x + 3, h.x + 16):
+		bid = s.place_building("tent", Vector2i(x, h.y + 1))
+		if bid >= 0:
+			break
+	assert_true(bid >= 0)
+	var site: Building = s.buildings[bid]
+	site.input_buffer.add("wood", 5.0)
+	s.add_citizen()  # 9 people
+	s.refresh_population()
+	var builders := 0
+	for id in s.citizens:
+		if (s.citizens[id] as Citizen).job_kind == Citizen.JOB_BUILD:
+			builders += 1
+	assert_eq(builders, 2, "2 haulers, 4 first hands, then the one ready site gets its crew of 2")

@@ -402,3 +402,24 @@ func test_a_paused_or_demolished_site_releases_the_crew() -> void:
 		for cid in crew_c:
 			assert_false(cs.crews.has(cid), "demolished: the crew is released")
 	assert_true(cs.crews.is_empty() or not cs.crews.values().has(a.id))
+
+
+# 118: a crew whose site is finished walks straight to the next ready site, it does not go back to the yard first.
+func test_a_crew_goes_from_a_finished_site_to_the_next_one() -> void:
+	var a := _site("tent", 4)
+	var b := _site("tent", 8)
+	_deliver(a)
+	_deliver(b)
+	s.step_hours(2)  # to 08:00: builders are in their shift
+	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	for i in 20 * 24 * 4:
+		if not a.site:
+			break
+		s.step_seconds(0.25)
+	assert_false(a.site, "the first site finished")
+	assert_true(b.site)
+	assert_eq(cs.crews.size(), 4, "the whole crew is already on a new work")
+	for cid in cs.crews:
+		assert_eq(cs.crews[cid], b.id, "the next site")
+		assert_true(ws.walker_of(cid).controlled, "not handed back to the yard routine")
