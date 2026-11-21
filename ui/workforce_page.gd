@@ -42,6 +42,8 @@ func setup(h: Hud, m: HudModel) -> void:
 	_head = hud._label(v, 17, Hud.INK)
 	var note := hud._label(v, 14, Hud.DIM)
 	note.text = "High: staffed before Normal buildings of every kind"
+	note.mouse_filter = Control.MOUSE_FILTER_STOP
+	note.tooltip_text = "Hands go to: food, water, Lumen, hauling, builders, healers (Cleansers, Purifiers and the like), wood and stone, gold, refined goods, civic. High before Normal before Low in every step."
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

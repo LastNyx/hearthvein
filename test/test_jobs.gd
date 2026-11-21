@@ -234,3 +234,46 @@ func test_small_town_builders_come_before_second_hands() -> void:
 		if (s.citizens[id] as Citizen).job_kind == Citizen.JOB_BUILD:
 			builders += 1
 	assert_eq(builders, 2, "2 haulers, 4 first hands, then the one ready site gets its crew of 2")
+
+
+## Ticket 169: with one hand short, a Normal healer is staffed before a Normal Quarry, and a Normal Market before a
+## Normal Sawmill; the Cleanser's build menu category stays civic.
+func _one_hand_first(first_id: String, second_id: String) -> Array:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0
+	var s := _new()
+	assert_true(s.set_building_priority(s.hearth.id, "paused"))  # keep its hauler slots out of the count
+	var first := _put(s, first_id, true)
+	var second := _put(s, second_id, true)
+	assert_not_null(first)
+	assert_not_null(second)
+	_keep_citizens(s, 1)
+	s.refresh_population()
+	reg.logistics.small_town_pop = small
+	return [_workers(s, first), _workers(s, second)]
+
+
+func test_healer_is_staffed_before_quarry() -> void:
+	assert_eq(_one_hand_first("cleanser", "quarry"), [1, 0])
+
+
+func test_market_is_staffed_before_sawmill() -> void:
+	assert_eq(_one_hand_first("market", "sawmill"), [1, 0])
+
+
+func test_high_quarry_still_beats_normal_healer() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0
+	var s := _new()
+	assert_true(s.set_building_priority(s.hearth.id, "paused"))
+	var healer := _put(s, "cleanser", true)
+	var quarry := _put(s, "quarry", true)
+	_keep_citizens(s, 1)
+	assert_true(s.set_building_priority(quarry.id, "high"))
+	s.refresh_population()
+	assert_eq([_workers(s, healer), _workers(s, quarry)], [0, 1])
+	reg.logistics.small_town_pop = small
+
+
+func test_cleanser_category_is_still_civic() -> void:
+	assert_eq(reg.get_building("cleanser").category, "civic")
