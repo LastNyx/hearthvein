@@ -104,3 +104,79 @@ func test_the_surge_factor_and_length_come_from_data() -> void:
 	assert_eq(len_start, 3)
 	assert_true(third, "a 3 day surge still runs on its third day")
 	assert_false(after, "and ends after it")
+
+
+# ---------------------------------------------------------------- ticket 178
+
+## Steps `days` whole days, topping the food up so nobody starves.
+func _days(settlement: Settlement, days: int) -> void:
+	for i in days:
+		settlement.hearth.inventory.add("food", 50.0)
+		settlement.step_hours(DAY)
+
+
+## The Great Dimming running from today for its whole length.
+func _great_from_today() -> GreatDimmingSystem:
+	var g := s.get_system(GreatDimmingSystem) as GreatDimmingSystem
+	g._start_day = s.clock.total_days()
+	g._active = true
+	return g
+
+
+## Criterion: the Great Dimming's end starts a 2 day surge.
+func test_the_great_dimming_ending_starts_a_two_day_surge() -> void:
+	_great_from_today()
+	_days(s, reg.planet.great_dimming_days - 1)
+	assert_true(GreatDimmingSystem.is_active(s), "the Great Dimming is on")
+	assert_false(DimmingSystem.vein_surge(s), "no surge while it runs")
+	_days(s, 1)
+	assert_false(GreatDimmingSystem.is_active(s), "the Great Dimming has ended")
+	assert_true(DimmingSystem.vein_surge(s), "its end starts the surge")
+	assert_eq(DimmingSystem.vein_surge_day(s), 1)
+	assert_almost_eq(_mult(s, vein), 1.5, 0.0001)
+	_days(s, 2)
+	assert_false(DimmingSystem.vein_surge(s), "two days later it is over")
+
+
+## Criterion: a regular Dimming that yields to the Great one starts none (an active one, and a forecast one).
+func test_a_dimming_swallowed_by_the_great_one_starts_no_surge() -> void:
+	_dimming_ending_tomorrow()
+	d._length = 5  # would run on
+	_great_from_today()
+	s.step_hours(DAY)  # the day hook: the regular Dimming yields
+	assert_eq(s.events.log_of("dimming_ended").size(), 1, "the regular Dimming ended")
+	assert_false(DimmingSystem.vein_surge(s), "yielding to the Great Dimming is no reward")
+	assert_eq(s.events.log_of("vein_surge_started").size(), 0)
+	# A forecast regular Dimming inside the Great one's window is dropped, also with no surge.
+	var s2 := Settlement.new_game(SEED, reg)
+	var d2 := s2.get_system(DimmingSystem) as DimmingSystem
+	var g2 := s2.get_system(GreatDimmingSystem) as GreatDimmingSystem
+	g2._start_day = 1
+	d2._start_day = 2
+	d2._length = 2
+	s2.hearth.inventory.add("food", 500.0)
+	s2.step_hours(DAY * 4)
+	assert_false(DimmingSystem.vein_surge(s2))
+	assert_eq(s2.events.log_of("vein_surge_started").size(), 0)
+
+
+## Criterion: the notice, the objectives line and the selection line.
+func test_the_notice_the_objectives_line_and_the_selection_line() -> void:
+	var nc := NotificationCenter.new(s)
+	var hud := HudModel.new(s)
+	assert_eq(hud.vein_surge_text(vein), "", "no line outside a surge")
+	assert_false(hud.objectives_dimming_lines().any(func(l: String) -> bool: return l.begins_with("Vein surge")))
+	_dimming_ending_tomorrow()
+	s.step_hours(DAY)
+	assert_true(nc.items.any(func(i: Dictionary) -> bool: return i["text"] == "Vein surge: Lumen +50% for 2 days"),
+			"the notice")
+	assert_true(nc.is_active("vein_surge"))
+	assert_has(hud.objectives_dimming_lines(), "Vein surge: day 1 of 2")
+	assert_eq(hud.vein_surge_text(vein), "Vein surge: +50% for 2 days (was 16)", "nominal output 8 x 2 workers")
+	assert_eq(hud.vein_surge_text(farm), "", "none on a building off the veins")
+	s.step_hours(DAY)
+	assert_has(hud.objectives_dimming_lines(), "Vein surge: day 2 of 2")
+	s.step_hours(DAY)
+	assert_false(nc.is_active("vein_surge"), "the notice clears when the surge ends")
+	assert_eq(hud.vein_surge_text(vein), "")
+	assert_false(hud.objectives_dimming_lines().any(func(l: String) -> bool: return l.begins_with("Vein surge")))
