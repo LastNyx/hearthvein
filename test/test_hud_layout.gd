@@ -274,8 +274,10 @@ func test_selection_sprite_largest_integer_scale_and_badge_beside_the_name() -> 
 	var main: Node = await _game(Vector2i(1280, 720), 1.0)
 	var s: Settlement = main.settlement
 	var hud: Hud = main.get_node("Hud")
-	var bid := _spot_for(s, "sawmill")
-	assert_true(bid >= 0, "a sawmill")
+	# A building whose art is at most half the picture box, so 2x fits and the scale-up is checked. (The sawmill
+	# was 74 px wide after 160's re-export, so it only fits at 1x.)
+	var bid := _spot_for(s, "bakery")
+	assert_true(bid >= 0, "a bakery")
 	main.hud_model.select(bid)
 	hud.refresh()
 	await wait_process_frames(3)
