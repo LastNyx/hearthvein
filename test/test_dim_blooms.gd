@@ -296,3 +296,87 @@ func test_the_river_bonus_follows_the_def_flag() -> void:
 	var off := ProductionSystem.glow_river_modifier(s, wet)
 	wet.def.glow_river_boost = true
 	assert_almost_eq(off, 1.0, 0.0001, "no flag, no river bonus")
+
+
+# ---------------------------------------------------------------- ticket 177: the Dimming window, not fixed hours
+
+## River tiles are lit and speckled over the whole Dimming night (17:00 and 08:00 are inside it) and dark through the
+## short day; an ordinary night leaves them dark at every hour.
+func test_the_glow_river_follows_the_dimming_window() -> void:
+	var s := _new_settlement()
+	var pair := _radius_pair(s)
+	assert_false(pair.is_empty())
+	var river: Vector2i = pair[0]
+	_dimming(s)
+	assert_eq(s.lamp_window(), Vector2i(16, 9), "a Dimming's lamp window is 16:00-09:00")
+	var all_river := _river_count(s)
+	for h in [16, 17, 22, 3, 8]:
+		_set_day(s, 20, h)
+		assert_true(s.is_tile_lit(river), "the river is lit at %02d:00 of a Dimming night" % h)
+		assert_eq((NightRenderModel.river_specks(s) as Array).size(), all_river, "specks at %02d:00" % h)
+	for h in [9, 10, 12, 15]:
+		_set_day(s, 20, h)
+		assert_false(s.is_tile_lit(river), "the river is dark at %02d:00 of the short day" % h)
+		assert_eq((NightRenderModel.river_specks(s) as Array).size(), 0, "no specks at %02d:00" % h)
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	d._active = false
+	for h in [8, 10, 17, 22, 3]:
+		_set_day(s, 20, h)
+		assert_false(s.is_tile_lit(river), "an ordinary day has a dark river at %02d:00" % h)
+		assert_eq((NightRenderModel.river_specks(s) as Array).size(), 0, "no specks at %02d:00 outside a Dimming" % h)
+
+
+## An Observatory with a night crew makes nothing on an ordinary night (starlight is a Dimming yield).
+func test_no_starlight_on_an_ordinary_night() -> void:
+	var s := _new_settlement()
+	var obs := _put(s, "observatory", 8)
+	var lamp := _put(s, "lamp", 6)
+	lamp.input_buffer.add("wood", 3.0)
+	_set_day(s, 20, 18)
+	s.step_hours(3)  # 18:00 -> 21:00, past the lamps (19:00) and the ordinary night shift start (20:00)
+	assert_eq(_night_crew(s, obs).size(), 2, "the crew is on shift")
+	s.step_hours(10)  # through the whole night
+	assert_eq(obs.door_buffer.amount_of("starlight"), 0.0, "no starlight outside a Dimming")
+
+
+## No night crew (no lamp, so the night slots stay shut), no starlight even in a Dimming.
+func test_no_starlight_without_a_night_crew() -> void:
+	var s := _new_settlement()
+	var obs := _put(s, "observatory", 8)
+	_set_day(s, 20, 15)
+	_dimming(s)
+	s.step_hours(1)  # 16:00, the Dimming dusk
+	assert_eq(_night_crew(s, obs).size(), 0, "unlit: no night crew")
+	s.step_hours(12)
+	assert_eq(obs.door_buffer.amount_of("starlight"), 0.0, "no crew, no starlight")
+
+
+## A crewed Observatory makes exactly one starlight on a 16:00 Dimming dusk and no more through that night.
+func test_one_starlight_a_night_made_at_the_dimming_dusk() -> void:
+	var s := _new_settlement()
+	var obs := _put(s, "observatory", 8)
+	var lamp := _put(s, "lamp", 6)
+	lamp.input_buffer.add("wood", 6.0)
+	_set_day(s, 20, 14)
+	_dimming(s)
+	s.step_hours(1)  # 15:00, still the short day
+	assert_eq(obs.door_buffer.amount_of("starlight"), 0.0, "nothing before the Dimming night starts")
+	s.step_hours(1)  # 16:00
+	assert_almost_eq(obs.door_buffer.amount_of("starlight"), 1.0, 0.001, "one at the dusk")
+	s.step_hours(8)  # through to 00:00, hour by hour
+	assert_almost_eq(obs.door_buffer.amount_of("starlight"), 1.0, 0.001, "not one more each hour")
+
+
+## Starlight made at the Observatory reaches storage by hauler (door buffer to the Hearth), nobody carries it by hand.
+func test_a_hauler_brings_the_starlight_to_storage() -> void:
+	var s := _new_settlement()
+	var obs := _put(s, "observatory", 8)
+	var lamp := _put(s, "lamp", 6)
+	lamp.input_buffer.add("wood", 6.0)
+	_set_day(s, 20, 15)
+	_dimming(s)
+	s.step_hours(1)  # 16:00: the catch lands in the door buffer
+	assert_almost_eq(obs.door_buffer.amount_of("starlight"), 1.0, 0.001)
+	assert_eq(s.hearth.inventory.amount_of("starlight"), 0.0, "storage starts empty of it")
+	s.step_hours(22)  # the haulers work the short day: they pick it up at 10:00 and drop it at the Hearth by 14:00
+	assert_gt(s.hearth.inventory.amount_of("starlight"), 0.5, "a hauler carried it to the Hearth")
