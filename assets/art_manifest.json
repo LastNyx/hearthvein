@@ -333,7 +333,7 @@
   },
   "cleanser": {
    "base": [
-    28,
+    34,
     68
    ],
    "file": "buildings/cleanser.png",
@@ -354,18 +354,18 @@
    "shadow": {
     "file": "buildings/cleanser_shadow.png",
     "offset": [
-     -22,
+     -26,
      -6
     ]
    },
    "smoke": {
     "file": "buildings/cleanser_smoke.png",
     "offset": [
-     7,
+     14,
      -102
     ]
    },
-   "w": 57
+   "w": 68
   },
   "clearwater_works": {
    "base": [
