@@ -473,6 +473,7 @@ func test_the_river_leg_is_faster_downstream_and_slower_upstream() -> void:
 	assert_not_null(da)
 	assert_not_null(db)
 	_lay_road(s, lay["road"])
+	_staff_docks({"s": s, "da": da, "db": db})  # a dock with no worker forms no link (ticket 179)
 	s.step_seconds(0.01)  # binds the walker system to the settlement (tests use its path queries directly)
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var hs := s.get_system(HaulingSystem) as HaulingSystem
@@ -487,3 +488,258 @@ func test_the_river_leg_is_faster_downstream_and_slower_upstream() -> void:
 	var up := hs.journey(s, ws, db, da)
 	assert_false(up["river"], "upstream is slower than the road, so the road is used")
 	assert_almost_eq(float(up["seconds"]), road, 0.001, "the road's time")
+
+
+# ---------------------------------------------------------------- ticket 179: the boat ride end to end
+
+## A free spot for a `id` building whose footprint touches `road` tile `t` (so its door stands on the road).
+func _place_by(s: Settlement, id: String, t: Vector2i) -> Building:
+	for r in range(1, 4):
+		for y in range(t.y - r, t.y + r + 1):
+			for x in range(t.x - r, t.x + r + 1):
+				var o := Vector2i(x, y)
+				if absi(x - t.x) != r and absi(y - t.y) != r:
+					continue
+				if not s.can_place(id, o, true)["ok"]:
+					continue
+				var bid := s.place_building_instant(id, o)
+				if bid < 0:
+					continue
+				var b: Building = s.buildings[bid]
+				if b.connected:
+					return b
+				s.demolish(bid)
+	return null
+
+
+## Everything a boat trip needs: two docks (a upstream, b downstream) joined by a land road, the Hearth joined to the
+## first road tile, a storehouse of crops beside dock a and a Bakery (which wants crops) beside dock b.
+## {"s", "da", "db", "store", "bakery"}; "docks" false leaves the docks out.
+func _boat_world(with_docks: bool = true) -> Dictionary:
+	var s := _new_settlement()
+	s.era_override = "town"
+	var lay := _dock_layout(s)
+	assert_false(lay.is_empty(), "seed %d has two bank tiles a land road joins" % SEED)
+	var out := {"s": s}
+	if with_docks:
+		out["da"] = s.buildings[s.place_building_instant("river_dock", lay["a"])]
+		out["db"] = s.buildings[s.place_building_instant("river_dock", lay["b"])]
+	_lay_road(s, lay["road"])
+	var reach := _road_reach(s)
+	var road: Array[Vector2i] = lay["road"]
+	assert_true(reach.has(road[0]), "the Hearth's roads can reach the dock road")
+	if reach.has(road[0]):
+		_lay_road(s, _path(reach, road[0]))
+	out["store"] = _place_by(s, "storehouse", road[0])
+	out["bakery"] = _place_by(s, "bakery", road[road.size() - 1])
+	return out
+
+
+
+## Takes every worker off the docks (the job system staffs them on its own when it can).
+func _unstaff_docks(w: Dictionary) -> void:
+	var s: Settlement = w["s"]
+	for key in ["da", "db"]:
+		var dock: Building = w.get(key)
+		for cid in s.citizens:
+			var c: Citizen = s.citizens[cid]
+			if dock != null and c.job_kind == Citizen.JOB_WORK and c.job_id == dock.id:
+				c.job_kind = ""
+				c.job_id = -1
+
+
+## Gives every dock exactly one worker (a citizen off whatever job they had) and a full Lumen buffer, so no hauler is
+## sent with upkeep.
+func _staff_docks(w: Dictionary) -> void:
+	var s: Settlement = w["s"]
+	_unstaff_docks(w)
+	var taken := {}
+	for key in ["da", "db"]:
+		var dock: Building = w.get(key)
+		if dock == null:
+			continue
+		for cid in s.citizens:
+			var c: Citizen = s.citizens[cid]
+			if taken.has(cid) or c.job_kind == Citizen.JOB_HAUL:
+				continue
+			c.job_kind = Citizen.JOB_WORK
+			c.job_id = dock.id
+			taken[cid] = true
+			break
+		dock.input_buffer.add("lumen", 10.0)
+
+
+## Starts the Bakery's crop haul at 06:00 and steps seconds until a crop delivery lands. {"seconds", "rode", "boat"}:
+## seconds = -1 when nothing arrived in 90 s; rode = a boat carried the hauler; boat = the Trip's dock state at the ride.
+func _haul_crops(w: Dictionary) -> Dictionary:
+	var s: Settlement = w["s"]
+	var store: Building = w["store"]
+	s.step_hours(posmod(6 - s.clock.hour(), 24))
+	store.inventory.add("crops", 10.0)
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var rode := false
+	var placed := {}
+	for sec in 90:
+		s.step_seconds(1.0)
+		# The hauler that takes the crop trip starts at the storehouse: the shift is shorter than the walk from the
+		# Hearth to the docks.
+		for cid in hs.trips:
+			var t: HaulingSystem.Trip = hs.trips[cid]
+			if t.good == "crops" and not placed.has(cid):
+				placed[cid] = true
+				ws.place_walker(cid, ws.door_tile(store))
+				ws.walk_to_building(cid, store.id)
+		if hs.has_boats():
+			rode = true
+		for e in s.events.log_of("haul_delivered"):
+			if e["data"]["good"] == "crops" and e["data"]["to"] == (w["bakery"] as Building).id:
+				return {"seconds": sec + 1, "rode": rode}
+	return {"seconds": -1, "rode": rode}
+
+
+
+
+
+
+## Steps one second at a time until a crop delivery to the Bakery lands (after `from_log` earlier ones); the seconds it
+## took, or -1 after `limit`.
+func _until_crops_land(s: Settlement, bakery: Building, limit: int) -> int:
+	var seen := 0
+	for e in s.events.log_of("haul_delivered"):
+		if e["data"]["good"] == "crops" and e["data"]["to"] == bakery.id:
+			seen += 1
+	for sec in limit:
+		s.step_seconds(1.0)
+		var now := 0
+		for e in s.events.log_of("haul_delivered"):
+			if e["data"]["good"] == "crops" and e["data"]["to"] == bakery.id:
+				now += 1
+		if now > seen:
+			return sec + 1
+	return -1
+
+
+## AC: a hauler carries a good downstream over the link, arrives sooner than the same trip with no docks, and the
+## good lands in the destination.
+func test_a_hauler_rides_the_boat_and_the_good_lands_sooner_than_by_road() -> void:
+	var w := _boat_world()
+	_staff_docks(w)
+	var by_boat := _haul_crops(w)
+	var road := _haul_crops(_boat_world(false))
+	assert_true(by_boat["rode"], "a boat carried the hauler")
+	assert_false(road["rode"], "no docks, no boat")
+	assert_gt(int(by_boat["seconds"]), 0, "the crops landed")
+	assert_gt(int(road["seconds"]), 0, "the crops landed by road too")
+	assert_lt(int(by_boat["seconds"]), int(road["seconds"]), "the boat trip is faster than the road")
+	var bakery: Building = w["bakery"]
+	assert_gt(bakery.input_buffer.amount_of("crops"), 0.0, "the good is in the destination's input buffer")
+
+
+## AC: a save while the hauler is on the water resumes the ride and the delivery lands at the same time.
+func test_a_save_mid_ride_resumes_the_trip_and_delivers_at_the_same_time() -> void:
+	var w := _boat_world()
+	_staff_docks(w)
+	var s: Settlement = w["s"]
+	var store: Building = w["store"]
+	var bakery: Building = w["bakery"]
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	s.step_hours(posmod(6 - s.clock.hour(), 24))
+	store.inventory.add("crops", 10.0)
+	var placed := {}
+	var riding := false
+	for sec in 90:
+		s.step_seconds(1.0)
+		for cid in hs.trips:
+			var t: HaulingSystem.Trip = hs.trips[cid]
+			if t.good == "crops" and not placed.has(cid):
+				placed[cid] = true
+				ws.place_walker(cid, ws.door_tile(store))
+				ws.walk_to_building(cid, store.id)
+		for boat in hs.active_boats():
+			if float(boat["progress"]) > 0.2:  # well out on the water
+				riding = true
+		if riding:
+			break
+	assert_true(riding, "a hauler is on the water")
+	var live: HaulingSystem.Trip = null
+	for cid in hs.trips:
+		if (hs.trips[cid] as HaulingSystem.Trip).boat_started:
+			live = hs.trips[cid]
+	assert_not_null(live)
+	assert_gt(live.boat_elapsed, 0.0, "the boat has been under way for a while")
+	var r := Settlement.from_dict(s.to_dict(), reg)
+	var rhs := r.get_system(HaulingSystem) as HaulingSystem
+	var loaded: HaulingSystem.Trip = rhs.trips[live.citizen_id]
+	assert_true(loaded.boat_started and not loaded.boat_done, "the loaded hauler is still on the water")
+	assert_eq([loaded.dock_a, loaded.dock_b, loaded.boat_path, loaded.boat_seconds, loaded.boat_elapsed],
+			[live.dock_a, live.dock_b, live.boat_path, live.boat_seconds, live.boat_elapsed], "the ride state survives")
+	assert_gt(live.dock_a, -1)
+	assert_gt(loaded.boat_path.size(), 1)
+	var rbakery: Building = r.buildings[bakery.id]
+	var left := _until_crops_land(s, bakery, 60)
+	var left_loaded := _until_crops_land(r, rbakery, 60)
+	assert_gt(left, 0, "the original delivers")
+	assert_eq(left_loaded, left, "the loaded settlement delivers after the same time")
+	assert_gt(rbakery.input_buffer.amount_of("crops"), 0.0, "the good landed after the load")
+
+
+## AC: a dock with no worker forms no link.
+func test_a_dock_with_no_worker_forms_no_link() -> void:
+	var w := _boat_world()
+	var s: Settlement = w["s"]
+	for key in ["da", "db"]:
+		(w[key] as Building).input_buffer.add("lumen", 10.0)
+	_unstaff_docks(w)
+	s.step_seconds(0.01)
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	assert_false(hs.journey(s, ws, w["store"], w["bakery"])["river"], "two unstaffed docks: no boat")
+	_staff_docks(w)
+	var one: Citizen = null
+	for cid in s.citizens:  # take the second dock's worker away again
+		var c: Citizen = s.citizens[cid]
+		if c.job_id == (w["db"] as Building).id:
+			one = c
+	assert_not_null(one)
+	one.job_kind = ""
+	one.job_id = -1
+	s.step_seconds(0.01)
+	assert_false(hs.journey(s, ws, w["store"], w["bakery"])["river"], "one staffed dock is no link")
+
+
+## AC: a dock that did not get its Lumen forms no link.
+func test_a_dock_with_no_lumen_forms_no_link() -> void:
+	var w := _boat_world()
+	var s: Settlement = w["s"]
+	_staff_docks(w)
+	for key in ["da", "db"]:
+		(w[key] as Building).input_buffer.remove("lumen", 100.0)
+	s.hearth.inventory.remove("lumen", 10000.0)  # nothing to haul to them either
+	s.step_seconds(0.01)
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	assert_true(hs.journey(s, ws, w["store"], w["bakery"])["river"], "staffed and not yet due: linked")
+	s.step_hours(GameClock.HOURS_PER_DAY)  # the day's upkeep cannot be paid
+	var ups := s.get_system(UpkeepSystem) as UpkeepSystem
+	assert_false(ups.is_paid((w["da"] as Building).id), "the dock went unpaid")
+	s.step_seconds(0.01)
+	assert_false(hs.journey(s, ws, w["store"], w["bakery"])["river"], "unpaid docks form no link")
+
+
+## The estimate cache follows the docks: staffing them changes the trip time at once, with no grid change.
+func test_staffing_the_docks_refreshes_the_trip_estimates() -> void:
+	var w := _boat_world()
+	var s: Settlement = w["s"]
+	for key in ["da", "db"]:
+		(w[key] as Building).input_buffer.add("lumen", 10.0)
+	_unstaff_docks(w)
+	s.step_seconds(0.01)
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var by_road := hs._walk(s, ws, w["store"], w["bakery"])
+	_staff_docks(w)
+	s.step_seconds(0.01)
+	var by_boat := hs._walk(s, ws, w["store"], w["bakery"])
+	assert_lt(by_boat, by_road, "the cached road time was replaced when the docks got workers")

@@ -187,6 +187,8 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_door_blds.clear()
 	_site_blds.clear()
 	_docks.clear()
+	_working_docks.clear()
+	_dock_sig = ""
 	_layout_version = -1
 	_layout_count = -1
 	_layout_completion = -1
@@ -196,6 +198,7 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	if ws == null or s.registry.logistics == null:
 		return
+	_sync_docks(s)
 	for cid in trips.keys():
 		var t: Trip = trips[cid]
 		var in_shift := _in_shift_for(s, s.citizens.get(cid))
@@ -282,6 +285,8 @@ var _blds: Array[Building] = []  # every building in id order
 var _door_blds: Array[Building] = []  # ... those with a door buffer (producers)
 var _site_blds: Array[Building] = []  # ... those still under construction
 var _docks: Array[Building] = []  # ... River Docks (ticket 153), the river leg's endpoints
+var _working_docks: Array[Building] = []  # ... those a boat can use now (finished, unpaused, staffed, paid): journey's pool
+var _dock_sig: String = ""  # ids of _working_docks; a change clears _journey_cache (no grid change tells it)
 
 
 func _layout(s: Settlement) -> void:
@@ -338,6 +343,29 @@ func _reserve(kind: String, bid: int, good: String, amount: float) -> void:
 	_reserved[kind] = by_bid
 
 
+## The River Docks a boat can use (ticket 179): finished, unpaused, with a worker, and not behind on their Lumen
+## upkeep. When that set changes (a dock finishes, gets or loses its worker, is paused, goes unpaid) the cached trip
+## estimates are dropped, since nothing else tells them. Cheap with fewer than two docks.
+func _sync_docks(s: Settlement) -> void:
+	_layout(s)
+	var out: Array[Building] = []
+	var sig := ""
+	if _docks.size() >= 2:
+		var staffed := MarketSystem.assigned_workers(s)
+		var ups := s.get_system(UpkeepSystem) as UpkeepSystem
+		for x in _docks:
+			if x.site or x.paused or int(staffed.get(x.id, 0)) <= 0:
+				continue
+			if ups != null and UpkeepSystem.is_on(s) and not ups.is_paid(x.id):
+				continue
+			out.append(x)
+			sig += "%d," % x.id
+	_working_docks = out
+	if sig != _dock_sig:
+		_dock_sig = sig
+		_journey_cache.clear()
+
+
 ## Walking seconds between two building doors, INF when unreachable. Cached per pair until the grid changes.
 func _direct_walk(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> float:
 	if _walk_version != s.grid_version:
@@ -375,12 +403,7 @@ func journey(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> Dicti
 	var best := {"seconds": _direct_walk(s, ws, a, b), "river": false, "dock_a": -1, "dock_b": -1,
 			"path": [] as Array[Vector2i], "downstream": true, "boat_seconds": 0.0}
 	_layout(s)
-	if _docks.size() < 2:
-		return best
-	var docks: Array[Building] = []
-	for x in _docks:
-		if not x.site and not x.paused:
-			docks.append(x)
+	var docks := _working_docks  # kept current by _sync_docks at every on_seconds
 	if docks.size() < 2:
 		return best
 	for da in docks:
