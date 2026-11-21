@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw, ImageFilter
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mockups as M  # noqa: E402
 import mockups_v1 as MV  # noqa: E402  (HUD icons)
+import mockups_night as N  # noqa: E402  (ticket 134 night buildings)
 import sky_island_art as SI  # noqa: E402  (ticket 72 island slabs and kit)
 import generic_props as GP  # noqa: E402  (ticket 110 signature props and door signs)
 
@@ -1349,6 +1350,23 @@ def export_props(manifest):
     manifest["blight_sparkle"] = {"props": ["sparkle_0", "sparkle_1"], "chance_pct": 30}
 
 
+class NightSprite:
+    """A mockups_night (day sprite, night emissive, base) pair as export_sprite's Sprite (ticket 134).
+
+    The base sprite is the day look; the night look's emissive pixels become the glow frame, so ticket 135 can light
+    the Kiln's fire and the Grove's caps after dark.
+    """
+    def __init__(self, day, night, fw, fh, shadow, glow, radius):
+        self.img = day[0]
+        self.fw, self.fh = fw, fh
+        self.shadow = shadow
+        self.smoke = ()
+        self.glows = []
+        box = night[1].getbbox()
+        if box:
+            self.glows.append(((box[0] + box[2]) // 2, (box[1] + box[3]) // 2, radius, glow))
+
+
 # Buildings that appear on the approved sheets (docs/mockups/buildings_*.png) use exactly those b_* functions.
 # Where each lamp's light sits in its sprite (x, y from the top left) and its glow radius and colour.
 LAMP_GLOW = {"brazier": (10, 12, 14, (255, 150, 60)), "lantern": (10, 9, 14, (255, 190, 90)),
@@ -1393,6 +1411,9 @@ SHEET = {
     # ticket 133: the Lamp (Brazier) and its tier art, drawn in mockups_night.lamp_art
     "lamp": lambda: lamp_sprite("brazier"), "lamp_lantern": lambda: lamp_sprite("lantern"),
     "lamp_lumen": lambda: lamp_sprite("lumen"), "lamp_grid": lambda: lamp_sprite("grid"),
+    # ticket 134: the night-only buildings from the night mockups (day base, lit frame from the glow)
+    "charcoal_kiln": lambda: NightSprite(N.kiln_art(False), N.kiln_art(True), 2, 2, (1.0, 9), (255, 150, 60), 16),
+    "glowcap_grove": lambda: NightSprite(N.grove_art(False), N.grove_art(True), 2, 2, (1.0, 8), (120, 240, 200), 30),
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}

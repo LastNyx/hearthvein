@@ -15,7 +15,7 @@ const GRID_GROUPS := {"roads": ["roads"], "housing": ["housing"], "food": ["food
 ## Top-level cells, in reading order: id, label, key, icon.
 const GRID_TOP := [
 		["roads", "Roads", "R", "stone"], ["housing", "Housing", "N", "pop"],
-		["food", "Food", "F", "food"], ["water", "Water", "W", ""], ["lumen", "Lumen", "I", "lumen"],
+		["food", "Food", "F", "food"], ["water", "Water", "W", "water"], ["lumen", "Lumen", "I", "lumen"],
 		["logistics", "Logistics", "K", "planks"], ["resources", "Resources", "S", "wood"],
 		["refining", "Refining", "D", "tools"], ["civic", "Civic", "A", "spirit"],
 		["landmark", "Landmark", "O", "obelisk"],
@@ -1344,6 +1344,8 @@ func _def_tooltip_lines(def: BuildingDef, b: Building) -> Array[String]:
 			lines.append(str(pair[1]) % int(pair[0]))
 	if def.placement_radius > 0 and (def.fells_forest or def.plants_forest or def.placement_rule.begins_with("near_")):
 		lines.append("Works within %d tiles" % def.placement_radius)
+	if def.placement_rule == "shade":
+		lines.append("Needs %d forest tiles within %d tiles" % [Placement.SHADE_FOREST_TILES, def.placement_radius])
 	var beds := b.effective_beds(s.registry) if b != null else def.housing_beds
 	if beds > 0:
 		lines.append("Beds %d" % beds)

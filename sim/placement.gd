@@ -3,6 +3,8 @@ extends RefCounted
 ## Pure placement-rule checks (design.md section 6). Era unlocks and costs are not handled here.
 
 const DIRS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+## Forest tiles the "shade" rule needs inside placement_radius (Glowcap Grove, ticket 134).
+const SHADE_FOREST_TILES := 2
 
 
 ## Terrain-only rule check for a footprint (bounds, ownership, overlap are checked by Settlement).
@@ -55,6 +57,8 @@ static func check_rule(map: MapState, reg: DataRegistry, def: BuildingDef, origi
 			return "" if _near(map, tiles, def.placement_radius, ["grass", "forest"]) else "needs_forage"
 		"near_forest":
 			return "" if _near(map, tiles, def.placement_radius, ["forest"]) else "needs_forest"
+		"shade":
+			return "" if _count_near(map, tiles, def.placement_radius, ["forest"]) >= SHADE_FOREST_TILES else "needs_shade"
 	return "unknown_rule"
 
 
@@ -63,6 +67,19 @@ static func _any_terrain(map: MapState, tiles: Array[Vector2i], ids: Array[Strin
 		if map.terrain_id_at(t.x, t.y) in ids:
 			return true
 	return false
+
+
+## Distinct terrain tiles of the `ids` within `radius` of any footprint tile (the circle the other near_ rules use).
+static func _count_near(map: MapState, tiles: Array[Vector2i], radius: int, ids: Array[String]) -> int:
+	var seen := {}
+	var r2 := radius * radius
+	for t in tiles:
+		for y in range(t.y - radius, t.y + radius + 1):
+			for x in range(t.x - radius, t.x + radius + 1):
+				if MapState.in_bounds(x, y) and (x - t.x) * (x - t.x) + (y - t.y) * (y - t.y) <= r2 \
+						and map.terrain_id_at(x, y) in ids:
+					seen[Vector2i(x, y)] = true
+	return seen.size()
 
 
 static func _near(map: MapState, tiles: Array[Vector2i], radius: int, ids: Array[String]) -> bool:

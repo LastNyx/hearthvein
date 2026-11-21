@@ -273,6 +273,35 @@
    },
    "w": 62
   },
+  "charcoal_kiln": {
+   "base": [
+    35,
+    57
+   ],
+   "file": "buildings/charcoal_kiln.png",
+   "flat": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/charcoal_kiln_fx.png",
+    "offset": [
+     -6,
+     -31
+    ]
+   },
+   "generic": false,
+   "h": 58,
+   "shadow": {
+    "file": "buildings/charcoal_kiln_shadow.png",
+    "offset": [
+     -27,
+     -6
+    ]
+   },
+   "w": 71
+  },
   "cleanser": {
    "base": [
     28,
@@ -630,6 +659,35 @@
     ]
    },
    "w": 32
+  },
+  "glowcap_grove": {
+   "base": [
+    36,
+    41
+   ],
+   "file": "buildings/glowcap_grove.png",
+   "flat": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/glowcap_grove_fx.png",
+    "offset": [
+     -32,
+     -48
+    ]
+   },
+   "generic": false,
+   "h": 42,
+   "shadow": {
+    "file": "buildings/glowcap_grove_shadow.png",
+    "offset": [
+     -28,
+     -5
+    ]
+   },
+   "w": 72
   },
   "grand_bazaar": {
    "base": [

@@ -28,6 +28,8 @@ var _right := RightDrag.new()
 var driver: SimDriver
 var _font: FontFile
 var _body_font: FontFile
+## Tightened name fonts for the command grid, by pixel step (ticket 130c).
+var _tight_fonts: Dictionary = {}
 var _res_labels: Dictionary = {}
 var _res_deltas: Dictionary = {}
 var _res_icons: Dictionary = {}
@@ -1094,11 +1096,18 @@ const SEL_RIGHT_W := 254.0
 const TOWN_LEFT_W := 340.0
 ## Panel border and margins that eat into BAND_HEIGHT - MARGIN.
 const SEL_PAD := 18.0
-const CELL_SIZE := Vector2(76, 38)
-const CELL_GAP := 3
-const CELL_PIC := 28
-## Grid names use the smaller body size (Tiny5 at half its 16 px grid) so every name shows whole (130b).
-const CELL_NAME_SIZE := 8
+const CELL_SIZE := Vector2(80, 39)
+const CELL_GAP := 1
+const CELL_PIC := 18
+## The cell's own border: no part of a cell may sit on it (ticket 130c).
+const CELL_BORDER := 2
+## The hotkey and the short cost sit this far inside the border, off the cell's edge (ticket 130c).
+const CELL_INSET := 3
+## Grid names: Tiny5 at 14 is readable, 12 is the smallest allowed; a name too long for the cell steps down to 12
+## and, if still too long, has its glyph spacing tightened rather than shrunk further (ticket 130c).
+const CELL_NAME_SIZE := 14
+const CELL_NAME_MIN := 12
+const CELL_KEY_SIZE := 12
 const GRID_COLUMNS := 5
 
 
@@ -1129,9 +1138,9 @@ func _build_bar(parent: Node) -> void:
 func _build_command_grid(parent: Node) -> void:
 	_cmd_panel = PanelContainer.new()
 	_cmd_panel.name = "CommandGrid"
-	var sb := _style(PANEL_BG, PANEL_EDGE, 6, 2, 10)
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
+	var sb := _style(PANEL_BG, PANEL_EDGE, 6, CELL_BORDER, 2)
+	sb.content_margin_top = 0
+	sb.content_margin_bottom = 0
 	_cmd_panel.add_theme_stylebox_override("panel", sb)
 	parent.add_child(_cmd_panel)
 	var v := VBoxContainer.new()
@@ -1193,26 +1202,51 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 0)
 	b.add_child(v)
+	# The content sits inside the cell's own border, so nothing lands on the edge (ticket 130c).
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = CELL_BORDER
+	v.offset_top = CELL_BORDER
+	v.offset_right = -CELL_BORDER
+	v.offset_bottom = -CELL_BORDER
 	var empty := str(cell["state"]) == "empty"
 	var id := str(cell["id"])
 	var entry: Variant = ArtLibrary.manifest()["buildings"].get(id)
 	var locked := str(cell["state"]) == "locked"
-	# Top line: hotkey on the left, the picture in the middle, the short cost on the right. Name under it.
+	# Top line: hotkey inset at the left, the picture in the middle, the short cost inset at the right. Name under it.
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_theme_constant_override("separation", 0)
 	v.add_child(top)
-	var key := _label(top, 11, DIM)
+	var gutter := Control.new()
+	gutter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gutter.custom_minimum_size = Vector2(CELL_INSET, 0)
+	top.add_child(gutter)
+	var key := _cell_label(top, CELL_KEY_SIZE, DIM)
 	key.name = "CellKey"
 	key.text = "" if empty else str(cell["key"])
-	key.custom_minimum_size = Vector2(26, 0)  # "Esc" fits
+	key.custom_minimum_size = Vector2(21, 0)  # "Esc" fits; the same width as the cost keeps the icon centred
+	var lead := Control.new()
+	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(lead)
 	var pic := Control.new()
+	pic.name = "CellIcon"
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pic.custom_minimum_size = Vector2(CELL_PIC, CELL_PIC)
-	pic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(pic)
+	var trail := Control.new()
+	trail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(trail)
+	var cost_slot := Control.new()
+	cost_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cost_slot.custom_minimum_size = Vector2(21, 0)
+	top.add_child(cost_slot)
+	var end_gutter := Control.new()
+	end_gutter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	end_gutter.custom_minimum_size = Vector2(CELL_INSET, 0)
+	top.add_child(end_gutter)
 	if empty:
 		pass  # a dim blank cell: no picture, name or hotkey
 	elif entry != null:
@@ -1231,34 +1265,41 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 			var obelisk := ObeliskGlyph.new()
 			pic.add_child(obelisk)
 			obelisk.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		elif icon == "water":  # the Water category has no art; its drop glyph stands in for one (ticket 130c)
+			var drop := WaterDropGlyph.new()
+			pic.add_child(drop)
+			drop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		elif icon != "":
 			var ir := _icon(pic, icon, CELL_PIC)
 			ir.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if locked and not empty:
+		# A small padlock on the icon's top-right corner, clear of the name (ticket 130c).
 		var lock := LockGlyph.new()
 		lock.name = "Lock"
 		pic.add_child(lock)
-		lock.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	var cost_slot := Control.new()
-	cost_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cost_slot.custom_minimum_size = Vector2(22, 0)
-	top.add_child(cost_slot)
+		lock.position = Vector2(CELL_PIC - LockGlyph.SIZE.x, 0)
+		lock.size = LockGlyph.SIZE
 	# Unaffordable: the short cost in red (the hover card lists every cost with its have N).
 	if str(cell["state"]) == "unaffordable":
 		var def := model.s.registry.get_building(id)
 		if def != null:
 			for c: Dictionary in model.cost_rows(def):
 				if bool(c["short"]):
-					var cost := _label(cost_slot, 11, RED)
+					var cost := _cell_label(cost_slot, CELL_KEY_SIZE, RED)
 					cost.name = "CellCost"
 					cost.text = str(c["need"])
 					cost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 					cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 					break
-	var nm := _label(v, 12, DIM if locked else INK)
+	var name_row := MarginContainer.new()
+	name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_row.add_theme_constant_override("margin_left", CELL_INSET)
+	name_row.add_theme_constant_override("margin_right", CELL_INSET)
+	v.add_child(name_row)
+	var nm := _cell_label(name_row, CELL_NAME_SIZE, DIM if locked else INK)
 	nm.name = "CellName"
 	nm.text = "" if empty else str(cell["label"])
-	nm.add_theme_font_size_override("font_size", CELL_NAME_SIZE)  # every name shows whole at 76 px wide
+	_fit_cell_name(nm)
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if entry != null:
@@ -1295,12 +1336,43 @@ func _style_cell(b: Button, cell: Dictionary, on: bool) -> void:
 			bg = Color(0.075, 0.07, 0.065)
 			edge = Color(0.16, 0.15, 0.14)
 			hover = bg
-	var pad := 3
-	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 4, 2, pad))
-	b.add_theme_stylebox_override("hover", _style(hover, GOLD if on or state != "locked" else edge, 4, 2, pad))
-	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 4, 2, pad))
-	b.add_theme_stylebox_override("disabled", _style(bg, edge, 4, 2, pad))
+	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 4, CELL_BORDER, 0))
+	b.add_theme_stylebox_override("hover", _style(hover, GOLD if on or state != "locked" else edge, 4, CELL_BORDER, 0))
+	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 4, CELL_BORDER, 0))
+	b.add_theme_stylebox_override("disabled", _style(bg, edge, 4, CELL_BORDER, 0))
 	b.disabled = state == "empty"
+
+
+## A cell's text line: Tiny5 drawn at `size` itself, not the HUD's 2x body step (ticket 130c).
+func _cell_label(parent: Node, size: int, color: Color) -> Label:
+	var l := _label(parent, size, color)
+	l.add_theme_font_size_override("font_size", size)
+	return l
+
+
+## Fits a cell's name in the cell: the readable size when it fits, the minimum when it does not, and only then
+## tightened glyph spacing, so the whole name shows and the size never drops below CELL_NAME_MIN (ticket 130c).
+func _fit_cell_name(l: Label) -> void:
+	var width := CELL_SIZE.x - 2.0 * (CELL_BORDER + CELL_INSET)
+	for size in [CELL_NAME_SIZE, CELL_NAME_MIN]:
+		if _body_font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= width:
+			l.add_theme_font_size_override("font_size", size)
+			return
+	l.add_theme_font_size_override("font_size", CELL_NAME_MIN)
+	var tight := _tight_name_font(1)
+	if tight.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, CELL_NAME_MIN).x > width:
+		tight = _tight_name_font(2)
+	l.add_theme_font_override("font", tight)
+
+
+## Tiny5 with `px` fewer pixels between glyphs (a FontVariation, so the size stays readable).
+func _tight_name_font(px: int) -> FontVariation:
+	if not _tight_fonts.has(px):
+		var f := FontVariation.new()
+		f.base_font = _body_font
+		f.spacing_glyph = -px
+		_tight_fonts[px] = f
+	return _tight_fonts[px]
 
 
 ## Presses cell `index` on the current page: opens a category, pages on, goes back, picks a building or tool, or runs a
@@ -1369,19 +1441,41 @@ func build_button(def_id: String) -> Button:
 	return _cell_button(def_id)
 
 
-## A small padlock for a locked card.
+## A small padlock for a locked cell, drawn on the icon's top-right corner (ticket 130c: it used to sit on the name).
 class LockGlyph extends Control:
+	const SIZE := Vector2(9, 11)
+
 	func _init() -> void:
-		custom_minimum_size = Vector2(20, 24)
+		custom_minimum_size = SIZE
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
 		var gold := Color("f2d27a")
-		draw_arc(Vector2(10, 9), 6.0, PI, TAU, 12, gold, 3.0)
-		draw_line(Vector2(4, 9), Vector2(4, 12), gold, 3.0)
-		draw_line(Vector2(16, 9), Vector2(16, 12), gold, 3.0)
-		draw_rect(Rect2(1, 12, 18, 11), gold)
-		draw_rect(Rect2(8, 15, 4, 5), Color("3a2e18"))
+		var w := size.x
+		var h := size.y
+		draw_arc(Vector2(w * 0.5, h * 0.42), w * 0.26, PI, TAU, 10, gold, 1.5)
+		draw_line(Vector2(w * 0.24, h * 0.42), Vector2(w * 0.24, h * 0.5), gold, 1.5)
+		draw_line(Vector2(w * 0.76, h * 0.42), Vector2(w * 0.76, h * 0.5), gold, 1.5)
+		draw_rect(Rect2(w * 0.08, h * 0.48, w * 0.84, h * 0.48), gold)
+		draw_rect(Rect2(w * 0.42, h * 0.66, maxf(1.0, w * 0.16), maxf(2.0, h * 0.2)), Color("3a2e18"))
+
+
+## A small water drop for the Water category cell, which has no building art of its own (ticket 130c).
+class WaterDropGlyph extends Control:
+	func _init() -> void:
+		custom_minimum_size = Vector2(Hud.CELL_PIC, Hud.CELL_PIC)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		var cx := w * 0.5
+		var water := Color("9adcf2")
+		draw_colored_polygon(PackedVector2Array([Vector2(cx, h * 0.1), Vector2(cx - w * 0.28, h * 0.62),
+				Vector2(cx + w * 0.28, h * 0.62)]), water)
+		draw_circle(Vector2(cx, h * 0.62), w * 0.28, water)
+		draw_arc(Vector2(cx, h * 0.62), w * 0.28, 0.0, PI, 12, Color("3f8fb4"), 1.0)
+		draw_rect(Rect2(cx - w * 0.18, h * 0.52, maxf(1.0, w * 0.1), maxf(1.0, h * 0.14)), Color(1, 1, 1, 0.6))
 
 
 ## A small pixel obelisk for the Landmark category cell (ticket 130b). The moon is the night-building badge's.

@@ -475,7 +475,7 @@ func _validate_building(b: BuildingDef) -> void:
 		_check_amounts(b.recipe.outputs, who + " recipe output", false)
 		if b.recipe.outputs.is_empty():
 			errors.append("%s: recipe has no outputs" % who)
-		if b.worker_slots <= 0:
+		if b.worker_slots <= 0 and b.night_worker_slots <= 0:
 			errors.append("%s: has a recipe but no worker slots" % who)
 		if b.recipe.any_input_count > 0:
 			if b.recipe.any_input_count > b.recipe.any_input_goods.size():

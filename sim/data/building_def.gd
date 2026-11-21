@@ -13,11 +13,12 @@ const UPGRADABLE_CATEGORIES: Array[String] = ["housing", "food", "resources", "l
 ##  any: any buildable tile. on_vein / on_rock: on that terrain. shore: next to water.
 ##  wet: any tile of the footprint is wet. on_wet: the origin tile is wet (Well, design.md section 9).
 ##  near_forage / near_forest: needs grass-or-forest / forest within placement_radius.
+##  shade: needs SHADE_FOREST_TILES forest tiles within placement_radius (Glowcap Grove, ticket 134).
 ##  (min_fertility is a separate rule on top of any of these.)
 ##  on_river: at least one footprint tile is a river tile (Clearwater Works); river water tiles may be built on for this
 ##  rule only, the other footprint tiles must be ordinary buildable land.
 const PLACEMENT_RULES: Array[String] = [
-	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest", "on_river",
+	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest", "on_river", "shade",
 ]
 ## Which layer a def may be placed on (ticket 40): "ground" (default), "island" (sky layer only) or "either".
 const LAYER_RULES: Array[String] = ["ground", "island", "either"]
@@ -53,6 +54,9 @@ const GOLD := "gold"
 @export var lamp_fuel_per_night: float = 0.0
 ## True for the Grid Lamp (tier IV): it draws its fuel from the Lumen grid and no hauler brings it.
 @export var lamp_grid: bool = false
+## Night-only building (ticket 134: Charcoal Kiln, Glowcap Grove): it exists for its night slots alone, so it opens no
+## day work slots and ProductionSystem makes nothing by day even if a worker is somehow at its door.
+@export var night_only: bool = false
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
 @export var housing_beds: int = 0
