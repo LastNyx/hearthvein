@@ -76,7 +76,9 @@ var _lc_works: Array = []  # buildings that are sites or in-place upgrades
 
 
 func _sync(s: Settlement) -> void:
-	var key := [s.buildings.size(), s.structure_version, s.completion_version, Building.layout_rev]
+	# light_version is in the key because the slot entries bake in Settlement.is_lit (ticket 133, note from 132):
+	# the dusk fuel burn and dawn must reopen or close the night slots.
+	var key := [s.buildings.size(), s.structure_version, s.completion_version, Building.layout_rev, s.light_version]
 	if key == _lc_key:
 		return
 	_lc_key = key

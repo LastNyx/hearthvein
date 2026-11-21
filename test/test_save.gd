@@ -105,6 +105,10 @@ const SKIP := {
 	"WalkerSystem._handcart_zones": "region handcart cache, rebuilt from the buildings when its key moves",
 	"WalkerSystem._zones_key": "cache key for _handcart_zones",
 	"Settlement.completion_version": "cache key only, bumped on site completion; caches rebuild after load",
+	"Settlement.light_version": "cache key only, bumped when a lamp lights or goes dark; caches rebuild after load",
+	# LightingSystem
+	"LightingSystem._lit": "lit-tile set cache, rebuilt from the lamps and light_version",
+	"LightingSystem._key": "lit-tile cache key, rebuilt",
 	# JobSystem
 	"JobSystem._citizens": "hourly refresh shortcut, a cache of the citizen count",
 	"JobSystem._buildings": "hourly refresh shortcut, a cache of the building count",

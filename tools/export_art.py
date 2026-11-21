@@ -1511,8 +1511,9 @@ def export_icons(manifest):
     Ticket 112: the goods, people and lumen cells use the approved 1.1.6 set (MV.icon_v2, D12); Spirit, the moon and
     the planet keep the older drawings, which have no 1.1.6 version.
     """
-    v2 = {"food": "food", "wood": "wood", "stone": "stone", "planks": "planks", "cut_stone": "cut_stone",
-          "tools": "tools", "lumen": "lumen", "cells": "cells", "gold": "gold", "pop": "people"}
+    v2 = {"food": "food", "wood": "wood", "charcoal": "charcoal", "stone": "stone", "planks": "planks",
+          "cut_stone": "cut_stone", "tools": "tools", "lumen": "lumen", "cells": "cells", "gold": "gold",
+          "pop": "people"}
     for k, art in v2.items():
         save(MV.icon_v2(art), OUT / "ui" / f"icon_{k}.png")
     names = ["spirit", "moon"]

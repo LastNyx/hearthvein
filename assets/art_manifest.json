@@ -2254,6 +2254,7 @@
  ],
  "icons": {
   "cells": "ui/icon_cells.png",
+  "charcoal": "ui/icon_charcoal.png",
   "cut_stone": "ui/icon_cut_stone.png",
   "food": "ui/icon_food.png",
   "gold": "ui/icon_gold.png",

@@ -18,6 +18,10 @@ extends Resource
 @export var water_max: float = 10.0
 @export var darkness_penalty: float = 20.0
 @export var tax_office_penalty: float = 5.0
+## Lit houses at night (ticket 133): +light_bonus times the share of finished homes inside a lamp's light, capped at
+## light_bonus_max. 0 = no bonus.
+@export var light_bonus: float = 1.0
+@export var light_bonus_max: float = 3.0
 @export var grief_max: float = 10.0
 ## Planet grief = (grief_below - health) / grief_divisor when health (0-100) is below grief_below.
 @export var grief_below: float = 60.0

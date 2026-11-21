@@ -64,7 +64,7 @@ func test_resources_show_values_and_daily_deltas() -> void:
 	var st := _res("stone")
 	assert_eq([st["value"], st["delta"], st["icon"]], [7, 7, "stone"])
 	assert_eq(m.resources().map(func(x: Dictionary) -> String: return x["id"]),
-			["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"])
+			["food", "wood", "charcoal", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"])
 	assert_eq(_res("food")["icon"], "food")
 	s.gold = 12.0
 	s.step_days(1)

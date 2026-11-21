@@ -1,0 +1,59 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+[ext_resource type="Script" path="res://sim/data/tier_def.gd" id="2"]
+
+[sub_resource type="Resource" id="Tier2"]
+script = ExtResource("2")
+display_name = "Lantern Post"
+era = "village"
+lamp_radius = 5
+lamp_fuel = "charcoal"
+lamp_fuel_per_night = 1.0
+extra_worker_slots = 0
+
+[sub_resource type="Resource" id="Tier3"]
+script = ExtResource("2")
+display_name = "Lumen Lamp"
+era = "town"
+lamp_radius = 7
+lamp_fuel = "lumen"
+lamp_fuel_per_night = 1.0
+extra_worker_slots = 0
+
+[sub_resource type="Resource" id="Tier4"]
+script = ExtResource("2")
+display_name = "Grid Lamp"
+era = "city"
+lamp_radius = 9
+lamp_fuel = "lumen"
+lamp_fuel_per_night = 1.0
+lamp_grid = true
+extra_worker_slots = 0
+cost = {"tools": 4, "lumen_cells": 8, "cut_stone": 6}
+
+[resource]
+script = ExtResource("1")
+id = "lamp"
+description = "Lights the ground around it from dusk to dawn. Night shift buildings work only inside a lit radius."
+display_name = "Brazier"
+era = "camp"
+category = "civic"
+size = Vector2i(1, 1)
+cost = {"wood": 6}
+worker_slots = 0
+hauler_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "any"
+placement_radius = 0
+lamp = true
+lamp_radius = 3
+lamp_fuel = "wood"
+lamp_fuel_per_night = 1.0
+lamp_grid = false
+upgradable = true
+tiers = Array[ExtResource("2")]([SubResource("Tier2"), SubResource("Tier3"), SubResource("Tier4")])

@@ -105,6 +105,7 @@ func test_sawmill_consumes_hauled_wood_and_planks_reach_storage() -> void:
 	s.hearth.inventory.add("stone", 400.0)  # clamped to the Hearth's 150
 	s.hearth.inventory.add("food", 200.0)  # no starving workers skewing the rate
 	var saw := _put(s, "sawmill", 4)
+	_put(s, "lamp", 6)  # ticket 133: the nightslot works only inside a fuelled lamp's light (haulers bring its wood)
 	s.step_days(3)  # the crew walks to work and haulers fill the two-day input buffer
 	assert_gt(saw.input_buffer.amount_of("wood"), 10.0, "wood was hauled to the Sawmill")
 	var before_m := s.hearth.inventory.amount_of("wood")
@@ -115,7 +116,9 @@ func test_sawmill_consumes_hauled_wood_and_planks_reach_storage() -> void:
 	assert_gt(planks, 0.0, "planks reached the Hearth's storage")
 	# The two day workers make 6 a day; the Sawmill's night slot (ticket 132) adds about 3 x 10/12 over the night.
 	assert_between(planks / 5.0, 7.8, 9.2, "two workers x 3 planks a day plus the night slot")
-	assert_between(used / planks, 1.9, 2.1, "2 wood per plank")
+	# Two wood per plank, plus the lamp's one wood a night (ticket 133); the sawmill's own input buffer starts and
+	# ends the window at different levels, so the Hearth-side count is rough.
+	assert_between(used / planks, 1.7, 2.2, "2 wood per plank plus lamp fuel")
 	assert_eq(saw.halt, "", "the Sawmill kept running")
 	assert_eq(s.totals().get("planks", 0.0), s.hearth.inventory.amount_of("planks"), "planks are a real stored good")
 

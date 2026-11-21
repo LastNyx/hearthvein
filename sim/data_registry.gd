@@ -486,8 +486,15 @@ func _validate_building(b: BuildingDef) -> void:
 			for g in b.recipe.any_input_goods:
 				if not goods.has(g):
 					errors.append("%s: recipe unknown flexible input '%s'" % [who, g])
-	if b.upgradable and b.tiers.size() != 2:
-		errors.append("%s: upgradable needs exactly 2 tiers (II, III)" % who)
+	if b.upgradable and (b.tiers.size() < 2 or b.tiers.size() > 3):
+		errors.append("%s: upgradable needs 2 or 3 tiers (II, III[, IV])" % who)
+	if b.lamp:
+		if b.lamp_radius <= 0:
+			errors.append("%s: a lamp needs a positive lamp_radius" % who)
+		if not goods.has(b.lamp_fuel):
+			errors.append("%s: lamp_fuel '%s' is not a good" % [who, b.lamp_fuel])
+		if b.lamp_fuel_per_night <= 0.0:
+			errors.append("%s: lamp_fuel_per_night must be positive" % who)
 	if b.fertility_output and b.recipe == null:
 		errors.append("%s: fertility_output without a recipe" % who)
 	if b.fertile_origin_bonus < 1.0:
@@ -538,6 +545,17 @@ func _validate_building(b: BuildingDef) -> void:
 			if t.extra_worker_slots < -1:
 				errors.append("%s: tier '%s' extra worker slots must be -1 (default) or more"
 						% [who, t.display_name])
+			if t.era != "" and not eras.has(t.era):
+				errors.append("%s tier '%s': unknown era '%s'" % [who, t.display_name, t.era])
+			if b.lamp:
+				if t.lamp_radius != -1 and t.lamp_radius <= 0:
+					errors.append("%s tier '%s': lamp_radius must be -1 or positive" % [who, t.display_name])
+				if t.lamp_fuel != "" and not goods.has(t.lamp_fuel):
+					errors.append("%s tier '%s': lamp_fuel '%s' is not a good"
+							% [who, t.display_name, t.lamp_fuel])
+				if t.lamp_fuel_per_night != -1.0 and t.lamp_fuel_per_night <= 0.0:
+					errors.append("%s tier '%s': lamp_fuel_per_night must be -1 or positive"
+							% [who, t.display_name])
 			if t.wet_bonus < 1.0:
 				errors.append("%s: tier '%s' wet_bonus must be at least 1" % [who, t.display_name])
 			if t.needs_wet and not b.fertility_output:

@@ -255,7 +255,7 @@ func _upgrade_check(t: Vector2i) -> Dictionary:
 	var nm := b.display_name(settlement.registry)
 	if not can["ok"]:
 		var nxt := b.tier + 1
-		return {"ok": false, "text": "%s: %s" % [nm, hm.upgrade_reason_text(str(can["reason"]), nxt)]}
+		return {"ok": false, "text": "%s: %s" % [nm, hm.upgrade_reason_text(str(can["reason"]), nxt, b.def)]}
 	var info := hm.upgrade_info(b)
 	return {"ok": true, "id": b.id, "name": nm, "text": "%s: click to upgrade to %s (%s)" % [nm, info["next_name"], info["next_cost"]]}
 

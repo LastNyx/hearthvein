@@ -25,9 +25,10 @@ const GRID_TOP := [
 const GRID_KEYS: Array[String] = ["Q", "W", "E", "R", "T", "A", "S", "D", "F", "G", "Z", "X", "C", "V"]
 ## Building cells a pane page holds before its last cell turns into More.
 const GRID_PAGE := 14
-## Top bar order (ticket 112, build_menu.png): food, wood, stone, planks, cut stone, tools, lumen, cells, gold; people
-## follow in their own box.
-const RESOURCES: Array[String] = ["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"]
+## Top bar order (ticket 112, build_menu.png): food, wood, charcoal, stone, planks, cut stone, tools, lumen, cells,
+## gold; people follow in their own box.
+const RESOURCES: Array[String] = ["food", "wood", "charcoal", "stone", "planks", "cut_stone", "tools", "lumen",
+		"cells", "gold"]
 ## The fixed top-right entries (ticket 125, hud-rts-spec H5): people then the five core goods, before the pins.
 const CORE_TOP: Array[String] = ["people", "food", "wood", "stone", "lumen", "gold"]
 ## Pinned goods shown beside the six fixed entries (ticket 125); a fourth pin drops the oldest.
@@ -136,10 +137,10 @@ func _stock() -> Dictionary:
 	var gs := s.get_system(GridSystem) as GridSystem
 	if gs != null:
 		lumen += gs.total_charge()  # battery charge is Lumen the player owns, even though it is not in storage
-	return {"food": food, "wood": float(t.get("wood", 0.0)), "stone": float(t.get("stone", 0.0)),
-			"planks": float(t.get("planks", 0.0)), "cut_stone": float(t.get("cut_stone", 0.0)),
-			"tools": float(t.get("tools", 0.0)), "lumen": lumen, "cells": float(t.get("lumen_cells", 0.0)),
-			"gold": s.gold}
+	return {"food": food, "wood": float(t.get("wood", 0.0)), "charcoal": float(t.get("charcoal", 0.0)),
+			"stone": float(t.get("stone", 0.0)), "planks": float(t.get("planks", 0.0)),
+			"cut_stone": float(t.get("cut_stone", 0.0)), "tools": float(t.get("tools", 0.0)), "lumen": lumen,
+			"cells": float(t.get("lumen_cells", 0.0)), "gold": s.gold}
 
 
 # ---------------------------------------------------------------- top bar
@@ -919,6 +920,7 @@ func halt_text(b: Building) -> String:
 		"planet_too_sick": return "Halted: planet health below %d%%" % int(b.def.min_planet_health)
 		"dry": return "Halted: no water in reach"
 		"too_far": return "Halted: too far from a builders' yard"
+		"unlit": return "Needs a lamp"
 	return ""
 
 
@@ -989,7 +991,7 @@ static func _ordinal(n: int) -> String:
 
 
 ## Roman numerals for the tier badge (ticket 128): "Tier II".
-const TIER_ROMAN: Array[String] = ["", "I", "II", "III"]
+const TIER_ROMAN: Array[String] = ["", "I", "II", "III", "IV"]
 ## The town summary's fixed strings (ticket 128): the settlement has no player-given name yet.
 const TOWN_NAME := "Hearthvein"
 const TOWN_HINT := "Click a building to see it here."  # Esc is in the help screen (ticket 130b)
@@ -1072,7 +1074,7 @@ func _panel_rows(b: Building) -> Dictionary:
 		out["status"] = ""  # the site rows already say what it waits for
 		return out
 	if b.input_buffer != null:
-		var need := HaulingSystem.input_need(s.registry, b.def)
+		var need := HaulingSystem.need_for(s.registry, b)
 		out.merge(_buffer_row("in", b.input_buffer, maxi(1, need.size())), true)
 	if b.door_buffer != null:
 		out.merge(_buffer_row("out", b.door_buffer, 1), true)
@@ -1179,10 +1181,12 @@ const UPGRADE_REASONS := {"unknown_building": "No building", "site": "Still unde
 
 
 ## Short player-facing text for a Settlement.can_upgrade reason ("" for no reason).
-func upgrade_reason_text(reason: String, next_tier: int = 0) -> String:
+func upgrade_reason_text(reason: String, next_tier: int = 0, def: BuildingDef = null) -> String:
 	if reason == "era_locked":
 		var rule := s.registry.tiers
-		var e := s.registry.get_era(rule.era_for(next_tier)) if rule != null else null
+		var td := TierRuleDef.tier_def_of(def, next_tier)
+		var req_id := td.era if td != null and td.era != "" else (rule.era_for(next_tier) if rule != null else "")
+		var e := s.registry.get_era(req_id)
 		return "Needs %s era" % e.display_name if e != null else "Needs a later era"
 	return UPGRADE_REASONS.get(reason, reason.capitalize().replace("_", " "))
 
@@ -1255,7 +1259,7 @@ func upgrade_info(b: Building) -> Dictionary:
 			"%s %s" % [b.def.display_name, "I".repeat(nxt)]
 	info["next_cost"] = goods_cost_text(b.tier_cost(s.registry, nxt))
 	info["can_upgrade"] = can["ok"]
-	info["upgrade_reason"] = upgrade_reason_text(can["reason"], nxt)
+	info["upgrade_reason"] = upgrade_reason_text(can["reason"], nxt, b.def)
 	info["show_upgrade"] = not b.upgrading()
 	return info
 

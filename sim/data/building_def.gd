@@ -44,6 +44,15 @@ const GOLD := "gold"
 @export var night_worker_slots: int = 0
 ## Night hauler slots, staffed by night citizens (Storehouse: half its hauler_slots rounded down). 0 = none.
 @export var night_hauler_slots: int = 0
+## Lamp (ticket 133, spec N2): lights the tiles within lamp_radius from dusk to dawn while fuelled. Fuel is a good the
+## haulers bring into the input buffer; LightingSystem burns lamp_fuel_per_night of it once at dusk. A lamp with no
+## fuel is dark that night. These are the tier I values; a TierDef overrides them for its tier.
+@export var lamp: bool = false
+@export var lamp_radius: int = 0
+@export var lamp_fuel: String = ""
+@export var lamp_fuel_per_night: float = 0.0
+## True for the Grid Lamp (tier IV): it draws its fuel from the Lumen grid and no hauler brings it.
+@export var lamp_grid: bool = false
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
 @export var housing_beds: int = 0
