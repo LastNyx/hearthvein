@@ -113,6 +113,7 @@ const SKIP := {
 	"JobSystem._citizens": "hourly refresh shortcut, a cache of the citizen count",
 	"JobSystem._buildings": "hourly refresh shortcut, a cache of the building count",
 	"JobSystem._grid": "hourly refresh shortcut, a cache of the structure version",
+	"JobSystem._light": "hourly refresh shortcut, a cache of Settlement.light_version",
 	"JobSystem._lc_key": "layout cache key (building count, versions, Building.layout_rev), rebuilt lazily",
 	"JobSystem._lc_free": "layout cache: beds per finished housing building, rebuilt lazily",
 	"JobSystem._lc_order": "layout cache: ids of _lc_free, rebuilt lazily",
