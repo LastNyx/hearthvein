@@ -68,11 +68,12 @@ func test_loft_makes_silk_only_at_night_with_lit_tiles_near() -> void:
 	assert_true(s.is_night(), "21:00 is the night shift")
 	var made := ps.produced_total
 	s.step_hours(6)  # 21:00 -> 03:00, inside the night shift
-	# 2 workers for 6 h of a 12 h work day at the night rate (0.6 silk per worker per night): 2 * 6/12 * 0.6.
-	assert_almost_eq(ps.produced_total - made, 0.6, 0.02, "the loft made silk in the light")
-	s.step_hours(4)  # 03:00 -> 07:00, the rest of the night
+	# 2 workers for 6 h of a 12 h work day at the night rate (0.667 silk per worker per day): 2 * 6/12 * 0.667.
+	assert_almost_eq(ps.produced_total - made, 0.667, 0.02, "the loft made silk in the light")
+	s.step_hours(6)  # 03:00 -> 09:00: the 20:00-06:00 night shift ends, 9 h on site (the first hour is the walk)
+	assert_almost_eq(ps.produced_total - made, 1.0, 0.02, "a full staffed night in light makes 1.0 silk")
 	var at_dawn := ps.produced_total
-	s.step_hours(12)  # 07:00 -> 19:00, the whole day
+	s.step_hours(10)  # 09:00 -> 19:00, the day
 	assert_almost_eq(ps.produced_total, at_dawn, 0.001, "nothing by day")
 	# The same loft with no lamp in reach stays dark and closed all night.
 	var dark := _new_settlement()
