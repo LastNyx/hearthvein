@@ -253,7 +253,7 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 	# before any second hand: the opening is a dozen people and one woodcutter hand pays for the next site (ticket 118).
 	if s.registry.logistics != null and s.citizens.size() < s.registry.logistics.small_town_pop:
 		for e in entries:
-			if e["kind"] == Citizen.JOB_WORK and left > 0:
+			if e["kind"] == Citizen.JOB_WORK and e["shift"] == SHIFT_DAY and left > 0:
 				e["want"] += 1
 				left -= 1
 		for e in entries:
