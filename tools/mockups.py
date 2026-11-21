@@ -1022,9 +1022,12 @@ def b_lumen_pump():
 
 
 def b_cleanser(seed=0):
-    """Stone works that scrubs blight: teal roof, tall vapour stack, clear settling basin."""
-    house, glows, _ = gable_house(27, 16, 10, 9, "teal", "stone", 2, seed, chimney=False, door=(5, 10))
-    W, H = house.width + 20, house.height + 16
+    """Stone works that scrubs blight: teal roof, tall vapour stack, clear settling basin.
+
+    Ticket 167: the house and basin span the full 2-tile ground line, so the drawn base fills its 64 px footprint.
+    """
+    house, glows, _ = gable_house(40, 16, 10, 9, "teal", "stone", 2, seed, chimney=False, door=(5, 10))
+    W, H = house.width + 18, house.height + 16
     im = Image.new("RGBA", (W, H))
     d = ImageDraw.Draw(im)
     hy = H - house.height
@@ -1041,10 +1044,10 @@ def b_cleanser(seed=0):
     d.ellipse([gx - 4, gy - 4, gx + 4, gy + 4], fill=BRASS[1])
     d.polygon([(gx - 2, gy + 2), (gx, gy - 3), (gx + 3, gy - 2), (gx + 1, gy + 2)], fill=LEAF["green"][4])
     d.line([(gx - 2, gy + 2), (gx + 2, gy - 2)], fill=LEAF["green"][1])
-    # settling basin
-    tx0, tx1 = house.width - 8, W - 2
+    # settling basin: its wall reaches the ground line so the base runs the whole footprint
+    tx0, tx1 = house.width - 4, W - 2
     pipe(d, [(house.width - 6, H - 22), (house.width - 2, H - 22), (house.width - 2, H - 16)])
-    cylinder(d, tx0, tx1, H - 15, H - 2, STONE)
+    cylinder(d, tx0, tx1, H - 15, H - 1, STONE)
     d.ellipse([tx0, H - 19, tx1, H - 11], fill=STONE[3])
     d.ellipse([tx0 + 2, H - 18, tx1 - 2, H - 12], fill=WATER[4])
     d.arc([tx0 + 4, H - 17, tx1 - 6, H - 13], 180, 300, fill=WATER[5])

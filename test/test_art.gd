@@ -792,6 +792,23 @@ func test_market_art_fills_its_footprint() -> void:
 	assert_gte(contact, int(ceil(foot_w * 0.9)), "the base covers 90%% of the %d px footprint width" % foot_w)
 
 
+# Ticket 167: the cleanser's drawn base fills its 2-wide footprint (64 px), like the other 2-wide buildings.
+func test_cleanser_art_fills_its_footprint() -> void:
+	var e := ArtLibrary.building_entry("cleanser")
+	var fp: Array = e["footprint"]
+	var foot_w := int(fp[0]) * ArtLibrary.TILE
+	var img := ArtLibrary.texture(e["file"]).get_image()
+	var row := img.get_height() - 1
+	var contact := 0
+	while row > 0 and contact == 0:  # the lowest inked row: the outline under the base
+		for x in img.get_width():
+			if img.get_pixel(x, row).a > 0.5:
+				contact += 1
+		if contact == 0:
+			row -= 1
+	assert_gte(contact, int(ceil(foot_w * 0.9)), "the base covers 90%% of the %d px footprint width" % foot_w)
+
+
 ## True when a trunk other than `skip` stands within 60 px of `world` on a forest tile near it.
 func _crowded_forest(s: Settlement, world: Vector2, skip: Vector2) -> bool:
 	var bt := Vector2i(floori(world.x / ArtLibrary.TILE), floori(world.y / ArtLibrary.TILE))
