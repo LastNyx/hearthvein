@@ -300,18 +300,13 @@ func _desired_building(c: Citizen, hour: int) -> int:
 ## True when this citizen's own shift is running at `hour` (ticket 132, spec N1: the same people work days or
 ## nights). The hour just before a shift counts as the shift, so its walkers leave spread over that hour and arrive
 ## about when the shift starts: 05:00-06:00 for the day shift, 19:00-20:00 for the night shift. Night workers are
-## home from 06:00 to 20:00 (asleep in the middle of it).
+## home from 06:00 to 20:00 (asleep in the middle of it). Both windows come from Settlement (night_window/day_window),
+## so a Dimming's long night (16-09) moves the walkers with it.
 func _at_shift(c: Citizen, hour: int) -> bool:
-	if c.shift == Citizen.SHIFT_NIGHT:
-		var lg := _s.registry.logistics if _s.registry != null else null
-		var start := lg.night_shift_start if lg != null else 20
-		var end := lg.night_shift_end if lg != null else 6
-		if hour == posmod(start - 1, 24):
-			hour = start
-		return hour >= start or hour < end
-	if hour == WORK_START_HOUR - 1:
-		hour = WORK_START_HOUR
-	return hour >= WORK_START_HOUR and hour < WORK_END_HOUR
+	var w := _s.night_window() if c.shift == Citizen.SHIFT_NIGHT else _s.day_window()
+	if hour == posmod(w.x - 1, 24):
+		hour = w.x
+	return Settlement.in_window(hour, w)
 
 
 # ---------------------------------------------------------------- queries

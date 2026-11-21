@@ -1,7 +1,7 @@
 class_name LightingSystem
 extends SimSystem
 ## Lamps and the lit rule (ticket 133, spec N2). A finished lamp (BuildingDef.lamp) lights every tile within its
-## radius from LogisticsDef.lamp_light_start to lamp_light_end (19 to 7, wrapping midnight) while it is fuelled.
+## radius from Settlement.lamp_window (19 to 7, wrapping midnight; the Dimming's long night 16 to 9) while it is fuelled.
 ##
 ## Fuel is delivered by haulers like any other input (HaulingSystem.need_for adds the tier's fuel need). The lamp
 ## burns lamp_fuel_per_night units once, at the dusk hour (lamp_light_start); with less than that it stays dark for
@@ -29,9 +29,10 @@ func on_hour(s: Settlement) -> void:
 	if lg == null:
 		return
 	var h := s.clock.hour()
-	if h == lg.lamp_light_start:
+	var w := s.lamp_window()
+	if h == w.x:
 		_burn(s)
-	elif h == lg.lamp_light_end:
+	elif h == w.y:
 		var changed := false
 		for bid in s.buildings:
 			var b: Building = s.buildings[bid]

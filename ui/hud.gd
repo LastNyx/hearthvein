@@ -43,6 +43,7 @@ var _pin_key := "<none>"
 var _idle_label: Label
 var _clock_date: Label
 var _clock_season: Label
+var _clock_night_tag: Label
 var _row_dial: ClockDial
 var _pause_button: Button
 var _speed_buttons: Array[Button] = []
@@ -479,6 +480,10 @@ func _build_clock_panel(parent: Node) -> void:
 	row.add_child(dates)
 	_clock_date = _label(dates, 17)
 	_clock_season = _label(dates, 12, DIM)
+	_clock_night_tag = _label(v, 12, RED)
+	_clock_night_tag.name = "DimmingNightTag"
+	_clock_night_tag.visible = false
+	_clock_night_tag.tooltip_text = "A Dimming makes the night longer"
 	_pause_button = _button(row, "Pause", 13)
 	_pause_button.tooltip_text = "Pause (Space)"
 	_pause_button.pressed.connect(func() -> void:
@@ -1633,6 +1638,8 @@ func refresh() -> void:
 	_row_dial.tooltip_text = model.moon_tooltip()
 	_clock_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
 	_clock_season.text = model.date_text() + model.moon_tag()
+	_clock_night_tag.text = model.dimming_night_tag()
+	_clock_night_tag.visible = _clock_night_tag.text != ""
 	_refresh_clock_buttons()
 	_refresh_pins()
 	var active: bool = model.dimming_state() == "active"

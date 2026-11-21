@@ -222,10 +222,9 @@ static func _plan_allowance(seconds: float) -> int:
 	return maxi(1, int(seconds * PLAN_PER_SECOND))
 
 
-## True during the day shift's hours.
+## True during the day shift's hours (Settlement.day_window: 06-18, or the Dimming's short 09-16).
 static func _in_shift(s: Settlement) -> bool:
-	var h := s.clock.hour()
-	return h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
+	return Settlement.in_window(s.clock.hour(), s.day_window())
 
 
 ## True while this hauler's own shift runs: a night hauler starts trips during the night shift (ticket 132), a day

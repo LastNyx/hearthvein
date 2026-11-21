@@ -168,13 +168,14 @@ func test_objectives_dimming_lines_and_final_era_win_rows() -> void:
 	d._active = false
 	var lines := m.objectives_dimming_lines()
 	assert_eq(lines[0], "Dimming in 2 days, lasts 3")
-	assert_eq(lines[1], "Lumen output halves. Stock: 2 days.")
+	assert_eq(lines[1], "Nights run 16-09. Lumen output halves. Stock: 2 days.")
 	d._start_day = s.clock.total_days()
 	d._length = 3
 	d._active = true
 	assert_eq(m.objectives_dimming_lines()[0], "Dimming: day 1 of 3")
+	assert_eq(m.objectives_dimming_lines()[1], "Nights run 16-09.")
 	d.last_light = {"short": 1.0}
-	assert_eq(m.objectives_dimming_lines()[1], "Light short: Spirit falls")
+	assert_eq(m.objectives_dimming_lines()[1], "Nights run 16-09. Light short: Spirit falls")
 	s.era_current = "ascendant"
 	var rows := m.objectives()
 	assert_eq(rows.map(func(r: Dictionary) -> String: return r["label"]),
