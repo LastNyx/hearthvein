@@ -10,6 +10,10 @@ const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "resources", 
 ## Top bar order (ticket 112, build_menu.png): food, wood, stone, planks, cut stone, tools, lumen, cells, gold; people
 ## follow in their own box.
 const RESOURCES: Array[String] = ["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"]
+## The fixed top-right entries (ticket 125, hud-rts-spec H5): people then the five core goods, before the pins.
+const CORE_TOP: Array[String] = ["people", "food", "wood", "stone", "lumen", "gold"]
+## Pinned goods shown beside the six fixed entries (ticket 125); a fourth pin drops the oldest.
+const PIN_LIMIT := 3
 const REWARD_LABELS := {"rich_vein": "Rich vein", "ruins": "Ruins", "fertile_valley": "Fertile valley",
 		"old_forest": "Old forest", "spring": "Spring"}
 const COST_ORDER: Array[String] = ["wood", "stone", "planks", "cut_stone", "tools", "lumen_cells"]
@@ -17,6 +21,9 @@ const PRIORITY_LABELS := {"low": "Low", "normal": "Normal", "high": "High"}
 
 var s: Settlement
 var notifications: NotificationCenter
+## User settings hold the pinned goods (ticket 125); null in plain model tests, pins then live in memory only.
+var settings: GameSettings
+var _pins: Array[String] = []
 var selected_id: int = -1
 var overlays := {"blight": false, "roads": false, "water": false, "coverage": false, "grid": false}
 ## Active layer (ticket 40d): Building.LAYER_GROUND or LAYER_SKY. The one place the UI (placement, build bar, HUD tag)
@@ -27,13 +34,68 @@ var _deltas: Dictionary = {}
 var _mark: Dictionary = {}
 
 
-func _init(settlement: Settlement) -> void:
+func _init(settlement: Settlement, game_settings: GameSettings = null) -> void:
 	s = settlement
+	settings = game_settings
 	notifications = NotificationCenter.new(s)
 	for k in RESOURCES:
 		_deltas[k] = 0
 	_mark = _stock()
+	if settings != null:
+		for g in settings.pinned_goods:
+			_add_pin(g)
 	s.events.subscribe("day_started", _on_day)
+
+
+# ---------------------------------------------------------------- top-right pins (ticket 125)
+
+## The top-right order: the six fixed entries, then the pinned goods oldest first.
+func top_goods() -> Array[String]:
+	var out: Array[String] = CORE_TOP.duplicate()
+	out.append_array(_pins)
+	return out
+
+
+## The pinned goods, oldest first.
+func pinned() -> Array[String]:
+	return _pins.duplicate()
+
+
+func is_pinned(id: String) -> bool:
+	return _pins.has(id)
+
+
+## Whether `id` is a good that the pinned row can take: a top-bar good that is not one of the five fixed ones.
+func can_pin(id: String) -> bool:
+	return RESOURCES.has(id) and not CORE_TOP.has(id)
+
+
+## Pin or unpin `id`; a fourth pin drops the oldest. Returns whether it is pinned now. A fixed entry or an unknown id
+## cannot be pinned and returns false.
+func toggle_pin(id: String) -> bool:
+	if not can_pin(id):
+		return false
+	if _pins.has(id):
+		_pins.erase(id)
+	else:
+		while _pins.size() >= PIN_LIMIT:
+			_pins.pop_front()
+		_pins.append(id)
+	_save_pins()
+	return _pins.has(id)
+
+
+func _add_pin(id: String) -> void:
+	if not can_pin(id) or _pins.has(id) or _pins.size() >= PIN_LIMIT:
+		return
+	_pins.append(id)
+
+
+func _save_pins() -> void:
+	if settings == null:
+		return
+	settings.pinned_goods = _pins.duplicate()
+	settings.save()
 
 
 func _on_day(_e: Dictionary) -> void:
@@ -176,9 +238,14 @@ static func delta_text(d: int) -> String:
 func population() -> Dictionary:
 	var pop := s.citizens.size()
 	var beds := s.beds_total()
+	var idle := 0
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_id < 0 or not s.buildings.has(c.job_id):
+			idle += 1
 	var g := s.get_system(GrowthSystem) as GrowthSystem
 	var size := g.bar_size_now(s) if g != null else 0.0
-	return {"pop": pop, "beds": beds, "homeless": s.homeless_count(), "text": "%d / %d" % [pop, beds],
+	return {"pop": pop, "beds": beds, "idle": idle, "homeless": s.homeless_count(), "text": "%d / %d" % [pop, beds],
 			"tooltip": people_text(),
 			"growth": clampf(g.bar / size, 0.0, 1.0) if g != null and size > 0.0 else 0.0}
 

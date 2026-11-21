@@ -781,3 +781,72 @@ func test_output_full_advice_for_each_state() -> void:
 	assert_string_contains(m.tooltip_for_building(far)["text"], "Build a Storehouse nearby")
 	near.halt = ""
 	assert_eq(m.halt_advice(near), "")
+
+
+## Ticket 125: the top-right order is the six fixed entries then up to three pinned goods; a fourth pin drops the
+## oldest, a core entry cannot be pinned, and the pins live in the user settings (not the save game).
+func test_top_goods_core_then_pins_persist_in_settings() -> void:
+	var path := "/tmp/nyx-flash/hearthvein_hud125_settings_%d.cfg" % OS.get_process_id()
+	DirAccess.remove_absolute(path)
+	var settings := GameSettings.new()
+	settings.path = path
+	var hm := HudModel.new(s, settings)
+	assert_eq(hm.top_goods(), ["people", "food", "wood", "stone", "lumen", "gold"])
+	assert_true(hm.toggle_pin("planks"))
+	assert_eq(hm.top_goods(), ["people", "food", "wood", "stone", "lumen", "gold", "planks"])
+	hm.toggle_pin("cut_stone")
+	hm.toggle_pin("tools")
+	assert_eq(hm.pinned(), ["planks", "cut_stone", "tools"])
+	hm.toggle_pin("cells")
+	assert_eq(hm.pinned(), ["cut_stone", "tools", "cells"], "the fourth pin replaces the oldest")
+	assert_eq(hm.top_goods().slice(6), ["cut_stone", "tools", "cells"])
+	assert_false(hm.toggle_pin("tools"), "a pinned good's toggle unpins it")
+	assert_eq(hm.pinned(), ["cut_stone", "cells"])
+	assert_false(hm.toggle_pin("food"), "the six fixed entries are always there and cannot be pinned")
+	assert_eq(settings.pinned_goods, ["cut_stone", "cells"], "saved in the settings at once")
+	var fresh := GameSettings.new()
+	fresh.path = path
+	fresh.load_file()
+	var hm2 := HudModel.new(s, fresh)
+	assert_eq(hm2.pinned(), ["cut_stone", "cells"], "the pins persist via the settings file")
+	assert_eq(hm2.top_goods().slice(6), ["cut_stone", "cells"])
+	DirAccess.remove_absolute(path)
+
+
+## Ticket 125: the full-width top bar is replaced by a compact top-right cluster with a clock row under it; at
+## 1280x720 no other HUD panel overlaps either one.
+func test_top_right_cluster_is_compact_and_clear_of_other_panels() -> void:
+	var dir := "/tmp/nyx-flash/hearthvein_hud125_ui_%d" % OS.get_process_id()
+	var cfg := dir + ".cfg"
+	DirAccess.make_dir_recursive_absolute(dir)
+	var main: Node = load("res://ui/main.tscn").instantiate()
+	main.saves_dir = dir
+	main.settings_path = cfg
+	add_child_autofree(main)
+	await wait_process_frames(2)
+	main.start_new_game(SEED)
+	var old := get_window().size
+	get_window().size = Vector2i(1280, 720)  # the headless window is tiny
+	await wait_process_frames(3)
+	var hud: Hud = main.get_node("Hud")
+	var vp := hud.get_viewport().get_visible_rect().size
+	assert_eq(vp, Vector2(1280, 720))
+	var goods := hud.goods_panel.get_global_rect()
+	var clock := hud.clock_panel.get_global_rect()
+	assert_true(goods.size.x < vp.x * 0.75, "a compact cluster, not the old full-width bar")
+	assert_true(goods.position.x > vp.x * 0.25, "pinned to the top-right")
+	assert_true(goods.end.x <= vp.x + 1.0 and goods.position.y >= 0.0)
+	assert_false(goods.intersects(clock), "the clock row sits under the goods panel")
+	hud.open_category("food")
+	await wait_process_frames(3)
+	var others: Array[Control] = [hud._era_panel, hud._bar_panel, hud._fly_panel,
+			hud.tools_tab.get_node("ToolsPanel") as Control]
+	for other in others:
+		if other == null or not other.visible:
+			continue
+		assert_false(goods.intersects(other.get_global_rect()), "no overlap with %s" % other.name)
+		assert_false(clock.intersects(other.get_global_rect()), "no overlap with %s" % other.name)
+	assert_lte(hud._fly_panel.get_global_rect().end.y, 720.0, "the open flyout still fits inside 720")
+	get_window().size = old
+	DirAccess.remove_absolute(cfg)
+	DirAccess.remove_absolute(dir)

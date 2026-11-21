@@ -7,10 +7,11 @@ extends PanelContainer
 ## ResourceLedgerSystem.
 
 const SIZE := Vector2(900, 590)
-const COL_NAME := 150
+const COL_NAME := 120
 const COL_STOCK := 60
-const COL_CHANGE := 100
-const COL_WIDE := 135  # "Made yesterday" / "Used yesterday" headers must fit
+const COL_CHANGE := 80
+const COL_WIDE := 125  # "Made yesterday" / "Used yesterday" headers must fit
+const COL_PIN := 52  # the pin toggle (ticket 125)
 const LINE_COLOR := {"food": Color("e0644e"), "wood": Color("c8883f"), "stone": Color("b0aaa0"), "planks": Color("d09a58"),
 		"cut_stone": Color("a8b0ba"), "tools": Color("b8b8c8"), "lumen": Color("5ccaf0"), "cells": Color("78d8e8"), "gold": Color("f2d27a")}
 const GREEN := Color("78be5a")
@@ -54,7 +55,7 @@ func setup(h: Hud, m: HudModel) -> void:
 	v.add_child(mid)
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 0)
-	_list.custom_minimum_size = Vector2(COL_NAME + COL_STOCK + COL_CHANGE + 2 * COL_WIDE + 16, 0)
+	_list.custom_minimum_size = Vector2(COL_PIN + COL_NAME + COL_STOCK + COL_CHANGE + 2 * COL_WIDE + 16, 0)
 	mid.add_child(_list)
 	_tip = hud._panel(mid)  # the made-by breakdown, beside the table, shown while a made number is hovered
 	_tip.add_theme_stylebox_override("panel", hud._style(Color(0.094, 0.078, 0.071, 1.0), Hud.GOLD))
@@ -119,7 +120,7 @@ func refresh() -> void:
 		return
 	var rows := model.resource_rows()
 	var hist := model.resource_history(selected)
-	var key := "%s|%s|%s" % [selected, str(rows), str(hist)]
+	var key := "%s|%s|%s|%s" % [selected, str(rows), str(hist), ",".join(model.pinned())]
 	if key == _key:
 		return
 	_key = key
@@ -131,6 +132,7 @@ func refresh() -> void:
 	var head := HBoxContainer.new()
 	_list.add_child(head)
 	head.add_theme_constant_override("separation", 4)
+	_cell(head, "Pin", COL_PIN, Hud.DIM, false, 14)
 	_cell(head, "Good", COL_NAME, Hud.DIM, false, 14)
 	_cell(head, "Stock", COL_STOCK, Hud.DIM, true, 14)
 	_cell(head, "Change/day", COL_CHANGE, Hud.DIM, true, 14)
@@ -180,6 +182,18 @@ func _add_row(r: Dictionary) -> void:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
 	p.add_child(h)
+	var pin := hud._button(h, "Pinned", 12)
+	pin.name = "Pin"
+	pin.custom_minimum_size = Vector2(COL_PIN, 0)
+	pin.disabled = not model.can_pin(id)
+	pin.tooltip_text = "Show it on the top bar (max %d)" % HudModel.PIN_LIMIT if model.can_pin(id) else "Always on the top bar"
+	var pinned := model.is_pinned(id)
+	if model.can_pin(id):
+		pin.text = "Pinned" if pinned else "Pin"
+	hud._style_button(pin, pinned or not model.can_pin(id), 4)
+	pin.pressed.connect(func() -> void:
+		model.toggle_pin(id)
+		refresh())
 	var ic := hud._icon(h, r["icon"], 22)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_cell(h, r["name"], COL_NAME - 26, Hud.INK, false)
@@ -242,6 +256,12 @@ func hide_breakdown() -> void:
 ## The row of a good (test and shot seam), or null.
 func row_node(id: String) -> Control:
 	return _list.get_node_or_null("Row_" + id) as Control
+
+
+## The pin toggle of a good's row (test and shot seam), or null.
+func pin_button(id: String) -> Button:
+	var row := row_node(id)
+	return row.find_child("Pin", true, false) as Button if row != null else null
 
 
 ## The breakdown lines currently shown: [[label, amount text]].

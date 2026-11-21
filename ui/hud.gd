@@ -30,6 +30,21 @@ var _body_font: FontFile
 var _res_labels: Dictionary = {}
 var _res_deltas: Dictionary = {}
 var _res_icons: Dictionary = {}
+## The top-right cluster (ticket 125): the goods panel, its pinned-good row, and the clock row under it.
+var goods_panel: PanelContainer
+var clock_panel: PanelContainer
+var _goods_boxes: Dictionary = {}
+var _goods_hold: Control
+var _pin_row: HBoxContainer
+var _pin_key := "<none>"
+var _idle_label: Label
+var _clock_date: Label
+var _clock_season: Label
+var _row_dial: ClockDial
+var _pause_button: Button
+var _speed_buttons: Array[Button] = []
+var _help_button: Button
+var _bar_panel: PanelContainer
 var _pop_label: Label
 var _pop_box: HBoxContainer
 var _growth_bar: ProgressBar
@@ -111,6 +126,8 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 		build.mode_changed.connect(_refresh_active_tool)
 	camera = cam
 	driver = d
+	if driver != null:
+		driver.speed_changed.connect(func(_s: int) -> void: _refresh_clock_buttons())
 	layer = 10
 	_font = _pixel_font(FONT_PATH)
 	_body_font = _pixel_font(BODY_FONT_PATH)
@@ -310,39 +327,44 @@ func _style_button(b: Button, on: bool, pad: int = 12) -> void:
 
 # ---------------------------------------------------------------- top bar
 
+## Ticket 125 (hud-rts-spec H5): the old full-width bar is gone. A compact cluster sits at the top-right: people,
+## food, wood, stone, Lumen, gold, the pinned goods and a Goods button, with the clock row in its own panel under it.
 func _build_top_bar(parent: Node) -> void:
-	var p := _panel(parent)
+	var line := HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(line)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(spacer)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 6)
+	stack.size_flags_horizontal = Control.SIZE_SHRINK_END
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(stack)
+	_build_goods_panel(stack)
+	_build_clock_panel(stack)
+
+
+func _build_goods_panel(parent: Node) -> void:
+	goods_panel = _panel(parent)
+	goods_panel.name = "TopGoods"
+	goods_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	p.add_child(row)
-	# Nine goods plus people fit at 1280 (ticket 112): the 1.1.6 icons, value over delta in a narrow two-line box like
-	# the approved build_menu.png, not the old single "142 +6" line.
-	for k in HudModel.RESOURCES:
-		var box := HBoxContainer.new()
-		box.add_theme_constant_override("separation", 4)
-		row.add_child(box)
-		var ic := _icon(box, k, 24)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_res_icons[k] = ic
-		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 0)
-		col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		box.add_child(col)
-		_res_labels[k] = _label(col, 17)
-		_res_deltas[k] = _label(col, 12, DIM)
-		var gd := model.s.registry.get_good("lumen_cells" if k == "cells" else k)
-		box.tooltip_text = "%s stock and its change over the last day (click for the Resources page)" % (gd.display_name if gd != null else k)
-		box.gui_input.connect(func(e: InputEvent) -> void:
-			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-				box.accept_event()
-				resources_page.open_for(k))
+	row.add_theme_constant_override("separation", 12)
+	goods_panel.add_child(row)
 	var pop := HBoxContainer.new()
 	pop.add_theme_constant_override("separation", 6)
 	pop.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(pop)
 	_pop_box = pop
 	_icon(pop, "pop")
-	_pop_label = _label(pop, 17)
+	var people := VBoxContainer.new()
+	people.add_theme_constant_override("separation", 0)
+	people.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pop.add_child(people)
+	_pop_label = _label(people, 17)
+	_idle_label = _label(people, 12, DIM)
 	_growth_bar = ProgressBar.new()  # fills toward the next citizen
 	_growth_bar.custom_minimum_size = Vector2(46, 8)
 	_growth_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -352,14 +374,121 @@ func _build_top_bar(parent: Node) -> void:
 	_growth_bar.add_theme_stylebox_override("fill", _style(Color("78be5a"), Color(0, 0, 0, 0), 2, 0))
 	_growth_bar.tooltip_text = "Growth toward the next citizen"
 	pop.add_child(_growth_bar)
+	# One widget per top-bar good (ticket 112 icons, value over delta). The five core goods stay in the row; the four
+	# others wait hidden until the Resources page pins them (ticket 125).
+	for k in HudModel.RESOURCES:
+		_goods_boxes[k] = _goods_box(row, k)
+	_goods_hold = Control.new()
+	_goods_hold.visible = false
+	goods_panel.add_child(_goods_hold)
+	_pin_row = HBoxContainer.new()
+	_pin_row.add_theme_constant_override("separation", 12)
+	row.add_child(_pin_row)
+	var goods_btn := _button(row, "Goods (E)", 13)
+	goods_btn.name = "GoodsButton"
+	goods_btn.tooltip_text = "Open the Resources page (E)"
+	goods_btn.pressed.connect(func() -> void: resources_page.toggle())
+	_refresh_pins()
+
+
+func _goods_box(parent: Node, k: String) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(box)
+	var ic := _icon(box, k, 24)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_res_icons[k] = ic
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(col)
+	_res_labels[k] = _label(col, 17)
+	_res_deltas[k] = _label(col, 12, DIM)
+	var gd := model.s.registry.get_good("lumen_cells" if k == "cells" else k)
+	box.tooltip_text = "%s stock and its change over the last day (click for the Resources page)" % (gd.display_name if gd != null else k)
+	box.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			box.accept_event()
+			resources_page.open_for(k))
+	return box
+
+
+## Puts the pinned goods in the pin row, oldest first; the rest wait hidden (ticket 125).
+func _refresh_pins() -> void:
+	var key := ",".join(model.pinned())
+	if key == _pin_key:
+		return
+	_pin_key = key
+	var keep := model.pinned()
+	for k in _goods_boxes:
+		if HudModel.CORE_TOP.has(k):
+			continue
+		var box: Control = _goods_boxes[k]
+		if keep.has(k):
+			if box.get_parent() != _pin_row:
+				box.reparent(_pin_row)
+			box.visible = true
+		else:
+			if box.get_parent() != _goods_hold:
+				box.reparent(_goods_hold)
+			box.visible = false
+	for id in keep:  # oldest first, so the row reads in pin order
+		_pin_row.move_child(_goods_boxes[id], -1)
+	_pin_row.visible = not keep.is_empty()
+
+
+## Clock row (ticket 125, H5): dial, "Day N, HH:MM" over "Year N, Season", pause, 1x/2x/3x (current lit), "?" (F1).
+## Spirit and planet health keep their labels here until ticket 128 moves them to the town summary.
+func _build_clock_panel(parent: Node) -> void:
+	clock_panel = _panel(parent)
+	clock_panel.name = "TopClock"
+	clock_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	clock_panel.add_child(v)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	v.add_child(row)
+	_row_dial = ClockDial.new()
+	_row_dial.custom_minimum_size = Vector2(56, 36)
+	_row_dial.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_row_dial.tooltip_text = "The sun is up 05-21, the moon 21-05"
+	row.add_child(_row_dial)
+	var dates := VBoxContainer.new()
+	dates.add_theme_constant_override("separation", 0)
+	dates.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(dates)
+	_clock_date = _label(dates, 17)
+	_clock_season = _label(dates, 12, DIM)
+	_pause_button = _button(row, "Pause", 13)
+	_pause_button.tooltip_text = "Pause (Space)"
+	_pause_button.pressed.connect(func() -> void:
+		if driver != null:
+			driver.toggle_pause())
+	for i in range(1, 4):
+		var speed := i
+		var b := _button(row, "%dx" % speed, 13)
+		b.tooltip_text = "Speed %dx (%d)" % [speed, speed]
+		b.pressed.connect(func() -> void:
+			if driver != null:
+				driver.set_speed(speed))
+		_speed_buttons.append(b)
+	_help_button = _button(row, "?", 16)
+	_help_button.name = "HelpButton"
+	_help_button.tooltip_text = "Help (F1)"
+	_help_button.pressed.connect(func() -> void: help_requested.emit())
+	var extra := HBoxContainer.new()
+	extra.add_theme_constant_override("separation", 8)
+	v.add_child(extra)
 	var sp := HBoxContainer.new()
 	sp.add_theme_constant_override("separation", 6)
 	sp.mouse_filter = Control.MOUSE_FILTER_PASS
-	row.add_child(sp)
+	extra.add_child(sp)
 	_spirit_box = sp
-	_icon(sp, "spirit")
+	_icon(sp, "spirit", 22)
 	_spirit_bar = ProgressBar.new()
-	_spirit_bar.custom_minimum_size = Vector2(130, 16)
+	_spirit_bar.custom_minimum_size = Vector2(100, 16)
 	_spirit_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_spirit_bar.show_percentage = false
 	_spirit_bar.max_value = 100.0
@@ -368,16 +497,13 @@ func _build_top_bar(parent: Node) -> void:
 	_spirit_label = _label(sp, 15)
 	var pl := HBoxContainer.new()
 	pl.add_theme_constant_override("separation", 6)
-	row.add_child(pl)
-	_icon(pl, "planet")
+	extra.add_child(pl)
+	_icon(pl, "planet", 22)
 	_planet_label = _label(pl, 15)
 	pl.tooltip_text = "Planet health and its change over the last year"
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	_layer_tag = _button(row, "Ground (Tab)", 14)
+	_layer_tag = _button(extra, "Ground (Tab)", 13)
 	_layer_tag.pressed.connect(func() -> void: model.toggle_layer())
-	_overlay_toggle = _button(row, "Overlays", 14)
+	_overlay_toggle = _button(extra, "Overlays", 13)
 	_overlay_toggle.pressed.connect(toggle_overlay_menu)
 
 
@@ -596,15 +722,9 @@ const CAT_BUTTON_PAD := 6
 
 
 func _build_bar(parent: Node) -> void:
-	var fly_row := HBoxContainer.new()
-	fly_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(fly_row)
-	var pad := Control.new()
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pad.custom_minimum_size = Vector2(FLY_INDENT, 0)
-	fly_row.add_child(pad)
-	_fly_panel = _panel(fly_row)
-	_fly_panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	# Ticket 125: the flyout floats above the bottom bar instead of taking a row in the layout; with the taller
+	# top-right cluster it would otherwise push the bar below 720 when open.
+	_fly_panel = _panel(_float)
 	var fly_col := VBoxContainer.new()
 	fly_col.add_theme_constant_override("separation", 4)
 	_fly_panel.add_child(fly_col)
@@ -620,6 +740,7 @@ func _build_bar(parent: Node) -> void:
 	_fly_panel.visible = false
 	var p := _panel(parent)
 	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_bar_panel = p
 	_cat_box = GridContainer.new()
 	_cat_box.add_theme_constant_override("h_separation", 4)
 	_cat_box.add_theme_constant_override("v_separation", 4)
@@ -708,6 +829,20 @@ func _show_flyout() -> void:
 				if not e.get("locked", false):
 					b.modulate = Color(1, 1, 1, 0.5)
 	_refresh_active_tool()
+	_place_flyout()
+
+
+## Sits the flyout above the category bar, its bottom edge just clear of it (ticket 125).
+func _place_flyout() -> void:
+	if _fly_panel == null or not _fly_panel.visible:
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var sz := _fly_panel.get_combined_minimum_size()
+	_fly_panel.size = sz
+	var bar_top := vp.y - 6.0
+	if _cat_box != null and _cat_box.get_parent() is Control:
+		bar_top = (_cat_box.get_parent() as Control).get_global_rect().position.y
+	_fly_panel.position = Vector2(FLY_INDENT, maxf(6.0, bar_top - 6.0 - sz.y))
 
 
 ## What decides how the cards look (state per entry): the flyout is rebuilt when this changes.
@@ -888,6 +1023,7 @@ func refresh() -> void:
 		(_res_deltas[r["id"]] as Label).text = r["delta_text"]
 	var pop := model.population()
 	_pop_label.text = pop["text"]
+	_idle_label.text = "%d idle" % pop["idle"]
 	_pop_box.tooltip_text = pop["tooltip"]
 	_pop_label.add_theme_color_override("font_color", RED if pop["homeless"] > 0 else INK)
 	_growth_bar.value = pop["growth"]
@@ -916,6 +1052,11 @@ func refresh() -> void:
 	_era_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
 	_era_season.text = ep["date"] if driver == null else "%s  -  %s" % [ep["date"], driver.speed_text()]
 	_clock_dial.set_time(hours_f, model.s.registry.day_night)
+	_row_dial.set_time(hours_f, model.s.registry.day_night)
+	_clock_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
+	_clock_season.text = ep["date"]
+	_refresh_clock_buttons()
+	_refresh_pins()
 	var active: bool = ep["dimming_state"] == "active"
 	_era_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
 	_moon.visible = ep["dimming_state"] != "none"
@@ -931,6 +1072,14 @@ func refresh() -> void:
 	resources_page.refresh()
 	tutorial_panel.refresh()
 	update_highlight()
+
+
+## Lights the clock row's current speed (pause or 1x/2x/3x), like the tools tab (ticket 125).
+func _refresh_clock_buttons() -> void:
+	var speed: int = driver.speed if driver != null else 1
+	_style_button(_pause_button, speed == 0)
+	for i in _speed_buttons.size():
+		_style_button(_speed_buttons[i], speed == i + 1)
 
 
 func _refresh_layer_tag() -> void:
@@ -962,6 +1111,7 @@ func _process(delta: float) -> void:
 		workforce_page.position = ((get_viewport().get_visible_rect().size - workforce_page.size) / 2.0).floor()
 	if resources_page.visible:
 		resources_page.position = ((get_viewport().get_visible_rect().size - resources_page.size) / 2.0).floor()
+	_place_flyout()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0
@@ -989,6 +1139,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_M: _region_map.toggle()
 			KEY_Q: workforce_page.toggle()
 			KEY_E: resources_page.toggle()
+			KEY_F1: help_requested.emit()
 			KEY_TAB:
 				if model.layer_tag_visible():  # no island yet: Tab is not ours (98)
 					model.toggle_layer()
