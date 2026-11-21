@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HintDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/hint_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "night_arrival_blocked"
+order = 12
+trigger = "night_arrival_blocked"
+filter_key = ""
+filter_value = ""
+check = ""
+title = "Newcomers wait outside"
+body = "Newcomers wait outside: light the road to the town."
+help_page = "dimming"

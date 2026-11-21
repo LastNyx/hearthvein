@@ -182,7 +182,7 @@ func test_hint_and_era_rows_are_in_data() -> void:
 	var reg := DataRegistry.new()
 	assert_eq(reg.load_all(), [] as Array[String])
 	for id in ["dimming_forecast", "buffer_full", "no_workers", "first_blight", "upkeep_building", "darkness",
-			"citizen_left", "homeless", "island_still", "great_dimming", "region_buy"]:
+			"citizen_left", "homeless", "island_still", "great_dimming", "region_buy", "night_arrival_blocked"]:
 		assert_true(reg.hints.has(id), id)
 	for e in reg.eras_in_order():
 		assert_ne(e.new_pressure, "", e.id)

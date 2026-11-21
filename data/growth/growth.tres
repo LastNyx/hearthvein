@@ -13,3 +13,4 @@ immigration_spirit = 40.0
 immigration_days = 1
 default_spirit = 50.0
 leave_per_day = 1
+night_arrival_share = 0.5

@@ -12,6 +12,9 @@ extends SimSystem
 ##     growth bar. Bar full + a free bed + nobody homeless = one new citizen (appears at the Hearth).
 ##  4. Every `immigration_days` days: Spirit >= immigration_spirit, a free bed, population not above soft_cap =
 ##     one newcomer, on top of growth.
+## Night arrivals (ticket 146, on_hour at the night shift's start): the same conditions add night_arrival_share to a
+## waiting bar; at 1.0 one more newcomer arrives, but only when the arrival point (the Hearth and the tiles around it,
+## where roads reach the town) is lit. Dark, the newcomer waits and `night_arrival_blocked` is emitted.
 ## The first day only records the food stock, so it never counts as surplus.
 
 const SAVE_KEY := "growth"
@@ -23,6 +26,9 @@ var days_since_immigration: int = 0
 ## Report of the last day: eaten, hungry, left, surplus, grown, immigrated, types (distinct food types eaten).
 var last_day: Dictionary = {}
 
+## Night newcomers waiting at the gate, 0 to 1 (ticket 146).
+var night_bar: float = 0.0
+
 var _food_mark: float = -1.0
 var _map: MapState = null
 
@@ -33,6 +39,7 @@ func save_state() -> Dictionary:
 		"days_since_immigration": days_since_immigration,
 		"last_day": last_day.duplicate(true),
 		"food_mark": _food_mark,
+		"night_bar": night_bar,
 	}
 
 
@@ -41,6 +48,7 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	days_since_immigration = int(d["days_since_immigration"])
 	last_day = d["last_day"].duplicate(true)
 	_food_mark = float(d["food_mark"])
+	night_bar = float(d.get("night_bar", 0.0))
 	_map = null  # set at the start of the next on_day
 
 
@@ -161,11 +169,46 @@ func on_day(settlement: Settlement) -> void:
 	days_since_immigration += 1
 	if days_since_immigration >= gd.immigration_days:
 		days_since_immigration = 0
-		if not dark and s.spirit() >= gd.immigration_spirit and s.citizens.size() <= gd.soft_cap and _free_beds(s) > 0:
+		if _can_arrive(s, gd):
 			s.add_citizen()
 			report["immigrated"] = 1
 			s.events.emit("citizen_immigrated", {})
 	last_day = report
+
+
+## Whether a newcomer may arrive now: no darkness, Spirit high enough, under the soft cap, a free bed.
+func _can_arrive(s: Settlement, gd: GrowthDef) -> bool:
+	return not DimmingSystem.is_dark(s) and s.spirit() >= gd.immigration_spirit and s.citizens.size() <= gd.soft_cap \
+			and _free_beds(s) > 0
+
+
+## At the night shift's start: a night newcomer is ready once the share has added up to 1, and arrives if lit.
+func on_hour(s: Settlement) -> void:
+	var lg := s.registry.logistics
+	var gd := s.registry.growth
+	if lg == null or s.clock.hour() != lg.night_shift_start or gd.night_arrival_share <= 0.0 or s.hearth == null:
+		return
+	if not _can_arrive(s, gd):
+		return
+	night_bar = minf(night_bar + gd.night_arrival_share, 1.0)
+	if night_bar < 1.0 - Inventory.EPS:
+		return
+	if not _arrival_lit(s):
+		s.events.emit("night_arrival_blocked", {})
+		return
+	night_bar = 0.0
+	s.add_citizen()
+	s.events.emit("citizen_immigrated", {"night": true})
+
+
+## True when the Hearth or a tile touching it (where the road enters the town) is lit tonight.
+func _arrival_lit(s: Settlement) -> bool:
+	var r := s.hearth.footprint()
+	for x in range(r.position.x - 1, r.end.x + 1):
+		for y in range(r.position.y - 1, r.end.y + 1):
+			if s.is_tile_lit(Vector2i(x, y)):
+				return true
+	return false
 
 
 func _free_beds(s: Settlement) -> int:

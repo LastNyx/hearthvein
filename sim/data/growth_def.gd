@@ -17,3 +17,6 @@ extends Resource
 @export var default_spirit: float = 0.0
 ## Citizens that leave per day while food is 0 with a deficit.
 @export var leave_per_day: int = 0
+## Night arrivals (ticket 146): each night a newcomer's worth of this share waits at the gate; at 1.0 a newcomer is
+## ready, and walks in at the night shift's start when the arrival point is lit. Day immigration is unchanged.
+@export var night_arrival_share: float = 0.0
