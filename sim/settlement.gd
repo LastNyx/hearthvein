@@ -159,9 +159,9 @@ func add_default_systems() -> void:
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
 	add_system(RailManifestSystem.new())  # daily train manifests between linked depots (ticket 37b), hourly arrivals
 	add_system(AirshipSystem.new())  # after the rail manifests (rail first): air freight between docks, survey flights (ticket 38)
-	add_system(JobSystem.new())
 	add_system(LightingSystem.new())  # burns lamp fuel at dusk and answers Settlement.is_lit (ticket 133); before
-	# WalkerSystem, so the night slots it opens at dusk are in the same hour's departure queue
+	# JobSystem, so its hourly refresh at dusk already sees the night's light (and so before WalkerSystem)
+	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
 	add_system(FoulingSystem.new())  # hourly river fouling; its modifier feeds Production (ticket 29c)

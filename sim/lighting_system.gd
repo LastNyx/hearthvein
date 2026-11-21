@@ -59,10 +59,8 @@ func _burn(s: Settlement) -> void:
 			got = b.input_buffer.remove(fuel, per)
 		ResourceLedgerSystem.record_used(s, fuel, got, "light")
 		b.lit_tonight = got >= per - Inventory.EPS
-	# Always: even a dusk where no lamp answered to the burn gives the night slots the final answer for tonight (dawn
-	# cleared the flags without a refresh), and the 132 layout cache must rebuild either way.
+	# Always: the 132 layout cache must rebuild at dusk. JobSystem runs right after this system in the same hour.
 	s.light_version += 1
-	s.refresh_population()
 
 
 ## True when one of `b`'s footprint tiles is inside a lit lamp's radius during the lamp hours.

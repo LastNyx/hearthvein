@@ -28,15 +28,17 @@ const PRIORITY_ORDER: Array[String] = ["high", "normal", "low"]
 var _citizens: int = -1
 var _buildings: int = -1
 var _grid: int = -1
+var _light: int = -1  # Settlement.light_version: a lamp lit or went dark (ticket 133), so night slots open or close
 
 
 func on_hour(settlement: Settlement) -> void:
 	if settlement.citizens.size() == _citizens and settlement.buildings.size() == _buildings \
-			and settlement.structure_version == _grid:
+			and settlement.structure_version == _grid and settlement.light_version == _light:
 		return
 	_citizens = settlement.citizens.size()
 	_buildings = settlement.buildings.size()
 	_grid = settlement.structure_version
+	_light = settlement.light_version
 	refresh(settlement)
 
 
