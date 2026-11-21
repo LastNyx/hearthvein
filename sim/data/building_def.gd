@@ -69,6 +69,9 @@ const GOLD := "gold"
 @export var fells_forest: bool = false
 ## True for the Forester: plants plain grass in placement_radius, and halves stump regrowth there (ForestSystem).
 @export var plants_forest: bool = false
+## True for the Woodcutter and Quarry: a gain popup (ticket 137) shows "+N" with the good's icon over it when it makes
+## goods. Render only; later defs may opt in.
+@export var gain_popup: bool = false
 ## Lumen extractors (design.md section 12): each period (days) the nearest non-blighted tile within radius turns
 ## blighted. 0 = no blight (Aether Collector, Heartroot Tap, every non-extractor). Tiers do not change these.
 @export var blight_radius: int = 0

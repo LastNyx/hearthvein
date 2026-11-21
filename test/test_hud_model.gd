@@ -300,6 +300,67 @@ func test_site_rows_and_the_town_summary() -> void:
 	assert_eq(m.selection(), {})
 
 
+## The Workforce page's row for a building ({} when it has none).
+func _workforce_row(id: int) -> Dictionary:
+	for g: Dictionary in m.workforce()["groups"]:
+		for r: Dictionary in g["rows"]:
+			if r["id"] == id:
+				return r
+	return {}
+
+
+## Places a Camp Brazier on the first free tile inside its own radius of `b`, or -1.
+func _lamp_near(b: Building) -> int:
+	var r: int = reg.get_building("lamp").lamp_radius
+	for y in range(b.origin.y - r, b.origin.y + b.def.size.y + r):
+		for x in range(b.origin.x - r, b.origin.x + b.def.size.x + r):
+			var t := Vector2i(x, y)
+			if not s.can_place("lamp", t, true)["ok"]:
+				continue
+			for bt in b.tiles():
+				var d: Vector2i = t - bt
+				if d.x * d.x + d.y * d.y <= r * r:
+					var id := s.place_building_instant("lamp", t)
+					if id >= 0:
+						return id
+	return -1
+
+
+## Ticket 136: a Workforce row carries its day and night shifts; a night slot with no lamp in reach says so.
+func test_workforce_rows_carry_day_and_night_counts() -> void:
+	var mill := s.place_building_instant("sawmill", _free_spot("sawmill", 4))
+	var wood := s.place_building_instant("woodcutter", _free_spot("woodcutter", 4))
+	assert_true(mill >= 0 and wood >= 0)
+	var row := _workforce_row(mill)
+	assert_eq([row["day_slots"], row["day_filled"]], [2, 0], "the Sawmill's two day worker slots")
+	assert_eq([row["night_slots"], row["night_filled"]], [1, 0], "and its one night slot")
+	assert_eq(row["day_text"], "0/2")
+	assert_eq(row["night_text"], "Needs a lamp", "no lamp reaches it")
+	var plain := _workforce_row(wood)
+	assert_eq(plain["night_slots"], 0)
+	assert_eq(plain["night_text"], "-", "a building without night slots")
+	assert_true(_lamp_near(s.buildings[mill]) >= 0, "a lamp went up beside the Sawmill")
+	row = _workforce_row(mill)
+	assert_eq(row["night_text"], "0/1", "a lamp in reach: the night column counts again")
+
+
+## Ticket 136: the selection panel has a night row only when the building has night worker slots.
+func test_selection_rows_include_night_only_with_night_slots() -> void:
+	var mill := s.place_building_instant("sawmill", _free_spot("sawmill", 4))
+	var wood := s.place_building_instant("woodcutter", _free_spot("woodcutter", 4))
+	assert_true(mill >= 0 and wood >= 0)
+	m.select(mill)
+	var sel := m.selection()
+	assert_true(sel["show_night"], "the Sawmill has a night slot")
+	assert_eq(sel["night_slots"], 1)
+	assert_eq(sel["night_text"], "0/1")
+	assert_eq(sel["workers_text"], "0/2", "the day row keeps the day workers only")
+	m.select(wood)
+	sel = m.selection()
+	assert_false(sel["show_night"], "the Woodcutter has no night shift")
+	assert_eq(sel["night_slots"], 0)
+
+
 func test_build_bar_lists_unlocked_by_category_and_next_era_locked() -> void:
 	var bar := m.build_bar()
 	var ids: Array = bar.map(func(c: Dictionary) -> String: return c["id"])

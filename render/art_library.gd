@@ -549,6 +549,29 @@ static func sprite_rect(id: String, origin: Vector2i, size: Vector2i) -> Rect2:
 	return Rect2(b - Vector2(e["base"][0], e["base"][1]), Vector2(e["w"], e["h"]))
 
 
+static var _window_textures: Dictionary = {}
+
+
+## Lit-window overlay of a building sprite (ticket 135): its warm window pixels only, brightened, on a transparent
+## background. Null for a sprite with no windows. Cached, one texture per building sprite.
+static func window_texture(id: String) -> Texture2D:
+	if _window_textures.has(id):
+		return _window_textures[id]
+	var e := building_entry(id)
+	var img := image_of(e["file"])
+	var out := Image.create(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8)
+	var found := false
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a > 0.0 and c.r > 0.85 and c.g > 0.65 and c.b < 0.6:  # the mockup's window colour rule
+				out.set_pixel(x, y, Color(1.0, minf(1.0, c.g + 0.1), minf(1.0, c.b + 0.2), 1.0))
+				found = true
+	var tex: Texture2D = ImageTexture.create_from_image(out) if found else null
+	_window_textures[id] = tex
+	return tex
+
+
 # ---------------------------------------------------------------- construction sites
 ## {plot: Texture2D, scaffold: Texture2D} for a footprint; the scaffold is the smallest height tier covering
 ## `sprite_h` (the finished building sprite height). Scaffold bottom = footprint bottom, left = footprint left.

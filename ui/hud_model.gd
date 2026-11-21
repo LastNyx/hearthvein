@@ -679,12 +679,13 @@ func selected() -> Building:
 	return s.buildings.get(selected_id)
 
 
-## Citizens whose job is a slot of building b, of one kind (Citizen.JOB_WORK / JOB_HAUL / JOB_BUILD).
-func _filled(b: Building, kind: String) -> int:
+## Citizens whose job is a slot of building b, of one kind (Citizen.JOB_WORK / JOB_HAUL / JOB_BUILD), and of `shift`
+## when one is given (Citizen.SHIFT_DAY / SHIFT_NIGHT).
+func _filled(b: Building, kind: String, shift: String = "") -> int:
 	var n := 0
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
-		if c.job_id == b.id and c.job_kind == kind:
+		if c.job_id == b.id and c.job_kind == kind and (shift == "" or c.shift == shift):
 			n += 1
 	return n
 
@@ -710,20 +711,25 @@ func has_jobs(b: Building) -> bool:
 ## The Workforce page (Q): {"header": {workers, idle, haulers, builders}, "groups": [{id, label, rows}]}. One pass over
 ## the citizens counts the header and every building's filled slots. The first group is the construction sites
 ## ("sites"), then the buildings by category in build bar order. A row: {id, name, site, filled, slots, count_text
-## ("3/3", "builders 4/4"), short, ok, has_jobs, priority, paused, no_road, note}; rows without jobs get no buttons.
+## ("3/3", "builders 4/4"), day_filled, day_slots, day_text, night_filled, night_slots, night_text, short, ok,
+## has_jobs, priority, paused, no_road, note}; rows without jobs get no buttons. day_* is the day shift, night_* the
+## night one: night_text is "-" without night slots and "Needs a lamp" while no lamp reaches the building (ticket 136).
 ## A building with no road to the Hearth (JobSystem skips it) gets "no road" instead of "N short" and stays out of the
 ## header's short total; paused rows keep their own text.
 func workforce() -> Dictionary:
 	var header := {"workers": 0, "idle": 0, "haulers": 0, "builders": 0, "short": 0}
-	var filled := {}  # building id -> {work, haul, build} citizens with a job there
+	var filled := {}  # building id -> shift -> {work, haul, build} citizens with a job there
 	for cid in s.citizens:
 		var c: Citizen = s.citizens[cid]
 		if c.job_id < 0 or not s.buildings.has(c.job_id):
 			header["idle"] += 1  # same test as role_of, so it matches the people tooltip
 			continue
 		if not filled.has(c.job_id):
-			filled[c.job_id] = {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0}
-		filled[c.job_id][c.job_kind] += 1
+			filled[c.job_id] = {}
+		var by_shift: Dictionary = filled[c.job_id]
+		if not by_shift.has(c.shift):
+			by_shift[c.shift] = {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0}
+		by_shift[c.shift][c.job_kind] += 1
 	var crew := {}  # site id -> builders on its crew
 	var cs := s.get_system(ConstructionSystem) as ConstructionSystem
 	if cs != null:
@@ -732,6 +738,7 @@ func workforce() -> Dictionary:
 	var crew_size := s.registry.logistics.builder_crew if s.registry.logistics != null else 0
 	var sites: Array = []
 	var by_cat := {}
+	var lamp_tiles := _lamp_tiles()  # computed once: the night column of every row asks the same question
 	var ids := s.buildings.keys()
 	ids.sort()
 	for id in ids:
@@ -740,13 +747,17 @@ func workforce() -> Dictionary:
 			continue  # houses have no jobs and no row
 		var row := {"id": b.id, "name": b.display_name(s.registry), "site": b.site, "priority": b.priority,
 				"paused": b.paused, "has_jobs": b.site or has_jobs(b), "filled": 0, "slots": 0, "short": 0,
-				"ok": true, "no_road": false, "note": "", "count_text": "", "work": 0}
+				"day_filled": 0, "day_slots": 0, "day_text": "-", "night_filled": 0, "night_slots": 0,
+				"night_text": "-", "ok": true, "no_road": false, "note": "", "count_text": "", "work": 0}
 		if b.site:
 			row["name"] += " (site)"
 			row["filled"] = int(crew.get(b.id, 0))
 			row["slots"] = crew_size
 			row["short"] = maxi(0, crew_size - row["filled"])
 			row["count_text"] = "builders %d/%d" % [row["filled"], crew_size]
+			row["day_filled"] = row["filled"]
+			row["day_slots"] = crew_size
+			row["day_text"] = row["count_text"]
 			row["ok"] = row["short"] == 0
 			row["note"] = wait_text(b)
 			if not b.connected and not b.paused:
@@ -757,7 +768,13 @@ func workforce() -> Dictionary:
 				header["short"] += row["short"]
 			sites.append(row)
 			continue
-		var f: Dictionary = filled.get(b.id, {Citizen.JOB_WORK: 0, Citizen.JOB_HAUL: 0, Citizen.JOB_BUILD: 0})
+		var by_shift: Dictionary = filled.get(b.id, {})
+		var day: Dictionary = by_shift.get(Citizen.SHIFT_DAY, {})
+		var night: Dictionary = by_shift.get(Citizen.SHIFT_NIGHT, {})
+		var f := {
+			Citizen.JOB_WORK: int(day.get(Citizen.JOB_WORK, 0)) + int(night.get(Citizen.JOB_WORK, 0)),
+			Citizen.JOB_HAUL: int(day.get(Citizen.JOB_HAUL, 0)) + int(night.get(Citizen.JOB_HAUL, 0)),
+			Citizen.JOB_BUILD: int(day.get(Citizen.JOB_BUILD, 0)) + int(night.get(Citizen.JOB_BUILD, 0))}
 		var w := b.effective_worker_slots(s.registry)
 		var kinds := [["workers", w, mini(f[Citizen.JOB_WORK], w)],
 				["haulers", b.def.hauler_slots, mini(f[Citizen.JOB_HAUL], b.def.hauler_slots)],
@@ -775,6 +792,24 @@ func workforce() -> Dictionary:
 		row["short"] = row["slots"] - row["filled"]
 		row["ok"] = row["short"] == 0
 		row["count_text"] = ", ".join(parts) if not parts.is_empty() else "0/0"
+		var day_w := w if not b.def.night_only else 0
+		var day_kinds := [["workers", day_w, mini(int(day.get(Citizen.JOB_WORK, 0)), day_w)],
+				["haulers", b.def.hauler_slots, mini(int(day.get(Citizen.JOB_HAUL, 0)), b.def.hauler_slots)],
+				["builders", b.def.builder_slots, mini(int(day.get(Citizen.JOB_BUILD, 0)), b.def.builder_slots)]]
+		var night_kinds := [["workers", b.def.night_worker_slots,
+				mini(int(night.get(Citizen.JOB_WORK, 0)), b.def.night_worker_slots)],
+				["haulers", b.def.night_hauler_slots, mini(int(night.get(Citizen.JOB_HAUL, 0)), b.def.night_hauler_slots)]]
+		row["day_slots"] = _kind_total(day_kinds, 1)
+		row["day_filled"] = _kind_total(day_kinds, 2)
+		row["day_text"] = "-" if row["day_slots"] == 0 else _count_text(day_kinds)
+		row["night_slots"] = _kind_total(night_kinds, 1)
+		row["night_filled"] = _kind_total(night_kinds, 2)
+		if row["night_slots"] == 0:
+			row["night_text"] = "-"
+		elif not _lamp_reaches(b, lamp_tiles):
+			row["night_text"] = "Needs a lamp"
+		else:
+			row["night_text"] = _count_text(night_kinds)
 		var notes: Array[String] = []
 		if row["slots"] == 0:
 			notes.append("no workers needed")
@@ -804,6 +839,50 @@ func workforce() -> Dictionary:
 	for cat: String in cats + rest:
 		groups.append({"id": cat, "label": category_label(cat), "rows": by_cat[cat]})
 	return {"header": header, "groups": groups}
+
+
+## Sum of a shift's kinds by column: 1 = slots, 2 = filled.
+static func _kind_total(kinds: Array, idx: int) -> int:
+	var n := 0
+	for k: Array in kinds:
+		n += int(k[idx])
+	return n
+
+
+## A shift's worker text: "3/3" for a lone worker kind, else "work 3/3, haul 4/4" like count_text.
+static func _count_text(kinds: Array) -> String:
+	var parts: Array[String] = []
+	var only := kinds.filter(func(k: Array) -> bool: return int(k[1]) > 0)
+	for k: Array in only:
+		parts.append(("%d/%d" if only.size() == 1 and k[0] == "workers"
+				else {"workers": "work", "haulers": "haul", "builders": "build"}[k[0]] + " %d/%d") % [k[2], k[1]])
+	return ", ".join(parts)
+
+
+## Every tile inside a finished lamp's radius, whatever the hour and its fuel. The night column asks coverage: a night
+## building outside every lamp needs one before its slots can open (spec N2), a question that has an answer by day too.
+func _lamp_tiles() -> Dictionary:
+	var out := {}
+	for id in s.buildings:
+		var o: Building = s.buildings[id]
+		if o.site or not o.def.lamp:
+			continue
+		var r := o.lamp_radius(s.registry)
+		for lt in o.tiles():
+			for y in range(lt.y - r, lt.y + r + 1):
+				for x in range(lt.x - r, lt.x + r + 1):
+					var d := Vector2i(x, y) - lt
+					if d.x * d.x + d.y * d.y <= r * r:
+						out[Vector2i(x, y)] = true
+	return out
+
+
+## Whether any tile of `b` is in the lamp set.
+static func _lamp_reaches(b: Building, lamp_tiles: Dictionary) -> bool:
+	for t in b.tiles():
+		if lamp_tiles.has(t):
+			return true
+	return false
 
 
 ## The role of one citizen: "hauler", "builder", the lower-case name of the workplace ("woodcutter"), or "idle".
@@ -999,7 +1078,9 @@ const TOWN_HINT := "Click a building to see it here."  # Esc is in the help scre
 ## Panel data of the selected building or {} : title, lines (strings), halt text, priority, paused, site progress.
 ## Ticket 128 adds the rows of the fixed bottom-centre panel: tier_text, subtitle ("Refining, village era"),
 ## workers_text and pips, makes/uses per day, the In/Out buffer bars, the status line and "extra" (the old lines the
-## panel still shows under the rows: sites, residents, reservoir, Stored, Dimming, blight).
+## panel still shows under the rows: sites, residents, reservoir, Stored, Dimming, blight). Ticket 136 puts the day
+## workers in that row and adds a night row (show_night, night_filled, night_slots, night_text) where the building
+## has night worker slots.
 func selection() -> Dictionary:
 	var b := selected()
 	if b == null:
@@ -1053,15 +1134,22 @@ func selection() -> Dictionary:
 ## The fixed panel's own rows (ticket 128). Sites keep the construction lines instead of makes/workers/buffers.
 func _panel_rows(b: Building) -> Dictionary:
 	var workers := b.effective_worker_slots(s.registry)
+	var night_slots: int = b.def.night_worker_slots
+	var day_filled := mini(_filled(b, Citizen.JOB_WORK, Citizen.SHIFT_DAY), workers) if not b.site else 0
+	var night_filled := mini(_filled(b, Citizen.JOB_WORK, Citizen.SHIFT_NIGHT), night_slots) if not b.site else 0
 	var era := s.registry.get_era(b.def.era)
 	var category := category_label(b.def.category)
 	var out := {
 		"tier_text": "Tier " + (TIER_ROMAN[b.tier] if b.tier >= 0 and b.tier < TIER_ROMAN.size() else str(b.tier)),
 		"subtitle": "%s, %s era" % [category, (era.display_name if era != null else b.def.era).to_lower()],
 		"show_workers": not b.site and workers > 0,
-		"workers_filled": mini(_filled(b, Citizen.JOB_WORK), workers) if not b.site else 0,
+		"workers_filled": day_filled,
 		"workers_slots": workers if not b.site else 0,
-		"workers_text": "%d/%d" % [mini(_filled(b, Citizen.JOB_WORK), workers), workers] if not b.site else "",
+		"workers_text": "%d/%d" % [day_filled, workers] if not b.site else "",
+		"show_night": not b.site and night_slots > 0,
+		"night_filled": night_filled,
+		"night_slots": night_slots if not b.site else 0,
+		"night_text": "%d/%d" % [night_filled, night_slots] if not b.site and night_slots > 0 else "",
 		"makes": "" if b.site else _per_day_text(b, b.def.recipe.outputs if b.def.recipe != null else {}, true),
 		"uses": "" if b.site else _per_day_text(b, b.def.recipe.inputs if b.def.recipe != null else {}, false),
 		"in_value": 0.0, "in_max": 0.0, "in_text": "",
@@ -1145,13 +1233,19 @@ func selection_lines(b: Building) -> Array:
 
 
 ## The town summary the panel shows when nothing is selected (ticket 128): name, era and date, the big population
-## numbers, Spirit and planet health with their trend, and the hint line.
+## numbers, Spirit and planet health with their trend, and the hint line. Ticket 136 adds the people on the night
+## shift ("N on nights").
 func town_summary() -> Dictionary:
 	var pop := population()
 	var sp := spirit()
 	var pl := planet()
+	var nights := 0
+	for cid in s.citizens:
+		if (s.citizens[cid] as Citizen).shift == Citizen.SHIFT_NIGHT:
+			nights += 1
 	return {"name": TOWN_NAME, "era": era_name(), "date": date_text(),
 			"people": pop["pop"], "beds": pop["beds"], "idle": pop["idle"],
+			"nights": nights, "nights_text": "%d on nights" % nights,
 			"spirit": roundi(sp["value"]), "spirit_state": sp["state"], "spirit_text": "%d / 100" % roundi(sp["value"]),
 			"spirit_tooltip": sp["tooltip"],
 			"planet": roundi(pl["value"]), "planet_text": "%d / 100" % roundi(pl["value"]),

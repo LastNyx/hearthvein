@@ -1,13 +1,14 @@
 class_name WorkforcePage
 extends PanelContainer
 ## The Workforce page (key Q, D8): header counts, the construction sites on top, then the buildings by category with
-## workers filled/slots, Low/Normal/High and Pause/Resume (lit like the selection panel) and a Note. Rows without jobs
-## show only their row. Centred, scrolls when long; the sim keeps running. Thin: rows come from HudModel.workforce(),
-## the buttons call Settlement.set_building_priority.
+## their Day and Night shifts filled/slots, Low/Normal/High and Pause/Resume (lit like the selection panel) and a Note.
+## Rows without jobs show only their row. Centred, scrolls when long; the sim keeps running. Thin: rows come from
+## HudModel.workforce(), the buttons call Settlement.set_building_priority.
 
 const SIZE := Vector2(900, 560)
 const COL_NAME := 230
-const COL_COUNT := 170
+const COL_DAY := 96
+const COL_NIGHT := 110
 const COL_PRIO := 200
 const COL_PAUSE := 76
 
@@ -88,7 +89,8 @@ func refresh() -> void:
 	var cols := HBoxContainer.new()
 	_list.add_child(cols)
 	_cell(cols, "Building", COL_NAME, Hud.DIM, 14, 24)
-	_cell(cols, "Workers", COL_COUNT, Hud.DIM, 14)
+	_cell(cols, "Day", COL_DAY, Hud.DIM, 14)
+	_cell(cols, "Night", COL_NIGHT, Hud.DIM, 14)
 	_cell(cols, "Priority", COL_PRIO + COL_PAUSE + 8, Hud.DIM, 14)
 	_cell(cols, "Note", 0, Hud.DIM, 14)
 	for g: Dictionary in data["groups"]:
@@ -115,7 +117,16 @@ func _add_row(row: Dictionary) -> void:
 	_list.add_child(h)
 	var dim: bool = row["paused"]
 	_cell(h, row["name"], COL_NAME, Hud.DIM if dim else Hud.INK, 15, 24)
-	_cell(h, row["count_text"], COL_COUNT, Hud.DIM if dim else (Hud.INK if row["ok"] else Hud.RED))
+	var day_col := Hud.DIM
+	if not dim and int(row["day_slots"]) > 0:
+		day_col = Hud.INK if int(row["day_filled"]) >= int(row["day_slots"]) else Hud.RED
+	_cell(h, row["day_text"], COL_DAY, day_col)
+	var night_col := Hud.DIM
+	if not dim and row["night_text"] == "Needs a lamp":
+		night_col = Hud.GOLD
+	elif not dim and int(row["night_slots"]) > 0:
+		night_col = Hud.INK if int(row["night_filled"]) >= int(row["night_slots"]) else Hud.RED
+	_cell(h, row["night_text"], COL_NIGHT, night_col)
 	var prio := HBoxContainer.new()
 	prio.custom_minimum_size = Vector2(COL_PRIO + COL_PAUSE + 8, 0)
 	prio.add_theme_constant_override("separation", 4)

@@ -85,6 +85,9 @@ var _sel_uses: Label
 var _sel_workers_title: Label
 var _sel_pips: HBoxContainer
 var _sel_workers_text: Label
+var _sel_night_row: HBoxContainer
+var _sel_night_pips: HBoxContainer
+var _sel_night_text: Label
 var _sel_in_bar: ProgressBar
 var _sel_in_text: Label
 var _sel_in_row: HBoxContainer
@@ -112,6 +115,7 @@ var _town_sub: Label
 var _town_people: Label
 var _town_beds: Label
 var _town_idle: Label
+var _town_nights: Label
 var _town_planet_trend: Label
 var _town_hint: Label
 var _planet_bar: ProgressBar
@@ -742,15 +746,30 @@ func _build_selection_panel(parent: Node) -> void:
 	_sel_sub = _label(info, 14, DIM)
 	_sel_sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_sel_workers_row = HBoxContainer.new()
+	_sel_workers_row.name = "ShiftDay"
 	_sel_workers_row.add_theme_constant_override("separation", 6)
 	info.add_child(_sel_workers_row)
 	_sel_workers_title = _label(_sel_workers_row, 14, DIM)
-	_sel_workers_title.text = "Workers"
+	_sel_workers_title.text = "Day"
 	_sel_pips = HBoxContainer.new()
 	_sel_pips.add_theme_constant_override("separation", 2)
 	_sel_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_sel_workers_row.add_child(_sel_pips)
 	_sel_workers_text = _label(_sel_workers_row, 14, INK)
+	# The night row (ticket 136): only buildings with night worker slots show it, moon icon first as in the mockup.
+	_sel_night_row = HBoxContainer.new()
+	_sel_night_row.name = "ShiftNight"
+	_sel_night_row.add_theme_constant_override("separation", 6)
+	_sel_night_row.visible = false
+	info.add_child(_sel_night_row)
+	_icon(_sel_night_row, "moon", 14)
+	var night_title := _label(_sel_night_row, 14, DIM)
+	night_title.text = "Night"
+	_sel_night_pips = HBoxContainer.new()
+	_sel_night_pips.add_theme_constant_override("separation", 2)
+	_sel_night_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sel_night_row.add_child(_sel_night_pips)
+	_sel_night_text = _label(_sel_night_row, 14, INK)
 	_sel_halt = _label(info, 14, PURPLE)
 	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sel_halt.max_lines_visible = 2
@@ -875,6 +894,8 @@ func _build_town_summary() -> void:
 	_town_people = _number_block(nums, "pop", "People")
 	_town_beds = _number_block(nums, "pop", "Beds")
 	_town_idle = _number_block(nums, "pop", "Idle")
+	_town_nights = _label(left, 12, DIM)
+	_town_nights.name = "TownNights"
 	_town_hint = _label(left, 12, DIM)
 	_town_hint.name = "TownHint"
 	_town_hint.clip_text = true
@@ -976,7 +997,10 @@ func _refresh_selection() -> void:
 	_sel_uses.tooltip_text = sel["uses"]
 	_sel_workers_row.visible = bool(sel["show_workers"])
 	_sel_workers_text.text = sel["workers_text"]
-	_fill_pips(int(sel["workers_filled"]), int(sel["workers_slots"]))
+	_fill_pips(_sel_pips, int(sel["workers_filled"]), int(sel["workers_slots"]))
+	_sel_night_row.visible = bool(sel["show_night"])
+	_sel_night_text.text = sel["night_text"]
+	_fill_pips(_sel_night_pips, int(sel["night_filled"]), int(sel["night_slots"]))
 	_sel_in_row.visible = sel["in_text"] != ""
 	if sel["in_text"] != "":
 		_sel_in_bar.max_value = maxf(0.001, float(sel["in_max"]))
@@ -1035,6 +1059,8 @@ func _fit_selection_lines(sel: Dictionary) -> void:
 	var used := 32.0 + line  # title + kind
 	if _sel_workers_row.visible:
 		used += line
+	if _sel_night_row.visible:
+		used += line
 	if _sel_halt.visible:
 		var w := _sel_halt.get_theme_font("font").get_string_size(_sel_halt.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 				_sel_halt.get_theme_font_size("font_size")).x
@@ -1047,10 +1073,10 @@ func _fit_selection_lines(sel: Dictionary) -> void:
 	_sel_scroll.tooltip_text = "\n".join(_sel_body_key.split("\n")) if _sel_body_key != "" else ""
 
 
-## The day-shift worker pips: one filled square per worker, empty ones for the free slots. No night row yet (1.1.11).
-func _fill_pips(filled: int, slots: int) -> void:
-	for c in _sel_pips.get_children():
-		_sel_pips.remove_child(c)
+## A shift's worker pips: one filled square per worker, empty ones for the free slots (day and night rows alike).
+func _fill_pips(into: HBoxContainer, filled: int, slots: int) -> void:
+	for c in into.get_children():
+		into.remove_child(c)
 		c.queue_free()
 	for i in slots:
 		var p := Panel.new()
@@ -1058,7 +1084,7 @@ func _fill_pips(filled: int, slots: int) -> void:
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_theme_stylebox_override("panel", _style(DONE if i < filled else Color(0.25, 0.22, 0.2),
 				Color(0, 0, 0, 0), 2, 0, 0))
-		_sel_pips.add_child(p)
+		into.add_child(p)
 
 
 ## The town summary values when nothing is selected (ticket 128).
@@ -1069,6 +1095,7 @@ func _refresh_town() -> void:
 	_town_people.text = str(t["people"])
 	_town_beds.text = str(t["beds"])
 	_town_idle.text = str(t["idle"])
+	_town_nights.text = t["nights_text"]
 	_spirit_bar.value = float(t["spirit"])
 	var fill: Color = {"good": DONE, "ok": Color("d2a03c"), "bad": Color("d2503c")}[t["spirit_state"]]
 	_spirit_bar.add_theme_stylebox_override("fill", _style(fill, Color(0, 0, 0, 0), 2, 0))
