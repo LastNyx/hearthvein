@@ -1414,6 +1414,13 @@ def tavern_sprite():
     return M.Sprite(img, 2, 1, glows=[(9, 21, 9, (255, 200, 90)), (61, 31, 7, (255, 170, 70))], shadow=(1.0, 9))
 
 
+def water_wheel_sprite():
+    """The Water Wheel (ticket 152): the river mockup's wheel on its stone abutment, as a 1x1 sprite on the bank."""
+    import mockups_nightlife as NL  # lazy: the nightlife/river mockups are heavy and only the wheel needs them
+    img, _, _ = NL.wheel_art()
+    return M.Sprite(img, 1, 1, shadow=(1.0, 8))
+
+
 SHEET = {
     "hearth": lambda: M.b_hearth(), "tent": lambda: M.b_tent(0), "woodcutter": lambda: M.b_woodcutter(1),
     "lumen_tap": lambda: M.b_lumen_mill(), "meeting_hall": lambda: M.b_meeting_hall(),
@@ -1457,6 +1464,8 @@ SHEET = {
     "night_market": lambda: NightSprite(NL.market_art(False), NL.market_art(True), 2, 2, (1.0, 9), (255, 200, 90), 24),
     # ticket 143: the Night Watch, a lantern on a pole from the same nightlife mockups
     "night_watch": night_watch_sprite,
+    # ticket 152: the Water Wheel from the river mockup (nl_river.png)
+    "water_wheel": water_wheel_sprite,
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}

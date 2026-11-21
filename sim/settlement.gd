@@ -205,6 +205,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
 	prod.modifiers.append(UpkeepSystem.output_modifier)
 	prod.modifiers.append(FoulingSystem.output_modifier)
+	prod.modifiers.append(ProductionSystem.wheel_speed_modifier)
 	prod.modifiers.append(ProductionSystem.tier_modifier)
 	prod.modifiers.append(BlightSystem.output_modifier)
 	var forest_sys := get_system(ForestSystem) as ForestSystem

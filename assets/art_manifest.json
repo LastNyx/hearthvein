@@ -2453,6 +2453,28 @@
    },
    "w": 34
   },
+  "water_wheel": {
+   "base": [
+    32,
+    41
+   ],
+   "file": "buildings/water_wheel.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "generic": false,
+   "h": 42,
+   "shadow": {
+    "file": "buildings/water_wheel_shadow.png",
+    "offset": [
+     -25,
+     -5
+    ]
+   },
+   "w": 64
+  },
   "well": {
    "base": [
     16,

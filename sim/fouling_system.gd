@@ -241,6 +241,17 @@ static func farm_wet_only_fouled(s: Settlement, b: Building) -> bool:
 	return true
 
 
+## Water Wheel (ticket 152): true when a river tile 4-adjacent to the wheel's footprint is fouled. The wheel then
+## drives its workshop at half speed instead of saving a worker.
+static func wheel_on_foul_water(s: Settlement, wheel: Building) -> bool:
+	for t in wheel.tiles():
+		for d in Placement.DIRS:
+			var n := t + d
+			if MapState.in_bounds(n.x, n.y) and s.map.is_river(n.x, n.y) and s.map.is_fouled(n.x, n.y):
+				return true
+	return false
+
+
 ## ProductionSystem modifier (design.md section 9): the Fishing Dock runs at WaterDef.foul_dock_output_factor when
 ## its shore water is fouled, an Irrigated Farm whose wetness comes only from fouled water at
 ## WaterDef.foul_farm_output_factor, and everything else at 1.0. Safe to append to ProductionSystem.modifiers for

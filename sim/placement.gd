@@ -53,6 +53,15 @@ static func check_rule(map: MapState, reg: DataRegistry, def: BuildingDef, origi
 				if map.is_river(t.x, t.y):
 					return ""
 			return "needs_river"
+		"river_bank":
+			# The Water Wheel stands on land (Settlement refuses water for every other rule) and must touch a river
+			# tile orthogonally, so it sits on the bank, not on the far end of a footprint.
+			for t in tiles:
+				for d in DIRS:
+					var n := t + d
+					if MapState.in_bounds(n.x, n.y) and map.is_river(n.x, n.y):
+						return ""
+			return "needs_river_bank"
 		"near_forage":
 			return "" if _near(map, tiles, def.placement_radius, ["grass", "forest"]) else "needs_forage"
 		"near_forest":

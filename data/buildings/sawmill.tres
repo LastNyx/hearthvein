@@ -29,4 +29,5 @@ storage_cap = 0
 placement_rule = "any"
 placement_radius = 0
 recipe = SubResource("Recipe")
+water_driven = true
 upgradable = false
