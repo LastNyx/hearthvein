@@ -365,6 +365,7 @@ func _cell_parts(b: Button) -> Array[Control]:
 func test_every_grid_cell_child_lies_inside_its_cell() -> void:
 	var main: Node = await _game(Vector2i(1280, 720), 1.0)
 	var hud: Hud = main.get_node("Hud")
+	var costs := 0
 	for p in _grid_pages(hud):
 		hud._set_grid_page(p)
 		await wait_process_frames(2)
@@ -381,8 +382,29 @@ func test_every_grid_cell_child_lies_inside_its_cell() -> void:
 				assert_gte(key.get_global_rect().position.x, cell.position.x + 5.0 - 0.5,
 						"page '%s': the hotkey is 3 px inside the border" % p)
 			if cost != null:
+				costs += 1
 				assert_lte(cost.get_global_rect().end.x, cell.end.x - 5.0 + 0.5,
 						"page '%s': the short cost is 3 px inside the border" % p)
+	assert_gt(costs, 0, "unaffordable cells with a short cost were checked")
+
+
+## AC (130c): at 1280x720 the command grid panel and the bottom band stay at or under 148 px on the tallest page.
+func test_band_and_grid_stay_within_148_px_at_1280x720() -> void:
+	var main: Node = await _game(Vector2i(1280, 720), 1.0)
+	var hud: Hud = main.get_node("Hud")
+	var band := hud.find_child("BottomBand", true, false) as Control
+	var tallest := ""
+	var grid_h := 0.0
+	var band_h := 0.0
+	for p in _grid_pages(hud):
+		hud._set_grid_page(p)
+		await wait_process_frames(2)
+		band_h = maxf(band_h, band.size.y)
+		if hud._cmd_panel.size.y > grid_h:
+			grid_h = hud._cmd_panel.size.y
+			tallest = p
+	assert_lte(grid_h, 148.0 + 0.5, "the command grid on the tallest page '%s' is at most 148 px high" % tallest)
+	assert_lte(band_h, 148.0 + 0.5, "the bottom band is at most 148 px high")
 
 
 ## AC (130c): every grid name is at least the readable minimum size (12), and a lock sits on the icon, never on the
