@@ -142,7 +142,7 @@ static func report(s: Settlement, label: String) -> void:
 			var c: Citizen = s.citizens[cid]
 			if c.job_id == bid and c.job_kind == Citizen.JOB_WORK:
 				staffed += 1
-		var slots := b.effective_worker_slots(s.registry)
+		var slots := ProductionSystem.worker_slots_for(s, b)
 		if not b.connected or (slots > 0 and staffed == 0):
 			bad += 1
 			print(label, " PROBLEM: ", b.def.id, " at ", b.origin, " connected=", b.connected, " workers=", staffed, "/", slots)
