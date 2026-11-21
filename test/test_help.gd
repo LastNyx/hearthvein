@@ -120,5 +120,5 @@ func test_controls_page_lists_only_keys_that_are_bound_in_code() -> void:
 	for k in page.keys:
 		assert_true(src.contains("KEY_" + k), "KEY_%s is used in code" % k)
 		assert_string_contains(page.body, labels.get(k, k))
-	for k in ["V", "G", "T", "H", "L", "M", "B", "R", "X", "U", "W", "A", "S", "D", "F1", "ESCAPE"]:
+	for k in ["V", "G", "T", "H", "L", "M", "R", "X", "U", "Z", "Y", "W", "A", "S", "D", "F1", "ESCAPE"]:
 		assert_true(page.keys.has(k), k)

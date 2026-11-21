@@ -35,8 +35,8 @@ func setup(hud: Hud, driver: SimDriver) -> void:
 	for i in range(1, 4):
 		_speed_button(col, "Tool_speed%d" % i, "%dx" % i, "Speed %dx (%d)" % [i, i], i)
 	_tool(col, "Tool_demolish", "Demolish", "Demolish (X)", func() -> void: hud.build.set_mode(BuildController.Mode.DEMOLISH))
-	_tool(col, "Tool_clear", "Clear", "Clear (K): click-drag forest, stumps and rock to have builders clear them for wood and stone. Cleared rock is no longer a quarry spot.", func() -> void: hud.build.set_mode(BuildController.Mode.CLEAR))
-	_tool(col, "Tool_plant", "Plant", "Plant (N): click-drag grass to mark it; Foresters in reach plant marked tiles before any other grass.", func() -> void: hud.build.set_mode(BuildController.Mode.PLANT))
+	_tool(col, "Tool_clear", "Clear", "Clear (Z): click-drag forest, stumps and rock to have builders clear them for wood and stone. Cleared rock is no longer a quarry spot.", func() -> void: hud.build.set_mode(BuildController.Mode.CLEAR))
+	_tool(col, "Tool_plant", "Plant", "Plant (Y): click-drag grass to mark it; Foresters in reach plant marked tiles before any other grass.", func() -> void: hud.build.set_mode(BuildController.Mode.PLANT))
 	_tool(col, "Tool_upgrade", "Upgrade", "Upgrade mode: click buildings to upgrade them (U)", func() -> void: hud.build.set_mode(BuildController.Mode.UPGRADE))
 	_tool(col, "Tool_regionmap", "Region map", "Region map (M)", hud.toggle_region_map)
 	_tool(col, "Tool_help", "Help", "Help (F1)", hud.help_requested.emit)

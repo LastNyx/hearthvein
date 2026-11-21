@@ -7,6 +7,24 @@ extends RefCounted
 const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage", "grid"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "resources", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
+## Command grid (ticket 129, hud-rts-spec H2-H4): 5x3 cells at the bottom-right. A grid category gathers the building
+## categories listed here (Gold buildings under Civic, Sky buildings under Logistics; BuildingDef.category unchanged).
+const GRID_GROUPS := {"roads": ["roads"], "housing": ["housing"], "food": ["food"], "water": ["water"],
+		"lumen": ["lumen"], "logistics": ["logistics", "sky"], "resources": ["resources"],
+		"refining": ["refining"], "civic": ["civic", "gold"], "landmark": ["landmark"]}
+## Top-level cells, in reading order: id, label, key, icon.
+const GRID_TOP := [
+		["roads", "Roads", "R", "stone"], ["housing", "Housing", "N", "pop"],
+		["food", "Food", "F", "food"], ["water", "Water", "W", ""], ["lumen", "Lumen", "I", "lumen"],
+		["logistics", "Logistics", "K", "planks"], ["resources", "Resources", "S", "wood"],
+		["refining", "Refining", "D", "tools"], ["civic", "Civic", "A", "spirit"],
+		["landmark", "Landmark", "O", "moon"],
+		["demolish", "Demolish", "X", "cut_stone"], ["upgrade", "Upgrade", "U", "gold"],
+		["clear", "Clear", "Z", "wood"], ["plant", "Plant", "Y", "wood"], ["region", "Region", "M", "planet"]]
+## Positional keys of a category pane, cell 0 first; the last cell (index 14) is More (B) or Back (Esc).
+const GRID_KEYS: Array[String] = ["Q", "W", "E", "R", "T", "A", "S", "D", "F", "G", "Z", "X", "C", "V"]
+## Building cells a pane page holds before its last cell turns into More.
+const GRID_PAGE := 14
 ## Top bar order (ticket 112, build_menu.png): food, wood, stone, planks, cut stone, tools, lumen, cells, gold; people
 ## follow in their own box.
 const RESOURCES: Array[String] = ["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"]
@@ -23,6 +41,8 @@ var s: Settlement
 var notifications: NotificationCenter
 ## User settings hold the pinned goods (ticket 125); null in plain model tests, pins then live in memory only.
 var settings: GameSettings
+## Objectives panel collapsed to one line (ticket 126); read from and written to the user settings.
+var _objectives_collapsed: bool = false
 var _pins: Array[String] = []
 var selected_id: int = -1
 var overlays := {"blight": false, "roads": false, "water": false, "coverage": false, "grid": false}
@@ -42,6 +62,7 @@ func _init(settlement: Settlement, game_settings: GameSettings = null) -> void:
 		_deltas[k] = 0
 	_mark = _stock()
 	if settings != null:
+		_objectives_collapsed = settings.objectives_collapsed
 		for g in settings.pinned_goods:
 			_add_pin(g)
 	s.events.subscribe("day_started", _on_day)
@@ -304,6 +325,11 @@ func era_name() -> String:
 	return e.display_name if e != null else s.era_id()
 
 
+## "Year 1, Spring": the date line the clock panel shows.
+func date_text() -> String:
+	return "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]
+
+
 ## Lines of the era panel: era title, the next-era gate, the Dimming line, the date.
 func era_panel() -> Dictionary:
 	var gate := s.era_gate()
@@ -317,7 +343,7 @@ func era_panel() -> Dictionary:
 	return {"title": "Era: %s" % era_name(), "gate": gate_text, "dimming": dimming_text(),
 			"dimming_state": dimming_state(), "light": dimming_light_text(), "light_short": dimming_short_text(),
 			"output": dimming_output_text(), "stock": dimming_stock_text(),
-			"date": "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]}
+			"date": date_text()}
 
 
 func dimming_state() -> String:
@@ -439,6 +465,144 @@ func dimming_building_text(b: Building) -> String:
 		return ""
 	var f := DimmingSystem.output_modifier(s, b)
 	return "" if f >= 1.0 else "x%s Dimming" % factor_text(f)
+
+
+# ---------------------------------------------------------------- objectives panel (ticket 126)
+
+## The panel's subtitle: "Town -> City: gate parts", or "Ascendant: win objectives" at the last era.
+func objectives_header() -> String:
+	var gate := s.era_gate()
+	if gate["next"] == "":
+		return "%s: win objectives" % era_name()
+	var nxt := s.registry.get_era(gate["next"])
+	return "%s -> %s: gate parts" % [era_name(), nxt.display_name if nxt != null else str(gate["next"])]
+
+
+## The rows of the objectives panel: one per gate part of the next era (People, Gold and its landmark), or the win
+## objectives at the last era. Plain data (label, value, max, done, kind) so it is testable without nodes; the HUD
+## draws a bar from value/max and the text from kind.
+func objectives() -> Array[Dictionary]:
+	var gate := s.era_gate()
+	if gate["next"] == "":
+		return _win_objectives()
+	var rows: Array[Dictionary] = []
+	var pop_have := int(gate["pop"])
+	var pop_need := int(gate["pop_need"])
+	rows.append({"label": "People", "value": pop_have, "max": pop_need, "done": pop_have >= pop_need, "kind": "pop"})
+	var gold_have := floori(float(gate["gold"]))
+	var gold_need := int(gate["gold_need"])
+	rows.append({"label": "Gold", "value": gold_have, "max": gold_need, "done": gold_have >= gold_need, "kind": "gold"})
+	var lm := s.registry.get_building(gate["landmark"])
+	var built := bool(gate["landmark_built"])
+	rows.append({"label": lm.display_name if lm != null else str(gate["landmark"]), "value": 1 if built else 0,
+			"max": 1, "done": built, "kind": "landmark"})
+	return rows
+
+
+## The win objectives of the last era: the Skyheart's stages, surviving the Great Dimming, and planet health at or
+## above PlanetDef.win_health (the campaign's win line).
+func _win_objectives() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var stage := 0
+	var stages := 4
+	var sky_def := s.registry.get_building("skyheart")
+	if sky_def != null:
+		stages = sky_def.stages.size()
+	for b: Building in s.buildings.values():
+		if b.def.id == "skyheart":
+			stages = b.def.stages.size()
+			stage = mini(b.stage, stages)
+			break
+	rows.append({"label": "Skyheart", "value": stage, "max": stages, "done": stage >= stages, "kind": "skyheart"})
+	var gd_done := GreatDimmingSystem.is_done(s)
+	rows.append({"label": "Great Dimming", "value": 1 if gd_done else 0, "max": 1, "done": gd_done,
+			"kind": "great_dimming"})
+	var health := roundi(s.planet_health())
+	var need := roundi(s.registry.planet.win_health)
+	rows.append({"label": "Planet health >= %d%%" % need, "value": health, "max": 100,
+			"done": float(health) >= float(need), "kind": "planet"})
+	return rows
+
+
+## One line for the collapsed panel: "Objectives: City 2/3, Dimming in 2 days".
+func objectives_collapsed_text() -> String:
+	var rows := objectives()
+	var done := 0
+	for r in rows:
+		if bool(r["done"]):
+			done += 1
+	var label := era_name()
+	var gate := s.era_gate()
+	if gate["next"] != "":
+		var nxt := s.registry.get_era(gate["next"])
+		label = nxt.display_name if nxt != null else str(gate["next"])
+	return "Objectives: %s %d/%d, %s" % [label, done, rows.size(), dimming_summary()]
+
+
+## The short Dimming phrase the collapsed line carries: "Dimming in 2 days", "Dimming day 1 of 3", "No Dimming
+## expected".
+func dimming_summary() -> String:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return "No Dimming expected"
+	var st := d.status(s)
+	var label := "Great Dimming" if st.get("great", false) else "Dimming"
+	match st["state"]:
+		"forecast":
+			var n: int = st["days_until"]
+			return "%s %s" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n)]
+		"active":
+			return "%s day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])]
+	return "No Dimming expected"
+
+
+## The Dimming lines of the objectives panel: a forecast gives "Dimming in N days, lasts M" and "Lumen output halves.
+## Stock: N days."; an active Dimming gives "Dimming: day N of M" plus the light-short warning when it is short.
+## Empty outside both. The numbers are the ones the old era panel gathered.
+func objectives_dimming_lines() -> Array[String]:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return []
+	var st := d.status(s)
+	var label := "Great Dimming" if st.get("great", false) else "Dimming"
+	var lines: Array[String] = []
+	if st["state"] == "forecast":
+		var n: int = st["days_until"]
+		lines.append("%s %s, lasts %d" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n),
+				int(st["length"])])
+		lines.append("Lumen output halves. Stock: %d days." % dimming_stock_days())
+	elif st["state"] == "active":
+		lines.append("%s: day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])])
+		var short := dimming_short_text()
+		if short != "":
+			lines.append(short)
+	return lines
+
+
+## Days the Lumen stock covers the settlement's light need, the "about N days" the old panel showed: floor((Lumen +
+## cells x lumen_per_cell) / need).
+func dimming_stock_days() -> int:
+	var need := DimmingSystem.light_need(s)
+	if need <= 0.0:
+		return 0
+	var t := s.totals()
+	var lumen := floori(float(t.get("lumen", 0.0)))
+	var cells := floori(float(t.get("lumen_cells", 0.0)))
+	return floori((float(lumen) + float(cells) * s.registry.planet.lumen_per_cell) / need)
+
+
+## True when the objectives panel is collapsed (the one-line form); stored in the user settings.
+func objectives_collapsed() -> bool:
+	return _objectives_collapsed
+
+
+## Collapses or expands the objectives panel and saves the state to the user settings.
+func toggle_objectives_collapsed() -> bool:
+	_objectives_collapsed = not _objectives_collapsed
+	if settings != null:
+		settings.objectives_collapsed = _objectives_collapsed
+		settings.save()
+	return _objectives_collapsed
 
 
 # ---------------------------------------------------------------- layer (ticket 40d)
@@ -824,7 +988,16 @@ static func _ordinal(n: int) -> String:
 	return "%d%s" % [n, suffix]
 
 
+## Roman numerals for the tier badge (ticket 128): "Tier II".
+const TIER_ROMAN: Array[String] = ["", "I", "II", "III"]
+## The town summary's fixed strings (ticket 128): the settlement has no player-given name yet.
+const TOWN_NAME := "Hearthvein"
+const TOWN_HINT := "Click a building to see it here. Esc clears the selection."
+
 ## Panel data of the selected building or {} : title, lines (strings), halt text, priority, paused, site progress.
+## Ticket 128 adds the rows of the fixed bottom-centre panel: tier_text, subtitle ("Refining, village era"),
+## workers_text and pips, makes/uses per day, the In/Out buffer bars, the status line and "extra" (the old lines the
+## panel still shows under the rows: sites, residents, reservoir, Stored, Dimming, blight).
 func selection() -> Dictionary:
 	var b := selected()
 	if b == null:
@@ -871,7 +1044,117 @@ func selection() -> Dictionary:
 			"progress": b.build_progress(), "show_priority": b.site or has_jobs(b),
 			"priority_label": "Build priority" if b.site else "Work priority"}
 	out.merge(upgrade_info(b))
+	out.merge(_panel_rows(b), true)
 	return out
+
+
+## The fixed panel's own rows (ticket 128). Sites keep the construction lines instead of makes/workers/buffers.
+func _panel_rows(b: Building) -> Dictionary:
+	var workers := b.effective_worker_slots(s.registry)
+	var era := s.registry.get_era(b.def.era)
+	var category := category_label(b.def.category)
+	var out := {
+		"tier_text": "Tier " + (TIER_ROMAN[b.tier] if b.tier >= 0 and b.tier < TIER_ROMAN.size() else str(b.tier)),
+		"subtitle": "%s, %s era" % [category, (era.display_name if era != null else b.def.era).to_lower()],
+		"show_workers": not b.site and workers > 0,
+		"workers_filled": mini(_filled(b, Citizen.JOB_WORK), workers) if not b.site else 0,
+		"workers_slots": workers if not b.site else 0,
+		"workers_text": "%d/%d" % [mini(_filled(b, Citizen.JOB_WORK), workers), workers] if not b.site else "",
+		"makes": "" if b.site else _per_day_text(b, b.def.recipe.outputs if b.def.recipe != null else {}, true),
+		"uses": "" if b.site else _per_day_text(b, b.def.recipe.inputs if b.def.recipe != null else {}, false),
+		"in_value": 0.0, "in_max": 0.0, "in_text": "",
+		"out_value": 0.0, "out_max": 0.0, "out_text": "",
+		"status": halt_text(b) if not b.site and halt_text(b) != "" else ("Working" if not b.site else ""),
+		"extra": [],
+	}
+	if b.site:
+		out["extra"] = (selection_lines(b) as Array).duplicate()
+		out["status"] = ""  # the site rows already say what it waits for
+		return out
+	if b.input_buffer != null:
+		var need := HaulingSystem.input_need(s.registry, b.def)
+		out.merge(_buffer_row("in", b.input_buffer, maxi(1, need.size())), true)
+	if b.door_buffer != null:
+		out.merge(_buffer_row("out", b.door_buffer, 1), true)
+	var extra: Array[String] = []
+	extra.append_array(resident_lines(b))
+	extra.append(reservoir_text(b))
+	extra.append(_goods_line("Stored", b.inventory))
+	extra.append(dimming_building_text(b))
+	var bl := _blight_near(b)
+	extra.append("Blight: %d tiles" % bl if bl > 0 else "")
+	out["extra"] = extra.filter(func(l: String) -> bool: return l != "")
+	return out
+
+
+## "6 planks / day" (outputs) or "uses 12 wood" (inputs): one worker's recipe times the building's worker slots and
+## tier output factor, the nominal daily flow the panel shows.
+func _per_day_text(b: Building, amounts: Dictionary, is_output: bool) -> String:
+	if amounts.is_empty():
+		return ""
+	var f := float(b.effective_worker_slots(s.registry)) * b.output_factor(s.registry)
+	var parts: Array[String] = []
+	for g in amounts:
+		parts.append("%s %s" % [num_text(float(amounts[g]) * f), _good_name(g).to_lower()])
+	var text := ", ".join(parts)
+	return "%s / day" % text if is_output else "uses %s" % text
+
+
+## One buffer bar: {prefix_value, prefix_max, prefix_text} with "22 / 40". `needed` is the good count of a per-good
+## buffer, so its capacity reads as the room for all of them.
+func _buffer_row(prefix: String, inv: Inventory, needed: int) -> Dictionary:
+	var cap := inv.cap if inv.mode == "total" else inv.cap * float(needed)
+	var amount := inv.total()
+	return {prefix + "_value": amount, prefix + "_max": cap,
+			prefix + "_text": "%s / %s" % [num_text(amount), num_text(cap)]}
+
+
+## The old text lines of a selected building (what the panel's extra rows and the site rows come from).
+func selection_lines(b: Building) -> Array:
+	var lines: Array[String] = []
+	if b.def.upgradable:
+		lines.append("Tier %d" % b.tier)
+	if b.upgrading():
+		lines.append("Upgrading to Tier %d: %d%%" % [b.upgrade_tier, roundi(b.upgrade_progress() * 100.0)])
+		lines.append(_goods_line("Delivered", b.upgrade_buffer))
+	if b.site:
+		if not b.def.stages.is_empty():
+			lines.append("Stage %d of %d: %s" % [b.stage + 1, b.def.stages.size(), skyheart_stage_name(b)])
+		lines.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
+		lines.append(wait_text(b))
+		lines.append(_goods_line("Delivered", b.input_buffer))
+	else:
+		lines.append(jobs_text(b))
+		lines.append_array(resident_lines(b))
+		if b.def.reservoir_capacity > 0.0:
+			lines.append(reservoir_text(b))
+		lines.append(_goods_line("Input", b.input_buffer))
+		lines.append(_makes_line(b))
+		lines.append(_goods_line("Output", b.door_buffer, true))
+		if b.inventory != null:
+			lines.append(_goods_line("Stored", b.inventory))
+	var dim := dimming_building_text(b)
+	if dim != "":
+		lines.append(dim)
+	var bl := _blight_near(b)
+	if bl > 0:
+		lines.append("Blight: %d tiles" % bl)
+	return lines.filter(func(l: String) -> bool: return l != "")
+
+
+## The town summary the panel shows when nothing is selected (ticket 128): name, era and date, the big population
+## numbers, Spirit and planet health with their trend, and the hint line.
+func town_summary() -> Dictionary:
+	var pop := population()
+	var sp := spirit()
+	var pl := planet()
+	return {"name": TOWN_NAME, "era": era_name(), "date": date_text(),
+			"people": pop["pop"], "beds": pop["beds"], "idle": pop["idle"],
+			"spirit": roundi(sp["value"]), "spirit_state": sp["state"], "spirit_text": "%d / 100" % roundi(sp["value"]),
+			"spirit_tooltip": sp["tooltip"],
+			"planet": roundi(pl["value"]), "planet_text": "%d / 100" % roundi(pl["value"]),
+			"planet_trend": "%s%.1f / yr" % ["+" if pl["trend"] >= 0.0 else "-", absf(pl["trend"])],
+			"hint": TOWN_HINT}
 
 
 ## Name of the stage a staged building is on ("" for an ordinary one or a finished one).
@@ -1344,6 +1627,130 @@ func build_bar() -> Array[Dictionary]:
 	for cat: String in rest:
 		out.append({"id": cat, "label": category_label(cat), "entries": by_cat[cat]})
 	return out
+
+
+# ---------------------------------------------------------------- command grid (ticket 129)
+
+## The 15 cells of the command grid. page is "" for the top level, a grid category id for its pane, and
+## "<category>:<n>" for page n of a pane that has more than GRID_PAGE entries. Each cell is
+## {id, label, key, icon, state: ok|locked|unaffordable|empty, reason}; the last cell is More (key B) or Back (key
+## Esc). An empty cell is a free grid slot or a category with nothing unlocked.
+func grid(page: String) -> Array[Dictionary]:
+	var bar := build_bar()
+	if page == "" or page == "top":
+		return _grid_top(bar)
+	var bits := page.split(":")
+	var cat := bits[0]
+	var no := maxi(1, int(bits[1])) if bits.size() > 1 else 1
+	return _grid_pane(cat, no, bar)
+
+
+## The pane title: "Build" at the top level, else the category's name.
+func grid_title(page: String) -> String:
+	if page == "" or page == "top":
+		return "Build"
+	return category_label(page.split(":")[0])
+
+
+## The grid category a building category is shown under (Gold under Civic, Sky under Logistics; others themselves).
+static func grid_group(category: String) -> String:
+	for g: String in GRID_GROUPS:
+		if (GRID_GROUPS[g] as Array).has(category):
+			return g
+	return category
+
+
+## Whether id names a top-level category cell (as opposed to an action cell).
+static func is_grid_category(id: String) -> bool:
+	return GRID_GROUPS.has(id)
+
+
+func _grid_top(bar: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for cell: Array in GRID_TOP:
+		var id := str(cell[0])
+		var st := _top_state(id, bar)
+		out.append({"id": id, "label": cell[1], "key": cell[2], "icon": cell[3],
+				"state": st["state"], "reason": st["reason"]})
+	return out
+
+
+## ok when the category has something to build, locked when all it has is locked, empty when it has nothing.
+func _top_state(id: String, bar: Array) -> Dictionary:
+	if not GRID_GROUPS.has(id):
+		return {"state": "ok", "reason": ""}
+	var entries := _pane_entries(id, bar)
+	if entries.is_empty():
+		return {"state": "empty", "reason": ""}
+	for e: Dictionary in entries:
+		if str(e["state"]) != "locked":
+			return {"state": "ok", "reason": ""}
+	return {"state": "locked", "reason": str(entries[0]["reason"])}
+
+
+func _grid_pane(cat: String, no: int, bar: Array) -> Array[Dictionary]:
+	var all := _pane_entries(cat, bar)
+	var start := (no - 1) * GRID_PAGE
+	var out: Array[Dictionary] = []
+	for i in range(start, start + GRID_PAGE):
+		if i < all.size():
+			var c: Dictionary = all[i].duplicate()
+			c["key"] = GRID_KEYS[out.size()]
+			out.append(c)
+		else:
+			out.append({"id": "", "label": "", "key": GRID_KEYS[out.size()], "icon": "", "state": "empty",
+					"reason": ""})
+	if start + GRID_PAGE < all.size():
+		out.append({"id": "more", "label": "More", "key": "B", "icon": "", "state": "ok", "reason": ""})
+	else:
+		out.append({"id": "back", "label": "Back", "key": "Esc", "icon": "", "state": "ok", "reason": ""})
+	return out
+
+
+## The category's cells, unlocked then next-era locked (ticket 116), in build_bar order. Roads keeps its road tools
+## (Demolish has its own top-level cell now).
+func _pane_entries(cat: String, bar: Array = []) -> Array[Dictionary]:
+	if bar.is_empty():
+		bar = build_bar()
+	var groups: Array = GRID_GROUPS.get(cat, [cat])
+	var out: Array[Dictionary] = []
+	for group: Dictionary in bar:
+		if not groups.has(group["id"]):
+			continue
+		for e: Dictionary in group["entries"]:
+			if cat == "roads" and str(e["kind"]) == "demolish":
+				continue
+			out.append(_grid_cell(e))
+	return out
+
+
+## One build_bar entry as a grid cell: an unlocked building is ok or unaffordable (some good short), a locked one
+## says why on hover, and a building blocked by the active layer counts as locked with its block reason.
+func _grid_cell(e: Dictionary) -> Dictionary:
+	var locked := bool(e.get("locked", false))
+	var state := "ok"
+	var reason := ""
+	if locked or not bool(e.get("enabled", true)):
+		state = "locked"
+		reason = str(e.get("unlock", "")) if locked else str(e.get("reason", ""))
+		if reason == "":
+			reason = str(e.get("reason", ""))
+	elif bool(e.get("short", false)):
+		state = "unaffordable"
+		reason = _short_reason(e.get("costs", []))
+	var label := str(e["label"])
+	if str(e["kind"]) != "building":
+		label = label.get_slice(" (", 0)  # the positional key replaces the old hotkey hint
+	return {"id": str(e["id"]), "label": label, "key": "", "icon": "", "state": state, "reason": reason}
+
+
+## "Not enough Wood, Stone" for the goods a cost is short of, "" when nothing is short.
+func _short_reason(costs: Array) -> String:
+	var names: Array[String] = []
+	for c: Dictionary in costs:
+		if bool(c.get("short", false)):
+			names.append(str(c.get("name", c.get("good", ""))))
+	return "Not enough %s" % ", ".join(names) if not names.is_empty() else ""
 
 
 ## What an Irrigation Channel does, from WaterDef ("" without it).

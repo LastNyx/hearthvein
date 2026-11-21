@@ -43,6 +43,15 @@ func _site_free_spot() -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## The first free spot for any def (ticket 128 needs a 2x1 Sawmill).
+func _free_spot(id: String, from: int) -> Vector2i:
+	for y in range(h.y - 8, h.y + 8):
+		for x in range(h.x + from, h.x + 24):
+			if s.can_place(id, Vector2i(x, y), true)["ok"]:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
 func test_resources_show_values_and_daily_deltas() -> void:
 	s.step_days(1)
 	s.hearth.inventory.add("wood", 7.0)
@@ -135,6 +144,83 @@ func test_era_panel_gate_and_dimming_forecast_text() -> void:
 	assert_string_contains(m.dimming_text(), "DIMMING - day 1 of")
 
 
+## Ticket 126: the objectives panel lists one row per City gate part (from the era data), with the progress the
+## settlement has made on it.
+func test_objectives_rows_match_next_era_gate_parts() -> void:
+	s.era_current = "town"
+	s.gold = 120.0
+	var rows := m.objectives()
+	assert_eq(rows.size(), 3)
+	assert_eq(rows[0], {"label": "People", "value": 8, "max": 100, "done": false, "kind": "pop"})
+	assert_eq(rows[1], {"label": "Gold", "value": 120, "max": 500, "done": false, "kind": "gold"})
+	assert_eq(rows[2]["label"], "Lumen Spire")
+	assert_eq(rows[2]["kind"], "landmark")
+	assert_false(rows[2]["done"])
+	assert_eq(m.objectives_header(), "Town -> City: gate parts")
+
+
+## Ticket 126: the forecast and active Dimming lines, and the win objectives at the last era (Skyheart stages, the
+## Great Dimming, planet health >= 50 from the campaign data).
+func test_objectives_dimming_lines_and_final_era_win_rows() -> void:
+	var d: DimmingSystem = s.get_system(DimmingSystem)
+	d._start_day = s.clock.total_days() + 2
+	d._length = 3
+	d._active = false
+	var lines := m.objectives_dimming_lines()
+	assert_eq(lines[0], "Dimming in 2 days, lasts 3")
+	assert_eq(lines[1], "Lumen output halves. Stock: 2 days.")
+	d._start_day = s.clock.total_days()
+	d._length = 3
+	d._active = true
+	assert_eq(m.objectives_dimming_lines()[0], "Dimming: day 1 of 3")
+	d.last_light = {"short": 1.0}
+	assert_eq(m.objectives_dimming_lines()[1], "Light short: Spirit falls")
+	s.era_current = "ascendant"
+	var rows := m.objectives()
+	assert_eq(rows.map(func(r: Dictionary) -> String: return r["label"]),
+			["Skyheart", "Great Dimming", "Planet health >= 50%"])
+	assert_eq([rows[0]["max"], rows[0]["done"]], [4, false], "the Skyheart's four stages")
+	s.planet_health_override = 40.0
+	assert_false(m.objectives()[2]["done"])
+	s.planet_health_override = 60.0
+	assert_true(m.objectives()[2]["done"], "planet health at or above the win line")
+
+
+## Ticket 126: the panel collapses to one line through its button, and the collapsed state is stored in GameSettings.
+func test_objectives_collapse_state_persists() -> void:
+	var dir := "/tmp/nyx-flash/hearthvein_hud126_ui_%d" % OS.get_process_id()
+	var cfg := dir + ".cfg"
+	DirAccess.make_dir_recursive_absolute(dir)
+	DirAccess.remove_absolute(cfg)
+	var main: Node = load("res://ui/main.tscn").instantiate()
+	main.saves_dir = dir
+	main.settings_path = cfg
+	add_child_autofree(main)
+	await wait_process_frames(2)
+	main.start_new_game(SEED)
+	await wait_process_frames(2)
+	var hud: Hud = main.get_node("Hud")
+	assert_false(main.hud_model.objectives_collapsed())
+	hud._objectives_toggle.pressed.emit()
+	await wait_process_frames(2)
+	assert_true(main.hud_model.objectives_collapsed())
+	assert_false(hud._objectives_body.visible, "collapsed shows one line, not the rows")
+	assert_true(hud._obj_collapsed_line.visible)
+	assert_string_contains(hud._obj_collapsed_line.text, "Objectives: ")
+	var saved := GameSettings.new()
+	saved.path = cfg
+	saved.load_file()
+	assert_true(saved.objectives_collapsed, "the collapsed state is saved")
+	hud._objectives_toggle.pressed.emit()
+	await wait_process_frames(2)
+	var reopened := GameSettings.new()
+	reopened.path = cfg
+	reopened.load_file()
+	assert_false(reopened.objectives_collapsed, "expanding is saved too")
+	DirAccess.remove_absolute(cfg)
+	DirAccess.remove_absolute(dir)
+
+
 func test_selected_building_panel_and_priority() -> void:
 	var id := s.place_building_instant("woodcutter", _site_free_spot())
 	assert_true(id >= 0)
@@ -163,6 +249,55 @@ func test_selection_of_a_site_shows_progress() -> void:
 	var sel := m.selection()
 	assert_true(sel["site"])
 	assert_true((sel["lines"][0] as String).begins_with("Under construction"))
+
+
+## Ticket 128: the fixed bottom-centre panel reads the Sawmill's tier, workers, makes/uses per day and both buffers.
+func test_selection_rows_of_a_sawmill() -> void:
+	var id := s.place_building_instant("sawmill", _free_spot("sawmill", 4))
+	assert_true(id >= 0)
+	var b: Building = s.buildings[id]
+	b.input_buffer.add("wood", 22.0)
+	b.door_buffer.add("planks", 3.0)
+	m.select(id)
+	var sel := m.selection()
+	assert_eq(sel["title"], "Sawmill")
+	assert_eq(sel["tier_text"], "Tier I")
+	assert_eq(sel["subtitle"], "Refining, village era")
+	assert_eq(sel["workers_text"], "0/2")
+	assert_eq(sel["workers_slots"], 2)
+	assert_eq(sel["makes"], "6 planks / day")
+	assert_eq(sel["uses"], "uses 12 wood")
+	assert_eq(sel["in_text"], "22 / 24")
+	assert_eq(sel["out_text"], "3 / 40")
+
+
+## Ticket 128: a site keeps its progress and missing-goods rows; with nothing selected the model gives the town summary.
+func test_site_rows_and_the_town_summary() -> void:
+	var t := m.town_summary()
+	assert_eq(t["name"], "Hearthvein")
+	assert_eq(t["era"], "Camp")
+	assert_eq(t["date"], "Year 1, Spring")
+	assert_eq([t["people"], t["beds"], t["idle"]], [8, 8, 6], "8 people, 8 Hearth beds, 6 with Hearth jobs")
+	s.spirit_override = 74.0
+	s.planet_health_override = 81.0
+	t = m.town_summary()
+	assert_eq(t["spirit"], 74)
+	assert_eq(t["spirit_text"], "74 / 100")
+	assert_eq(t["planet"], 81)
+	assert_eq(t["planet_text"], "81 / 100")
+	assert_string_contains(t["planet_trend"], "/ yr")
+	assert_eq(t["hint"], "Click a building to see it here. Esc clears the selection.")
+	var id := s.place_building("storehouse", _site_free_spot())
+	assert_true(id >= 0)
+	m.select(id)
+	var sel := m.selection()
+	assert_true(sel["site"])
+	assert_false(sel["show_workers"])
+	assert_true(sel["makes"] == "" and sel["in_text"] == "", "a site shows progress instead of production rows")
+	assert_true((sel["lines"] as Array).any(func(l: String) -> bool: return l.begins_with("Under construction")))
+	assert_true((sel["lines"] as Array).any(func(l: String) -> bool: return l.begins_with("Waiting for materials")))
+	m.clear_selection()
+	assert_eq(m.selection(), {})
 
 
 func test_build_bar_lists_unlocked_by_category_and_next_era_locked() -> void:
@@ -326,7 +461,7 @@ func test_roads_category_offers_rail_track_from_conflux() -> void:
 	assert_eq(HudModel.track_refusal_text("road"), "A road is here")
 
 
-func test_hud_overlay_keys_and_menu_buttons() -> void:
+func test_hud_overlay_keys_and_minimap_buttons() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED
 	add_child_autofree(main)
@@ -339,11 +474,9 @@ func test_hud_overlay_keys_and_menu_buttons() -> void:
 	ev.pressed = true
 	hud._unhandled_input(ev)
 	assert_true(model.overlay_on("water"))
-	hud.toggle_overlay_menu()
-	assert_true(hud._overlay_panel.visible)
-	(hud._overlay_buttons["roads"] as Button).pressed.emit()
+	hud.minimap.overlay_button("roads").pressed.emit()
 	assert_true(model.overlay_on("roads"))
-	(hud._overlay_buttons["water"] as Button).pressed.emit()
+	hud.minimap.overlay_button("water").pressed.emit()
 	assert_false(model.overlay_on("water"))
 
 
@@ -839,14 +972,31 @@ func test_top_right_cluster_is_compact_and_clear_of_other_panels() -> void:
 	assert_false(goods.intersects(clock), "the clock row sits under the goods panel")
 	hud.open_category("food")
 	await wait_process_frames(3)
-	var others: Array[Control] = [hud._era_panel, hud._bar_panel, hud._fly_panel,
-			hud.tools_tab.get_node("ToolsPanel") as Control]
+	var objectives := hud.objectives_panel.get_global_rect()
+	assert_true(objectives.position.x < vp.x * 0.25, "the objectives panel is at the top-left")
+	assert_false(objectives.intersects(goods), "clear of the top-right goods cluster")
+	assert_false(objectives.intersects(clock), "clear of the clock row")
+	var labels: Array[Label] = []
+	_collect_labels(hud, labels)
+	var objectives_title := false
+	for l in labels:
+		assert_false(l.text.begins_with("Era: "), "the old era panel is gone")
+		objectives_title = objectives_title or l.text == "Objectives"
+	assert_true(objectives_title, "the objectives panel is drawn")
+	var others: Array[Control] = [hud._cmd_panel, hud.tools_tab.get_node("ToolsPanel") as Control]
 	for other in others:
 		if other == null or not other.visible:
 			continue
 		assert_false(goods.intersects(other.get_global_rect()), "no overlap with %s" % other.name)
 		assert_false(clock.intersects(other.get_global_rect()), "no overlap with %s" % other.name)
-	assert_lte(hud._fly_panel.get_global_rect().end.y, 720.0, "the open flyout still fits inside 720")
+	assert_lte(hud._cmd_panel.get_global_rect().end.y, 720.0, "the command grid fits inside 720")
 	get_window().size = old
 	DirAccess.remove_absolute(cfg)
 	DirAccess.remove_absolute(dir)
+
+
+func _collect_labels(node: Node, out: Array[Label]) -> void:
+	if node is Label:
+		out.append(node)
+	for child in node.get_children():
+		_collect_labels(child, out)

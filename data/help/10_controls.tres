@@ -18,16 +18,17 @@ Space: pause.
 1, 2, 3: speed.
 
 Building
-B: open the build bar.
-R: road.
+The command grid (bottom-right) opens a category; in a pane Q W E R T / A S D F G / Z X C V pick its cells, B shows More and Esc goes back.
+R: road (also opens the Roads pane).
 C: channel (from the Village era).
 {channel_help}
 P: paved road (from the Town era).
 J: rail track (from the Conflux era).
 X: demolish.
 U: upgrade mode: click buildings to upgrade them.
-K: clear: click-drag forest, stumps and rock to have builders clear them (wood and stone to storage). Click again or X unmarks. Cleared rock is no longer a quarry spot.
-N: plant: click-drag grass to mark it; Foresters in reach plant marked tiles before any other grass. Click again or X unmarks.
+Z: clear: click-drag forest, stumps and rock to have builders clear them (wood and stone to storage). Click again or X unmarks. Cleared rock is no longer a quarry spot.
+Y: plant: click-drag grass to mark it; Foresters in reach plant marked tiles before any other grass. Click again or X unmarks.
+N, F, W, I, K, S, D, A, O: open housing, food, water, Lumen, logistics, resources, refining, civic and landmark.
 
 Views
 V: blight.
@@ -41,4 +42,4 @@ Tab: switch between ground and sky.
 Menus
 Esc: cancel the tool or selection; if there is none, the pause menu.
 F1: this help."
-keys = PackedStringArray("SPACE", "1", "2", "3", "B", "R", "C", "P", "J", "X", "K", "N", "U", "TAB", "M", "V", "G", "T", "H", "L", "W", "A", "S", "D", "ESCAPE", "F1")
+keys = PackedStringArray("SPACE", "1", "2", "3", "R", "C", "P", "J", "X", "U", "Z", "Y", "N", "F", "W", "I", "K", "S", "D", "A", "O", "Q", "E", "T", "M", "V", "G", "H", "L", "TAB", "ESCAPE", "F1")

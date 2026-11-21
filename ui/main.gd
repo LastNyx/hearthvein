@@ -468,6 +468,7 @@ func _build_world(s: Settlement) -> void:
 	hud.name = "Hud"
 	_add(hud)
 	hud.setup(hud_model, build, camera, driver)
+	hud.minimap.jumped.connect(func(_world: Vector2) -> void: s.report_camera_moved())  # the player moved the camera
 	hud.add_cards(settings)
 	hud.hint_cards.help_page_requested.connect(help.open_page)
 	hud.help_requested.connect(help.toggle)

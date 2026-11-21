@@ -1,7 +1,7 @@
 class_name Hud
 extends CanvasLayer
 ## The in-game HUD (design.md section 20, docs/mockups/scene_village.png): top bar with resources, pop/beds, Spirit and
-## planet health; era + Dimming panel; selected-building panel; bottom build bar by category; notices; overlay buttons.
+## planet health; objectives panel; selected-building panel; bottom band with the minimap and the command grid; notices.
 ## Thin: every number and string comes from HudModel, every command goes through HudModel or BuildController.
 
 const FONT_PATH := "res://assets/ui/PixelifySans.ttf"  # headings; OFL 1.1, see PixelifySans-OFL.txt
@@ -14,8 +14,7 @@ const PURPLE := Color("b496d2")
 const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
-const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
-		["coverage", "Coverage", "H"], ["grid", "Grid", "L"]]  # id, label, key
+const DONE := Color("78be5a")  # a met objective (ticket 126)
 
 ## The Help button of the tools tab (Main opens the help screen).
 signal help_requested
@@ -44,7 +43,6 @@ var _row_dial: ClockDial
 var _pause_button: Button
 var _speed_buttons: Array[Button] = []
 var _help_button: Button
-var _bar_panel: PanelContainer
 var _pop_label: Label
 var _pop_box: HBoxContainer
 var _growth_bar: ProgressBar
@@ -53,25 +51,44 @@ var _spirit_bar: ProgressBar
 var _spirit_label: Label
 var _spirit_box: Control
 var _planet_label: Label
-var _overlay_buttons: Dictionary = {}
-var _overlay_toggle: Button
-var _layer_tag: Button
-var _overlay_panel: PanelContainer
-var _era_title: Label
-var _era_dimming: Label
-var _era_light: Label
-var _era_short: Label
-var _era_output: Label
-var _era_gate: Label
-var _era_date: Label
-var _era_season: Label
-var _clock_dial: ClockDial
-var _era_panel: PanelContainer
-var _moon: TextureRect
+## The bottom-band minimap (ticket 127): the map image, the camera rectangle and the layer/overlay toggles.
+var minimap: Minimap
+## Top-left objectives panel (ticket 126): the title, the collapsing body, and the one-line collapsed form.
+var objectives_panel: PanelContainer
+var _objectives_body: VBoxContainer
+var _objectives_toggle: Button
+var _obj_header: Label
+var _obj_collapsed_line: Label
+var _obj_rows: Array[HBoxContainer] = []
+var _obj_icons: Array[TextureRect] = []
+var _obj_labels: Array[Label] = []
+var _obj_bars: Array[ProgressBar] = []
+var _obj_values: Array[Label] = []
+var _obj_dimming: Label
+var _obj_light: Label
 var _notes_box: VBoxContainer
 var _notes_key := ""
+## The fixed bottom-centre panel (ticket 128): the selected building or, with nothing selected, the town summary.
 var _sel_panel: PanelContainer
+var _sel_content: VBoxContainer
 var _sel_title: Label
+var _sel_tier: Label
+var _sel_sub: Label
+var _sel_sprite: TextureRect
+var _sel_pic: PanelContainer
+var _sel_makes: Label
+var _sel_uses: Label
+var _sel_workers_title: Label
+var _sel_pips: HBoxContainer
+var _sel_workers_text: Label
+var _sel_in_bar: ProgressBar
+var _sel_in_text: Label
+var _sel_in_row: HBoxContainer
+var _sel_out_bar: ProgressBar
+var _sel_out_text: Label
+var _sel_out_row: HBoxContainer
+var _sel_workers_row: HBoxContainer
+var _sel_sprite_key := ""
 var _sel_body: VBoxContainer
 var _sel_body_key := ""
 var _sel_halt: Label
@@ -83,15 +100,24 @@ var _sel_up_btn: Button
 var _prio_buttons: Dictionary = {}
 var _sel_prio_title: Label
 var _prio_row: HBoxContainer
-var _cat_box: GridContainer
+var _town_panel: VBoxContainer
+var _town_name: Label
+var _town_sub: Label
+var _town_people: Label
+var _town_beds: Label
+var _town_idle: Label
+var _town_planet_trend: Label
+var _town_hint: Label
+var _planet_bar: ProgressBar
 var _region_map: RegionMap
-var _cat_buttons: Dictionary = {}
-var _fly_panel: PanelContainer
-var _fly_box: HBoxContainer
-var _fly_title: Label
-var _fly_hint: Label
-var _fly_key := ""
-var _open_cat := ""
+## The command grid (ticket 129, hud-rts-spec H2-H4): 5x3 cells at the bottom-right, top level or a category pane.
+var _cmd_panel: PanelContainer
+var _cmd_title: Label
+var _cmd_grid: GridContainer
+var _cmd_cells: Array[Button] = []
+var _grid_page := ""
+var _grid_key := ""
+var _grid_focus_id := ""
 var workforce_page: WorkforcePage
 var resources_page: ResourcesPage
 var tutorial_panel: TutorialPanel
@@ -160,14 +186,12 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(right)
 	_right_col = right
-	_build_overlay_menu(right)
-	_build_era_panel(right)
-	_build_notes(center)
+	_build_objectives_panel(left)
 	_float = Control.new()
 	_float.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_float)
 	_float.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_build_selection_panel(_float)
+	_build_notes(_float)
 	_region_map = RegionMap.new()
 	_float.add_child(_region_map)
 	_region_map.setup(self, model)
@@ -187,9 +211,11 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	tutorial_panel = TutorialPanel.new()
 	right.add_child(tutorial_panel)
 	tutorial_panel.setup(self, model.s, _float)
-	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
+	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void:
+		_grid_key = ""
+		refresh())
 	model.layer_changed.connect(func(_l: int) -> void:
-		_show_flyout()
+		_grid_key = ""
 		refresh())
 	refresh()
 
@@ -439,7 +465,7 @@ func _refresh_pins() -> void:
 
 
 ## Clock row (ticket 125, H5): dial, "Day N, HH:MM" over "Year N, Season", pause, 1x/2x/3x (current lit), "?" (F1).
-## Spirit and planet health keep their labels here until ticket 128 moves them to the town summary.
+## Spirit and planet health moved to the town summary of the bottom band (ticket 128).
 func _build_clock_panel(parent: Node) -> void:
 	clock_panel = _panel(parent)
 	clock_panel.name = "TopClock"
@@ -478,107 +504,139 @@ func _build_clock_panel(parent: Node) -> void:
 	_help_button.name = "HelpButton"
 	_help_button.tooltip_text = "Help (F1)"
 	_help_button.pressed.connect(func() -> void: help_requested.emit())
-	var extra := HBoxContainer.new()
-	extra.add_theme_constant_override("separation", 8)
-	v.add_child(extra)
-	var sp := HBoxContainer.new()
-	sp.add_theme_constant_override("separation", 6)
-	sp.mouse_filter = Control.MOUSE_FILTER_PASS
-	extra.add_child(sp)
-	_spirit_box = sp
-	_icon(sp, "spirit", 22)
-	_spirit_bar = ProgressBar.new()
-	_spirit_bar.custom_minimum_size = Vector2(100, 16)
-	_spirit_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_spirit_bar.show_percentage = false
-	_spirit_bar.max_value = 100.0
-	_spirit_bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
-	sp.add_child(_spirit_bar)
-	_spirit_label = _label(sp, 15)
-	var pl := HBoxContainer.new()
-	pl.add_theme_constant_override("separation", 6)
-	extra.add_child(pl)
-	_icon(pl, "planet", 22)
-	_planet_label = _label(pl, 15)
-	pl.tooltip_text = "Planet health and its change over the last year"
-	_layer_tag = _button(extra, "Ground (Tab)", 13)
-	_layer_tag.pressed.connect(func() -> void: model.toggle_layer())
-	_overlay_toggle = _button(extra, "Overlays", 13)
-	_overlay_toggle.pressed.connect(toggle_overlay_menu)
+	# Ticket 128 moved Spirit and planet health from this row to the town summary in the bottom band.
 
 
-## One compact flyout under the top bar holds every overlay toggle (room for more); keys work with it closed.
-func _build_overlay_menu(parent: Node) -> void:
-	_overlay_panel = _panel(parent)
-	_overlay_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-	_overlay_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
-	_overlay_panel.add_child(v)
-	for pair in OVERLAYS:
-		var b := _button(v, "%s (%s)" % [pair[1], pair[2]], 14)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.pressed.connect(_on_overlay.bind(pair[0]))
-		_overlay_buttons[pair[0]] = b
-	_overlay_panel.visible = false
-
-
-func toggle_overlay_menu() -> void:
-	_overlay_panel.visible = not _overlay_panel.visible
-	_refresh_overlay_buttons()
-
-
+## An overlay key (V G T H L) toggles the same state as the minimap's buttons.
 func _on_overlay(id: String) -> void:
 	model.toggle_overlay(id)
-	_refresh_overlay_buttons()
+	minimap.refresh_toggles()
 
 
-func _refresh_overlay_buttons() -> void:
-	var any := false
-	for id in _overlay_buttons:
-		_style_button(_overlay_buttons[id], model.overlay_on(id))
-		any = any or model.overlay_on(id)
-	_style_button(_overlay_toggle, any or _overlay_panel.visible)
+# ---------------------------------------------------------------- objectives panel (ticket 126)
 
-
-# ---------------------------------------------------------------- era and Dimming panel
-
-func _build_era_panel(parent: Node) -> void:
-	_era_panel = _panel(parent)
-	_era_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-	_era_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	_era_panel.custom_minimum_size = Vector2(360, 0)
+## The top-left panel of spec H6: "Objectives" with a collapse button, then a row per gate part (icon, label, bar,
+## progress) or, at the last era, the win objectives, and the Dimming lines under them. Collapsed it is one line.
+func _build_objectives_panel(parent: Node) -> void:
+	objectives_panel = _panel(parent)
+	objectives_panel.name = "Objectives"
+	objectives_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	objectives_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	objectives_panel.custom_minimum_size = Vector2(340, 0)
 	var v := VBoxContainer.new()
-	_era_panel.add_child(v)
-	_era_title = _label(v, 18, GOLD)
-	var clock_row := HBoxContainer.new()
-	clock_row.add_theme_constant_override("separation", 8)
-	v.add_child(clock_row)
-	_clock_dial = ClockDial.new()
-	_clock_dial.custom_minimum_size = Vector2(56, 36)
-	_clock_dial.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_clock_dial.tooltip_text = "The sun is up 05-21, the moon 21-05"
-	clock_row.add_child(_clock_dial)
-	var dates := VBoxContainer.new()
-	dates.add_theme_constant_override("separation", 0)
-	clock_row.add_child(dates)
-	_era_date = _label(dates, 17)
-	_era_season = _label(dates, 12, DIM)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	v.add_child(row)
-	_moon = _icon(row, "moon", 24)
-	_era_dimming = _label(row, 17, Color("c8d2f0"))
-	_era_light = _label(v, 12, Color("c8d2f0"))
-	_era_light.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_era_light.custom_minimum_size = Vector2(336, 0)
-	_era_short = _label(v, 12, RED)
-	_era_output = _label(v, 12, DIM)
-	_era_output.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_era_output.custom_minimum_size = Vector2(336, 0)
-	_era_gate = _label(v, 12, DIM)
-	_era_gate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_era_gate.custom_minimum_size = Vector2(336, 0)
+	v.add_theme_constant_override("separation", 4)
+	objectives_panel.add_child(v)
+	var head := HBoxContainer.new()
+	v.add_child(head)
+	var title := _label(head, 18, GOLD)
+	title.text = "Objectives"
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(spacer)
+	_objectives_toggle = _button(head, "-", 15)
+	_objectives_toggle.name = "ObjectivesCollapse"
+	_objectives_toggle.tooltip_text = "Collapse or expand the objectives"
+	_objectives_toggle.pressed.connect(func() -> void:
+		model.toggle_objectives_collapsed()
+		_refresh_objectives())
+	_obj_collapsed_line = _label(v, 13)
+	_obj_collapsed_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_objectives_body = VBoxContainer.new()
+	_objectives_body.add_theme_constant_override("separation", 4)
+	v.add_child(_objectives_body)
+	_obj_header = _label(_objectives_body, 12, CYAN)
+	_obj_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	for i in 3:  # three gate parts, three win objectives
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		_objectives_body.add_child(row)
+		_obj_rows.append(row)
+		_obj_icons.append(_icon(row, "pop", 20))
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 0)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(col)
+		_obj_labels.append(_label(col, 13))
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(150, 8)
+		bar.show_percentage = false
+		bar.max_value = 1.0
+		bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+		bar.add_theme_stylebox_override("fill", _style(DONE, Color(0, 0, 0, 0), 2, 0))
+		col.add_child(bar)
+		_obj_bars.append(bar)
+		var value := _label(row, 13)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		value.custom_minimum_size = Vector2(96, 0)
+		value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_obj_values.append(value)
+	_obj_dimming = _label(_objectives_body, 13, CYAN)
+	_obj_dimming.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_obj_light = _label(_objectives_body, 12, DIM)
+	_obj_light.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+## Copies the objectives rows and Dimming lines onto the panel, or shows the one-line collapsed form.
+func _refresh_objectives() -> void:
+	var collapsed := model.objectives_collapsed()
+	_objectives_toggle.text = "+" if collapsed else "-"
+	_obj_collapsed_line.visible = collapsed
+	_obj_collapsed_line.text = model.objectives_collapsed_text()
+	_objectives_body.visible = not collapsed
+	if collapsed:
+		return
+	_obj_header.text = model.objectives_header()
+	var rows := model.objectives()
+	for i in _obj_rows.size():
+		var row := _obj_rows[i]
+		if i >= rows.size():
+			row.visible = false
+			continue
+		row.visible = true
+		var r: Dictionary = rows[i]
+		var done := bool(r["done"])
+		var col := DONE if done else INK
+		_obj_icons[i].texture = ArtLibrary.texture(ArtLibrary.manifest()["icons"][_objective_icon(str(r["kind"]))])
+		_obj_labels[i].text = str(r["label"])
+		_obj_labels[i].add_theme_color_override("font_color", col)
+		_obj_bars[i].max_value = maxf(1.0, float(r["max"]))
+		_obj_bars[i].value = clampf(float(r["value"]), 0.0, float(r["max"]))
+		_obj_bars[i].add_theme_stylebox_override("fill", _style(col, Color(0, 0, 0, 0), 2, 0))
+		_obj_values[i].text = _objective_value_text(r)
+		var value_col := col
+		if str(r["kind"]) == "landmark" and not done:
+			value_col = RED
+		_obj_values[i].add_theme_color_override("font_color", value_col)
+	var lines := model.objectives_dimming_lines()
+	var active := model.dimming_state() == "active"
+	_obj_dimming.text = lines[0] if lines.size() > 0 else ""
+	_obj_dimming.visible = _obj_dimming.text != ""
+	_obj_dimming.add_theme_color_override("font_color", RED if active else CYAN)
+	_obj_light.text = lines[1] if lines.size() > 1 else ""
+	_obj_light.visible = _obj_light.text != ""
+	_obj_light.add_theme_color_override("font_color", RED if active else DIM)
+
+
+func _objective_icon(kind: String) -> String:
+	match kind:
+		"gold": return "gold"
+		"landmark", "skyheart": return "lumen"
+		"great_dimming": return "moon"
+		"planet": return "planet"
+	return "pop"
+
+
+func _objective_value_text(r: Dictionary) -> String:
+	match str(r["kind"]):
+		"landmark":
+			return "built" if bool(r["done"]) else "not built"
+		"great_dimming":
+			return "survived" if bool(r["done"]) else "not yet"
+		"planet":
+			return "%d%% / %d%%" % [int(r["value"]), int(r["max"])]
+	return "%d / %d" % [int(r["value"]), int(r["max"])]
 
 
 # ---------------------------------------------------------------- notices
@@ -609,53 +667,271 @@ func _refresh_notes() -> void:
 			"milestone": col = GOLD
 		p.add_theme_stylebox_override("panel", _style(PANEL_BG, col, 6, 2))
 		_notes_box.add_child(p)
-		_label(p, 14, INK).text = it["text"]
+		var note := _label(p, 14, INK)
+		note.text = it["text"]
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.custom_minimum_size = Vector2(440, 0)
+	_place_notes()
+
+
+## Stacks the notices just above the bottom-centre panel, newest at the bottom (ticket 128).
+func _place_notes() -> void:
+	if _notes_box == null or _sel_panel == null or not is_inside_tree():
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var sz := _notes_box.get_combined_minimum_size()
+	_notes_box.size = sz
+	var panel := _sel_panel.get_global_rect()
+	var pos := Vector2(panel.get_center().x - sz.x * 0.5, panel.position.y - 6.0 - sz.y)
+	pos.x = clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0))
+	_notes_box.position = pos
 
 
 # ---------------------------------------------------------------- selected building
 
+## The fixed bottom-centre panel of spec H7 (mockups hud_town_day / hud_nothing_selected): a big sprite beside the
+## selected building's rows, or the town summary when nothing is selected. It never moves; the notes stack above it.
 func _build_selection_panel(parent: Node) -> void:
 	_sel_panel = _panel(parent)
-	_sel_panel.custom_minimum_size = Vector2(290, 0)
-	var v := VBoxContainer.new()
-	_sel_panel.add_child(v)
-	_sel_title = _label(v, 18, CYAN)
+	_sel_panel.name = "SelectionPanel"
+	_sel_panel.custom_minimum_size = Vector2(440, 0)
+	_sel_content = VBoxContainer.new()
+	_sel_content.add_theme_constant_override("separation", 2)
+	_sel_panel.add_child(_sel_content)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_sel_content.add_child(row)
+	_sel_pic = PanelContainer.new()
+	_sel_pic.custom_minimum_size = Vector2(120, 110)
+	_sel_pic.add_theme_stylebox_override("panel", _style(Color(0.16, 0.21, 0.14), Color(0, 0, 0, 0), 4, 0))
+	_sel_pic.clip_contents = true
+	_sel_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sel_pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_sel_pic)
+	_sel_sprite = TextureRect.new()
+	_sel_sprite.name = "SelectionSprite"
+	_sel_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_sel_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_sel_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sel_sprite.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_sel_sprite.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sel_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sel_pic.add_child(_sel_sprite)
+	var info := VBoxContainer.new()
+	info.add_theme_constant_override("separation", 2)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	info.add_child(head)
+	_sel_title = _label(head, 22, CYAN)
+	_sel_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var badge := PanelContainer.new()
+	badge.name = "TierBadge"
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.add_theme_stylebox_override("panel", _style(Color(0, 0, 0, 0), GOLD, 4, 1, 4))
+	head.add_child(badge)
+	_sel_tier = _label(badge, 13, GOLD)
+	_sel_sub = _label(info, 14, DIM)
+	var flow := HBoxContainer.new()
+	flow.add_theme_constant_override("separation", 12)
+	info.add_child(flow)
+	_sel_makes = _label(flow, 14, INK)
+	_sel_uses = _label(flow, 14, DIM)
+	_sel_workers_row = HBoxContainer.new()
+	_sel_workers_row.add_theme_constant_override("separation", 6)
+	info.add_child(_sel_workers_row)
+	_sel_workers_title = _label(_sel_workers_row, 14, DIM)
+	_sel_workers_title.text = "Workers"
+	_sel_pips = HBoxContainer.new()
+	_sel_pips.add_theme_constant_override("separation", 2)
+	_sel_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sel_workers_row.add_child(_sel_pips)
+	_sel_workers_text = _label(_sel_workers_row, 14, INK)
+	_sel_in_row = _bar_row(info, "In")
+	_sel_in_bar = _sel_in_row.get_meta("bar")
+	_sel_in_text = _sel_in_row.get_meta("value")
+	_sel_out_row = _bar_row(info, "Out")
+	_sel_out_bar = _sel_out_row.get_meta("bar")
+	_sel_out_text = _sel_out_row.get_meta("value")
+	_sel_halt = _label(info, 14, PURPLE)
+	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sel_warn = _label(info, 14, RED)
 	_sel_body = VBoxContainer.new()
 	_sel_body.add_theme_constant_override("separation", 0)
-	v.add_child(_sel_body)
-	_sel_halt = _label(v, 14, PURPLE)
-	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sel_halt.custom_minimum_size = Vector2(270, 0)
-	_sel_warn = _label(v, 14, RED)
-	_sel_up_cost = HBoxContainer.new()
-	_sel_up_cost.add_theme_constant_override("separation", 3)
-	v.add_child(_sel_up_cost)
-	_sel_up_btn = _button(v, "Upgrade (U)", 13)
-	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
-	_sel_up_reason = _label(v, 14, DIM)
-	_sel_prio_title = _label(v, 14, DIM)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	v.add_child(row)
-	_prio_row = row
+	_sel_content.add_child(_sel_body)
+	_sel_prio_title = _label(_sel_content, 14, DIM)
+	var prow := HBoxContainer.new()
+	prow.add_theme_constant_override("separation", 4)
+	_sel_content.add_child(prow)
+	_prio_row = prow
 	for p in ["low", "normal", "high"]:
-		var b := _button(row, HudModel.PRIORITY_LABELS[p], 13)
+		var b := _button(prow, HudModel.PRIORITY_LABELS[p], 13)
 		b.pressed.connect(func() -> void: model.set_priority(p))
 		_prio_buttons[p] = b
-	var pause := _button(row, "Pause", 13)
+	var pause := _button(prow, "Pause", 13)
 	pause.pressed.connect(func() -> void: model.toggle_pause())
 	_prio_buttons["paused"] = pause
-	_sel_panel.visible = false
+	_sel_up_cost = HBoxContainer.new()
+	_sel_up_cost.add_theme_constant_override("separation", 3)
+	_sel_content.add_child(_sel_up_cost)
+	_sel_up_btn = _button(_sel_content, "Upgrade (U)", 13)
+	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
+	_sel_up_reason = _label(_sel_content, 14, DIM)
+	_build_town_summary()
+	_sel_panel.visible = true
+
+
+## One "In [bar] 22 / 40" row of the selection panel; the bar and value ride on the row's meta for refresh.
+func _bar_row(parent: Container, title: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	parent.add_child(row)
+	var l := _label(row, 12, DIM)
+	l.text = title
+	l.custom_minimum_size = Vector2(26, 0)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(120, 12)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.show_percentage = false
+	bar.max_value = 1.0
+	bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+	bar.add_theme_stylebox_override("fill", _style(GOLD, Color(0, 0, 0, 0), 2, 0))
+	row.add_child(bar)
+	var value := _label(row, 12, INK)
+	value.custom_minimum_size = Vector2(64, 0)
+	row.set_meta("bar", bar)
+	row.set_meta("value", value)
+	return row
+
+
+## The town summary half of the panel: name, era and date, the big population numbers, Spirit and planet health.
+func _build_town_summary() -> void:
+	_town_panel = VBoxContainer.new()
+	_town_panel.name = "TownSummary"
+	_town_panel.add_theme_constant_override("separation", 2)
+	_sel_panel.add_child(_town_panel)
+	_town_name = _label(_town_panel, 22, CYAN)
+	_town_name.name = "TownName"
+	_town_sub = _label(_town_panel, 14, DIM)
+	var nums := HBoxContainer.new()
+	nums.add_theme_constant_override("separation", 22)
+	_town_panel.add_child(nums)
+	_town_people = _number_block(nums, "pop", "People")
+	_town_beds = _number_block(nums, "pop", "Beds")
+	_town_idle = _number_block(nums, "pop", "Idle")
+	var meters := HBoxContainer.new()
+	meters.add_theme_constant_override("separation", 22)
+	_town_panel.add_child(meters)
+	_spirit_box = _meter_block(meters, "spirit", "Spirit")
+	_spirit_bar = _spirit_box.get_meta("bar")
+	_spirit_label = _spirit_box.get_meta("value")
+	_spirit_box.tooltip_text = ""  # filled from the model each refresh
+	_planet_bar = _meter_block(meters, "planet", "Planet").get_meta("bar")
+	var planet_block := _planet_bar.get_parent().get_parent()
+	_planet_label = planet_block.get_meta("value")
+	_town_planet_trend = _label(planet_block, 12, DIM)
+	planet_block.tooltip_text = "Planet health and its change over the last year"
+	_town_hint = _label(_town_panel, 12, DIM)
+	_town_hint.name = "TownHint"
+	_town_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_town_hint.custom_minimum_size = Vector2(340, 0)
+	_town_panel.visible = false
+
+
+## A big number with its caption under it ("62" over "People"), an icon on the left like the mockup.
+func _number_block(parent: Node, icon: String, caption: String) -> Label:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	parent.add_child(box)
+	_icon(box, icon, 26)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	box.add_child(col)
+	var n := _label(col, 22, INK)
+	var c := _label(col, 12, DIM)
+	c.text = caption
+	return n
+
+
+## An icon and label over a bar, with the value text on the right ("74 / 100"). The bar and value sit in the block's
+## meta so the town summary can refresh them.
+func _meter_block(parent: Node, icon: String, caption: String) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(box)
+	_icon(box, icon, 22)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 1)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(col)
+	var l := _label(col, 12, DIM)
+	l.text = caption
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(80, 12)
+	bar.show_percentage = false
+	bar.max_value = 100.0
+	bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+	col.add_child(bar)
+	var value := _label(box, 13, INK)
+	value.custom_minimum_size = Vector2(64, 0)
+	box.set_meta("bar", bar)
+	box.set_meta("value", value)
+	return box
 
 
 func _refresh_selection() -> void:
 	var sel := model.selection()
-	_sel_panel.visible = not sel.is_empty()
-	if sel.is_empty():
+	var has := not sel.is_empty()
+	_sel_content.visible = has
+	_town_panel.visible = not has
+	if not has:
+		_refresh_town()
 		return
-	_place_selection_panel()
+	var b := model.selected()
+	if b == null:
+		return
+	var art := b.tier_art_id(model.s.registry)
+	var entry: Variant = ArtLibrary.manifest()["buildings"].get(art if art != "" else str(b.def.id))
+	if entry == null:
+		entry = ArtLibrary.manifest()["buildings"].get(str(b.def.id))
+	var sprite_key := "%s:%d" % [b.def.id, b.tier]
+	if entry != null and sprite_key != _sel_sprite_key:
+		_sel_sprite_key = sprite_key
+		var tex_size := Vector2(float(entry["w"]), float(entry["h"]))
+		var scale := detail_scale(tex_size, Vector2(120, 110))
+		_sel_sprite.texture = ArtLibrary.texture(str(entry["file"]))
+		_sel_sprite.custom_minimum_size = tex_size * scale
 	_sel_title.text = sel["title"]
-	var body: Array = sel["lines"]
+	_sel_tier.text = sel["tier_text"]
+	_sel_sub.text = sel["subtitle"]
+	_sel_makes.text = "Makes %s" % sel["makes"] if sel["makes"] != "" else ""
+	_sel_makes.visible = sel["makes"] != ""
+	_sel_uses.text = sel["uses"]
+	_sel_uses.visible = sel["uses"] != ""
+	_sel_workers_row.visible = bool(sel["show_workers"])
+	_sel_workers_text.text = sel["workers_text"]
+	_fill_pips(int(sel["workers_filled"]), int(sel["workers_slots"]))
+	_sel_in_row.visible = sel["in_text"] != ""
+	if sel["in_text"] != "":
+		_sel_in_bar.max_value = maxf(0.001, float(sel["in_max"]))
+		_sel_in_bar.value = float(sel["in_value"])
+		_sel_in_text.text = sel["in_text"]
+	_sel_out_row.visible = sel["out_text"] != ""
+	if sel["out_text"] != "":
+		_sel_out_bar.max_value = maxf(0.001, float(sel["out_max"]))
+		_sel_out_bar.value = float(sel["out_value"])
+		_sel_out_text.text = sel["out_text"]
+	var status: String = sel["status"]
+	var status_text := status
+	if sel["halt"] != "":
+		status_text = sel["halt"] if sel["advice"] == "" else "%s\n%s" % [sel["halt"], sel["advice"]]
+	_sel_halt.text = status_text
+	_sel_halt.visible = status_text != ""
+	_sel_halt.add_theme_color_override("font_color", DONE if status == "Working" else PURPLE)
+	var body: Array = sel["extra"] if not sel["site"] else sel["lines"]
 	var body_key := "\n".join(body.map(func(l: String) -> String: return l))
 	if body_key != _sel_body_key:
 		_sel_body_key = body_key
@@ -664,8 +940,6 @@ func _refresh_selection() -> void:
 			c.queue_free()
 		for l: String in body:
 			_hud_line(_sel_body, l, INK, 14)
-	_sel_halt.text = sel["halt"] if sel["advice"] == "" else "%s\n%s" % [sel["halt"], sel["advice"]]
-	_sel_halt.visible = sel["halt"] != ""
 	_sel_prio_title.text = sel["priority_label"]
 	_sel_prio_title.visible = sel["show_priority"]
 	_prio_row.visible = sel["show_priority"]
@@ -688,208 +962,157 @@ func _refresh_selection() -> void:
 		_style_button(_prio_buttons[p], on)
 
 
-## Float the panel beside the selected building (right of it, left when there is no room), clamped to the screen.
-func _place_selection_panel() -> void:
-	var b := model.selected()
-	if b == null or camera == null:
-		return
-	var xf := camera.get_viewport().get_canvas_transform()
-	var tl: Vector2 = xf * (Vector2(b.origin) * ArtLibrary.TILE)
-	var br: Vector2 = xf * (Vector2(b.origin + b.def.size) * ArtLibrary.TILE)
-	var vp := camera.get_viewport().get_visible_rect().size
-	var sz := _sel_panel.get_combined_minimum_size()
-	_sel_panel.size = sz
-	var pos := Vector2(br.x + 14.0, tl.y - 20.0)
-	if pos.x + sz.x > vp.x - 6.0:
-		pos.x = tl.x - sz.x - 14.0
-	pos.x = clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0))
-	pos.y = clampf(pos.y, 60.0, maxf(60.0, vp.y - sz.y - 70.0))
-	_sel_panel.position = pos
+## The day-shift worker pips: one filled square per worker, empty ones for the free slots. No night row yet (1.1.11).
+func _fill_pips(filled: int, slots: int) -> void:
+	for c in _sel_pips.get_children():
+		_sel_pips.remove_child(c)
+		c.queue_free()
+	for i in slots:
+		var p := Panel.new()
+		p.custom_minimum_size = Vector2(8, 12)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_theme_stylebox_override("panel", _style(DONE if i < filled else Color(0.25, 0.22, 0.2),
+				Color(0, 0, 0, 0), 2, 0, 0))
+		_sel_pips.add_child(p)
 
 
-# ---------------------------------------------------------------- build bar
+## The town summary values when nothing is selected (ticket 128).
+func _refresh_town() -> void:
+	var t := model.town_summary()
+	_town_name.text = t["name"]
+	_town_sub.text = "%s era, %s" % [t["era"], t["date"]]
+	_town_people.text = str(t["people"])
+	_town_beds.text = str(t["beds"])
+	_town_idle.text = str(t["idle"])
+	_spirit_bar.value = float(t["spirit"])
+	var fill: Color = {"good": DONE, "ok": Color("d2a03c"), "bad": Color("d2503c")}[t["spirit_state"]]
+	_spirit_bar.add_theme_stylebox_override("fill", _style(fill, Color(0, 0, 0, 0), 2, 0))
+	_spirit_label.text = t["spirit_text"]
+	_spirit_box.tooltip_text = t["spirit_tooltip"]
+	_planet_bar.value = float(t["planet"])
+	_planet_bar.add_theme_stylebox_override("fill", _style(DONE if int(t["planet"]) >= 50 else RED,
+			Color(0, 0, 0, 0), 2, 0))
+	_planet_label.text = t["planet_text"]
+	_town_planet_trend.text = t["planet_trend"]
+	_town_hint.text = t["hint"]
 
-## Left edge of the flyout: clear of the tools tab, so the cards never cover it.
-const FLY_INDENT := 118.0
-## Build cards (ticket 116): size, cards per row and rows shown before the flyout scrolls (fits 1280x720 with the
-## detail panel on the right).
-const CARD_SIZE := Vector2(146, 200)
-const CARD_COLUMNS := 5
-const CARD_ROWS := 2
-const CARD_GAP := 6
-## Category buttons use a slim style so all of them (12 with every era unlocked) share one row at 1280 px (ticket 122).
-const CAT_BUTTON_PAD := 6
+
+# ---------------------------------------------------------------- command grid (ticket 129)
+
+## The bottom band of hud-rts-spec H7: the minimap on the left, the selection panel (or town summary) centred, and the
+## command grid on the right.
+const BAND_HEIGHT := 148.0
+const CELL_SIZE := Vector2(80, 36)
+const CELL_GAP := 3
+const GRID_COLUMNS := 5
 
 
 func _build_bar(parent: Node) -> void:
-	# Ticket 125: the flyout floats above the bottom bar instead of taking a row in the layout; with the taller
-	# top-right cluster it would otherwise push the bar below 720 when open.
-	_fly_panel = _panel(_float)
-	var fly_col := VBoxContainer.new()
-	fly_col.add_theme_constant_override("separation", 4)
-	_fly_panel.add_child(fly_col)
-	var fly_head := HBoxContainer.new()
-	fly_col.add_child(fly_head)
-	_fly_title = _label(fly_head, 18, GOLD)
-	_fly_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_fly_hint = _label(fly_head, 12, DIM)
-	_fly_hint.text = "Hover a card for details"
-	_fly_box = HBoxContainer.new()
-	_fly_box.add_theme_constant_override("separation", 6)
-	fly_col.add_child(_fly_box)
-	_fly_panel.visible = false
-	var p := _panel(parent)
-	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_bar_panel = p
-	_cat_box = GridContainer.new()
-	_cat_box.add_theme_constant_override("h_separation", 4)
-	_cat_box.add_theme_constant_override("v_separation", 4)
-	p.add_child(_cat_box)
-	_rebuild_categories()
+	var band := HBoxContainer.new()
+	band.name = "BottomBand"
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.custom_minimum_size = Vector2(0, BAND_HEIGHT)
+	parent.add_child(band)
+	minimap = Minimap.new()
+	minimap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	band.add_child(minimap)
+	minimap.setup(self, model, camera)
+	var mid := CenterContainer.new()
+	mid.name = "BottomMid"
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	band.add_child(mid)
+	_build_selection_panel(mid)
+	var right := CenterContainer.new()
+	right.name = "BottomRight"
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	band.add_child(right)
+	_build_command_grid(right)
 
 
-func _rebuild_categories() -> void:
-	for c in _cat_box.get_children():
-		c.queue_free()
-	_cat_buttons.clear()
-	var cats := model.build_bar()
-	# Ticket 122: every category stays on one row at 1280 px; the buttons shrink (slim padding, no fixed width)
-	# instead of wrapping into a second row.
-	_cat_box.columns = maxi(cats.size(), 1)
-	for cat in cats:
-		var b := _button(_cat_box, cat["label"], 16)
-		b.custom_minimum_size = Vector2(0, 34)
-		_style_button(b, false, CAT_BUTTON_PAD)
-		b.pressed.connect(open_category.bind(cat["id"]))
-		_cat_buttons[cat["id"]] = b
-	_show_flyout()
+func _build_command_grid(parent: Node) -> void:
+	_cmd_panel = PanelContainer.new()
+	_cmd_panel.name = "CommandGrid"
+	var sb := _style(PANEL_BG, PANEL_EDGE, 6, 2, 10)
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	_cmd_panel.add_theme_stylebox_override("panel", sb)
+	parent.add_child(_cmd_panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	_cmd_panel.add_child(v)
+	_cmd_title = _label(v, 14, GOLD)
+	_cmd_title.name = "GridTitle"
+	_cmd_grid = GridContainer.new()
+	_cmd_grid.name = "GridCells"
+	_cmd_grid.columns = GRID_COLUMNS
+	_cmd_grid.add_theme_constant_override("h_separation", CELL_GAP)
+	_cmd_grid.add_theme_constant_override("v_separation", CELL_GAP)
+	v.add_child(_cmd_grid)
+	_rebuild_command_grid()
 
 
-func open_category(id: String) -> void:
-	_open_cat = "" if _open_cat == id else id
-	_show_flyout()
-
-
-func _show_flyout() -> void:
-	for c in _fly_box.get_children():
-		_fly_box.remove_child(c)
-		c.queue_free()
-	for id in _cat_buttons:
-		_style_button(_cat_buttons[id], id == _open_cat, CAT_BUTTON_PAD)
-	_fly_panel.visible = false
-	_fly_key = ""
-	for cat in model.build_bar():
-		if cat["id"] != _open_cat:
-			continue
-		_fly_panel.visible = true
-		_fly_title.text = cat["label"]
-		_fly_hint.visible = cat["id"] != "roads"
-		_fly_key = _flyout_key(cat)
-		var entries: Array = cat["entries"]
-		var card_count := entries.filter(func(e: Dictionary) -> bool: return e["kind"] == "building").size()
-		var grid: GridContainer = null
-		if card_count > 0:
-			var cols := mini(card_count, CARD_COLUMNS)
-			var rows := ceili(float(card_count) / CARD_COLUMNS)
-			var shown := mini(rows, CARD_ROWS)
-			var scroll := ScrollContainer.new()
-			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-			scroll.custom_minimum_size = Vector2(cols * CARD_SIZE.x + (cols - 1) * CARD_GAP + (14 if rows > CARD_ROWS else 0),
-					shown * CARD_SIZE.y + (shown - 1) * CARD_GAP)
-			_fly_box.add_child(scroll)
-			grid = GridContainer.new()
-			grid.columns = cols
-			grid.add_theme_constant_override("h_separation", CARD_GAP)
-			grid.add_theme_constant_override("v_separation", CARD_GAP)
-			scroll.add_child(grid)
-		for e: Dictionary in entries:
-			var b: Button
-			if e["kind"] == "building":
-				b = _card(grid, e)
-			else:
-				var text: String = e["label"]
-				if e["cost"] != "":
-					text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
-				b = _button(_fly_box, text, 14)
-				b.name = "Tool_" + str(e["id"])
-				b.tooltip_text = str(e.get("tip", ""))
-			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
-			b.set_meta("kind", e["kind"])
-			b.set_meta("tool_id", e["id"])
-			if e["kind"] == "building":
-				b.name = "Build_" + str(e["id"])
-				b.set_meta("def_id", e["id"])
-				b.set_meta("reason", str(e.get("reason", "")))
-				b.mouse_entered.connect(func() -> void: _tip_btn = b)
-				b.mouse_exited.connect(func() -> void:
-					if _tip_btn == b:
-						_tip_btn = null)
-			if e.get("enabled", true) == false:
-				b.disabled = true
-				if not e.get("locked", false):
-					b.modulate = Color(1, 1, 1, 0.5)
-	_refresh_active_tool()
-	_place_flyout()
-
-
-## Sits the flyout above the category bar, its bottom edge just clear of it (ticket 125).
-func _place_flyout() -> void:
-	if _fly_panel == null or not _fly_panel.visible:
+## Rebuilds the cells for the current page when what they show changes (page, era, stock). The HUD refresh calls this
+## every tick.
+func _refresh_command_grid() -> void:
+	var key := _command_grid_key()
+	if key == _grid_key:
 		return
-	var vp := get_viewport().get_visible_rect().size
-	var sz := _fly_panel.get_combined_minimum_size()
-	_fly_panel.size = sz
-	var bar_top := vp.y - 6.0
-	if _cat_box != null and _cat_box.get_parent() is Control:
-		bar_top = (_cat_box.get_parent() as Control).get_global_rect().position.y
-	_fly_panel.position = Vector2(FLY_INDENT, maxf(6.0, bar_top - 6.0 - sz.y))
+	_grid_key = key
+	_rebuild_command_grid()
 
 
-## What decides how the cards look (state per entry): the flyout is rebuilt when this changes.
-func _flyout_key(cat: Dictionary) -> String:
-	var parts: Array[String] = []
-	for e: Dictionary in cat["entries"]:
-		parts.append("%s:%s:%s:%s" % [e["id"], e.get("locked", false), e.get("short", false), e.get("enabled", true)])
+func _command_grid_key() -> String:
+	var parts: Array[String] = [model.s.era_id(), _grid_page]
+	for c: Dictionary in model.grid(_grid_page):
+		parts.append("%s:%s:%s" % [c["id"], c["state"], c["label"]])
 	return "|".join(parts)
 
 
-## Rebuilds the open flyout when a card changes state (stock now covers a cost, or no longer does).
-func _refresh_flyout_cards() -> void:
-	if _open_cat == "" or not _fly_panel.visible:
-		return
-	for cat in model.build_bar():
-		if cat["id"] == _open_cat:
-			if _flyout_key(cat) != _fly_key:
-				_show_flyout()
-			return
+func _rebuild_command_grid() -> void:
+	for c in _cmd_grid.get_children():
+		_cmd_grid.remove_child(c)
+		c.queue_free()
+	_cmd_cells.clear()
+	var cells := model.grid(_grid_page)
+	_cmd_title.text = model.grid_title(_grid_page)
+	for i in cells.size():
+		_cmd_cells.append(_grid_cell_button(cells[i], i))
+	_refresh_active_tool()
 
 
-## One build card (a Button, so pressing, disabling and the tutorial pulse work as before): sprite, name, the cost of
-## each good as icon + number (the short number red), a lock and the unlock reason when the era is not reached.
-func _card(parent: Node, e: Dictionary) -> Button:
+## One cell: building art or category icon, its name, and its key (the pane's positional letter, or Esc/More).
+func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = CARD_SIZE
+	b.custom_minimum_size = CELL_SIZE
 	b.clip_contents = true
-	parent.add_child(b)
-	var locked: bool = e.get("locked", false)
-	b.set_meta("card", "locked" if locked else ("short" if e.get("short", false) else "ok"))
-	_style_card(b, false)
+	b.name = "Cell_" + (str(cell["id"]) if str(cell["id"]) != "" else "empty%d" % index)
+	b.set_meta("cell_id", str(cell["id"]))
+	b.set_meta("cell_state", str(cell["state"]))
+	_style_cell(b, cell, false)
+	_cmd_grid.add_child(b)
+	b.pressed.connect(_activate_cell.bind(index))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right", "top", "bottom"]:
-		m.add_theme_constant_override("margin_" + side, 6)
+		m.add_theme_constant_override("margin_" + side, 2)
 	b.add_child(m)
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var v := VBoxContainer.new()
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 2)
-	m.add_child(v)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 5)
+	m.add_child(h)
 	var pic := Control.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pic.custom_minimum_size = Vector2(0, 84)
-	v.add_child(pic)
-	var entry: Variant = ArtLibrary.manifest()["buildings"].get(str(e["id"]))
+	pic.custom_minimum_size = Vector2(22, 22)
+	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(pic)
+	var id := str(cell["id"])
+	var entry: Variant = ArtLibrary.manifest()["buildings"].get(id)
+	var locked := str(cell["state"]) == "locked"
 	if entry != null:
 		var t := TextureRect.new()
 		t.texture = ArtLibrary.texture(entry["file"])
@@ -900,65 +1123,145 @@ func _card(parent: Node, e: Dictionary) -> Button:
 		t.modulate = Color(0.45, 0.45, 0.45, 1) if locked else Color.WHITE
 		pic.add_child(t)
 		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	else:
+		var icon := str(cell.get("icon", ""))
+		if icon != "":
+			var ir := _icon(pic, icon, 20)
+			ir.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if locked:
 		var lock := LockGlyph.new()
 		lock.name = "Lock"
 		pic.add_child(lock)
 		lock.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	var title := _label(v, 16, DIM if locked else INK)
-	title.name = "CardName"
-	title.text = e["label"]
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.clip_text = true
-	if locked:
-		var why := _label(v, 12, GOLD)
-		why.name = "UnlockReason"
-		why.text = e["unlock"]
-		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		why.clip_text = true
-	var grid := GridContainer.new()
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 0)
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(grid)
-	for c: Dictionary in e["costs"]:
-		var row := HBoxContainer.new()
-		row.name = "Cost_" + str(c["good"])
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_theme_constant_override("separation", 3)
-		grid.add_child(row)
-		if c["icon"] != "":
-			var ic := _icon(row, c["icon"], 20)
-			ic.name = "Icon"
-			ic.modulate = Color(0.6, 0.6, 0.6, 1) if locked else Color.WHITE
-		var num := _label(row, 14, RED if c["short"] and not locked else (DIM if locked else INK))
-		num.name = "Num"
-		num.text = str(c["need"])
-		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(col)
+	var nm := _label(col, 12, DIM if locked else INK)
+	nm.name = "CellName"
+	nm.text = str(cell["label"])
+	nm.clip_text = true
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", 4)
+	col.add_child(foot)
+	var key := _label(foot, 11, DIM)
+	key.name = "CellKey"
+	key.text = str(cell["key"])
+	# Unaffordable: the short cost in red (the hover card lists every cost with its have N).
+	if str(cell["state"]) == "unaffordable":
+		var def := model.s.registry.get_building(id)
+		if def != null:
+			for c: Dictionary in model.cost_rows(def):
+				if bool(c["short"]):
+					var cost := _label(foot, 11, RED)
+					cost.name = "CellCost"
+					cost.text = str(c["need"])
+					break
+	if entry != null:
+		b.set_meta("def_id", id)
+		b.mouse_entered.connect(func() -> void:
+			_grid_focus_id = ""
+			_tip_btn = b)
+		b.mouse_exited.connect(func() -> void:
+			if _tip_btn == b:
+				_tip_btn = null)
+	b.tooltip_text = str(cell["reason"])
 	return b
 
 
-## Card look by state (the meta "card"): plain, red when something is short, grey when locked; gold edge while it is the
-## tool in use.
-func _style_card(b: Button, on: bool) -> void:
-	var state: String = b.get_meta("card", "ok")
+## Cell look by state: red edge when unaffordable, grey and dim when locked, nearly blank when empty; gold edge when
+## it is the active tool.
+func _style_cell(b: Button, cell: Dictionary, on: bool) -> void:
+	var state := str(cell["state"])
 	var bg := Color(0.11, 0.094, 0.086)
 	var edge := PANEL_EDGE
 	var hover := Color(0.17, 0.145, 0.125)
-	if state == "short":
-		bg = Color(0.37, 0.09, 0.08)
-		edge = RED
-		hover = Color(0.45, 0.11, 0.09)
-	elif state == "locked":
-		bg = Color(0.09, 0.09, 0.09)
-		edge = Color(0.22, 0.22, 0.22)
-		hover = bg
-	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 5, 2))
-	b.add_theme_stylebox_override("hover", _style(hover, GOLD if state != "locked" else edge, 5, 2))
-	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 5, 2))
-	b.add_theme_stylebox_override("disabled", _style(bg, edge, 5, 2))
+	match state:
+		"unaffordable":
+			bg = Color(0.37, 0.09, 0.08)
+			edge = RED
+			hover = Color(0.45, 0.11, 0.09)
+		"locked":
+			bg = Color(0.09, 0.09, 0.09)
+			edge = Color(0.22, 0.22, 0.22)
+			hover = bg
+		"empty":
+			bg = Color(0.075, 0.07, 0.065)
+			edge = Color(0.16, 0.15, 0.14)
+			hover = bg
+	var pad := 3
+	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 4, 2, pad))
+	b.add_theme_stylebox_override("hover", _style(hover, GOLD if on or state != "locked" else edge, 4, 2, pad))
+	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 4, 2, pad))
+	b.add_theme_stylebox_override("disabled", _style(bg, edge, 4, 2, pad))
+	b.disabled = state == "empty"
+
+
+## Presses cell `index` on the current page: opens a category, pages on, goes back, picks a building or tool, or runs a
+## top-level action. Locked cells only open their hover card; empty cells do nothing.
+func _activate_cell(index: int) -> void:
+	var cells := model.grid(_grid_page)
+	if index < 0 or index >= cells.size():
+		return
+	var c: Dictionary = cells[index]
+	var id := str(c["id"])
+	var state := str(c["state"])
+	if state == "empty":
+		return
+	_grid_focus_id = id if state == "locked" or model.s.registry.get_building(id) != null else ""
+	match id:
+		"back":
+			_set_grid_page("")
+			return
+		"more":
+			var bits := _grid_page.split(":")
+			_set_grid_page("%s:%d" % [bits[0], int(bits[1]) + 1 if bits.size() > 1 else 2])
+			return
+		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
+		"upgrade": build.set_mode(BuildController.Mode.UPGRADE)
+		"clear": build.set_mode(BuildController.Mode.CLEAR)
+		"plant": build.set_mode(BuildController.Mode.PLANT)
+		"region": toggle_region_map()
+		_:
+			if state == "locked":
+				return
+			if _grid_page == "":
+				if HudModel.is_grid_category(id):
+					_open_grid_page(id)
+			else:
+				_pick(id)
+	refresh()
+
+
+func _open_grid_page(page: String) -> void:
+	_grid_focus_id = ""
+	_grid_page = page
+	_grid_key = ""
+	_refresh_command_grid()
+	refresh()
+
+
+## Opens a category pane, or closes it when it is already open (tests and the tutorial call this).
+func open_category(id: String) -> void:
+	_set_grid_page("" if _grid_page == id else id)
+
+
+func _set_grid_page(page: String) -> void:
+	_open_grid_page(page)
+
+
+## The cell button carrying `id` on the current page, or null.
+func _cell_button(id: String) -> Button:
+	for b in _cmd_cells:
+		if str(b.get_meta("cell_id", "")) == id:
+			return b
+	return null
+
+
+## Builds `def_id` (the pane cell with that id), or null: the tutorial highlight finds it this way.
+func build_button(def_id: String) -> Button:
+	return _cell_button(def_id)
 
 
 ## A small padlock for a locked card.
@@ -980,39 +1283,45 @@ const TOOL_MODES := {"road": BuildController.Mode.ROAD, "channel": BuildControll
 		"paved": BuildController.Mode.PAVED, "track": BuildController.Mode.TRACK, "demolish": BuildController.Mode.DEMOLISH}
 
 
-## Lights the tool in use: the flyout entry being placed (building or road/channel/paved/track/demolish) and the
-## Demolish / Upgrade buttons of the tools tab. Off again when the mode ends.
+## Lights the cell of the building being placed or the active road tool, and the tools tab's buttons.
 func _refresh_active_tool() -> void:
 	if build == null:
 		return
-	if _fly_box != null:
-		for c: Node in _fly_box.find_children("*", "Button", true, false):
-			if c.has_meta("kind") and not c.is_queued_for_deletion():
-				var id := str(c.get_meta("tool_id"))
-				var on: bool = (build.mode == BuildController.Mode.BUILD and c.get_meta("kind") == "building" and id == build.def_id) \
-						or (c.get_meta("kind") != "building" and TOOL_MODES.get(id, -1) == build.mode)
-				if c.has_meta("card"):
-					_style_card(c as Button, on)
-				else:
-					_style_button(c as Button, on)
+	for b in _cmd_cells:
+		if not is_instance_valid(b):
+			continue
+		var id := str(b.get_meta("cell_id", ""))
+		_style_cell(b, {"state": b.get_meta("cell_state", "ok")}, _cell_active(id))
 	if tools_tab != null:
 		tools_tab.refresh()
 
 
-## The flyout button that builds `def_id` (the open category's), or null. Buttons are named "Build_<def id>" and carry
-## the meta "def_id", so a tutorial highlight (ticket 83) can find them.
-func build_button(def_id: String) -> Button:
-	return _fly_box.find_child("Build_" + def_id, true, false) as Button
+## Whether the cell `id` is the tool in use: an action cell for its mode at the top level, a building or road tool in a
+## pane.
+func _cell_active(id: String) -> bool:
+	if _grid_page == "":
+		match id:
+			"demolish": return build.mode == BuildController.Mode.DEMOLISH
+			"upgrade": return build.mode == BuildController.Mode.UPGRADE
+			"clear": return build.mode == BuildController.Mode.CLEAR
+			"plant": return build.mode == BuildController.Mode.PLANT
+			"roads": return build.mode == BuildController.Mode.ROAD
+		return false
+	if build.mode == BuildController.Mode.BUILD and id == build.def_id:
+		return true
+	return TOOL_MODES.get(id, -1) == build.mode
 
 
-func _pick(kind: String, id: String) -> void:
-	match kind:
-		"building": build.set_build(id)
+## Picks the pane cell with `id`: a building def starts placing it, a road tool sets its mode.
+func _pick(id: String) -> void:
+	if model.s.registry.get_building(id) != null:
+		build.set_build(id)
+		return
+	match id:
 		"road": build.set_mode(BuildController.Mode.ROAD)
 		"channel": build.set_mode(BuildController.Mode.CHANNEL)
 		"paved": build.set_mode(BuildController.Mode.PAVED)
 		"track": build.set_mode(BuildController.Mode.TRACK)
-		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
 
 
 # ---------------------------------------------------------------- refresh and input
@@ -1027,44 +1336,21 @@ func refresh() -> void:
 	_pop_box.tooltip_text = pop["tooltip"]
 	_pop_label.add_theme_color_override("font_color", RED if pop["homeless"] > 0 else INK)
 	_growth_bar.value = pop["growth"]
-	var sp := model.spirit()
-	_spirit_bar.value = sp["value"]
-	var fill: Color = {"good": Color("78be5a"), "ok": Color("d2a03c"), "bad": Color("d2503c")}[sp["state"]]
-	_spirit_bar.add_theme_stylebox_override("fill", _style(fill, Color(0, 0, 0, 0), 2, 0))
-	_spirit_label.text = sp["text"]
-	_spirit_box.tooltip_text = sp["tooltip"]
-	_spirit_bar.tooltip_text = sp["tooltip"]
-	_planet_label.text = model.planet()["text"]
-	var ep := model.era_panel()
-	_era_title.text = ep["title"]
-	_era_dimming.text = ep["dimming"]
-	var detail: String = ep["stock"] if ep["light"] == "" else ep["light"]
-	_era_light.text = detail
-	_era_light.visible = detail != ""
-	_era_short.text = ep["light_short"]
-	_era_short.visible = ep["light_short"] != ""
-	_era_output.text = ep["output"]
-	_era_output.visible = ep["output"] != ""
-	_era_gate.text = ep["gate"]
+	_refresh_objectives()
 	var hours_f := float(model.s.clock.hour())
 	if driver != null:
 		hours_f += driver.hour_fraction()
-	_era_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
-	_era_season.text = ep["date"] if driver == null else "%s  -  %s" % [ep["date"], driver.speed_text()]
-	_clock_dial.set_time(hours_f, model.s.registry.day_night)
 	_row_dial.set_time(hours_f, model.s.registry.day_night)
 	_clock_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
-	_clock_season.text = ep["date"]
+	_clock_season.text = model.date_text()
 	_refresh_clock_buttons()
 	_refresh_pins()
-	var active: bool = ep["dimming_state"] == "active"
-	_era_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
-	_moon.visible = ep["dimming_state"] != "none"
-	_refresh_overlay_buttons()
+	var active: bool = model.dimming_state() == "active"
+	objectives_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
 	model.sync_layer()
-	_refresh_layer_tag()
+	minimap.refresh_toggles()
 	tools_tab.refresh()
-	_refresh_flyout_cards()
+	_refresh_command_grid()
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
@@ -1082,14 +1368,6 @@ func _refresh_clock_buttons() -> void:
 		_style_button(_speed_buttons[i], speed == i + 1)
 
 
-func _refresh_layer_tag() -> void:
-	var sky := model.active_layer == Building.LAYER_SKY
-	_layer_tag.text = "%s (Tab)" % model.layer_name()
-	_style_button(_layer_tag, sky)
-	_layer_tag.tooltip_text = "Tab switches between the ground and the sky islands"
-	_layer_tag.visible = model.layer_tag_visible()
-
-
 func toggle_region_map() -> void:
 	_region_map.toggle()
 
@@ -1103,24 +1381,22 @@ func _process(delta: float) -> void:
 	hover_tick(delta)
 	_pulse_t += delta
 	update_highlight(_pulse_t)
-	if _sel_panel.visible:
-		_place_selection_panel()
+	_place_notes()
 	if _region_map.visible:
 		_center_region_map()
 	if workforce_page.visible:
 		workforce_page.position = ((get_viewport().get_visible_rect().size - workforce_page.size) / 2.0).floor()
 	if resources_page.visible:
 		resources_page.position = ((get_viewport().get_visible_rect().size - resources_page.size) / 2.0).floor()
-	_place_flyout()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0
 		refresh()
 
 
-## True when Esc would still cancel something (build tool, selection, open build flyout): then it is not the menu's.
+## True when Esc would still cancel something (build tool, selection, open pane): then it is not the menu's.
 func has_cancelable() -> bool:
-	return _region_map.visible or workforce_page.visible or resources_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
+	return _region_map.visible or workforce_page.visible or resources_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _grid_page != ""
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1130,13 +1406,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		model.clear_selection()  # right click (not a drag) deselects; with a build tool active it cancels that instead
 		refresh()
 	if event is InputEventKey and event.pressed and not event.echo:
-		match (event as InputEventKey).keycode:
+		var kc := (event as InputEventKey).keycode
+		# Modal keys (ticket 129): with a pane open its positional letters pick cells and override the global keys,
+		# and Esc goes back to the top level (a second Esc is today's Esc).
+		if _grid_page != "":
+			var at := _grid_key_index(kc)
+			if at >= 0:
+				_activate_cell(at)
+				get_viewport().set_input_as_handled()
+				return
+			if kc == KEY_ESCAPE:
+				_set_grid_page("")
+				get_viewport().set_input_as_handled()
+				return
+		match kc:
 			KEY_V: _on_overlay("blight")
 			KEY_G: _on_overlay("roads")
 			KEY_T: _on_overlay("water")
 			KEY_H: _on_overlay("coverage")
 			KEY_L: _on_overlay("grid")
-			KEY_M: _region_map.toggle()
+			KEY_M: toggle_region_map()
 			KEY_Q: workforce_page.toggle()
 			KEY_E: resources_page.toggle()
 			KEY_F1: help_requested.emit()
@@ -1145,16 +1434,38 @@ func _unhandled_input(event: InputEvent) -> void:
 					model.toggle_layer()
 					refresh()
 					get_viewport().set_input_as_handled()
+			# The command grid's own keys. R picks the road tool and opens the Roads pane; C P J stay with
+			# BuildController as the global road-type keys.
+			KEY_R:
+				_pick("road")
+				_open_grid_page("roads")
+				get_viewport().set_input_as_handled()
+			KEY_N: _open_grid_page("housing")
+			KEY_F: _open_grid_page("food")
+			KEY_W: _open_grid_page("water")
+			KEY_I: _open_grid_page("lumen")
+			KEY_K: _open_grid_page("logistics")
+			KEY_S: _open_grid_page("resources")
+			KEY_D: _open_grid_page("refining")
+			KEY_A: _open_grid_page("civic")
+			KEY_O: _open_grid_page("landmark")
+			KEY_X:
+				build.set_mode(BuildController.Mode.DEMOLISH)
+				get_viewport().set_input_as_handled()
 			KEY_U:
-				pass  # BuildController: upgrade mode
-			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
+				build.set_mode(BuildController.Mode.UPGRADE)
+				get_viewport().set_input_as_handled()
+			KEY_Z:
+				build.set_mode(BuildController.Mode.CLEAR)
+				get_viewport().set_input_as_handled()
+			KEY_Y:
+				build.set_mode(BuildController.Mode.PLANT)
+				get_viewport().set_input_as_handled()
 			KEY_ESCAPE:
 				_region_map.close()
 				workforce_page.close()
 				resources_page.close()
 				model.clear_selection()
-				_open_cat = ""
-				_show_flyout()
 				refresh()
 	elif event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if build != null and build.mode == BuildController.Mode.NONE and camera != null:
@@ -1163,31 +1474,46 @@ func _unhandled_input(event: InputEvent) -> void:
 			refresh()
 
 
+## The cell of the open pane that key `kc` picks (its positional letter, B for More), -1 when it picks none.
+func _grid_key_index(kc: Key) -> int:
+	var name := OS.get_keycode_string(kc)
+	if name == "" or name == "Escape":
+		return -1
+	var cells := model.grid(_grid_page)
+	for i in cells.size():
+		if str(cells[i]["key"]) == name:
+			return i
+	return -1
+
+
 # ---------------------------------------------------------------- tutorial highlight (ticket 83)
 
-## The button the current tutorial goal points at, or null: the goal's build button when its category flyout is open,
-## else that category's button; the Roads category / road tool for the road goal; an overlay's button (its toggle
-## while the overlay menu is closed) for an overlay goal. Null when the tutorial is not active.
+## The button the current tutorial goal points at, or null: the goal's cell when its category pane is open, else that
+## category's top-level cell; the Roads cell / road tool for the road goal; the minimap's overlay button for an overlay
+## goal. Null when the tutorial is not active.
 func highlight_button() -> Button:
 	var g := (model.s.get_system(TutorialSystem) as TutorialSystem).current_goal()
 	if g == null or g.highlight == "":
 		return null
-	if _overlay_buttons.has(g.highlight):
-		return _overlay_buttons[g.highlight] if _overlay_panel.visible else _overlay_toggle
+	var ov := minimap.overlay_button(g.highlight)
+	if ov != null:
+		return ov
 	var cat := ""
 	var entry := ""
 	if g.highlight == "road":
 		cat = "roads"
-		entry = "Tool_road"
+		entry = "road"
 	else:
 		var def := model.s.registry.get_building(g.highlight)
 		if def == null:
 			return null
-		cat = def.category
-		entry = "Build_" + g.highlight
-	if _open_cat == cat:
-		return _fly_box.find_child(entry, true, false) as Button
-	return _cat_buttons.get(cat) as Button
+		cat = HudModel.grid_group(def.category)
+		entry = def.id
+	if _grid_page == cat:
+		return _cell_button(entry)
+	if _grid_page == "":
+		return _cell_button(cat)
+	return null
 
 
 ## Pulses the highlighted button (self_modulate, so a disabled button's fade is kept) and clears the previous one.
@@ -1253,14 +1579,14 @@ func _set_detail(def_id: String) -> void:
 	_place_detail()
 
 
-## Bottom right, just above the build bar, clear of the flyout's cards.
+## Bottom right, just above the command grid.
 func _place_detail() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var sz := _detail.get_combined_minimum_size()
 	_detail.size = sz
 	var bottom := vp.y - 6.0
-	if _cat_box != null and _cat_box.get_parent() is Control:
-		bottom = (_cat_box.get_parent() as Control).get_global_rect().position.y - 6.0
+	if _cmd_panel != null and is_instance_valid(_cmd_panel):
+		bottom = _cmd_panel.get_global_rect().position.y - 6.0
 	_detail.position = Vector2(maxf(6.0, vp.x - sz.x - 6.0), maxf(56.0, bottom - sz.y))
 
 
@@ -1416,8 +1742,13 @@ func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
 	var data := {}
 	if _tip_btn != null and not is_instance_valid(_tip_btn):
 		_tip_btn = null
-	# A hovered build card opens the detail panel at once (ticket 117) instead of the small tooltip.
-	_set_detail(str(_tip_btn.get_meta("def_id")) if _tip_btn != null and _tip_btn.is_visible_in_tree() else "")
+	# A hovered or keyboard-picked grid cell opens the detail panel at once (tickets 117, 129) instead of the tooltip.
+	var detail_id := ""
+	if _tip_btn != null and _tip_btn.is_visible_in_tree():
+		detail_id = str(_tip_btn.get_meta("def_id"))
+	elif _grid_focus_id != "":
+		detail_id = _grid_focus_id
+	_set_detail(detail_id)
 	if _detail.visible:
 		if _tip_panel.visible or _tip_key != "":
 			_hide_tip()
