@@ -2,8 +2,9 @@ class_name NightView
 extends Node2D
 ## The night render (ticket 135): flat stepped pools of warm light around lit lamps, lit windows on houses and
 ## working buildings, and ember pixels on a working kiln. Everything comes from NightRenderModel, so the sim's lit
-## rule stays in one place (Settlement.is_lit, ticket 133); draws nothing by day. Lives in MapView.fx, so the map's
-## night tint darkens it with the rest of the world (the HUD is a CanvasLayer and is never tinted).
+## rule stays in one place (Settlement.is_lit, ticket 133); draws nothing by day. Lives in MapView.fx under the map's
+## night tint (a CanvasModulate; the HUD is a CanvasLayer and is never tinted), so it blends additively (ticket 170):
+## its warm light brightens the tinted ground instead of being darkened by the tint with it.
 
 const TILE := ArtLibrary.TILE
 ## How often the walker counts behind the lit windows are refreshed (the light state itself changes hourly).
@@ -25,6 +26,14 @@ var _lanterns: Array[Dictionary] = []
 var _since_refresh := 0.0
 ## Time since setup: drives the lantern walker along its route at a flat pace (render only).
 var _time := 0.0
+
+
+func _init() -> void:
+	# Ticket 170: additive light. Under the night tint's dark-blue multiply the pools used to read as dark blotches;
+	# adding them to the tinted ground makes them glow warm instead.
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	material = mat
 
 
 func setup(s: Settlement) -> void:
