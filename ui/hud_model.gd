@@ -507,6 +507,20 @@ func dimming_building_text(b: Building) -> String:
 	return "" if f >= 1.0 else "x%s Dimming" % factor_text(f)
 
 
+## "Vein surge: +50% for 2 days (was 10)" on a vein extractor while the surge after a Dimming runs, "" otherwise
+## (ticket 150). "was N" is its nominal pre-surge daily output of the first good, the number the row above shows.
+func vein_surge_text(b: Building) -> String:
+	if b == null or b.site or not b.def.vein_extractor or not DimmingSystem.vein_surge(s):
+		return ""
+	var pct := roundi((s.registry.planet.vein_surge_factor - 1.0) * 100.0)
+	var line := "Vein surge: +%d%% for %d days" % [pct, DimmingSystem.vein_surge_days(s)]
+	if b.def.recipe != null and not b.def.recipe.outputs.is_empty():
+		var g: String = b.def.recipe.outputs.keys()[0]
+		var was := float(b.def.recipe.outputs[g]) * float(ProductionSystem.worker_slots_for(s, b)) * b.output_factor(s.registry)
+		line += " (was %s)" % num_text(was)
+	return line
+
+
 ## "x0.5 Lean winter" while winter lowers this food building's output, "" otherwise (ticket 159).
 func lean_winter_text(b: Building) -> String:
 	if b == null or b.site:
@@ -626,6 +640,8 @@ func objectives_dimming_lines() -> Array[String]:
 		if short != "":
 			second += " " + short
 		lines.append(second)
+	if DimmingSystem.vein_surge(s):
+		lines.append("Vein surge: day %d of %d" % [DimmingSystem.vein_surge_day(s), DimmingSystem.vein_surge_days(s)])
 	return lines
 
 
@@ -1168,6 +1184,9 @@ func selection() -> Dictionary:
 	var dim := dimming_building_text(b)
 	if dim != "":
 		lines.append(dim)
+	var surge := vein_surge_text(b)
+	if surge != "":
+		lines.append(surge)
 	var halt_text := halt_text(b)
 	var bl := _blight_near(b)
 	if bl > 0:
@@ -1257,6 +1276,7 @@ func _panel_rows(b: Building) -> Dictionary:
 	extra.append(reservoir_text(b))
 	extra.append(_goods_line("Stored", b.inventory))
 	extra.append(dimming_building_text(b))
+	extra.append(vein_surge_text(b))
 	var bl := _blight_near(b)
 	extra.append("Blight: %d tiles" % bl if bl > 0 else "")
 	out["extra"] = extra.filter(func(l: String) -> bool: return l != "")
@@ -1312,6 +1332,9 @@ func selection_lines(b: Building) -> Array:
 	var dim := dimming_building_text(b)
 	if dim != "":
 		lines.append(dim)
+	var surge := vein_surge_text(b)
+	if surge != "":
+		lines.append(surge)
 	var bl := _blight_near(b)
 	if bl > 0:
 		lines.append("Blight: %d tiles" % bl)
@@ -1589,6 +1612,9 @@ func tooltip_for_building(b: Building) -> Dictionary:
 	var dim := dimming_building_text(b)
 	if dim != "":
 		status.append(dim)
+	var surge := vein_surge_text(b)
+	if surge != "":
+		status.append(surge)
 	var lean := lean_winter_text(b)
 	if lean != "":
 		status.append(lean)

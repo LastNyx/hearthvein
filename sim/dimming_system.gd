@@ -8,6 +8,11 @@ extends SimSystem
 ## Settlement.planet_health() at that moment. Events: dimming_forecast {start_day, length} (start_day is the 0-based
 ## total day number, GameClock.total_days()), dimming_started, dimming_ended, darkness_started, darkness_ended.
 ##
+## Vein surge (ticket 150, spec N8): when a Dimming ends (a regular one, or the Great Dimming too: it rewards the
+## win), every vein extractor makes PlanetDef.vein_surge_factor of its output for PlanetDef.vein_surge_days days,
+## through the ProductionSystem modifier vein_surge_modifier. A regular Dimming that yields to the Great one does not
+## start a surge. Events: vein_surge_started {days, factor}, vein_surge_ended.
+##
 ## During the Dimming: ProductionSystem modifier output_modifier (vein extractors x BuildingDef.dimming_vein_factor,
 ## or PlanetDef.dimming_vein_factor when the def leaves it 0; others x BuildingDef.dimming_factor), and each day every
 ## citizen needs light_per_citizen Lumen from storage in
@@ -26,6 +31,12 @@ var _start_day: int = -1
 var _length: int = 0
 var _active: bool = false
 var _dark: bool = false
+## Vein surge timer (ticket 150): on while _surge_on, from the day it started (1-based day N of the HUD) until the
+## start of _surge_until, a day count. _surge_on, not the day arithmetic, is what the modifier reads: the day hooks
+## run after the boundary hour has been produced, so the last surge hour still counts and the first normal hour not.
+var _surge_on: bool = false
+var _surge_from: int = -1
+var _surge_until: int = -1
 ## Last day's light report: need, drawn_lumen, drawn_cells, short.
 var last_light: Dictionary = {}
 
@@ -36,6 +47,9 @@ func save_state() -> Dictionary:
 		"length": _length,
 		"active": _active,
 		"dark": _dark,
+		"surge_on": _surge_on,
+		"surge_from": _surge_from,
+		"surge_until": _surge_until,
 		"last_light": last_light.duplicate(true),
 	}
 
@@ -45,6 +59,9 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_length = int(d["length"])
 	_active = bool(d["active"])
 	_dark = bool(d["dark"])
+	_surge_on = bool(d.get("surge_on", false))
+	_surge_from = int(d.get("surge_from", -1))
+	_surge_until = int(d.get("surge_until", -1))
 	last_light = d["last_light"].duplicate(true)
 
 
@@ -57,6 +74,32 @@ static func is_dark(s: Settlement) -> bool:
 static func is_active(s: Settlement) -> bool:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
 	return (d != null and d._active) or GreatDimmingSystem.is_active(s)
+
+
+## True while the vein surge runs after a Dimming (ticket 150).
+static func vein_surge(s: Settlement) -> bool:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	return d != null and d._surge_on
+
+
+## 1-based day of the surge ("day 1 of 2"), 0 outside it.
+static func vein_surge_day(s: Settlement) -> int:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null or not d._surge_on:
+		return 0
+	return s.clock.total_days() - d._surge_from + 1
+
+
+## Length of the surge in days (PlanetDef.vein_surge_days).
+static func vein_surge_days(s: Settlement) -> int:
+	return s.registry.planet.vein_surge_days
+
+
+## ProductionSystem modifier: a vein extractor makes PlanetDef.vein_surge_factor while the surge runs, 1.0 otherwise.
+static func vein_surge_modifier(s: Settlement, b: Building) -> float:
+	if b == null or not b.def.vein_extractor or not vein_surge(s):
+		return 1.0
+	return s.registry.planet.vein_surge_factor
 
 
 ## ProductionSystem modifier: output factor while a Dimming is on.
@@ -170,6 +213,8 @@ func on_day(s: Settlement) -> void:
 	var today := s.clock.total_days()
 	var great_on := GreatDimmingSystem.is_active(s)
 	var g := s.get_system(GreatDimmingSystem) as GreatDimmingSystem
+	if _surge_on and today >= _surge_until:
+		_end_vein_surge(s)
 	if g != null and _start_day >= 0 and not _active and g.blocks_regular(s, _start_day):
 		_start_day = -1  # a forecast Dimming that the Great one swallows
 	if _active and (great_on or today >= _start_day + _length):
@@ -179,6 +224,8 @@ func on_day(s: Settlement) -> void:
 			s.events.emit("darkness_ended", {})
 		s.events.emit("dimming_ended", {"start_day": _start_day, "length": _length})
 		_start_day = -1
+		if not great_on:  # yielding to the Great Dimming is no reward
+			_start_vein_surge(s)
 	if _dark and not _active and not great_on:
 		_dark = false
 		s.events.emit("darkness_ended", {})
@@ -187,6 +234,28 @@ func on_day(s: Settlement) -> void:
 		s.events.emit("dimming_started", {"start_day": _start_day, "length": _length})
 	if _active or great_on:
 		_light(s)
+
+
+## The Great Dimming ended too: it rewards the win with the same surge (ticket 150). Wired in
+## Settlement.add_default_systems on the great_dimming_ended event (the callback takes the log entry, then the bound
+## settlement, like the other bus handlers).
+func on_great_dimming_ended(_e: Dictionary, s: Settlement) -> void:
+	_start_vein_surge(s)
+
+
+func _start_vein_surge(s: Settlement) -> void:
+	var pd := s.registry.planet
+	_surge_on = true
+	_surge_from = s.clock.total_days()
+	_surge_until = _surge_from + pd.vein_surge_days
+	s.events.emit("vein_surge_started", {"days": pd.vein_surge_days, "factor": pd.vein_surge_factor})
+
+
+func _end_vein_surge(s: Settlement) -> void:
+	_surge_on = false
+	_surge_from = -1
+	_surge_until = -1
+	s.events.emit("vein_surge_ended", {})
 
 
 func on_season(s: Settlement) -> void:

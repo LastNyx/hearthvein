@@ -38,6 +38,10 @@ extends Resource
 @export var dimming_forecast_seasons: int = 1
 ## Vein extractor output factor during a Dimming (other buildings use BuildingDef.dimming_factor).
 @export var dimming_vein_factor: float = 0.25
+## Vein surge (ticket 150, spec N8): after a Dimming ends, every vein extractor makes this factor of its output for
+## vein_surge_days days.
+@export var vein_surge_factor: float = 1.5
+@export var vein_surge_days: int = 2
 ## Light need per citizen per Dimming day, in Lumen. 1 Lumen cell = lumen_per_cell Lumen.
 @export var light_per_citizen: float = 0.5
 @export var lumen_per_cell: float = 5.0
