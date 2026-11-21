@@ -161,6 +161,9 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	if b.def.min_planet_health > 0.0 and s.planet_health() < b.def.min_planet_health:
 		_set_halt(s, b, "planet_too_sick")
 		return
+	if b.def.night_only and not s.is_night():
+		_set_halt(s, b, "")  # a night-only building makes nothing by day (ticket 134)
+		return
 	if b.def.night_worker_slots > 0 and s.is_night() and not s.is_lit(b):
 		_set_halt(s, b, "unlit")  # a dark night-shift building keeps its night slots closed (spec N2)
 		return

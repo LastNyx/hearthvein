@@ -1340,6 +1340,8 @@ func _def_tooltip_lines(def: BuildingDef, b: Building) -> Array[String]:
 			lines.append(str(pair[1]) % int(pair[0]))
 	if def.placement_radius > 0 and (def.fells_forest or def.plants_forest or def.placement_rule.begins_with("near_")):
 		lines.append("Works within %d tiles" % def.placement_radius)
+	if def.placement_rule == "shade":
+		lines.append("Needs %d forest tiles within %d tiles" % [Placement.SHADE_FOREST_TILES, def.placement_radius])
 	var beds := b.effective_beds(s.registry) if b != null else def.housing_beds
 	if beds > 0:
 		lines.append("Beds %d" % beds)

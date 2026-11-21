@@ -147,7 +147,7 @@ static func _job_entries(s: Settlement) -> Array:
 		var lit := s.is_lit(b)  # a night slot stays closed while its building is dark (ticket 132, spec N2)
 		var slots := b.effective_worker_slots(s.registry)
 		var rank: int = _CATEGORY_RANK.get(b.def.category, CATEGORY_ORDER.size())
-		if slots > 0:
+		if slots > 0 and not d.night_only:
 			_add_entry(by_key, b, Citizen.JOB_WORK, slots, rank, pr, 2, SHIFT_DAY)
 		if d.night_worker_slots > 0 and lit:
 			_add_entry(by_key, b, Citizen.JOB_WORK, d.night_worker_slots, rank, pr, 2, SHIFT_NIGHT)
