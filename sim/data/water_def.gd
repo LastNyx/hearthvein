@@ -22,6 +22,13 @@ extends Resource
 @export var foul_dock_output_factor: float = 0.5
 ## Farm output multiplier when its wetness comes only from fouled water (design.md: irrigated farms x0.75).
 @export var foul_farm_output_factor: float = 0.75
+## Spring floods (spec N10, ticket 154): land this many 4-connected steps from a river tile floods each spring. 0 = no
+## floods.
+@export var flood_radius: int = 2
+## Days one spring flood lasts. 0 = no floods.
+@export var flood_days: int = 3
+## Fertility points a flooded tile gains when the flood drains (the silt). The silt shows until the next flood.
+@export var flood_silt_fertility: float = 10.0
 
 
 ## One or two short lines on what an Irrigation Channel does, every number read from this resource (build tooltip,

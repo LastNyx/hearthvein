@@ -2570,6 +2570,21 @@
     ]
    },
    "w": 74
+  },
+  "levee": {
+   "base": [
+    16,
+    31
+   ],
+   "file": "buildings/levee.png",
+   "flat": true,
+   "footprint": [
+    1,
+    1
+   ],
+   "generic": true,
+   "h": 32,
+   "w": 32
   }
  },
  "channels": {

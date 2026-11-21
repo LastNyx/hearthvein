@@ -165,6 +165,7 @@ func add_default_systems() -> void:
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
+	add_system(FloodSystem.new())  # spring floods (ticket 154): halts flooded buildings and marks silt before Production
 	add_system(FoulingSystem.new())  # hourly river fouling; its modifier feeds Production (ticket 29c)
 	add_system(FertilitySystem.new())  # before Production: supplies the farm fertility modifier
 	add_system(ProductionSystem.new())

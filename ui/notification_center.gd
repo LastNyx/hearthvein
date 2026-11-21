@@ -28,7 +28,7 @@ func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
 			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished",
-			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone", "season_started", "caravan_arrived", "caravan_left"]:
+			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone", "season_started", "caravan_arrived", "caravan_left", "flood_forecast"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -72,6 +72,9 @@ func _on_event(e: Dictionary) -> void:
 		"dimming_forecast":
 			raise("dimming:%d" % d["start_day"], "dimming",
 					"Dimming forecast: lasts %d days" % int(d["length"]))
+		"flood_forecast":
+			raise("flood:%d" % int(d["start_day"]), "flood",
+					"Flood forecast: the river floods tomorrow for %d days" % int(d["days"]))
 		"great_dimming_forecast":
 			raise("great_dimming:forecast", "dimming", "The Great Dimming is coming in %d days and lasts %d days" % [
 					int(d["start_day"]) - s.clock.total_days(), s.registry.planet.great_dimming_days])

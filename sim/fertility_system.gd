@@ -178,6 +178,21 @@ static func _start_points(s: Settlement) -> PackedFloat32Array:
 	return out
 
 
+## Silt a drained spring flood leaves on a tile (ticket 154): `points` fertility more, up to 100. The quarter points
+## survive when a FertilitySystem is registered (a plain byte write otherwise).
+static func add_silt(s: Settlement, tile: Vector2i, points: float) -> void:
+	if points <= 0.0 or not MapState.in_bounds(tile.x, tile.y):
+		return
+	var i := MapState.idx(tile.x, tile.y)
+	var sys := s.get_system(FertilitySystem) as FertilitySystem
+	var now := sys.fertility_at(s, tile) if sys != null else float(s.map.get_fertility(tile.x, tile.y))
+	var after := minf(100.0, now + points)
+	if sys != null:
+		sys.set_points(s.map, i, after)
+	else:
+		s.map.set_fertility(tile.x, tile.y, roundi(after))
+
+
 ## Set one tile's fertility to an exact point value, quarter points included (the Verdant Spring writes 100).
 func set_points(map: MapState, i: int, v: float) -> void:
 	_write_points(map, i, v)

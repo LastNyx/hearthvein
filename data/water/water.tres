@@ -13,3 +13,6 @@ foul_spread_tiles_per_hour = 1
 foul_clear_hours = 48
 foul_dock_output_factor = 0.5
 foul_farm_output_factor = 0.75
+flood_radius = 2
+flood_days = 3
+flood_silt_fertility = 10.0
