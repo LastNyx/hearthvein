@@ -119,6 +119,24 @@ func test_new_moon_glowcap_plus_25_percent() -> void:
 	assert_almost_eq(prod.multiplier(s, s.buildings[mill]), m_new, 0.0001, "other buildings ignore the moon")
 
 
+# The new-moon bonus is a BuildingDef flag (new_moon_boost), not a test of the Grove's id.
+func test_new_moon_bonus_follows_the_def_flag() -> void:
+	var s := _new_settlement()
+	var hs := s.map.hearth_spot
+	var mill_id := s.place_building_instant("sawmill", Vector2i(hs.x + 14, hs.y - 3))
+	var mill: Building = s.buildings[mill_id]
+	var prod := s.get_system(ProductionSystem) as ProductionSystem
+	assert_true(s.registry.get_building("glowcap_grove").new_moon_boost, "the Grove carries the flag in data")
+	assert_false(mill.def.new_moon_boost, "the Sawmill does not")
+	_set_clock(s, 2, 23)
+	var base := prod.multiplier(s, mill)
+	_set_clock(s, 1, 23)
+	assert_almost_eq(prod.multiplier(s, mill), base, 0.0001, "no flag, no bonus")
+	mill.def.new_moon_boost = true
+	assert_almost_eq(prod.multiplier(s, mill), base * 1.25, 0.0001, "the flag alone gives the new-moon bonus")
+	mill.def.new_moon_boost = false
+
+
 func test_dial_model_returns_the_phase() -> void:
 	for day in range(1, 9):
 		var m := ClockDial.moon_model(day - 1 + 16, dn)

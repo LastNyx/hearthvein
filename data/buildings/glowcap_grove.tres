@@ -28,6 +28,7 @@ storage_mode = "none"
 storage_cap = 0
 dimming_factor = 2.0
 glow_river_boost = true
+new_moon_boost = true
 placement_rule = "shade"
 placement_radius = 2
 recipe = SubResource("Recipe")

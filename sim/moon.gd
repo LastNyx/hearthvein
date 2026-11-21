@@ -55,7 +55,7 @@ static func spirit_bonus(total_days: int, d: DayNightDef) -> float:
 
 ## ProductionSystem modifier: the Glowcap Grove makes more on a new-moon night (ticket 145).
 static func output_modifier(s: Settlement, b: Building) -> float:
-	if b.def.id != "glowcap_grove" or s.registry.day_night == null:
+	if not b.def.new_moon_boost or s.registry.day_night == null:
 		return 1.0
 	return glowcap_factor(s.moon_days(), s.registry.day_night)
 

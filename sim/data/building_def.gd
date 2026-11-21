@@ -286,6 +286,8 @@ const GOLD := "gold"
 ## True when the building makes PlanetDef.glow_river_grove_factor more while it stands within
 ## PlanetDef.glow_river_radius tiles of the river in a Dimming (the Glowcap Grove).
 @export var glow_river_boost: bool = false
+## True when the building makes DayNightDef.moon_new_glowcap more on a new-moon night (the Glowcap Grove, ticket 145).
+@export var new_moon_boost: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

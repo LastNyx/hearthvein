@@ -163,7 +163,6 @@ func _draw_coverage() -> void:
 			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), Color(0.9, 0.35, 0.35, 0.85), 2.0)
 
 
-## Water overlay extras: Well-type supply range (blue-teal tint over the union of areas, outline each, check / cross on
 ## Spring flood water and the silt it leaves (ticket 154): flooded tiles get a deep blue tint, silted ones a rich soil
 ## green. Drawn whatever the overlays are, so a flood is visible in play.
 func _draw_flood() -> void:
@@ -184,6 +183,7 @@ func _draw_flood() -> void:
 		draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.38, 0.62, 0.22, 0.18))
 
 
+## Water overlay extras: Well-type supply range (blue-teal tint over the union of areas, outline each, check / cross on
 ## homes that need water) and every fouled river tile (sickly green tint with an outline).
 func _draw_water_extras() -> void:
 	var col := Color(0.3, 0.85, 0.95)

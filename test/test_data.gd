@@ -25,7 +25,7 @@ func test_real_data_loads_clean() -> void:
 	assert_eq(reg.goods.size(), 19)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
-	assert_eq(reg.buildings.size(), 73)
+	assert_eq(reg.buildings.size(), 74)
 
 
 func test_broken_fixture_reports_errors() -> void:
@@ -194,6 +194,7 @@ func test_wave_2_numbers_are_validated() -> void:
 	assert_eq([reg.planet.vein_surge_factor, reg.planet.vein_surge_days, reg.planet.glow_river_light_radius], [1.5, 2, 1])
 	assert_eq([reg.logistics.river_downstream_factor, reg.logistics.river_upstream_factor], [3.0, 0.75])
 	assert_true(reg.get_building("glowcap_grove").glow_river_boost, "the Grove is the glow river's building")
+	assert_true(reg.get_building("glowcap_grove").new_moon_boost, "the Grove is the new moon's building")
 	var cases := [
 		[reg.planet, "vein_surge_factor", 0.9, 1.5, "vein_surge_factor"],
 		[reg.planet, "vein_surge_days", 0, 2, "vein_surge_days"],
