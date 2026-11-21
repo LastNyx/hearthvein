@@ -259,3 +259,46 @@ func test_fouled_water_halves_the_drive() -> void:
 	var foul_bread := _night_run(foul, foul_lay, true)
 	assert_gt(clean_bread, 0.0, "the clean wheel drove the bakery")
 	assert_almost_eq(foul_bread / clean_bread, 0.5, 0.06, "fouled water drives the bakery at half speed")
+
+
+## Lays the road and the wheel on `lay`, then a `shop_id` workshop beside it (the 2x1 shops may need the tile to the
+## left of the layout's shop tile as their origin). Returns the workshop, or null when none fits.
+func _driven(s: Settlement, lay: Dictionary, shop_id: String) -> Building:
+	_lay_road(s, lay["path"])
+	assert_true(s.place_building_instant("water_wheel", lay["bank"]) >= 0, "wheel on the bank")
+	for o in [lay["shop"], lay["shop"] + Vector2i(-1, 0)]:
+		var bid := s.place_building_instant(shop_id, o)
+		if bid >= 0:
+			return s.buildings[bid]
+	return null
+
+
+## Ticket 174: a driven Sawmill, Mason or Bakery has one slot fewer per shift (never below 1, and a shift with no
+## slots stays at none).
+func test_a_driven_workshop_has_one_day_slot_fewer_never_below_one() -> void:
+	var expect := {"sawmill": [1, 1], "mason": [1, 1], "bakery": [0, 1]}  # [day, night] slots with the wheel
+	var plain := {"sawmill": [2, 1], "mason": [2, 1], "bakery": [0, 2]}  # without it
+	for id in expect:
+		var s := _new_settlement()
+		var lay := _layout(s)
+		var shop := _driven(s, lay, id)
+		assert_not_null(shop, "%s placed beside the wheel" % id)
+		if shop == null:
+			continue
+		assert_eq([ProductionSystem.worker_slots_for(s, shop), ProductionSystem.night_slots_for(s, shop)],
+				expect[id], "%s slots with a clean wheel" % id)
+		assert_eq([shop.def.worker_slots, shop.def.night_worker_slots], plain[id], "%s slots in data" % id)
+
+
+## Ticket 174: the selected driven workshop says what drives it, and says so when the water is fouled.
+func test_the_selection_line_names_the_wheel_and_the_fouled_water() -> void:
+	var s := _new_settlement()
+	var lay := _layout(s)
+	var shop := _driven(s, lay, "bakery")
+	assert_not_null(shop)
+	var m := HudModel.new(s)
+	m.select(shop.id)
+	assert_has(m.selection()["extra"], "Water Wheel: -1 worker, runs at night")
+	var wheel := ProductionSystem.wheel_driving(s, shop)
+	assert_true(s.set_fouled(_river_neighbour(s, wheel), true), "the river beside the wheel fouls")
+	assert_has(m.selection()["extra"], "Water Wheel: fouled water, half speed")

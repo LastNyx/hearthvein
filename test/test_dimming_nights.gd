@@ -211,3 +211,12 @@ func test_tavern_normal_night_is_still_20_to_06() -> void:
 	assert_gt(sp.factor_value(s, "tavern"), 0.0, "serving at 05:00")
 	s.step_hours(1)  # 06:00
 	assert_eq(sp.save_state()["serving"].size(), 0, "the serving list clears at 06:00")
+
+
+## Ticket 174: the tint is the night colour from 16:00 to 09:00 in a Dimming and white from 09:00 to 16:00.
+func test_tint_in_a_dimming_is_dark_16_to_09() -> void:
+	var nc := reg.day_night.night_color
+	for h in [16.0, 23.0, 0.0, 8.0]:
+		assert_eq(DayNight.tint_for(h, reg.day_night, true), nc, "night colour at %s" % h)
+	for h in [9.0, 12.0, 15.0]:
+		assert_eq(DayNight.tint_for(h, reg.day_night, true), Color.WHITE, "white at %s" % h)
