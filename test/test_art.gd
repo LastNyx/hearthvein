@@ -835,6 +835,119 @@ func test_clear_picks_the_trunk_tile_under_a_canopy() -> void:
 	assert_eq(BuildController.pick_clear(s, hover)["tile"], trunk, "Clear picks the trunk's tile, not the canopy's tile")
 
 
+# ---------------------------------------------------------------- hover highlight and no-road icon (ticket 168)
+## Point the world mouse at `world`: headless has no pointer, and the hover maths read the viewport's canvas
+## transform (GhostView.get_global_mouse_position).
+func _park_mouse(world: Vector2) -> void:
+	get_viewport().canvas_transform = Transform2D(0.0, -world)
+
+
+func _build_controller(s: Settlement) -> BuildController:
+	var c := BuildController.new()
+	add_child_autofree(c)
+	var ghost := GhostView.new()
+	add_child_autofree(ghost)
+	var layer := CanvasLayer.new()
+	add_child_autofree(layer)
+	c.setup(s, ghost, layer)
+	return c
+
+
+func test_hover_marker_shows_the_ghost_and_clear_hides_it() -> void:
+	var g := GhostView.new()
+	add_child_autofree(g)
+	g.set_state(null, Vector2i.ZERO, false, false)
+	assert_false(g.visible, "no tool and no hover: hidden")
+	var tree := {"name": "tree_3", "pos": Vector2(100, 200)}
+	g.set_hover(Vector2i(4, 5), Vector2i(2, 3), tree)
+	assert_true(g.visible, "the hover outline is shown")
+	assert_true(g.hover_on)
+	assert_eq(g.hover_tile, Vector2i(4, 5), "the given tile")
+	assert_eq(g.hover_size, Vector2i(2, 3), "the given size")
+	assert_eq(g.hover_tree, tree, "the given tree")
+	g.clear_hover()
+	assert_false(g.visible, "with no tile shown, clearing hides the ghost again")
+	assert_false(g.hover_on)
+	assert_eq(g.hover_tree, {}, "the tree tint is dropped")
+
+
+func test_demolish_outlines_the_footprint_and_clear_marks_the_trunk() -> void:
+	var s := Settlement.new_game(42, _reg)
+	var def := _reg.get_building("grand_bazaar")
+	assert_eq(def.size, Vector2i(3, 2))
+	var o := Vector2i(-1, -1)
+	for y in range(2, MapState.HEIGHT - 3):
+		if o.x >= 0:
+			break
+		for x in range(2, MapState.WIDTH - 4):
+			var clear := true
+			for dy in 2:
+				for dx in 3:
+					var t := Vector2i(x + dx, y + dy)
+					if s.map.terrain_id_at(t.x, t.y) != "grass" or s.building_at(t) != null:
+						clear = false
+			if clear:
+				o = Vector2i(x, y)
+				break
+	assert_true(o.x >= 0, "found open grass for the bazaar")
+	s._insert_building(def, o)  # placement rules (era, roads) are not under test
+	var c := _build_controller(s)
+	c.set_mode(BuildController.Mode.DEMOLISH)
+	_park_mouse(Vector2(o) * GhostView.TILE + Vector2(GhostView.TILE, GhostView.TILE) * 0.5)
+	c._process(0.0)
+	get_viewport().canvas_transform = Transform2D.IDENTITY
+	assert_true(c.ghost.hover_on, "Demolish shows the hover outline")
+	assert_eq(c.ghost.hover_tile, o, "the outline starts at the building")
+	assert_eq(c.ghost.hover_size, def.size, "the outline covers the building's full footprint, not one tile")
+
+	# A lone forest trunk: the cursor over the canopy, one tile above the trunk's own tile.
+	var trunk := Vector2i(-1, -1)
+	var trunk_prop: Dictionary = {}
+	for y in range(1, MapState.HEIGHT - 1):
+		if trunk.x >= 0:
+			break
+		for x in range(1, MapState.WIDTH - 1):
+			var id := s.map.terrain_id_at(x, y)
+			if ArtLibrary.ground_of(id) != "forest":
+				continue
+			var props := ArtLibrary.scatter(id, x, y, PropBatch.open_dir(s.map, x, y))
+			if props.size() != 1:
+				continue
+			var p: Dictionary = props[0]
+			if _crowded_forest(s, (p["pos"] as Vector2) + Vector2(0, -ArtLibrary.TILE), p["pos"]):
+				continue
+			trunk = Vector2i(x, y)
+			trunk_prop = p
+			break
+	assert_true(trunk.x >= 0, "found a lone forest trunk")
+	var hover: Vector2 = (trunk_prop["pos"] as Vector2) + Vector2(0, -ArtLibrary.TILE)
+	assert_ne(Vector2i(floori(hover.x / ArtLibrary.TILE), floori(hover.y / ArtLibrary.TILE)), trunk,
+			"the cursor is over the canopy, not the trunk's tile")
+	c.set_mode(BuildController.Mode.CLEAR)
+	_park_mouse(hover)
+	c._process(0.0)
+	get_viewport().canvas_transform = Transform2D.IDENTITY
+	assert_eq(c.ghost.hover_tile, trunk, "Clear marks the trunk's tile")
+	assert_eq(c.ghost.hover_tree, trunk_prop, "Clear marks the tree that would be felled")
+
+
+func test_market_no_road_icon_sits_on_the_drawn_art() -> void:
+	var e := ArtLibrary.building_entry("market")
+	assert_eq(Vector2i(int(e["w"]), int(e["h"])), Vector2i(66, 66), "the market art is 66x66")
+	var origin := Vector2i(10, 10)
+	var r := ArtLibrary.sprite_rect("market", origin, Vector2i(2, 2))
+	var c := PlacementView.no_road_icon_center("market", origin, Vector2i(2, 2))
+	assert_true(r.has_point(c), "the icon centre is on the sprite")
+	var img := ArtLibrary.texture(e["file"]).get_image()
+	var rel := Vector2i(roundi(c.x - r.position.x), roundi(c.y - r.position.y))
+	var inked := 0
+	for y in range(rel.y - 4, rel.y + 5):
+		for x in range(rel.x - 4, rel.x + 5):
+			if img.get_pixel(x, y).a > 0.0:
+				inked += 1
+	assert_gt(inked, 40, "most of the icon area is on the market's art, not in an empty strip")
+
+
 func test_generic_buildings_have_a_signature_prop_and_sign() -> void:
 	var ids := ["forager", "storehouse", "fishing_dock", "quarry", "sawmill", "forester", "builders_yard", "workshop",
 		"tax_office", "well", "mason", "refinery", "kitchen", "handcart_shed", "lift_anchor", "lumen_arcology",

@@ -381,9 +381,14 @@ func _draw_upgrade_bar(ci: CanvasItem, b: Building) -> void:
 			Color("5fc34a") if working else Color("e8a33a"))
 
 
+## Centre of the no-road icon on a building's sprite, at its top-right (ticket 168: a test pins it to the drawn art).
+static func no_road_icon_center(id: String, origin: Vector2i, size: Vector2i) -> Vector2:
+	var r := ArtLibrary.sprite_rect(id, origin, size)
+	return Vector2(r.end.x - 6.0, r.position.y + 8.0)
+
+
 func _draw_no_road(ci: CanvasItem, b: Building) -> void:
-	var r := ArtLibrary.sprite_rect(b.def.id, b.origin, b.def.size)
-	var c := Vector2(r.end.x - 6, r.position.y + 8)
+	var c := no_road_icon_center(b.def.id, b.origin, b.def.size)
 	ci.draw_circle(c, 7.0, Color(0.1, 0.05, 0.05, 0.9))
 	ci.draw_circle(c, 6.0, Color("d8362e"))
 	ci.draw_rect(Rect2(c + Vector2(-3.5, -1.5), Vector2(7, 3)), Color.WHITE)
