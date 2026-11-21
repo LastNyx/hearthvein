@@ -18,7 +18,7 @@ const CATEGORY_ORDER: Array[String] = [
 const BUILD_CATEGORY := "build"
 ## Hauler slots (def.hauler_slots) always rank as the hauling tier, whatever the building's own category.
 const HAUL_CATEGORY := "logistics"
-## Within a category: high first, then normal, then low. Paused buildings get no workers at all.
+## Priority bucket, ahead of the category rank: high first, then normal, then low. Paused buildings get no workers at all.
 const PRIORITY_ORDER: Array[String] = ["high", "normal", "low"]
 
 
@@ -133,7 +133,7 @@ static func _assign_homes(s: Settlement, c: JobSystem) -> void:
 				break
 
 
-## Slot entries {building, kind, slots, group, shift} in fill order: category rank, priority, shift (day before
+## Slot entries {building, kind, slots, group, shift} in fill order: priority bucket, category rank, shift (day before
 ## night), building id, then kind. Each entry gets one int sort key so a plain int sort does the ordering.
 static func _job_entries(s: Settlement) -> Array:
 	var by_key := {}
@@ -177,10 +177,10 @@ static func _add_entry(by_key: Dictionary, b: Building, kind: String, slots: int
 		"shift": shift}
 
 
-## Fair-share group: one (rank, priority, shift). Shift sorts day before night, so night slots come after the day
+## Fair-share group: one (priority bucket, rank, shift); High beats Normal beats Low across every category (ticket 158). Shift sorts day before night, so night slots come after the day
 ## slots of the same rank and each group is shared the same way.
 static func _group_key(rank: int, pr: int, shift: int) -> int:
-	return (rank * 4 + pr) * 2 + shift
+	return (pr * 16 + rank) * 2 + shift  # rank < 16 (CATEGORY_ORDER has 9 plus the unlisted rank)
 
 
 ## Sort key: group, then building id, then kind code.

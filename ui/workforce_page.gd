@@ -41,7 +41,7 @@ func setup(h: Hud, m: HudModel) -> void:
 	hint.text = "Esc or Q closes"
 	_head = hud._label(v, 17, Hud.INK)
 	var note := hud._label(v, 14, Hud.DIM)
-	note.text = "Priority orders jobs inside a category only"
+	note.text = "High: staffed before Normal buildings of every kind"
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

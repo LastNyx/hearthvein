@@ -1125,7 +1125,7 @@ func selection() -> Dictionary:
 	var out := {"id": b.id, "title": b.display_name(s.registry), "lines": clean, "halt": halt_text, "warn": warn,
 			"advice": halt_advice(b), "priority": b.priority, "paused": b.paused, "site": b.site,
 			"progress": b.build_progress(), "show_priority": b.site or has_jobs(b),
-			"priority_label": "Build priority" if b.site else "Work priority"}
+			"priority_label": "Build priority" if b.site else "Work priority. High: staffed before Normal buildings of every kind"}
 	out.merge(upgrade_info(b))
 	out.merge(_panel_rows(b), true)
 	return out

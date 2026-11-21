@@ -169,3 +169,61 @@ func test_new_citizen_does_not_move_the_others() -> void:
 	for id in before:
 		assert_eq(after[id], before[id], "citizen %d stays" % id)
 	reg.logistics.small_town_pop = small
+
+
+## Ticket 158: the priority bucket comes before the category rank. One citizen, farm (food) and market (gold).
+func _farm_and_market(s: Settlement) -> Array:
+	assert_true(s.set_building_priority(s.hearth.id, "paused"))  # keep its hauler slots out of the count
+	var f := _put(s, "farm", true)
+	var m := _put(s, "market", true)
+	assert_not_null(f)
+	assert_not_null(m)
+	return [f, m]
+
+
+func test_high_market_is_staffed_before_normal_food() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0
+	var s := _new()
+	var fm := _farm_and_market(s)
+	_keep_citizens(s, 1)
+	assert_true(s.set_building_priority(fm[1].id, "high"))
+	s.refresh_population()
+	assert_eq([_workers(s, fm[0]), _workers(s, fm[1])], [0, 1])
+	reg.logistics.small_town_pop = small
+
+
+func test_all_normal_keeps_category_order() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0
+	var s := _new()
+	var fm := _farm_and_market(s)
+	_keep_citizens(s, 1)
+	s.refresh_population()
+	assert_eq([_workers(s, fm[0]), _workers(s, fm[1])], [1, 0])
+	reg.logistics.small_town_pop = small
+
+
+func test_high_food_beats_high_market() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0
+	var s := _new()
+	var fm := _farm_and_market(s)
+	_keep_citizens(s, 1)
+	assert_true(s.set_building_priority(fm[0].id, "high"))
+	assert_true(s.set_building_priority(fm[1].id, "high"))
+	s.refresh_population()
+	assert_eq([_workers(s, fm[0]), _workers(s, fm[1])], [1, 0])
+	reg.logistics.small_town_pop = small
+
+
+func test_low_food_is_staffed_after_normal_market() -> void:
+	var small := reg.logistics.small_town_pop
+	reg.logistics.small_town_pop = 0
+	var s := _new()
+	var fm := _farm_and_market(s)
+	_keep_citizens(s, 1)
+	assert_true(s.set_building_priority(fm[0].id, "low"))
+	s.refresh_population()
+	assert_eq([_workers(s, fm[0]), _workers(s, fm[1])], [0, 1])
+	reg.logistics.small_town_pop = small

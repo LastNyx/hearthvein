@@ -58,7 +58,7 @@ func test_priority_buttons_follow_site_and_jobs() -> void:
 	m.select(wc)
 	hud.refresh()
 	assert_true(hud._prio_row.visible)
-	assert_eq(hud._sel_prio_title.tooltip_text, "Work priority")
+	assert_eq(hud._sel_prio_title.tooltip_text, "Work priority. High: staffed before Normal buildings of every kind")
 
 
 func test_top_bar_people_tooltip_and_halt_advice_show() -> void:
