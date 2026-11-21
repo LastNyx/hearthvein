@@ -1148,11 +1148,9 @@ func is_tile_lit(tile: Vector2i) -> bool:
 
 
 ## The 0-based day count of tonight's moon (ticket 145): the clock's day, but the small hours before the lamps go out
-## (LogisticsDef.lamp_light_end) still belong to the night that began the evening before.
+## (the end of lamp_window: 07:00, or 09:00 in a Dimming) still belong to the night that began the evening before.
 func moon_days() -> int:
-	var lg := registry.logistics if registry != null else null
-	var end := lg.lamp_light_end if lg != null else 7
-	return clock.total_days() - (1 if clock.hour() < end else 0)
+	return clock.total_days() - (1 if clock.hour() < lamp_window().y else 0)
 
 
 ## Lamp radius of `b` tonight: its own radius plus the full moon's bonus (ticket 145).

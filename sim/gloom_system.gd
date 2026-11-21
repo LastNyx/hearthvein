@@ -3,7 +3,7 @@ extends SimSystem
 ## Gloom (ticket 149, spec N8): in a Dimming night, gloom starts on the forest tiles and creeps one tile an hour
 ## (LogisticsDef.gloom_spread_per_hour) over unlit, non-water land. Lit means a fuelled lamp or a Night Watch route
 ## (Settlement.is_tile_lit, ticket 133; the glow river of ticket 151 joins the same rule later). Gloom never enters a
-## lit tile, and a tile that lights is cleared on the next hour. All gloom clears at dawn (LogisticsDef.lamp_light_end)
+## lit tile, and a tile that lights is cleared on the next hour. All gloom clears at dawn (the end of Settlement.lamp_window)
 ## and whenever no Dimming is running.
 ##
 ## State: tiles maps Vector2i -> depth, 0 for a forest tile and one more per hour of creep. The frontier is the set of

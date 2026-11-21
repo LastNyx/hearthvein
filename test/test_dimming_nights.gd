@@ -140,3 +140,28 @@ func test_day_production_hours_are_shorter_in_a_dimming() -> void:
 	assert_true(ws2.is_at_work(day2.id), "at work at noon in the Dimming")
 	s2.step_hours(5)  # 17:00
 	assert_false(ws2.is_at_work(day2.id), "home by 17:00: the Dimming day ended at 16:00")
+
+
+## Ticket 172: tonight's moon follows the lamp window's end (09:00 in a Dimming), not the normal 07:00.
+func test_moon_day_holds_until_the_dimming_night_ends() -> void:
+	s.clock.total_hours = 29 * 24 + 23  # evening of cycle day 6, so the next small hours are cycle day 6's night
+	_dimming(s)
+	var evening := s.moon_days()
+	s.clock.total_hours = 30 * 24 + 8
+	assert_eq(s.moon_days(), evening, "08:00 still belongs to last evening's night")
+	s.clock.total_hours = 30 * 24 + 9
+	assert_eq(s.moon_days(), evening + 1, "09:00 the moon moves on")
+
+
+## Ticket 172: a full-moon lamp keeps its extra radius until the Dimming night ends at 09:00.
+func test_full_moon_lamp_keeps_its_radius_until_the_dimming_dawn() -> void:
+	var lamp := _put(s, "lamp", 5, 1)
+	var base := lamp.lamp_radius(reg)
+	var full_day := 5 + 8 * 3  # cycle day 5 (see test_moon._set_clock) is the full moon
+	s.clock.total_hours = (full_day - 1) * 24 + 23
+	_dimming(s)
+	assert_eq(s.lamp_radius(lamp), base + 1, "full moon at 23:00")
+	s.clock.total_hours = full_day * 24 + 8
+	assert_eq(s.lamp_radius(lamp), base + 1, "still the full-moon night at 08:00")
+	s.clock.total_hours = full_day * 24 + 9
+	assert_eq(s.lamp_radius(lamp), base, "back to the lamp's own radius at 09:00")
