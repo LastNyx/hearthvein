@@ -43,6 +43,10 @@ func on_hour(settlement: Settlement) -> void:
 ## Same ranks as CATEGORY_ORDER / PRIORITY_ORDER as dictionary lookups (the refresh runs per building).
 const _CATEGORY_RANK := {"food": 0, "water": 1, "lumen": 2, "logistics": 3, "build": 4, "resources": 5, "refining": 6,
 	"gold": 7, "civic": 8}
+## Shift of a slot entry. Night slots fill after the day slots of the same rank (ticket 132 fills them); each
+## (rank, priority, shift) is a fair-share group.
+const SHIFT_DAY := 0
+const SHIFT_NIGHT := 1
 const _KIND_CODE := {Citizen.JOB_WORK: 1, Citizen.JOB_HAUL: 2, Citizen.JOB_BUILD: 3}
 const _PRIORITY_RANK := {"high": 0, "normal": 1, "low": 2}
 
@@ -125,8 +129,8 @@ static func _assign_homes(s: Settlement, c: JobSystem) -> void:
 				break
 
 
-## Slot entries {building, kind, slots, night} in fill order: category rank, priority, day before night, building id,
-## then kind. Each entry gets one int sort key so a plain int sort does the ordering.
+## Slot entries {building, kind, slots, group, shift} in fill order: category rank, priority, shift (day before
+## night), building id, then kind. Each entry gets one int sort key so a plain int sort does the ordering.
 static func _job_entries(s: Settlement) -> Array:
 	var by_key := {}
 	var haul_rank := category_rank(HAUL_CATEGORY)
@@ -144,20 +148,15 @@ static func _job_entries(s: Settlement) -> Array:
 		var slots := b.effective_worker_slots(s.registry)
 		var rank: int = _CATEGORY_RANK.get(b.def.category, CATEGORY_ORDER.size())
 		if slots > 0:
-			by_key[_order_key(rank, pr, false, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
-				"slots": slots, "night": false}
+			_add_entry(by_key, b, Citizen.JOB_WORK, slots, rank, pr, 2, SHIFT_DAY)
 		if d.night_worker_slots > 0 and lit:
-			by_key[_order_key(rank, pr, true, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
-				"slots": d.night_worker_slots, "night": true}
+			_add_entry(by_key, b, Citizen.JOB_WORK, d.night_worker_slots, rank, pr, 2, SHIFT_NIGHT)
 		if d.hauler_slots > 0:
-			by_key[_order_key(haul_rank, pr, false, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
-				"slots": d.hauler_slots, "night": false}
+			_add_entry(by_key, b, Citizen.JOB_HAUL, d.hauler_slots, haul_rank, pr, 1, SHIFT_DAY)
 		if d.night_hauler_slots > 0 and lit:
-			by_key[_order_key(haul_rank, pr, true, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
-				"slots": d.night_hauler_slots, "night": true}
+			_add_entry(by_key, b, Citizen.JOB_HAUL, d.night_hauler_slots, haul_rank, pr, 1, SHIFT_NIGHT)
 		if d.builder_slots > 0:
-			by_key[_order_key(build_rank, pr, false, bid, 0)] = {"building": b, "kind": Citizen.JOB_BUILD,
-				"slots": d.builder_slots, "night": false}
+			_add_entry(by_key, b, Citizen.JOB_BUILD, d.builder_slots, build_rank, pr, 0, SHIFT_DAY)
 	var keys: Array = by_key.keys()
 	keys.sort()
 	var entries: Array = []
@@ -166,10 +165,23 @@ static func _job_entries(s: Settlement) -> Array:
 	return entries
 
 
-## Sort key: rank, then priority, then day before night (night slots fill after the day slots of the same rank),
-## then building id, then kind code (build 0 < haul 1 < work 2, alphabetical).
-static func _order_key(rank: int, pr: int, night: bool, bid: int, kind_code: int) -> int:
-	return ((((rank * 4 + pr) * 2 + (1 if night else 0)) << 24) + bid) * 4 + kind_code
+## One slot entry, keyed by group, building id and kind code (build 0 < haul 1 < work 2, alphabetical).
+static func _add_entry(by_key: Dictionary, b: Building, kind: String, slots: int, rank: int, pr: int,
+		kind_code: int, shift: int) -> void:
+	var group := _group_key(rank, pr, shift)
+	by_key[_order_key(group, b.id, kind_code)] = {"building": b, "kind": kind, "slots": slots, "group": group,
+		"shift": shift}
+
+
+## Fair-share group: one (rank, priority, shift). Shift sorts day before night, so night slots come after the day
+## slots of the same rank and each group is shared the same way.
+static func _group_key(rank: int, pr: int, shift: int) -> int:
+	return (rank * 4 + pr) * 2 + shift
+
+
+## Sort key: group, then building id, then kind code.
+static func _order_key(group: int, bid: int, kind_code: int) -> int:
+	return ((group << 24) + bid) * 4 + kind_code
 
 
 ## Builders are only wanted while sites are ready to build (full cost delivered, not paused): crew size per such
@@ -198,8 +210,28 @@ static func _slot_key(building_id: int, kind: String, night: bool) -> int:
 	return building_id * 8 + _KIND_CODE.get(kind, 0) * 2 + (1 if night else 0)
 
 
-## Slots are allotted in priority order until citizens run out. Citizens already in an allotted slot keep it
-## (no churn), everyone else goes idle, then idle citizens (lowest id first) fill what is left.
+## One slot each for the group's entries [from, to), in entry order, round after round, until every slot is filled
+## or the citizens run out. Returns the citizens still free.
+static func _fill_shared(entries: Array, from: int, to: int, left: int) -> int:
+	while left > 0:
+		var gave := false
+		for k in range(from, to):
+			var e = entries[k]
+			if e["want"] < e["slots"]:
+				e["want"] += 1
+				left -= 1
+				gave = true
+				if left <= 0:
+					break
+		if not gave:
+			break
+	return left
+
+
+## Slots are allotted in priority order until citizens run out. Inside one (rank, priority) group the slots are
+## shared round-robin across its buildings (one each in building-id order, repeat) so the last-built are not left
+## empty. Citizens already in an allotted slot keep it (no churn), everyone else goes idle, then idle citizens
+## (lowest id first) fill what is left. Deterministic, no RNG.
 static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 	var entries: Array = []
 	for e in sys._lc_entries:
@@ -229,13 +261,16 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 				var n := mini(e["slots"], left)
 				e["want"] += n
 				left -= n
-	for e in entries:
-		var n := mini(e["slots"] - e["want"], left)
-		e["want"] += n
-		left -= n
+	var g := 0
+	while g < entries.size() and left > 0:
+		var end := g + 1
+		while end < entries.size() and entries[end]["group"] == entries[g]["group"]:
+			end += 1
+		left = _fill_shared(entries, g, end, left)
+		g = end
 	var by_slot := {}
 	for e in entries:
-		by_slot[_slot_key(e["building"].id, e["kind"], e["night"])] = e
+		by_slot[_slot_key(e["building"].id, e["kind"], e["shift"] == SHIFT_NIGHT)] = e
 	var idle: Array = []
 	for cid in _sorted_citizen_ids(s):
 		var c: Citizen = s.citizens[cid]
@@ -257,5 +292,5 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 			e["want"] -= 1
 			c.job_id = e["building"].id
 			c.job_kind = e["kind"]
-			c.shift = Citizen.SHIFT_NIGHT if e["night"] else Citizen.SHIFT_DAY
+			c.shift = Citizen.SHIFT_NIGHT if e["shift"] == SHIFT_NIGHT else Citizen.SHIFT_DAY
 			s.events.emit("citizen_job_changed", {"id": c.id, "job": c.job_id})

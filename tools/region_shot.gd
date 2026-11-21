@@ -20,7 +20,7 @@ func _init() -> void:
 	var s: Settlement = main.settlement
 	var hud := main.get_node("Hud") as Hud
 	s.era_override = "village"
-	hud._rebuild_categories()
+	hud.refresh()
 	s.gold = 60.0
 	var cam: CameraController = main.get_node("Camera")
 	cam.set_zoom_step(2)

@@ -1,6 +1,6 @@
 class_name ClockDial
 extends Control
-## The sun/moon dial of the era panel clock bar (ticket 113, D4 UI half): a tiny sky box with the sun moving along an arc
+## The sun/moon dial of the clock row (ticket 113, D4 UI half): a tiny sky box with the sun moving along an arc
 ## while it is up (dawn 05 to night 21) and the moon while it is not (21 to 05). Draws only; Hud pushes the time in.
 ## The hour windows come from DayNightDef (data/daynight/day_night.tres), the same numbers as the map tint (ticket 107).
 

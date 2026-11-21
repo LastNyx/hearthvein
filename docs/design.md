@@ -263,7 +263,7 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
 | Hearth | 2x2 | start | 2 haul, 4 build | - | town centre, houses 8, storage 150 each |
-| Tent | 1x1 | 5W | - | - | houses 2 (Hut 3, Lodge 4) |
+| Tent | 1x1 | 5W | - | - | houses 3 (Hut 4, Lodge 5) |
 | Forager | 1x1 | 10W | 2 | - | +1.5 food; needs grass/forest in r3 |
 | Woodcutter | 1x1 | 10W | 2 | - | +12 wood; cuts forest in r4 |
 | Storehouse | 2x1 | 25W | 2 haul | - | 400 units any goods |
@@ -273,7 +273,7 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 ### Village
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
-| Cottage | 1x1 | 10W 5St | - | - | houses 4 |
+| Cottage | 1x1 | 10W 5St | - | - | houses 5 (Cottage II 7, Cottage III 9) |
 | Farm | 2x2 | 21W 9St | 3 | - | +2 food x fertility; x1.25 wet |
 | Fishing Dock | 1x1, shore | 14W 6St | 2 | - | +1.5 food; x0.5 fouled |
 | Quarry | 1x1, rock | 25W | 2 | - | +12 St |

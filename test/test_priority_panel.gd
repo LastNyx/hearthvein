@@ -47,7 +47,8 @@ func test_priority_buttons_follow_site_and_jobs() -> void:
 	m.select(site)
 	hud.refresh()
 	assert_true(hud._prio_row.visible, "a site keeps its buttons")
-	assert_eq(hud._sel_prio_title.text, "Build priority")
+	assert_eq(hud._sel_prio_title.text, "Priority")
+	assert_eq(hud._sel_prio_title.tooltip_text, "Build priority")
 	s.complete_site(s.buildings[site])
 	hud.refresh()
 	assert_false(hud._prio_row.visible, "a finished Tent has no job")
@@ -57,7 +58,7 @@ func test_priority_buttons_follow_site_and_jobs() -> void:
 	m.select(wc)
 	hud.refresh()
 	assert_true(hud._prio_row.visible)
-	assert_eq(hud._sel_prio_title.text, "Work priority")
+	assert_eq(hud._sel_prio_title.tooltip_text, "Work priority")
 
 
 func test_top_bar_people_tooltip_and_halt_advice_show() -> void:
@@ -72,7 +73,8 @@ func test_top_bar_people_tooltip_and_halt_advice_show() -> void:
 	s.buildings[wc].halt = "door_full"
 	m.select(wc)
 	hud.refresh()
-	assert_string_contains(hud._sel_halt.text, "Output full: no hauler has picked it up\n")
+	assert_eq(hud._sel_halt.text, "Output full: no hauler has picked it up")
+	assert_string_contains(hud._sel_halt.tooltip_text, "Output full: no hauler has picked it up\n", "the advice rides on the tooltip")
 
 
 ## Ticket 128: the priority and Pause buttons of the fixed selection panel still steer the selected building.
@@ -114,7 +116,7 @@ func test_notices_anchor_above_the_panel_clear_of_map_and_grid() -> void:
 	var notes := hud._notes_box.get_global_rect()
 	var panel := hud._sel_panel.get_global_rect()
 	var mini := hud.minimap.get_global_rect()
-	var grid := hud._bar_panel.get_global_rect()
+	var grid := hud._cmd_panel.get_global_rect()
 	assert_true(notes.size.y > 0.0, "the notice is drawn")
 	assert_true(notes.end.y <= panel.position.y + 0.5, "notices sit above the panel: %s vs %s" % [notes, panel])
 	assert_false(notes.intersects(panel), "notices clear of the panel")

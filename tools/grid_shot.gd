@@ -26,7 +26,7 @@ func _init() -> void:
 	var s: Settlement = main.settlement
 	var h := s.map.hearth_spot
 	s.era_current = "conflux"
-	(main.get_node("Hud") as Hud)._rebuild_categories()
+	(main.get_node("Hud") as Hud).refresh()
 	s.hearth.inventory.add("wood", 900.0)
 	s.hearth.inventory.add("stone", 900.0)
 	s.hearth.inventory.add("cut_stone", 40.0)

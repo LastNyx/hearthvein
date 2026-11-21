@@ -298,22 +298,21 @@ func test_plant_tool_is_lit_and_marks_by_click_and_drag_and_x_unmarks() -> void:
 	var main: Node = await _game()
 	var ms: Settlement = main.settlement
 	var build: BuildController = main.get_node("BuildController")
-	var tab: ToolsTab = (main.get_node("Hud") as Hud).tools_tab
-	tab.set_open(true)
+	var hud: Hud = main.get_node("Hud")
 	var mh := ms.map.hearth_spot
 	var row: Array[Vector2i] = []
 	for dx in range(3, 8):
 		var t := Vector2i(mh.x + dx, mh.y + 6)
 		ms.set_terrain(t, "grass")
 		row.append(t)
-	assert_string_contains(tab.button("plant").tooltip_text, "(Y)")
-	assert_false(_on(tab.button("plant")))
-	tab.button("plant").pressed.emit()
+	assert_string_contains(hud._cell_button("plant").tooltip_text, "(Y)")
+	assert_false(_on(hud._cell_button("plant")))
+	hud._cell_button("plant").pressed.emit()
 	assert_eq(build.mode, BuildController.Mode.PLANT)
-	assert_true(_on(tab.button("plant")), "lit while active")
+	assert_true(_on(hud._cell_button("plant")), "lit while active")
 	assert_string_contains(build.hint_text(), "Plant")
 	build.cancel()
-	assert_false(_on(tab.button("plant")))
+	assert_false(_on(hud._cell_button("plant")))
 	build._unhandled_input(_key(KEY_Y))
 	assert_eq(build.mode, BuildController.Mode.PLANT, "Y is the key")
 	build._click(row[0])

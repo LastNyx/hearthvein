@@ -286,7 +286,7 @@ func test_site_rows_and_the_town_summary() -> void:
 	assert_eq(t["planet"], 81)
 	assert_eq(t["planet_text"], "81 / 100")
 	assert_string_contains(t["planet_trend"], "/ yr")
-	assert_eq(t["hint"], "Click a building to see it here. Esc clears the selection.")
+	assert_eq(t["hint"], "Click a building to see it here.", "Esc is in the help screen (130b)")
 	var id := s.place_building("storehouse", _site_free_spot())
 	assert_true(id >= 0)
 	m.select(id)
@@ -856,7 +856,7 @@ func test_house_shows_residents_and_their_roles() -> void:
 	_set_job(ids[1], wc, Citizen.JOB_WORK)
 	m.select(tent)
 	var lines: Array = m.selection()["lines"]
-	assert_true("Residents 2/2" in lines, str(lines))
+	assert_true("Residents 2/3" in lines, str(lines))
 	assert_true("1 hauler, 1 woodcutter" in lines, str(lines))
 	_set_job(ids[0], -1, Citizen.JOB_NONE)
 	_set_job(ids[1], -1, Citizen.JOB_NONE)
@@ -983,7 +983,7 @@ func test_top_right_cluster_is_compact_and_clear_of_other_panels() -> void:
 		assert_false(l.text.begins_with("Era: "), "the old era panel is gone")
 		objectives_title = objectives_title or l.text == "Objectives"
 	assert_true(objectives_title, "the objectives panel is drawn")
-	var others: Array[Control] = [hud._cmd_panel, hud.tools_tab.get_node("ToolsPanel") as Control]
+	var others: Array[Control] = [hud._cmd_panel]
 	for other in others:
 		if other == null or not other.visible:
 			continue

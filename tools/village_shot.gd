@@ -26,7 +26,7 @@ func _init() -> void:
 	var s: Settlement = main.settlement
 	var h := s.map.hearth_spot
 	s.era_current = "village"
-	(main.get_node("Hud") as Hud)._rebuild_categories()
+	(main.get_node("Hud") as Hud).refresh()
 	_try(s, "cottage", h + Vector2i(-4, 0))
 	_try(s, "cottage", h + Vector2i(-6, 0))
 	_try(s, "farm", h + Vector2i(-10, 4))

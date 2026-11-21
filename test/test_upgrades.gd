@@ -158,7 +158,7 @@ func test_building_keeps_working_at_its_old_tier() -> void:
 	assert_eq(forager.tier, 2)
 	assert_eq(tent.tier, 2)
 	assert_null(forager.upgrade_buffer)
-	assert_eq(tent.effective_beds(reg), 3, "Tent II is the Hut: 3 beds")
+	assert_eq(tent.effective_beds(reg), 4, "Tent II is the Hut: 4 beds")
 	assert_eq(s.beds_total(), beds + 1)
 	assert_eq(s.events.log_of("building_upgraded").size(), 2)
 

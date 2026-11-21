@@ -7,7 +7,7 @@
 script = ExtResource("3")
 display_name = "Hut"
 art_id = "hut"
-multiplier = 1.5
+multiplier = 1.3333334
 extra_worker_slots = 0
 cost = {"planks": 3, "cut_stone": 2}
 
@@ -15,7 +15,7 @@ cost = {"planks": 3, "cut_stone": 2}
 script = ExtResource("3")
 display_name = "Lodge"
 art_id = "lodge"
-multiplier = 2.0
+multiplier = 1.6666667
 extra_worker_slots = 0
 cost = {"tools": 1, "lumen_cells": 1, "cut_stone": 2}
 
@@ -32,7 +32,7 @@ worker_slots = 0
 hauler_slots = 0
 builder_slots = 0
 upkeep_lumen = 0.0
-housing_beds = 2
+housing_beds = 3
 storage_mode = "none"
 storage_cap = 0
 placement_rule = "any"

@@ -34,7 +34,7 @@ func _init() -> void:
 	var h := s.map.hearth_spot
 	s.era_current = "conflux"
 	var hud := main.get_node("Hud") as Hud
-	hud._rebuild_categories()
+	hud.refresh()
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
 	s.hearth.inventory.add("wood", 900.0)

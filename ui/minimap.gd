@@ -22,9 +22,10 @@ const PAVED := Color("c8b088")
 const VOID := Color("0b1020")
 ## How much an unbought region's terrain darkens.
 const DIM := 0.55
-## id, label, key: the overlay toggles right of the map, in the same order and with the same keys as the HUD.
-const TOGGLES := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
-		["coverage", "Cover", "H"], ["grid", "Grid", "L"]]
+## id, label: the overlay toggles right of the map, in the same order as the HUD. Each shows its key from
+## Hud.OVERLAY_KEYS, the one table the input reads too (ticket 130b).
+const TOGGLES := [["blight", "Blight"], ["roads", "Roads"], ["water", "Water"],
+		["coverage", "Cover"], ["grid", "Grid"]]
 ## Settlement events that change what the image shows. Nothing else (a frame passing, the camera moving) rebuilds it.
 const EVENTS := ["terrain_changed", "road_changed", "region_bought", "building_placed", "building_completed",
 		"building_demolished", "building_upgraded", "island_raised", "island_removed"]
@@ -50,34 +51,46 @@ func setup(h: Hud, m: HudModel, cam: Camera2D) -> void:
 	model = m
 	camera = cam
 	name = "Minimap"
-	add_theme_stylebox_override("panel", hud._style())
+	var sb := hud._style(Hud.PANEL_BG, Hud.PANEL_EDGE, 6, 2, 8)
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
+	add_theme_stylebox_override("panel", sb)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	add_child(row)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 3)
+	row.add_child(left)
 	map_area = MapArea.new()
 	map_area.panel = self
 	map_area.custom_minimum_size = MAP_SIZE
-	map_area.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	map_area.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	map_area.tooltip_text = "Click or drag to move the camera"
-	row.add_child(map_area)
+	left.add_child(map_area)
+	var layers := HBoxContainer.new()
+	layers.name = "LayerRow"
+	layers.add_theme_constant_override("separation", 3)
+	left.add_child(layers)
+	ground_button = hud._compact_button(layers, "Ground")
+	ground_button.name = "LayerGround"
+	ground_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ground_button.tooltip_text = "Ground layer (Tab)"
+	ground_button.pressed.connect(func() -> void: model.set_layer(Building.LAYER_GROUND))
+	sky_button = hud._compact_button(layers, "Sky")
+	sky_button.name = "LayerSky"
+	sky_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sky_button.tooltip_text = "Sky islands (Tab)"
+	sky_button.pressed.connect(func() -> void: model.set_layer(Building.LAYER_SKY))
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 3)
 	col.custom_minimum_size = Vector2(76, 0)
 	row.add_child(col)
-	ground_button = hud._button(col, "Ground", 13)
-	ground_button.name = "LayerGround"
-	ground_button.tooltip_text = "Ground layer (Tab)"
-	ground_button.pressed.connect(func() -> void: model.set_layer(Building.LAYER_GROUND))
-	sky_button = hud._button(col, "Sky", 13)
-	sky_button.name = "LayerSky"
-	sky_button.tooltip_text = "Sky islands (Tab)"
-	sky_button.pressed.connect(func() -> void: model.set_layer(Building.LAYER_SKY))
 	for pair in TOGGLES:
-		var b := hud._button(col, "%s %s" % [pair[2], pair[1]], 13)
+		var key := OS.get_keycode_string(Hud.OVERLAY_KEYS[pair[0]])
+		var b := hud._compact_button(col, "%s %s" % [key, pair[1]])
 		b.name = "Overlay_" + str(pair[0])
-		b.tooltip_text = "%s overlay (%s)" % [pair[1], pair[2]]
+		b.tooltip_text = "%s overlay (%s)" % [pair[1], key]
 		b.pressed.connect(_on_overlay.bind(pair[0]))
 		_toggles[pair[0]] = b
 	for kind in EVENTS:
@@ -172,6 +185,7 @@ func refresh_toggles() -> void:
 	for id in _toggles:
 		hud._style_button(_toggles[id], model.overlay_on(id))
 	var show_layer := model.layer_tag_visible()
+	ground_button.get_parent().visible = show_layer
 	ground_button.visible = show_layer
 	sky_button.visible = show_layer
 	var sky := model.active_layer == Building.LAYER_SKY

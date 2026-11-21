@@ -1,6 +1,6 @@
 extends SceneTree
 ## Windowed screenshots: godot --path . -s tools/hint_shot.gd
-## Writes /tmp/hv_hint.png (a hint card, buffer full, at the right edge under the era panel) and /tmp/hv_era_card.png
+## Writes /tmp/hv_hint.png (a hint card, buffer full, at the right edge under the objectives and goods panels) and /tmp/hv_era_card.png
 ## (the Village era card).
 
 func _shoot(path: String) -> void:
