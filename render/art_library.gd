@@ -441,6 +441,12 @@ static func scatter(terrain_id: String, x: int, y: int, open: Vector2i = Vector2
 		if edge:
 			var j := float(r["edge_jitter"])
 			pos += Vector2(open) * rng.randf_range(0.0, j) + Vector2(rng.randf_range(-j, j), rng.randf_range(-j, j)) * 0.5
+		# Ticket 160: the trunk (the base point) stays on its own tile, whatever the jitter did, so a click on the
+		# tree clears the tile its trunk stands on and the canopy only overhangs its neighbours.
+		var b: Array = r.get("trunk_clamp", [])
+		if not b.is_empty():
+			pos.x = clampf(pos.x, x * TILE + float(b[0]), x * TILE + float(b[1]))
+			pos.y = clampf(pos.y, y * TILE + float(b[2]), y * TILE + float(b[3]))
 		out.append({"name": pick, "pos": pos})
 	return out
 

@@ -724,7 +724,8 @@ def b_meeting_hall():
 
 
 def b_market():
-    W, H = 70, 50
+    """A two-stall market on a packed-earth square (ticket 160: the 2x2 footprint filled by the base)."""
+    W, H = 64, 64
     im = Image.new("RGBA", (W, H))
     d = ImageDraw.Draw(im)
 
@@ -738,25 +739,40 @@ def b_market():
         for px_ in (x, x + 26):
             R(d, px_, y + 2, px_ + 1, y + 26, WOOD[1])
         # awning: receding top plane + scalloped valance
-        for s in range(0, 32, 4):
+        for s in range(0, 30, 4):
             c = col if (s // 4) % 2 == 0 else CANVAS[3]
             d.polygon([(x - 2 + s, y + 4), (x + 1 + s, y - 4), (x + 5 + s, y - 4), (x + 2 + s, y + 4)], fill=c)
             d.polygon([(x - 2 + s, y + 4), (x + 2 + s, y + 4), (x + 2 + s, y + 7), (x - 2 + s, y + 7)],
                       fill=mul(c, 0.85))
             d.ellipse([x - 2 + s, y + 5, x + 2 + s, y + 9], fill=mul(c, 0.85))
 
-    stall(3, 14, hexc("b83a32"))
-    stall(37, 14, TEAL[2])
-    # crates + barrel
-    for cx_, cy_ in ((4, 40), (12, 42)):
+    # packed-earth square receding over the whole 2x2 depth (back edge narrower than the front)
+    y_back, y_front = 37, H - 4
+    for yy in range(y_back, y_front + 1):
+        t = (yy - y_back) / float(y_front - y_back)
+        left = int(9 - 9 * t)
+        right = int(55 + 8 * t)
+        d.line([(left, yy), (right, yy)], fill=DIRT[2])
+        d.point((left + 2, yy), fill=DIRT[1])
+        d.point((right - 2, yy), fill=DIRT[3])
+    d.line([(9, y_back), (55, y_back)], fill=DIRT[0])
+    # plank rim across the front lip: full-width ground contact
+    R(d, 0, H - 4, W - 1, H - 1, WOOD[2])
+    R(d, 0, H - 4, W - 1, H - 4, WOOD[3])
+    for x in range(0, W, 8):
+        d.line([(x, H - 3), (x, H - 1)], fill=WOOD[1])
+    stall(0, 10, hexc("b83a32"))
+    stall(34, 10, TEAL[2])
+    # crates + barrel on the square
+    for cx_, cy_ in ((4, 44), (14, 47)):
         R(d, cx_, cy_, cx_ + 7, cy_ + 7, WOOD[3])
         d.line([(cx_, cy_), (cx_ + 7, cy_ + 7)], fill=WOOD[1])
         R(d, cx_, cy_, cx_ + 7, cy_, WOOD[4])
-    R(d, 58, 38, 66, 48, WOOD[2])
-    R(d, 58, 41, 66, 41, BRASS[1])
-    R(d, 58, 45, 66, 45, BRASS[1])
-    d.ellipse([58, 36, 66, 40], fill=WOOD[3])
-    return Sprite(im, 2, 2, [(33, 30, 12, WARM)], [], (1.0, 8))
+    R(d, 52, 43, 60, 53, WOOD[2])
+    R(d, 52, 46, 60, 46, BRASS[1])
+    R(d, 52, 50, 60, 50, BRASS[1])
+    d.ellipse([52, 41, 60, 45], fill=WOOD[3])
+    return Sprite(im, 2, 2, [(32, 26, 12, WARM)], [], (1.0, 8))
 
 
 def b_farm(seed=0):
@@ -1279,14 +1295,14 @@ def b_park(seed=0):
 
 def b_skyheart():
     """Final landmark: a stepped stone tower holding a huge crystal heart that floats above it, ringed in brass."""
-    W, H = 112, 236
+    W, H = 128, 236  # ticket 160: the 4x4 footprint is 128 px wide, and the base fills it
     im = Image.new("RGBA", (W, H))
     d = ImageDraw.Draw(im)
     cx, yb = W // 2, H - 1
     glows = []
     st = tex_stone(W, H, 77)
-    im.paste(tex_stone(W - 8, 12, 78), (4, yb - 11))
-    R(d, 4, yb - 12, W - 5, yb - 12, STONE[4])
+    im.paste(tex_stone(W, 12, 78), (0, yb - 11))
+    R(d, 0, yb - 12, W - 1, yb - 12, STONE[4])
     im.paste(tex_stone(W - 28, 12, 79), (14, yb - 23))
     R(d, 14, yb - 24, W - 15, yb - 24, STONE[4])
     for ax in (16, 32, W - 33, W - 17):
@@ -1354,7 +1370,7 @@ def b_skyheart():
     crystal(d, cx - 46, 34, 9, 4)
     crystal(d, cx + 40, 72, 8, 4)
     glows += [(cx, hy_mid, 54, GLOW), (cx, hy_mid, 22, CRYSTAL[4]), (cx - 44, 30, 8, GLOW), (cx + 42, 68, 8, GLOW)]
-    return Sprite(im, 3, 3, glows, [], (0.9, 16))
+    return Sprite(im, 4, 4, glows, [], (0.9, 16))
 
 
 # ------------------------------------------------------------------ City art (ticket 64)
