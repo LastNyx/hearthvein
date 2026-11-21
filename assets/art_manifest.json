@@ -1599,6 +1599,35 @@
    },
    "w": 37
   },
+  "night_market": {
+   "base": [
+    46,
+    80
+   ],
+   "file": "buildings/night_market.png",
+   "flat": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "fx": {
+    "file": "buildings/night_market_fx.png",
+    "offset": [
+     -24,
+     -94
+    ]
+   },
+   "generic": false,
+   "h": 81,
+   "shadow": {
+    "file": "buildings/night_market_shadow.png",
+    "offset": [
+     -35,
+     -6
+    ]
+   },
+   "w": 92
+  },
   "night_watch": {
    "base": [
     25,
@@ -2995,6 +3024,33 @@
     ]
    },
    "w": 16
+  },
+  "caravan_wagon": {
+   "base": [
+    26,
+    38
+   ],
+   "file": "props/caravan_wagon.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "props/caravan_wagon_fx.png",
+    "offset": [
+     5,
+     -41
+    ]
+   },
+   "h": 39,
+   "shadow": {
+    "file": "props/caravan_wagon_shadow.png",
+    "offset": [
+     -18,
+     -4
+    ]
+   },
+   "w": 53
   },
   "crystal_0": {
    "base": [

@@ -166,6 +166,10 @@ const GOLD := "gold"
 ## True for a market that buys the goods a GoodDef puts a sale_price on (Market, ticket 144): each day it sells the
 ## stock above the good's sale_keep for gold while it has an assigned worker.
 @export var sells_goods: bool = false
+## Offers a night caravan may bring to this building (Night Market, ticket 141): [{good, amount, gold}, ...]. While a
+## caravan visits, one is chosen from the settlement seed and the day, and its `amount` of `good` costs `gold`.
+## Empty = no caravan stops here. CaravanSystem owns the schedule and the buy.
+@export var caravan_offers: Array = []
 ## True when a finished, staffed building counts as one more food type for the variety bonus although it never
 ## holds food (design.md section 16 City: the Grand Bazaar "counts as a food type"). MarketSystem reads it.
 @export var counts_as_food_type: bool = false

@@ -1304,6 +1304,14 @@ def sapling():
     return M.Sprite(im, shadow=(0.9, 4))
 
 
+def caravan_wagon_sprite():
+    """The parked caravan wagon (ticket 141): the nightlife mockup art, a halo on its lantern post."""
+    img, em, _ = NL.wagon_art(True)
+    box = em.getbbox()
+    glow = [((box[0] + box[2]) // 2, (box[1] + box[3]) // 2, 9, (255, 198, 90))] if box else []
+    return M.Sprite(img, 1, 1, glows=glow, shadow=(0.9, 6))
+
+
 PROPS = {
     "oak_green_0": lambda: M.oak(1011, 0.9), "oak_green_1": lambda: M.oak(1012, 1.0),
     "oak_green_2": lambda: M.oak(1013, 1.1), "oak_green_3": lambda: M.oak(1014, 1.0),
@@ -1316,6 +1324,8 @@ PROPS = {
     "boulder_6": lambda: M.boulder(1057, 1.5), "boulder_7": lambda: M.boulder(1058, 0.7),
     "crystal_0": lambda: M.crystal_cluster(1061), "crystal_1": lambda: M.crystal_cluster(1062),
     "crystal_2": lambda: M.crystal_cluster(1063),
+    # ticket 141: the night caravan's wagon, parked beside the Night Market (lit lantern post, no horse)
+    "caravan_wagon": lambda: caravan_wagon_sprite(),
     "mushrooms_0": lambda: M.mushrooms(1071, False), "mushrooms_1": lambda: M.mushrooms(1072, True),
     "stump_0": stump, "sapling_0": sapling,
     "lily_0": lambda: lily_pad(1, False), "lily_1": lambda: lily_pad(2, False), "lily_2": lambda: lily_pad(3, True),
@@ -1443,6 +1453,8 @@ SHEET = {
     "moonmoth_loft": lambda: NightSprite(N.loft_art(False), N.loft_art(True), 1, 1, (0.9, 5), (228, 232, 255), 12),
     # ticket 139: the Tavern, composed in the nightlife mockups (warm windows, hanging sign, barrels)
     "tavern": tavern_sprite,
+    # ticket 141: the Night Market, stalls under a string of lanterns (night life mockup nl_town_night.png)
+    "night_market": lambda: NightSprite(NL.market_art(False), NL.market_art(True), 2, 2, (1.0, 9), (255, 200, 90), 24),
     # ticket 143: the Night Watch, a lantern on a pole from the same nightlife mockups
     "night_watch": night_watch_sprite,
 }

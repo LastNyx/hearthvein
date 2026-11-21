@@ -47,17 +47,28 @@ func on_day(s: Settlement) -> void:
 		var paid := made * UpkeepSystem.output_modifier(s, b)
 		s.gold += paid
 		ResourceLedgerSystem.record_made(s, BuildingDef.GOLD, paid, b.def.id)
-	_sell_surplus(s, assigned)
+	_sell_surplus(s, assigned, false)
 
 
-## Each market sells the priced goods' stock above their keep level. Stock is read once per good and reduced as the
+## A Night Market (night_only) sells its surplus once, when the night shift starts, and only while it is lit and has a
+## night worker (ticket 141); the Market's own rule at night.
+func on_hour(s: Settlement) -> void:
+	var lg := s.registry.logistics
+	if lg != null and s.clock.hour() == lg.night_shift_start:
+		_sell_surplus(s, assigned_workers(s), true)
+
+
+## Each market sells the priced goods' stock above their keep level (day markets at the day start, night markets at the
+## night shift's start, see on_hour). Stock is read once per good and reduced as the
 ## markets sell, so a second market never sells the same units again. Gold is not a stored good, so the take is
 ## applied through the same Lumen-upkeep factor as a gold rate.
-func _sell_surplus(s: Settlement, assigned: Dictionary) -> void:
+func _sell_surplus(s: Settlement, assigned: Dictionary, night: bool) -> void:
 	var totals := s.totals()
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
 		if b.site or b.paused or not b.def.sells_goods or int(assigned.get(bid, 0)) <= 0:
+			continue
+		if b.def.night_only != night or (night and not s.is_lit(b)):
 			continue
 		var factor := UpkeepSystem.output_modifier(s, b)
 		for gid in s.registry.goods:

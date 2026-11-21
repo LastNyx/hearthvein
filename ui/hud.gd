@@ -104,6 +104,7 @@ var _sel_warn: Label
 var _sel_up_cost: HBoxContainer
 var _sel_up_row: VBoxContainer
 var _sel_up_key := ""
+var _sel_caravan: Button  # the night caravan's Buy button on the Night Market's panel (ticket 141)
 var _sel_up_reason: Label
 var _sel_up_btn: Button
 var _prio_buttons: Dictionary = {}
@@ -643,26 +644,43 @@ func _build_notes(parent: Node) -> void:
 func _refresh_notes() -> void:
 	var recent := model.notifications.recent(48)
 	var key := "|".join(recent.map(func(it: Dictionary) -> String: return str(it["text"]) + str(it["hour"])))
+	var buyable := model.caravan_buyable()
+	key += "|buy" if buyable else ""
 	if key == _notes_key:
 		return
 	_notes_key = key
 	for c in _notes_box.get_children():
 		c.queue_free()
-	for it in recent.slice(maxi(0, recent.size() - 4)):
+	var shown := recent.slice(maxi(0, recent.size() - 4))
+	var last_caravan := -1
+	for i in shown.size():
+		if shown[i]["kind"] == "caravan":
+			last_caravan = i
+	for i in shown.size():
+		var it: Dictionary = shown[i]
 		var p := PanelContainer.new()
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var col := PANEL_EDGE
 		match it["kind"]:
+			"caravan": col = Color("e8a33a")
 			"dimming": col = CYAN
 			"halt", "workers": col = Color("e8a33a")
 			"planet": col = RED
 			"milestone": col = GOLD
 		p.add_theme_stylebox_override("panel", _style(PANEL_BG, col, 6, 2))
 		_notes_box.add_child(p)
-		var note := _label(p, 14, INK)
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_child(row)
+		var note := _label(row, 14, INK)
 		note.text = it["text"]
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		note.custom_minimum_size = Vector2(440, 0)
+		if buyable and i == last_caravan:
+			# The night caravan's notice buys its offer too (ticket 141); the button goes with the visit.
+			var buy := _compact_button(row, "Buy")
+			buy.name = "NoticeBuy"
+			buy.pressed.connect(func() -> void: model.buy_caravan())
 	_place_notes()
 
 
@@ -837,6 +855,9 @@ func _build_selection_panel(parent: Node) -> void:
 	_sel_up_cost.add_theme_constant_override("separation", 3)
 	_sel_up_cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	urow.add_child(_sel_up_cost)
+	_sel_caravan = _compact_button(right, "Buy")
+	_sel_caravan.name = "BuyCaravan"
+	_sel_caravan.pressed.connect(func() -> void: model.buy_caravan())
 	_sel_up_reason = _label(info, 14, DIM)
 	_sel_up_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sel_up_reason.custom_minimum_size = Vector2(SEL_LEFT_W, 0)
@@ -1037,6 +1058,11 @@ func _refresh_selection() -> void:
 	_sel_warn.tooltip_text = sel["warn"]
 	_sel_warn.visible = sel["warn"] != ""
 	_fit_selection_lines(sel)
+	var cvn: Dictionary = sel["caravan"]
+	_sel_caravan.visible = cvn["visible"]
+	_sel_caravan.text = "Buy: %s" % str(cvn["text"]).trim_prefix("Night caravan: ").get_slice(", tonight", 0)
+	_sel_caravan.disabled = not cvn["can_buy"]
+	_sel_caravan.tooltip_text = cvn["reason"] if cvn["reason"] != "" else cvn["text"]
 	var show_up: bool = sel["show_upgrade"]
 	_sel_up_row.visible = show_up
 	_sel_up_reason.visible = show_up and not sel["can_upgrade"]

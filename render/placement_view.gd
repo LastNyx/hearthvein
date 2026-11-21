@@ -17,6 +17,8 @@ var _channels_dirty := false
 var _drawn_channels: Dictionary = {}  # tile -> true for every channel cell currently on the layer
 var _smoke: Dictionary = {}  # building id -> chimney smoke Sprite2D (ticket 90); shown only while the building works
 var _smoke_clock := 0.0
+## The night caravan's wagon nodes while it is parked (ticket 141): sprite, shadow and lantern glow.
+var _wagon: Array[Node] = []
 const SMOKE_EVERY := 0.5  # seconds between working checks
 
 
@@ -34,6 +36,11 @@ func setup(s: Settlement, v: MapView) -> void:
 		for x in MapState.WIDTH:
 			if s.roads[MapState.idx(x, y)] > 0:
 				_refresh_road(Vector2i(x, y))
+	s.events.subscribe("caravan_arrived", func(e: Dictionary) -> void: _park_wagon(int(e["data"]["id"])))
+	s.events.subscribe("caravan_left", func(_e: Dictionary) -> void: _clear_wagon())
+	var cv := s.get_system(CaravanSystem) as CaravanSystem
+	if cv != null and cv.visiting() and s.buildings.has(cv.market_id()):
+		_park_wagon.call_deferred(cv.market_id())  # a loaded visit: the buildings have nodes by then
 	s.events.subscribe("channel_changed", func(_e: Dictionary) -> void: _channels_dirty = true)
 	s.events.subscribe("track_changed", func(e: Dictionary) -> void:
 		var t: Vector2i = e["data"]["tile"]
@@ -241,6 +248,41 @@ func _add_building(b: Building) -> void:
 	else:
 		for t in b.tiles():
 			view.set_props_visible(t, false)
+
+
+## Parks the caravan wagon on the tile east of the Night Market's lower row (props lay in the object layer).
+func _park_wagon(market_id: int) -> void:
+	_clear_wagon()
+	var b: Building = settlement.buildings.get(market_id)
+	if b == null or not ArtLibrary.manifest()["props"].has("caravan_wagon"):
+		return
+	var e := ArtLibrary.prop_entry("caravan_wagon")
+	var base := ArtLibrary.base_point(b.origin + Vector2i(b.def.size.x, b.def.size.y - 1), Vector2i.ONE)
+	var spr := ArtLibrary.prop_sprite("caravan_wagon")
+	spr.position = base
+	view.objects.add_child(spr)
+	_wagon.append(spr)
+	var sh := ArtLibrary.shadow_sprite(e)
+	if sh != null:
+		sh.position = base
+		view.shadows.add_child(sh)
+		_wagon.append(sh)
+	var f := ArtLibrary.fx_sprite(e)
+	if f != null:
+		f.position = base
+		view.fx.add_child(f)
+		_wagon.append(f)
+
+
+func _clear_wagon() -> void:
+	for n in _wagon:
+		n.queue_free()
+	_wagon.clear()
+
+
+## Number of wagon nodes standing (a test hook: 0 while no caravan is parked).
+func wagon_node_count() -> int:
+	return _wagon.size()
 
 
 func _remove_building(id: int, origin: Vector2i, def_id: String) -> void:

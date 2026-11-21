@@ -185,6 +185,7 @@ func add_default_systems() -> void:
 	add_system(PlanetHealthSystem.new())
 	add_system(ForestSystem.new())  # reads the day's planet health; stumps regrow and Foresters plant here
 	add_system(MarketSystem.new())  # pays gold and caches Market reach; Spirit reads the reach for food variety
+	add_system(CaravanSystem.new())  # the night caravan at a lit, staffed Night Market (ticket 141); after Market, before Spirit
 	add_system(CoverageSystem.new())  # caches covered homes (Shrine r6); Spirit reads it for the coverage factor
 	add_system(RegionSystem.new())  # region rewards: modifier hooks, the spring wet pass and the one-time ruins claim
 	add_system(SpiritSystem.new())  # after Growth: reads its hunger report; after Planet: grief

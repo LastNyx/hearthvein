@@ -1162,7 +1162,33 @@ func selection() -> Dictionary:
 			"priority_label": "Build priority" if b.site else "Work priority. High: staffed before Normal buildings of every kind"}
 	out.merge(upgrade_info(b))
 	out.merge(_panel_rows(b), true)
+	out["caravan"] = caravan_row(b)
 	return out
+
+
+const CARAVAN_REASONS := {"bought": "Already bought tonight", "gold": "Not enough gold", "room": "No storage room"}
+
+
+## The parked night caravan's row for the selected building ({visible, text, can_buy, reason}), ticket 141. Visible
+## on the Night Market it is parked at, and nowhere else.
+func caravan_row(b: Building) -> Dictionary:
+	var cv := s.get_system(CaravanSystem) as CaravanSystem
+	if cv == null or not cv.visiting() or cv.market_id() != b.id:
+		return {"visible": false, "text": "", "can_buy": false, "reason": ""}
+	var why := cv.buy_block(s)
+	return {"visible": true, "text": cv.notice_text(s), "can_buy": why == "", "reason": CARAVAN_REASONS.get(why, "")}
+
+
+## True while a caravan is parked and its offer is still there to buy (the notice's Buy button).
+func caravan_buyable() -> bool:
+	var cv := s.get_system(CaravanSystem) as CaravanSystem
+	return cv != null and cv.visiting() and not cv.bought()
+
+
+## Command: buy the parked caravan's offer.
+func buy_caravan() -> bool:
+	var cv := s.get_system(CaravanSystem) as CaravanSystem
+	return cv != null and cv.buy(s)
 
 
 ## The fixed panel's own rows (ticket 128). Sites keep the construction lines instead of makes/workers/buffers.

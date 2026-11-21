@@ -526,6 +526,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: darkness_factor must be 0-1" % who)
 	if b.coverage_radius < 0:
 		errors.append("%s: coverage_radius must not be negative" % who)
+	for o in b.caravan_offers:
+		if not (o is Dictionary) or not get_good(str(o.get("good", ""))) or float(o.get("amount", 0.0)) <= 0.0 \
+				or float(o.get("gold", 0.0)) <= 0.0:
+			errors.append("%s: a caravan offer needs a known good, a positive amount and a positive gold price" % who)
 	if b.spirit_radius < 0:
 		errors.append("%s: spirit_radius must not be negative" % who)
 	if b.wet_radius < 0:
