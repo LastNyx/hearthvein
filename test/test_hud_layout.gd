@@ -327,6 +327,84 @@ func test_no_grid_label_truncated_for_any_building() -> void:
 	assert_gt(checked, 0, "labels were checked")
 
 
+## Every page the grid can show: the top level, each category's first page and any More pages past it.
+func _grid_pages(hud: Hud) -> Array[String]:
+	var out: Array[String] = [""]
+	for c in HudModel.GRID_TOP:
+		if not HudModel.is_grid_category(str(c[0])):
+			continue
+		for no in range(1, 4):
+			var p := str(c[0]) if no == 1 else "%s:%d" % [c[0], no]
+			out.append(p)
+			var cells := hud.model.grid(p)
+			if cells.size() < 15 or str(cells[14]["id"]) != "more":
+				break
+	return out
+
+
+## The parts a cell draws, by name: hotkey, short cost, icon (with the art or glyph inside it), name and lock.
+func _cell_parts(b: Button) -> Array[Control]:
+	var out: Array[Control] = []
+	for n in ["CellKey", "CellCost", "CellName", "Lock"]:
+		var c := b.find_child(n, true, false) as Control
+		if c != null:
+			out.append(c)
+	var icon := b.find_child("CellIcon", true, false) as Control
+	if icon != null:
+		out.append(icon)
+		for c in icon.get_children():
+			if c is Control:
+				out.append(c)
+	return out
+
+
+## AC (130c): every cell child (key, cost, icon, label, lock) lies inside its cell rect at 1280x720, for every
+## building page and the top-level grid; the hotkey and the short cost sit 3 px inside the border, never on it.
+func test_every_grid_cell_child_lies_inside_its_cell() -> void:
+	var main: Node = await _game(Vector2i(1280, 720), 1.0)
+	var hud: Hud = main.get_node("Hud")
+	for p in _grid_pages(hud):
+		hud._set_grid_page(p)
+		await wait_process_frames(2)
+		for b in hud._cmd_cells:
+			var cell := b.get_global_rect()
+			var inside := cell.grow(-2.0)  # the cell's border: no part of the cell may sit on it
+			for part in _cell_parts(b):
+				var r := part.get_global_rect()
+				assert_true(inside.grow(0.5).encloses(r),
+						"page '%s': %s of cell '%s' lies inside the cell (%s in %s)" % [p, part.name, b.name, r, cell])
+			var key := b.find_child("CellKey", true, false) as Control
+			var cost := b.find_child("CellCost", true, false) as Control
+			if key != null:
+				assert_gte(key.get_global_rect().position.x, cell.position.x + 5.0 - 0.5,
+						"page '%s': the hotkey is 3 px inside the border" % p)
+			if cost != null:
+				assert_lte(cost.get_global_rect().end.x, cell.end.x - 5.0 + 0.5,
+						"page '%s': the short cost is 3 px inside the border" % p)
+
+
+## AC (130c): every grid name is at least the readable minimum size (12), and a lock sits on the icon, never on the
+## name.
+func test_grid_names_are_readable_and_locks_clear_of_the_name() -> void:
+	var main: Node = await _game(Vector2i(1280, 720), 1.0)
+	var hud: Hud = main.get_node("Hud")
+	var locks := 0
+	for p in _grid_pages(hud):
+		hud._set_grid_page(p)
+		await wait_process_frames(2)
+		for b in hud._cmd_cells:
+			var nm := b.find_child("CellName", true, false) as Label
+			assert_gte(nm.get_theme_font_size("font_size"), 12,
+					"page '%s': name '%s' is at least the readable size" % [p, nm.text])
+			var lock := b.find_child("Lock", true, false) as Control
+			if lock == null:
+				continue
+			locks += 1
+			assert_false(lock.get_global_rect().intersects(nm.get_global_rect()),
+					"page '%s': the lock does not cover '%s'" % [p, nm.text])
+	assert_gt(locks, 0, "locked cells were checked")
+
+
 func test_map_hover_tip_hides_under_a_full_page() -> void:
 	var main: Node = await _game(Vector2i(1280, 720), 1.0, "village")
 	var s: Settlement = main.settlement
