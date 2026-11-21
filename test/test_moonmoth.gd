@@ -68,11 +68,12 @@ func test_loft_makes_silk_only_at_night_with_lit_tiles_near() -> void:
 	assert_true(s.is_night(), "21:00 is the night shift")
 	var made := ps.produced_total
 	s.step_hours(6)  # 21:00 -> 03:00, inside the night shift
-	# 2 workers for 6 h of a 12 h work day at the night rate (0.6 silk per worker per night): 2 * 6/12 * 0.6.
-	assert_almost_eq(ps.produced_total - made, 0.6, 0.02, "the loft made silk in the light")
-	s.step_hours(4)  # 03:00 -> 07:00, the rest of the night
+	# 2 workers for 6 h of a 12 h work day at the night rate (0.667 silk per worker per day): 2 * 6/12 * 0.667.
+	assert_almost_eq(ps.produced_total - made, 0.667, 0.02, "the loft made silk in the light")
+	s.step_hours(6)  # 03:00 -> 09:00: the 20:00-06:00 night shift ends, 9 h on site (the first hour is the walk)
+	assert_almost_eq(ps.produced_total - made, 1.0, 0.02, "a full staffed night in light makes 1.0 silk")
 	var at_dawn := ps.produced_total
-	s.step_hours(12)  # 07:00 -> 19:00, the whole day
+	s.step_hours(10)  # 09:00 -> 19:00, the day
 	assert_almost_eq(ps.produced_total, at_dawn, 0.001, "nothing by day")
 	# The same loft with no lamp in reach stays dark and closed all night.
 	var dark := _new_settlement()
@@ -97,3 +98,48 @@ func test_silk_sells_for_gold_at_the_market() -> void:
 	# Two Market workers bring 3 gold; the 10 silk above the keep level of 10 sell at 8 gold each.
 	assert_almost_eq(s.gold, 3.0 + 10.0 * 8.0, 0.001, "the surplus silk sold for gold")
 	assert_almost_eq(float(s.totals().get("silk", 0.0)), 10.0, 0.001, "the keep level stays in store")
+
+
+## Ticket 163: a lit loft with too few lit tiles near makes nothing and halts on needs_light. A Brazier's disc always
+## lights 11+ tiles within two of any tile it reaches, so the test raises the loft's own bar (a copy of the def, the
+## shared one stays untouched) above what the lamp gives.
+func test_loft_halts_needs_light_with_too_few_lit_tiles() -> void:
+	var s := _new_settlement()
+	var loft := _put(s, "moonmoth_loft", 4)
+	loft.def = loft.def.duplicate()
+	loft.def.min_lit_tiles = 30
+	_lamp(s, 3)
+	_keep_citizens(s, 4)
+	var ps := s.get_system(ProductionSystem) as ProductionSystem
+	s.step_hours(22)  # to 22:00, inside the night shift
+	assert_true(s.is_lit(loft), "the lamp lights the loft")
+	var ls := s.get_system(LightingSystem) as LightingSystem
+	var near := ls.lit_tiles_near(s, loft, 2)
+	assert_gt(near, 0, "some tiles are lit")
+	assert_lt(near, 30, "but fewer than the loft needs")
+	s.step_hours(3)
+	assert_eq(loft.halt, "needs_light", "the loft halts for want of light")
+	assert_eq(ps.produced_total, 0.0, "no silk")
+	var hm := HudModel.new(s)  # kept in a var: a freed model stays subscribed
+	assert_eq(hm.halt_text(loft), "Needs more lit tiles nearby")
+
+
+## Ticket 163: a Market that is paused or has no worker sells no silk.
+func test_market_without_staff_or_paused_sells_no_silk() -> void:
+	var s := _new_settlement()
+	var hs := s.map.hearth_spot
+	var id := s.place_building_instant("market", Vector2i(hs.x + 4, hs.y - 2))
+	assert_true(id >= 0, "market placed")
+	s.hearth.inventory.add("silk", 20.0)
+	s.buildings[id].paused = true
+	s.step_days(1)
+	assert_eq(s.gold, 0.0, "a paused Market earns nothing")
+	assert_almost_eq(float(s.totals().get("silk", 0.0)), 20.0, 0.001, "and sells no silk")
+	var idle := _new_settlement()
+	var ihs := idle.map.hearth_spot
+	idle.place_building_instant("market", Vector2i(ihs.x + 4, ihs.y - 2))
+	idle.hearth.inventory.add("silk", 20.0)
+	_keep_citizens(idle, 0)
+	idle.step_days(1)
+	assert_eq(idle.gold, 0.0, "an unstaffed Market earns nothing")
+	assert_almost_eq(float(idle.totals().get("silk", 0.0)), 20.0, 0.001, "and sells no silk")

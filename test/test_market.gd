@@ -113,8 +113,8 @@ func test_food_type_data() -> void:
 	assert_eq(reg.get_good("food").food_type, "forage", "Forager food is forage")
 	assert_eq(reg.get_good("crops").food_type, "crops", "Farm food is crops")
 	assert_eq(reg.get_good("fish").food_type, "fish")
-	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 8.0})
-	assert_eq(reg.get_building("farm").recipe.outputs, {"crops": 6.0})
+	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 4.0})
+	assert_eq(reg.get_building("farm").recipe.outputs, {"crops": 4.0})
 
 
 # AC2: each assigned worker brings 1.5 gold a day; paused or unstaffed Markets pay nothing.

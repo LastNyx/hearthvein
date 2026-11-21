@@ -3,7 +3,8 @@ extends SimSystem
 ## Daily raw-Lumen leak (design.md section 7). Lumen cells do not leak.
 
 const LEAK_GOOD := "lumen"
-const LEAK_PER_DAY := 0.01
+## Share of the raw Lumen stock lost a day (3%, ticket 159; was 1%).
+const LEAK_PER_DAY := 0.03
 const CELL_GOOD := "lumen_cells"
 
 

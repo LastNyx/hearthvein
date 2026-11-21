@@ -77,6 +77,9 @@ const GOLD := "gold"
 @export var night_inputs: Dictionary = {}
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
+## True for the Village workplaces (ticket 159): their upkeep Lumen is taken from storage at the day start, nobody hauls
+## it to an input buffer. Haulers could not keep dozens of farms topped up, and every unpaid day halved a field's food.
+@export var upkeep_from_storage: bool = false
 @export var housing_beds: int = 0
 @export var storage_mode: String = "none"
 @export var storage_cap: int = 0
@@ -116,6 +119,10 @@ const GOLD := "gold"
 @export var dimming_vein_factor: float = 0.0
 ## True for a food producer the Great Dimming leaves alone (the Fishing Dock): it keeps its regular Dimming factor.
 @export var great_dimming_immune: bool = false
+## True for a food producer that makes PlanetDef.winter_food_factor of its output in winter (lean winters, ticket 159):
+## Forager, Farm and Fishing Dock. It stacks with the Dimming; the Glowcap Grove and the late food buildings are not
+## marked.
+@export var lean_winter: bool = false
 ## Planet health per day while the building works (section 13): negative for extractors, positive for cleaners.
 @export var health_per_day: float = 0.0
 ## Heartroot Tap (design.md section 17): the building only works while Settlement.planet_health() is at least this
@@ -252,6 +259,11 @@ const GOLD := "gold"
 @export var upgradable: bool = false
 ## Tier II then tier III. Empty unless upgradable.
 @export var tiers: Array[TierDef] = []
+
+
+## True when the building has night slots (worker or hauler) or works at night only: the moon badge on its cards.
+func works_at_night() -> bool:
+	return night_worker_slots > 0 or night_hauler_slots > 0 or night_only
 
 
 ## What placing this def costs: the first stage's cost for a staged building, else `cost`.

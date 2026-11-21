@@ -94,7 +94,8 @@ func test_lamp_tiers_by_era_radius_and_fuel() -> void:
 		var td: TierDef = def.tiers[i]
 		assert_eq([td.display_name, td.get("era"), td.get("lamp_radius"), td.get("lamp_fuel"),
 				bool(td.get("lamp_grid"))], want[i])
-		assert_almost_eq(float(td.get("lamp_fuel_per_night")), 1.0, 0.001, "1 fuel a night at every tier")
+		# Ticket 138: priced against the leaner economy: Lantern Post 2 charcoal, Lumen Lamp 3 Lumen, Grid Lamp 1 from the grid.
+		assert_almost_eq(float(td.get("lamp_fuel_per_night")), [2.0, 3.0, 1.0][i], 0.001, "fuel a night at tier %d" % (i + 2))
 	# The tier's era gates the upgrade in play.
 	var s := _new_settlement()
 	var lamp := _put(s, "lamp", 4)
@@ -225,12 +226,13 @@ func test_charcoal_ledger_resources_page_and_save() -> void:
 	var s := _new_settlement()
 	var lamp := _put(s, "lamp", 5, 1)
 	lamp.tier = 2  # Lantern Post: charcoal
-	lamp.input_buffer.add("charcoal", 2.0)
+	lamp.input_buffer.add("charcoal", 2.0)  # the buffer is sized for the Brazier's two nights of wood: room for two charcoal
 	_step_to(s, 19)
 	var sl := s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
-	assert_almost_eq(sl.today("charcoal")["used"], 1.0, 0.001, "one charcoal burnt at dusk")
+	assert_almost_eq(sl.today("charcoal")["used"], 2.0, 0.001, "two charcoal burnt at dusk")
 	assert_true((sl.used_by_today["charcoal"] as Dictionary).has("light"), "the ledger reason is light")
 	assert_true(s.is_lit(lamp))
+	lamp.input_buffer.add("charcoal", 1.0)  # some fuel left in the buffer to be saved
 	var path := _save_path()
 	assert_eq(SaveGame.save(s, path), OK)
 	var loaded := SaveGame.load(path, reg)

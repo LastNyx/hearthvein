@@ -1007,6 +1007,16 @@ func test_top_goods_core_then_pins_persist_in_settings() -> void:
 	DirAccess.remove_absolute(path)
 
 
+## Ticket 163: silk is a good like any other for the top-right pins (it is not one of the six fixed entries).
+func test_silk_can_be_pinned_and_shows_in_the_top_goods() -> void:
+	var hm := HudModel.new(s)
+	assert_true(hm.can_pin("silk"))
+	assert_true(hm.toggle_pin("silk"))
+	assert_eq(hm.pinned(), ["silk"])
+	assert_eq(hm.top_goods().slice(6), ["silk"], "silk sits after the six fixed entries")
+	assert_false(hm.toggle_pin("silk"), "a second toggle unpins it")
+
+
 ## Ticket 125: the full-width top bar is replaced by a compact top-right cluster with a clock row under it; at
 ## 1280x720 no other HUD panel overlaps either one.
 func test_top_right_cluster_is_compact_and_clear_of_other_panels() -> void:

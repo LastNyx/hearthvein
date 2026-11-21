@@ -7,7 +7,7 @@
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
 inputs = {}
-outputs = {"crops": 6.0}
+outputs = {"crops": 4.0}
 
 [sub_resource type="Resource" id="Tier2"]
 script = ExtResource("3")
@@ -38,7 +38,8 @@ cost = {"wood": 21, "stone": 9}
 worker_slots = 3
 hauler_slots = 0
 builder_slots = 0
-upkeep_lumen = 0.0
+upkeep_lumen = 1.0
+upkeep_from_storage = true
 housing_beds = 0
 storage_mode = "none"
 storage_cap = 0
@@ -48,5 +49,6 @@ placement_radius = 0
 fertility_output = true
 fertile_origin_bonus = 1.5
 recipe = SubResource("Recipe")
+lean_winter = true
 upgradable = true
 tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

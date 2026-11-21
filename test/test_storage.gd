@@ -79,16 +79,16 @@ func test_storehouse_respects_filter() -> void:
 	assert_false(s.set_storage_filter(999, ["food"]))
 
 
-func test_lumen_leaks_one_percent_per_day_cells_do_not() -> void:
+func test_lumen_leaks_three_percent_per_day_cells_do_not() -> void:
 	var s := _new()
 	# StorageSystem is registered by new_game (add_default_systems).
 	s.hearth.inventory.add("lumen", 90.0)  # 100 total
 	s.hearth.inventory.add("lumen_cells", 20.0)
 	s.step_days(1)
-	assert_almost_eq(s.hearth.inventory.amount_of("lumen"), 99.0, 0.0001)
+	assert_almost_eq(s.hearth.inventory.amount_of("lumen"), 97.0, 0.0001)
 	assert_eq(s.hearth.inventory.amount_of("lumen_cells"), 20.0)
 	s.step_days(1)
-	assert_almost_eq(s.hearth.inventory.amount_of("lumen"), 98.01, 0.0001)
+	assert_almost_eq(s.hearth.inventory.amount_of("lumen"), 94.09, 0.0001)
 	assert_eq(s.hearth.inventory.amount_of("lumen_cells"), 20.0)
 
 

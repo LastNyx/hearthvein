@@ -146,6 +146,14 @@ static func tier_modifier(s: Settlement, b: Building) -> float:
 	return b.output_factor(s.registry)
 
 
+## Lean winters (ticket 159): the lean_winter food producers make PlanetDef.winter_food_factor of their output while
+## the season is winter. Derived from the clock, nothing is saved.
+static func winter_modifier(s: Settlement, b: Building) -> float:
+	if not b.def.lean_winter or s.clock.season_name() != "winter" or s.registry.planet == null:
+		return 1.0
+	return s.registry.planet.winter_food_factor
+
+
 ## Multiplier of every modifier for one building.
 func multiplier(s: Settlement, b: Building) -> float:
 	var m := 1.0

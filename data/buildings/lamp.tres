@@ -9,7 +9,7 @@ display_name = "Lantern Post"
 era = "village"
 lamp_radius = 5
 lamp_fuel = "charcoal"
-lamp_fuel_per_night = 1.0
+lamp_fuel_per_night = 2.0
 art_id = "lamp_lantern"
 extra_worker_slots = 0
 
@@ -19,7 +19,7 @@ display_name = "Lumen Lamp"
 era = "town"
 lamp_radius = 7
 lamp_fuel = "lumen"
-lamp_fuel_per_night = 1.0
+lamp_fuel_per_night = 3.0
 art_id = "lamp_lumen"
 extra_worker_slots = 0
 

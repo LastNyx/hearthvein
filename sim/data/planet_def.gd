@@ -41,5 +41,7 @@ extends Resource
 ## Light need per citizen per Dimming day, in Lumen. 1 Lumen cell = lumen_per_cell Lumen.
 @export var light_per_citizen: float = 0.5
 @export var lumen_per_cell: float = 5.0
+## Output factor of the lean_winter food producers during winter (ticket 159).
+@export var winter_food_factor: float = 0.5
 ## Spirit target change while dark (negative).
 @export var darkness_spirit: float = -20.0

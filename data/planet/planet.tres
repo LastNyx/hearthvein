@@ -25,4 +25,5 @@ dimming_forecast_seasons = 1
 dimming_vein_factor = 0.25
 light_per_citizen = 0.5
 lumen_per_cell = 5.0
+winter_food_factor = 0.5
 darkness_spirit = -20.0

@@ -92,12 +92,12 @@ func test_light_drawn_raw_then_cells_and_darkness_blocks_growth() -> void:
 	assert_eq(d.last_light["drawn_cells"], 0.0)
 	# raw runs out: cells cover the rest
 	s.hearth.inventory.remove("lumen", 1000.0)
-	s.hearth.inventory.add("lumen", 1.0)  # leaks 1% before the day's draw: 0.99 left
+	s.hearth.inventory.add("lumen", 1.0)  # leaks 3% before the day's draw: 0.97 left
 	s.hearth.inventory.add("lumen_cells", 10.0)
 	_to_day(WINTER + 1)
 	assert_false(DimmingSystem.is_dark(s))
-	assert_almost_eq(d.last_light["drawn_cells"], (need - 0.99) / 5.0, 0.001)
-	assert_almost_eq(s.hearth.inventory.amount_of("lumen_cells"), 10.0 - (need - 0.99) / 5.0, 0.001)
+	assert_almost_eq(d.last_light["drawn_cells"], (need - 0.97) / 5.0, 0.001)
+	assert_almost_eq(s.hearth.inventory.amount_of("lumen_cells"), 10.0 - (need - 0.97) / 5.0, 0.001)
 
 
 func test_light_shortfall_sets_darkness_and_blocks_growth() -> void:

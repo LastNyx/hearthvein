@@ -199,6 +199,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(SpiritSystem.work_modifier)
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
+	prod.modifiers.append(ProductionSystem.winter_modifier)
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
 	prod.modifiers.append(UpkeepSystem.output_modifier)
 	prod.modifiers.append(FoulingSystem.output_modifier)

@@ -56,16 +56,16 @@ func _put(settlement: Settlement, dx: int) -> Building:
 	return b
 
 
-# AC1a: no Camp or Village row has upkeep (design section 16 lists "-" for all of them), and the x0.5 comes from data.
-func test_data_starts_upkeep_in_town_and_keeps_before_town_rows_clean() -> void:
+# AC1a: no Camp row has upkeep (ticket 159 moved the start to Village), and the x0.5 comes from data.
+func test_data_starts_upkeep_in_village_and_keeps_camp_rows_clean() -> void:
 	assert_eq(reg.logistics.input_buffer_days, 2.0, "consumers keep two days of need")
 	assert_eq(reg.logistics.unpaid_upkeep_factor, 0.5, "design sections 8 and 14: x0.5")
 	assert_eq(reg.get_era("town").order, 3)
 	assert_true(reg.buildings.values().any(func(d: BuildingDef) -> bool: return d.era == "camp"))
 	for d: BuildingDef in reg.buildings.values():
-		# The Cleanser moved to Village in 1.1.4 and keeps its 2 Lumen row; upkeep still only runs from Town.
-		if (d.era == "camp" or d.era == "village") and d.id != "cleanser":
-			assert_eq(d.upkeep_lumen, 0.0, "%s needs no Lumen before Town" % d.id)
+		# Ticket 159: upkeep runs from Village, so only Camp rows are free; the Village workplaces carry 1 Lumen.
+		if d.era == "camp":
+			assert_eq(d.upkeep_lumen, 0.0, "%s needs no Lumen in Camp" % d.id)
 
 
 # AC1b: haulers deliver upkeep Lumen into the input buffer (an upkeep-only consumer gets one), and the day hook

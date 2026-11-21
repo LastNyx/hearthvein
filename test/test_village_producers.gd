@@ -90,7 +90,7 @@ func test_data_matches_the_village_table() -> void:
 	assert_eq([dock.era, dock.category], ["village", "food"])
 	assert_eq([dock.size, dock.cost, dock.worker_slots], [Vector2i(1, 1), {"wood": 14, "stone": 6}, 2])
 	assert_eq(dock.placement_rule, "shore")
-	assert_eq(dock.recipe.outputs, {"fish": 7.0})
+	assert_eq(dock.recipe.outputs, {"fish": 4.0})
 	assert_eq(reg.get_good("fish").food_type, "fish", "the Dock's food counts as the fish type")
 	var quarry := reg.get_building("quarry")
 	assert_not_null(quarry)
@@ -125,7 +125,7 @@ func test_quarry_places_only_on_rock() -> void:
 	assert_false(s.can_place("quarry", inland)["ok"])
 
 
-# AC2a: two Dock workers make about 9 fish a day and the haulers move it into the Hearth.
+# AC2a: two Dock workers make about 8 fish a day (ticket 159: 4 each) and the haulers move it into the Hearth.
 func test_dock_output_reaches_the_hearth_through_hauling() -> void:
 	var spot := _make_shore_spot()
 	assert_ne(spot, Vector2i(-1, -1), "a shore spot in the strip")
@@ -135,7 +135,7 @@ func test_dock_output_reaches_the_hearth_through_hauling() -> void:
 	var before := s.hearth.inventory.amount_of("fish")
 	s.step_days(5)
 	var per_day := (s.hearth.inventory.amount_of("fish") - before) / 5.0
-	assert_between(per_day, 12.5, 15.5, "fish per day into the Hearth was %f" % per_day)
+	assert_between(per_day, 7.0, 9.0, "fish per day into the Hearth was %f" % per_day)
 	assert_gt(s.totals().get("fish", 0.0), 0.0, "fish is a real stockpiled good")
 
 

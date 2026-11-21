@@ -50,14 +50,14 @@ func test_numbers_come_from_data() -> void:
 	assert_eq(reg.get_building("storehouse").hauler_slots, 2)
 
 
-func test_forager_two_workers_add_about_15_food_per_day() -> void:
+func test_forager_two_workers_add_about_8_food_per_day() -> void:
 	var f := _put("forager", 4)
 	_put("storehouse", 6)
 	s.step_days(2)
 	var before := _food()
 	s.step_days(5)
 	var per_day := (_food() - before) / 5.0
-	assert_between(per_day, 13.0, 16.5, "food per day into storage was %f" % per_day)
+	assert_between(per_day, 7.0, 9.0, "food per day into storage was %f" % per_day)
 	assert_not_null(f.door_buffer)
 
 

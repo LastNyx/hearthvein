@@ -107,9 +107,14 @@ refined good are physical goods held in storehouses and moved by haulers.
 
 - Storage: Hearth holds 150 of each good. Storehouse (2x1) holds 400 units in total, any mix; the player can
   set a storehouse to accept only some goods.
-- Lumen leaks: raw Lumen in storage loses 1% a day. Cells don't leak. When raw Lumen runs out, buildings and
+- Lumen leaks: raw Lumen in storage loses 3% a day (ticket 159; was 1%). Cells don't leak. When raw Lumen runs out, buildings and
   light draw on cells automatically (1 cell = 5 Lumen). This is what makes Dimming prep a choice: refine
-  early and lose 1 in 6, or keep it raw and lose 1% a day.
+  early and lose 1 in 6, or keep it raw and lose 3% a day.
+- Night shift (ticket 138): night slots run 20:00-06:00 and only inside a lamp's light. Lamps (radius, fuel a night): Brazier
+  3 (1 wood), Lantern Post 5 (2 charcoal), Lumen Lamp 7 (3 Lumen), Grid Lamp 9 (1 Lumen from the grid). The Night Watch's
+  walker lights radius 1 along its route (1 charcoal). Kiln: 2 charcoal per worker-day. Glowcap Grove: 3 food per night
+  worker. Beds: Hut 4/3, Lodge 5/3, Cottage tiers 5, 7, 9. Fair share: slots of one rank, priority and shift are filled one
+  each round-robin across the buildings, so the last built are not left empty; High priority beats Normal across categories.
 - Food types for variety: forage, fish, crops, greenhouse, meals (counts once), sky (Sky Garden), orchard.
 
 ## 8. Hauling and logistics (D39)
@@ -257,14 +262,14 @@ Reaching an era unlocks its building set. No research tree (D19).
 
 ## 16. Buildings, Camp to City
 Cost shorthand: W wood, St stone, G gold, L Lumen, P planks, S cut stone, C Lumen cells, T tools.
-Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at tier base.
+Workers = slots. Upkeep = Lumen per day (Village on, ticket 159; Camp pays none). Lean winters: Forager, Farm and Fishing Dock make x0.5 in winter (8 days), stacking with the Dimming; the Glowcap Grove and late food buildings are not affected. Output per worker per day at tier base.
 
 ### Camp
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
 | Hearth | 2x2 | start | 2 haul, 4 build | - | town centre, houses 8, storage 150 each |
 | Tent | 1x1 | 5W | - | - | houses 3 (Hut 4, Lodge 5) |
-| Forager | 1x1 | 10W | 2 | - | +1.5 food; needs grass/forest in r3 |
+| Forager | 1x1 | 10W | 2 | - | +4 food; x0.5 in winter; needs grass/forest in r3 |
 | Woodcutter | 1x1 | 10W | 2 | - | +12 wood; cuts forest in r4 |
 | Storehouse | 2x1 | 25W | 2 haul | - | 400 units any goods |
 | Lumen Tap | 1x1, vein | 20W | 2 | - | +4.5 L; blight r2/6d (tooltip says so) |
@@ -274,19 +279,19 @@ Workers = slots. Upkeep = Lumen per day (Town on). Output per worker per day at 
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
 | Cottage | 1x1 | 10W 5St | - | - | houses 5 (Cottage II 7, Cottage III 9) |
-| Farm | 2x2 | 21W 9St | 3 | - | +2 food x fertility; x1.25 wet |
-| Fishing Dock | 1x1, shore | 14W 6St | 2 | - | +1.5 food; x0.5 fouled |
-| Quarry | 1x1, rock | 25W | 2 | - | +12 St |
+| Farm | 2x2 | 21W 9St | 3 | 1 | +4 crops x fertility; x1.25 wet; x0.5 in winter |
+| Fishing Dock | 1x1, shore | 14W 6St | 2 | 1 | +4 fish; x0.5 fouled; x0.5 in winter |
+| Quarry | 1x1, rock | 25W | 2 | 1 | +12 St |
 | Market | 2x2 | 40W | 2 | - | +1 G; food variety needs a Market in reach of homes |
 | Shrine | 1x1 | 12W 18St 5L | - | - | Spirit coverage r6 |
-| Sawmill | 2x1 | 14W 21St | 2 | - | 6 W -> 3 P, 3/worker/day |
-| Forester | 1x1 | 20W | 1 | - | plants forest r5, halves regrowth |
+| Sawmill | 2x1 | 14W 21St | 2 | 1 | 6 W -> 3 P, 3/worker/day |
+| Forester | 1x1 | 20W | 1 | 1 | plants forest r5, halves regrowth |
 | Builder's Yard | 2x1 | 21W 9St | 4 build, 2 haul | - | more builders |
 | Irrigation Channel | tile | 1St | - | - | carries water |
-| Cleanser | 2x1 | 24W 36St 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01; Village (96), upkeep from Town |
+| Cleanser | 2x1 | 24W 36St 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01; Village (96) |
 | Bell Tower* | 1x1 | 48W 72St 20G 20L 20P | - | - | Town gate |
 
-### Town (Lumen upkeep starts)
+### Town
 | Building | Size | Cost | Workers | Upkeep | Effect |
 |---|---|---|---|---|---|
 | Rowhouse | 2x1 | 28W 12St 5G 10P | - | 0 | houses 10; needs well |
