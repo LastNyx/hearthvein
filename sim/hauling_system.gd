@@ -83,12 +83,19 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 			var each := float(def.recipe.any_input_amount) * slots * reg.logistics.input_buffer_days
 			for g in def.recipe.any_input_goods:
 				out[g] = maxf(float(out.get(g, 0.0)), each)
+	# A night-only building that drinks (Tavern) keeps a few nights of its night_inputs, like any other consumer.
+	for g in def.night_inputs:
+		out[g] = float(out.get(g, 0.0)) + float(def.night_inputs[g]) * reg.logistics.input_buffer_days
 	if def.upkeep_lumen > 0.0:
 		out["lumen"] = float(out.get("lumen", 0.0)) + def.upkeep_lumen * reg.logistics.input_buffer_days
 	# A lamp keeps a few nights of fuel like any other consumer (ticket 133). The def carries the tier I fuel; a
 	# higher tier's fuel comes from Building.lamp_fuel (need_for).
 	if def.lamp and def.lamp_fuel != "" and not def.lamp_grid and def.lamp_fuel_per_night > 0.0:
 		out[def.lamp_fuel] = float(out.get(def.lamp_fuel, 0.0)) + def.lamp_fuel_per_night \
+				* reg.logistics.input_buffer_days
+	# The Night Watch's walker burns its lantern fuel at dusk, so haulers keep a few nights of it too (ticket 143).
+	if def.patrol_radius > 0 and def.patrol_fuel != "" and def.patrol_fuel_per_night > 0.0:
+		out[def.patrol_fuel] = float(out.get(def.patrol_fuel, 0.0)) + def.patrol_fuel_per_night \
 				* reg.logistics.input_buffer_days
 	return out
 

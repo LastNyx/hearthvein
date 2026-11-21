@@ -1382,6 +1382,26 @@ def lamp_sprite(kind):
     return M.Sprite(img, 1, 1, glows=[(gx, gy, r, col)], shadow=(0.9, 5))
 
 
+def night_watch_sprite():
+    """The Night Watch (ticket 143): the approved nightlife mockup art, a lantern on an iron arm, as a 1x1 sprite.
+
+    One warm halo on the lantern cage (the mockup's emissive pixels).
+    """
+    import mockups_nightlife as NL  # lazy: the nightlife mockups are heavy and only the night buildings need them
+    img, _, _ = NL.watch_art(True)
+    return M.Sprite(img, 1, 1, glows=[(40, 8, 12, (255, 200, 90))], shadow=(1.0, 6))
+
+
+def tavern_sprite():
+    """The Tavern (ticket 139): the approved nightlife mockup art, warm windows and a hanging sign, as a 2x1 sprite.
+
+    Two warm halos: the mug on the hanging sign and the door lantern (the mockup's emissive pixels).
+    """
+    import mockups_nightlife as NL  # lazy: the nightlife mockups are heavy and only the Tavern needs them
+    img, _, _ = NL.tavern_art(True)
+    return M.Sprite(img, 2, 1, glows=[(9, 21, 9, (255, 200, 90)), (61, 31, 7, (255, 170, 70))], shadow=(1.0, 9))
+
+
 SHEET = {
     "hearth": lambda: M.b_hearth(), "tent": lambda: M.b_tent(0), "woodcutter": lambda: M.b_woodcutter(1),
     "lumen_tap": lambda: M.b_lumen_mill(), "meeting_hall": lambda: M.b_meeting_hall(),
@@ -1419,6 +1439,10 @@ SHEET = {
     "bakery": lambda: NightSprite(NL.bakery_art(False), NL.bakery_art(True), 1, 1, (0.9, 5), (255, 150, 60), 14),
     # ticket 144: the Moonmoth Loft, pale moths round a lantern (1x1)
     "moonmoth_loft": lambda: NightSprite(N.loft_art(False), N.loft_art(True), 1, 1, (0.9, 5), (228, 232, 255), 12),
+    # ticket 139: the Tavern, composed in the nightlife mockups (warm windows, hanging sign, barrels)
+    "tavern": tavern_sprite,
+    # ticket 143: the Night Watch, a lantern on a pole from the same nightlife mockups
+    "night_watch": night_watch_sprite,
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}

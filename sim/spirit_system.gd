@@ -15,6 +15,9 @@ extends SimSystem
 ##
 ## Runs after GrowthSystem each day: hunger comes from GrowthSystem.last_day. Food variety is market-gated (ticket
 ## 23): MarketSystem says how many food types the citizens' homes can reach, and only that many count.
+##
+## Night drinks (ticket 139): at the night shift's start, every finished, lit Tavern with a night worker drinks its
+## BuildingDef.night_inputs. Those that drank cheer the homes inside their spirit_radius that night ("tavern" factor).
 
 const SAVE_KEY := "spirit"
 
@@ -24,7 +27,10 @@ var low_days: int = 0
 var _days_since_leave: int = 0
 var _hooks: Dictionary = {}  # factor id -> Callable
 var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
-		"tax_office", "planet_grief", "light"]
+		"tax_office", "planet_grief", "light", "tavern"]
+## Tavern building ids that drank their night_inputs at this night's start, low to high (ticket 139). Runtime state,
+## saved so a load in the middle of a night keeps the Taverns' cheer.
+var _serving: Array[int] = []
 
 
 func _init() -> void:
@@ -35,13 +41,17 @@ func _init() -> void:
 ## The two meters and their bookkeeping. The factor hooks are Callables wired in add_default_systems (by ticket),
 ## not data, so they are not saved; the loaded system is built by add_default_systems and has the same ones.
 func save_state() -> Dictionary:
-	return {"value": value, "low_days": low_days, "days_since_leave": _days_since_leave}
+	return {"value": value, "low_days": low_days, "days_since_leave": _days_since_leave,
+			"serving": _serving.duplicate()}
 
 
 func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	value = float(d["value"])
 	low_days = int(d["low_days"])
 	_days_since_leave = int(d["days_since_leave"])
+	_serving.clear()
+	for id in d.get("serving", []):
+		_serving.append(int(id))
 
 
 ## Replace a factor's function (settlement) -> float (signed: negative lowers Spirit). Returns false for unknown ids.
@@ -94,6 +104,26 @@ func factor_value(s: Settlement, id: String) -> float:
 			if homes == 0:
 				return 0.0
 			return minf(sd.light_bonus * float(lit) / float(homes), sd.light_bonus_max)
+		"tavern":
+			# Taverns at night (ticket 139): the share of finished homes inside the spirit_radius of a Tavern that
+			# drank its night_inputs and is staffed and lit (the same footprint measure as Shrine coverage).
+			if not s.is_night() or _serving.is_empty():
+				return 0.0
+			var homes := 0
+			var served := 0
+			for bid in s.buildings:
+				var hb: Building = s.buildings[bid]
+				if hb.site or hb.def.housing_beds <= 0:
+					continue
+				homes += 1
+				for tid in _serving:
+					var tb: Building = s.buildings.get(tid)
+					if tb != null and cheers(tb, hb):
+						served += 1
+						break
+			if homes == 0:
+				return 0.0
+			return minf(sd.tavern_bonus * float(served) / float(homes), sd.tavern_bonus)
 	var fn: Callable = _hooks.get(id, Callable())
 	return float(fn.call(s)) if fn.is_valid() else 0.0
 
@@ -138,6 +168,59 @@ static func growth_multiplier(s: Settlement) -> float:
 ## ProductionSystem modifier.
 static func work_modifier(s: Settlement, _b: Building) -> float:
 	return work_multiplier(s)
+
+
+## At the night shift's start every finished, lit Tavern with a night worker drinks its night_inputs, and those that
+## cannot pay stay dry that night (ticket 139). The serving list clears at dawn.
+func on_hour(s: Settlement) -> void:
+	var lg := s.registry.logistics
+	if lg == null:
+		return
+	var h := s.clock.hour()
+	if h == lg.night_shift_start:
+		_drink(s)
+	elif h == lg.night_shift_end:
+		_serving.clear()
+
+
+func _drink(s: Settlement) -> void:
+	_serving.clear()
+	var ids: Array = s.buildings.keys()
+	ids.sort()
+	for bid in ids:
+		var b: Building = s.buildings[bid]
+		if b.site or b.paused or b.def.night_inputs.is_empty():
+			continue
+		if not s.is_lit(b) or night_workers(s, b) <= 0:
+			continue
+		var paid := true
+		for g in b.def.night_inputs:
+			if b.input_buffer == null \
+					or b.input_buffer.amount_of(g) < float(b.def.night_inputs[g]) - Inventory.EPS:
+				paid = false
+				break
+		if not paid:
+			continue
+		for g in b.def.night_inputs:
+			var got := b.input_buffer.remove(g, float(b.def.night_inputs[g]))
+			ResourceLedgerSystem.record_used(s, g, got, "production", b.def.id)
+		_serving.append(b.id)
+
+
+## True when `source` cheers homes within its spirit_radius (the Tavern's night cheer, measured like coverage).
+static func cheers(source: Building, home: Building) -> bool:
+	return source.def.spirit_radius > 0 and source.layer == home.layer \
+			and Building.footprint_gap(source, home) <= source.def.spirit_radius
+
+
+## Citizens on this building's night work shift.
+static func night_workers(s: Settlement, b: Building) -> int:
+	var n := 0
+	for cid in s.citizens:
+		var c: Citizen = s.citizens[cid]
+		if c.job_id == b.id and c.job_kind == Citizen.JOB_WORK and c.shift == Citizen.SHIFT_NIGHT:
+			n += 1
+	return n
 
 
 func on_day(s: Settlement) -> void:

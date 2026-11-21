@@ -472,6 +472,7 @@ func _validate_building(b: BuildingDef) -> void:
 	if b.size.x < 1 or b.size.y < 1:
 		errors.append("%s: size must be at least 1x1" % who)
 	_check_amounts(b.cost, who + " cost", true)
+	_check_amounts(b.night_inputs, who + " night input", false)
 	if b.recipe != null:
 		_check_amounts(b.recipe.inputs, who + " recipe input", false)
 		_check_amounts(b.recipe.outputs, who + " recipe output", false)
@@ -497,6 +498,11 @@ func _validate_building(b: BuildingDef) -> void:
 			errors.append("%s: lamp_fuel '%s' is not a good" % [who, b.lamp_fuel])
 		if b.lamp_fuel_per_night <= 0.0:
 			errors.append("%s: lamp_fuel_per_night must be positive" % who)
+	if b.patrol_radius > 0:
+		if not goods.has(b.patrol_fuel):
+			errors.append("%s: patrol_fuel '%s' is not a good" % [who, b.patrol_fuel])
+		if b.patrol_fuel_per_night <= 0.0:
+			errors.append("%s: patrol_fuel_per_night must be positive" % who)
 	if b.fertility_output and b.recipe == null:
 		errors.append("%s: fertility_output without a recipe" % who)
 	if b.fertile_origin_bonus < 1.0:
@@ -515,6 +521,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: darkness_factor must be 0-1" % who)
 	if b.coverage_radius < 0:
 		errors.append("%s: coverage_radius must not be negative" % who)
+	if b.spirit_radius < 0:
+		errors.append("%s: spirit_radius must not be negative" % who)
 	if b.wet_radius < 0:
 		errors.append("%s: wet_radius must not be negative" % who)
 	if b.water_radius < 0:

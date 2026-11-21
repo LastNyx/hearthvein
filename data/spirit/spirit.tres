@@ -19,6 +19,7 @@ darkness_penalty = 20.0
 tax_office_penalty = 5.0
 light_bonus = 1.0
 light_bonus_max = 3.0
+tavern_bonus = 5.0
 grief_max = 10.0
 grief_below = 60.0
 grief_divisor = 6.0

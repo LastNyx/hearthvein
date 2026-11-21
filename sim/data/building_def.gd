@@ -54,6 +54,15 @@ const GOLD := "gold"
 @export var lamp_fuel_per_night: float = 0.0
 ## True for the Grid Lamp (tier IV): it draws its fuel from the Lumen grid and no hauler brings it.
 @export var lamp_grid: bool = false
+## Night Watch (ticket 143, spec N10): its night walker patrols the road tiles within patrol_radius tiles of the
+## footprint (Chebyshev from the footprint, the "within N tiles" measure coverage uses) in a loop. Those tiles count
+## as lit, radius 1, while the watch is staffed and fuelled, so a small night building on the route needs no lamp.
+## 0 = not a patrol building.
+@export var patrol_radius: int = 0
+## Good the walker's lantern burns each night (charcoal). Haulers bring it into the input buffer like lamp fuel;
+## the watch burns patrol_fuel_per_night of it at dusk, and with no worker or no fuel the route stays dark.
+@export var patrol_fuel: String = ""
+@export var patrol_fuel_per_night: float = 0.0
 ## Night-only building (ticket 134: Charcoal Kiln, Glowcap Grove): it exists for its night slots alone, so it opens no
 ## day work slots and ProductionSystem makes nothing by day even if a worker is somehow at its door.
 @export var night_only: bool = false
@@ -62,6 +71,10 @@ const GOLD := "gold"
 ## 0 = no such rule.
 @export var min_lit_tiles: int = 0
 @export var lit_tile_radius: int = 0
+## Goods a building drinks or eats each night while its night shift works and it is lit (Tavern: 4 crops). Unlike a
+## recipe it makes no good: haulers bring the goods in like any consumer, and SpiritSystem takes one night's amount
+## at the night shift start. A building that cannot pay serves nothing that night. Empty = drinks nothing.
+@export var night_inputs: Dictionary = {}
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
 @export var housing_beds: int = 0
@@ -153,6 +166,10 @@ const GOLD := "gold"
 ## this building: Shrine 6, Park 5, Observatory 8, Hall of Seasons 12 (design.md sections 11, 16-17). 0 = no coverage.
 ## CoverageSystem owns the query; the Spirit "coverage" factor reads it.
 @export var coverage_radius: int = 0
+## Tiles a home must be within (Chebyshev, footprint to footprint, measured like coverage_radius) to be cheered at
+## night by this building while its night shift works and it is lit (Tavern: 4). Apart from coverage_radius so a
+## Tavern never joins the Shrine/Park coverage factor; SpiritSystem's "tavern" factor owns this query. 0 = no cheer.
+@export var spirit_radius: int = 0
 ## Dimming forecast lead in seasons while at least one finished, staffed, unpaused building of this def stands on a
 ## settled island or the ground (Observatory: 2, ticket 41d). The longest lead wins; 0 = no effect, the planet's
 ## dimming_forecast_seasons (1) applies. DimmingSystem.forecast_lead owns the query.

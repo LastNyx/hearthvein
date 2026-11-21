@@ -59,7 +59,7 @@ func test_food_types_counted_only_through_a_market() -> void:
 func test_target_hook_factors() -> void:
 	var names: Array = sp.breakdown(s)["factors"].keys()
 	assert_eq(names, ["base", "food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
-			"tax_office", "planet_grief", "light"])
+			"tax_office", "planet_grief", "light", "tavern"])
 	for id in ["coverage", "blight", "water", "darkness", "planet_grief"]:
 		assert_eq(_factor(id), 0.0, id + " is a hook returning 0")
 	assert_true(sp.set_hook("coverage", func(_s): return 10.0))

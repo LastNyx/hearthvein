@@ -364,6 +364,43 @@ func door_tile(b: Building) -> Vector2i:
 	return MapState.to_global(Vector2i(r.position.x + r.size.x / 2, r.end.y - 1), b.layer)
 
 
+## Road tiles a Night Watch's walker patrols (ticket 143): every road tile within `b.def.patrol_radius` tiles of the
+## building's footprint (Chebyshev gap, the "within N tiles" measure coverage uses), in a stable y then x order so the
+## loop is the same on every call and after a load. Empty when the def does not patrol.
+func patrol_route(s: Settlement, b: Building) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if s == null or b == null or b.def == null or b.def.patrol_radius <= 0:
+		return out
+	var pad := b.def.patrol_radius
+	var r := b.footprint()
+	for y in range(r.position.y - pad, r.end.y + pad):
+		for x in range(r.position.x - pad, r.end.x + pad):
+			if not MapState.in_bounds(x, y):
+				continue
+			var t := Vector2i(x, y)
+			if s.road_at(t) == Settlement.ROAD_NONE or _tile_gap(r, t) > pad:
+				continue
+			out.append(t)
+	out.sort_custom(func(a: Vector2i, c: Vector2i) -> bool:
+		return a.y < c.y or (a.y == c.y and a.x < c.x))
+	return out
+
+
+## Chebyshev gap in tiles between a footprint and a tile (0 on the footprint).
+static func _tile_gap(r: Rect2i, t: Vector2i) -> int:
+	var dx := 0
+	if t.x < r.position.x:
+		dx = r.position.x - t.x
+	elif t.x > r.end.x - 1:
+		dx = t.x - (r.end.x - 1)
+	var dy := 0
+	if t.y < r.position.y:
+		dy = r.position.y - t.y
+	elif t.y > r.end.y - 1:
+		dy = t.y - (r.end.y - 1)
+	return maxi(dx, dy)
+
+
 ## Walking speed in tiles per second on a global tile (0 = impassable).
 func tile_speed(tile: Vector2i) -> float:
 	_refresh_grid()

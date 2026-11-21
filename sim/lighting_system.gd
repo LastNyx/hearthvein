@@ -14,6 +14,10 @@ extends SimSystem
 ##
 ## Lit houses give Spirit a small bonus at night (lit_share x SpiritDef.light_bonus, capped); SpiritSystem reads it.
 ## The lamp's lit_tonight flag is saved on the Building; this system keeps no other state.
+##
+## A Night Watch (ticket 143) is a moving light: at dusk it burns its patrol fuel when a night worker is assigned,
+## and then every road tile its walker patrols (WalkerSystem.patrol_route) lights a radius of 1 for the night. The
+## same lit cache and the same flags serve both sources, so ticket 149's gloom can read the route through is_lit.
 
 ## Tiles a lit lamp reaches, as Vector2i -> true. Runtime cache only.
 var _lit: Dictionary = {}
@@ -46,7 +50,12 @@ func _burn(s: Settlement) -> void:
 	ids.sort()
 	for bid in ids:
 		var b: Building = s.buildings[bid]
-		if b.site or not b.def.lamp:
+		if b.site:
+			continue
+		if b.def.patrol_radius > 0:
+			b.lit_tonight = _burn_patrol(s, b)
+			continue
+		if not b.def.lamp:
 			continue
 		var fuel := b.lamp_fuel(s.registry)
 		var per := b.lamp_fuel_per_night(s.registry)
@@ -61,6 +70,17 @@ func _burn(s: Settlement) -> void:
 		b.lit_tonight = got >= per - Inventory.EPS
 	# Always: the 132 layout cache must rebuild at dusk. JobSystem runs right after this system in the same hour.
 	s.light_version += 1
+
+
+## At dusk a Night Watch burns one night of patrol fuel if a night worker is assigned (ticket 143). With no worker,
+## paused, or no fuel it stays in, and the route is dark all night.
+func _burn_patrol(s: Settlement, b: Building) -> bool:
+	var per := b.def.patrol_fuel_per_night
+	var got := 0.0
+	if not b.paused and per > 0.0 and b.input_buffer != null and SpiritSystem.night_workers(s, b) > 0:
+		got = b.input_buffer.remove(b.def.patrol_fuel, per)
+	ResourceLedgerSystem.record_used(s, b.def.patrol_fuel, got, "light", b.def.id)
+	return got >= per - Inventory.EPS
 
 
 ## True when one of `b`'s footprint tiles is inside a lit lamp's radius during the lamp hours.
@@ -102,22 +122,36 @@ func _ensure(s: Settlement) -> Dictionary:
 		return _lit
 	_key = key
 	_lit.clear()
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var ids: Array = s.buildings.keys()
 	ids.sort()
 	for bid in ids:
 		var b: Building = s.buildings[bid]
-		if b.site or not b.def.lamp or not b.lit_tonight:
+		if b.site or not b.lit_tonight:
+			continue
+		if b.def.patrol_radius > 0:
+			# The Night Watch's walker carries the light along its route: every patrolled tile lights a radius of 1.
+			if ws != null:
+				for t in ws.patrol_route(s, b):
+					_stamp_disc(_lit, t, 1)
+			continue
+		if not b.def.lamp:
 			continue
 		var r := b.lamp_radius(s.registry)
 		if r <= 0:
 			continue
 		for t in b.tiles():
-			for y in range(t.y - r, t.y + r + 1):
-				for x in range(t.x - r, t.x + r + 1):
-					if not MapState.in_bounds(x, y):
-						continue
-					var dx := x - t.x
-					var dy := y - t.y
-					if dx * dx + dy * dy <= r * r:
-						_lit[Vector2i(x, y)] = true
+			_stamp_disc(_lit, t, r)
 	return _lit
+
+
+## Adds every in-bounds tile within Euclidean radius `r` of `centre` to `out` (the lamp pool shape).
+static func _stamp_disc(out: Dictionary, centre: Vector2i, r: int) -> void:
+	for y in range(centre.y - r, centre.y + r + 1):
+		for x in range(centre.x - r, centre.x + r + 1):
+			if not MapState.in_bounds(x, y):
+				continue
+			var dx := x - centre.x
+			var dy := y - centre.y
+			if dx * dx + dy * dy <= r * r:
+				out[Vector2i(x, y)] = true

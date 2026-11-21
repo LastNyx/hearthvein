@@ -1599,6 +1599,35 @@
    },
    "w": 37
   },
+  "night_watch": {
+   "base": [
+    25,
+    62
+   ],
+   "file": "buildings/night_watch.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/night_watch_fx.png",
+    "offset": [
+     4,
+     -65
+    ]
+   },
+   "generic": false,
+   "h": 63,
+   "shadow": {
+    "file": "buildings/night_watch_shadow.png",
+    "offset": [
+     -19,
+     -4
+    ]
+   },
+   "w": 50
+  },
   "observatory": {
    "base": [
     33,
@@ -2145,6 +2174,35 @@
     ]
    },
    "w": 62
+  },
+  "tavern": {
+   "base": [
+    33,
+    52
+   ],
+   "file": "buildings/tavern.png",
+   "flat": false,
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/tavern_fx.png",
+    "offset": [
+     -32,
+     -39
+    ]
+   },
+   "generic": false,
+   "h": 53,
+   "shadow": {
+    "file": "buildings/tavern_shadow.png",
+    "offset": [
+     -26,
+     -6
+    ]
+   },
+   "w": 66
   },
   "tax_office": {
    "base": [

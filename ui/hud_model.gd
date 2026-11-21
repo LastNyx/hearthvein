@@ -275,7 +275,7 @@ func population() -> Dictionary:
 
 const FACTOR_NAMES := {"base": "Base", "food_types": "Food variety", "coverage": "Coverage", "hunger": "Hunger",
 		"homeless": "Homeless", "blight": "Blight", "water": "Water", "darkness": "Darkness",
-		"tax_office": "Tax Office", "planet_grief": "Planet grief", "light": "Lit homes"}
+		"tax_office": "Tax Office", "planet_grief": "Planet grief", "light": "Lit homes", "tavern": "Tavern"}
 
 
 ## {value, target, text, state (good|ok|bad), tooltip}. The tooltip lists the factors in the sim's order.
@@ -807,7 +807,8 @@ func workforce() -> Dictionary:
 		row["night_filled"] = _kind_total(night_kinds, 2)
 		if row["night_slots"] == 0:
 			row["night_text"] = "-"
-		elif not _lamp_reaches(b, lamp_tiles):
+		elif b.def.patrol_radius <= 0 and not _lamp_reaches(b, lamp_tiles):
+			# A Night Watch (ticket 143) is its own light: its slot never waits for a lamp.
 			row["night_text"] = "Needs a lamp"
 		else:
 			row["night_text"] = _count_text(night_kinds)
@@ -1654,7 +1655,8 @@ func detail_for(def_id: String) -> Dictionary:
 			"description": def.description, "costs": cost_rows(def), "workers": def.worker_slots,
 			"size": "%d x %d tiles" % [def.size.x, def.size.y], "inputs": inputs, "outputs": outputs, "extra": extra,
 			"unlock": "Needs %s era" % era_name if locked else "%s era (unlocked)" % era_name, "locked": locked,
-			"reason": layer_block_reason(def)}
+			"reason": layer_block_reason(def),
+			"night": def.night_worker_slots > 0 or def.night_hauler_slots > 0 or def.night_only}
 
 
 func _flow_row(good: String, amount: float) -> Dictionary:
@@ -1698,14 +1700,16 @@ func build_bar() -> Array[Dictionary]:
 		by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
 				"cost": goods_cost_text(s.cost_for(def.id, have)), "size": "%dx%d" % [def.size.x, def.size.y],
 				"reason": block, "enabled": block == "", "locked": false, "unlock": "", "costs": costs,
-				"short": costs.any(func(c: Dictionary) -> bool: return c["short"])})
+				"short": costs.any(func(c: Dictionary) -> bool: return c["short"]),
+				"night": def.night_worker_slots > 0 or def.night_hauler_slots > 0 or def.night_only})
 	# Ticket 116: the next era's buildings show locked (greyed, with the reason) next to the unlocked ones of their category.
 	for def in _next_era_defs():
 		if def.id != "hearth" and by_cat.has(def.category):
 			by_cat[def.category].append({"kind": "building", "id": def.id, "label": def.display_name,
 					"cost": goods_cost_text(def.entry_cost()), "size": "%dx%d" % [def.size.x, def.size.y],
 					"reason": unlock_text(def), "enabled": false, "locked": true, "unlock": unlock_text(def),
-					"costs": cost_rows(def, have), "short": false})
+					"costs": cost_rows(def, have), "short": false,
+					"night": def.night_worker_slots > 0 or def.night_hauler_slots > 0 or def.night_only})
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:
 		if cat == "roads":
@@ -1844,7 +1848,7 @@ func _grid_cell(e: Dictionary) -> Dictionary:
 	if str(e["kind"]) != "building":
 		label = label.get_slice(" (", 0)  # the positional key replaces the old hotkey hint
 	return {"id": str(e["id"]), "label": label, "key": "", "icon": "", "state": state, "reason": reason,
-			"tip": str(e.get("tip", ""))}
+			"tip": str(e.get("tip", "")), "night": bool(e.get("night", false))}
 
 
 ## "Not enough Wood, Stone" for the goods a cost is short of, "" when nothing is short.

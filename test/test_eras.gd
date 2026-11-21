@@ -279,7 +279,7 @@ func test_every_village_building_can_be_built() -> void:
 		if d.era == "village":
 			village.append(d)
 	village.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
-	assert_eq(village.size(), 12, "the Village set of design section 16 (Cleanser moved here in 1.1.4; Charcoal Kiln and Glowcap Grove added in 1.1.10)")
+	assert_eq(village.size(), 14, "the Village set of design section 16 (Cleanser moved here in 1.1.4; Charcoal Kiln, Glowcap Grove, Tavern and Night Watch added in 1.1.10)")
 
 	for d in village:
 		var spot := _village_spot(s, d.id)
@@ -366,9 +366,9 @@ func test_every_town_building_can_be_built() -> void:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
-	_stock(s, "wood", 380.0)  # the Town set's wood and stone, the Bakery (ticket 140) included
+	_stock(s, "wood", 400.0)  # the Town set's wood and stone, the Bakery (140) and Moonmoth Loft (144) included
 	_stock(s, "stone", 400.0)
-	_stock(s, "planks", 140.0)
+	_stock(s, "planks", 152.0)
 	_stock(s, "lumen", 400.0)  # the whole cost plus the Town upkeep that runs while the sites go up
 	_stock(s, "cut_stone", 45.0)
 	_stock(s, "food", 600.0)
@@ -380,7 +380,7 @@ func test_every_town_building_can_be_built() -> void:
 		if d.era == "town":
 			town.append(d)
 	town.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
-	assert_eq(town.size(), 12, "the Town set (Cleanser moved to Village in 1.1.4; Bakery added in 1.1.12) of design section 16")
+	assert_eq(town.size(), 13, "the Town set (Cleanser moved to Village in 1.1.4; Bakery and Moonmoth Loft added in 1.1.10) of design section 16")
 
 	for d in town:
 		var spot := _village_spot(s, d.id)
