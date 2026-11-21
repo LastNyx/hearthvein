@@ -184,9 +184,8 @@ func _can_arrive(s: Settlement, gd: GrowthDef) -> bool:
 
 ## At the night shift's start: a night newcomer is ready once the share has added up to 1, and arrives if lit.
 func on_hour(s: Settlement) -> void:
-	var lg := s.registry.logistics
 	var gd := s.registry.growth
-	if lg == null or s.clock.hour() != lg.night_shift_start or gd.night_arrival_share <= 0.0 or s.hearth == null:
+	if s.clock.hour() != s.night_window().x or gd.night_arrival_share <= 0.0 or s.hearth == null:
 		return
 	if not _can_arrive(s, gd):
 		return

@@ -165,3 +165,49 @@ func test_full_moon_lamp_keeps_its_radius_until_the_dimming_dawn() -> void:
 	assert_eq(s.lamp_radius(lamp), base + 1, "still the full-moon night at 08:00")
 	s.clock.total_hours = full_day * 24 + 9
 	assert_eq(s.lamp_radius(lamp), base, "back to the lamp's own radius at 09:00")
+
+
+## A lit Tavern with crops and a lamp, 4 citizens, the clock at `hour` of day 0 (a Dimming when `dimming`).
+func _tavern_night(settlement: Settlement, hour: int, dimming: bool) -> Building:
+	var tavern := _put(settlement, "tavern", 4)
+	var lamp := _put(settlement, "lamp", 4, 1)
+	lamp.input_buffer.add("wood", 3.0)
+	tavern.input_buffer.add("crops", 8.0)
+	settlement.hearth.inventory.remove("wood", 1000.0)
+	_keep_citizens(settlement, 4)
+	settlement.clock.total_hours = hour
+	if dimming:
+		_dimming(settlement)
+	return tavern
+
+
+## Ticket 173: in a Dimming a lit Tavern with a night worker drinks at 16:00, not 20:00, and is still serving at 07:00.
+func test_tavern_drinks_at_the_dimming_dusk_and_serves_until_its_dawn() -> void:
+	var tavern := _tavern_night(s, 14, true)
+	var sp := s.get_system(SpiritSystem) as SpiritSystem
+	s.step_hours(1)  # 15:00
+	assert_eq(tavern.input_buffer.amount_of("crops"), 8.0, "nothing drunk by day")
+	s.step_hours(1)  # 16:00
+	assert_true(s.is_lit(tavern), "the lamp lit at the Dimming dusk")
+	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "drank at 16:00")
+	assert_gt(sp.factor_value(s, "tavern"), 0.0, "cheering from 16:00")
+	s.step_hours(15)  # 07:00 next morning
+	assert_eq(s.clock.hour(), 7)
+	assert_gt(sp.factor_value(s, "tavern"), 0.0, "still serving at 07:00")
+	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "no second drink")
+	s.step_hours(2)  # 09:00
+	assert_eq(sp.factor_value(s, "tavern"), 0.0, "the long night is over")
+
+
+## Ticket 173: a normal night is unchanged, the Tavern drinks at 20:00 and clears at 06:00.
+func test_tavern_normal_night_is_still_20_to_06() -> void:
+	var tavern := _tavern_night(s, 18, false)
+	var sp := s.get_system(SpiritSystem) as SpiritSystem
+	s.step_hours(1)  # 19:00
+	assert_eq(tavern.input_buffer.amount_of("crops"), 8.0, "not yet at 19:00")
+	s.step_hours(1)  # 20:00
+	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "drank at 20:00")
+	s.step_hours(9)  # 05:00
+	assert_gt(sp.factor_value(s, "tavern"), 0.0, "serving at 05:00")
+	s.step_hours(1)  # 06:00
+	assert_eq(sp.save_state()["serving"].size(), 0, "the serving list clears at 06:00")

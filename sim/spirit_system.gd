@@ -176,16 +176,15 @@ static func work_modifier(s: Settlement, _b: Building) -> float:
 	return work_multiplier(s)
 
 
-## At the night shift's start every finished, lit Tavern with a night worker drinks its night_inputs, and those that
+## At the night shift's start (Settlement.night_window) every finished, lit Tavern with a night worker drinks its
+## night_inputs, and those that
 ## cannot pay stay dry that night (ticket 139). The serving list clears at dawn.
 func on_hour(s: Settlement) -> void:
-	var lg := s.registry.logistics
-	if lg == null:
-		return
 	var h := s.clock.hour()
-	if h == lg.night_shift_start:
+	var w := s.night_window()
+	if h == w.x:
 		_drink(s)
-	elif h == lg.night_shift_end:
+	elif h == w.y:
 		_serving.clear()
 
 

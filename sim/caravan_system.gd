@@ -79,15 +79,13 @@ func notice_text(s: Settlement = null) -> String:
 
 
 func on_hour(s: Settlement) -> void:
-	var lg := s.registry.logistics
-	if lg == null:
-		return
 	var h := s.clock.hour()
+	var w := s.night_window()
 	if visiting() and not s.buildings.has(market_id()):
 		_leave(s)  # the market was demolished while the caravan was parked
-	elif h == lg.night_shift_end and visiting():
+	elif h == w.y and visiting():
 		_leave(s)
-	elif h == lg.night_shift_start and is_caravan_night(s.map.seed_used, s.clock.total_days()):
+	elif h == w.x and is_caravan_night(s.map.seed_used, s.clock.total_days()):
 		var m := _host(s)
 		if m != null:
 			start_visit(s, m)

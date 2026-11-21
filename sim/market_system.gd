@@ -53,8 +53,7 @@ func on_day(s: Settlement) -> void:
 ## A Night Market (night_only) sells its surplus once, when the night shift starts, and only while it is lit and has a
 ## night worker (ticket 141); the Market's own rule at night.
 func on_hour(s: Settlement) -> void:
-	var lg := s.registry.logistics
-	if lg != null and s.clock.hour() == lg.night_shift_start:
+	if s.clock.hour() == s.night_window().x:
 		_sell_surplus(s, assigned_workers(s), true)
 
 
