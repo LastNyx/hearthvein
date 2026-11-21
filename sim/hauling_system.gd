@@ -72,12 +72,15 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 	if reg.logistics == null:
 		return out
 	if def.recipe != null:
+		# A night-only producer works its night slots alone (ticket 134): its keep is sized off those, or it would
+		# get a zero-cap input buffer and never hold the wood it burns.
+		var slots := def.night_worker_slots if def.night_only else def.worker_slots
 		for g in def.recipe.inputs:
-			out[g] = float(def.recipe.inputs[g]) * def.worker_slots * reg.logistics.input_buffer_days
+			out[g] = float(def.recipe.inputs[g]) * slots * reg.logistics.input_buffer_days
 		# Flexible inputs (Kitchen): every listed food type gets two days of one batch's share, so haulers keep
 		# whichever two types the Kitchen picks in stock. The per-good buffer cap comes from this same need.
 		if def.recipe.any_input_count > 0:
-			var each := float(def.recipe.any_input_amount) * def.worker_slots * reg.logistics.input_buffer_days
+			var each := float(def.recipe.any_input_amount) * slots * reg.logistics.input_buffer_days
 			for g in def.recipe.any_input_goods:
 				out[g] = maxf(float(out.get(g, 0.0)), each)
 	if def.upkeep_lumen > 0.0:
