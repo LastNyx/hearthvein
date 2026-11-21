@@ -339,6 +339,12 @@ func _build_title() -> void:
 	cam.make_current()
 	var half := get_viewport().get_visible_rect().size * 0.5
 	var size := map_view.world_size()
+	# The pan ends are worked out from the view size at boot; a bigger or maximised window later would look past the
+	# map's edge (empty strip on the left). Limits keep the view on the map at any window size.
+	cam.limit_left = 0
+	cam.limit_top = 0
+	cam.limit_right = int(size.x)
+	cam.limit_bottom = int(size.y)
 	var y := randf_range(half.y, maxf(half.y, size.y - half.y))
 	cam.position = Vector2(half.x, y)
 	_pan = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
