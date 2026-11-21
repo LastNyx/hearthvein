@@ -36,7 +36,7 @@ func _init() -> void:
 		s.map.region_owned[r] = 1
 	s.era_override = "town"
 	var hud: Hud = main.get_node("Hud")
-	hud._rebuild_categories()
+	hud.refresh()
 	var y := h.y + 4
 	for x in range(h.x - 6, h.x + 8):
 		s.place_road(Vector2i(x, y))

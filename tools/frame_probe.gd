@@ -23,7 +23,7 @@ func _build(main: Node, era: String) -> Settlement:
 	main.driver.set_speed(0)  # this script feeds the sim itself
 	var s: Settlement = main.settlement
 	s.era_current = era
-	(main.get_node("Hud") as Hud)._rebuild_categories()
+	(main.get_node("Hud") as Hud).refresh()
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
 	s.hearth.inventory.add("wood", 900.0)

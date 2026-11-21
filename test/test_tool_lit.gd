@@ -29,7 +29,7 @@ func _game(era: String = "town") -> Node:
 	main.settlement.hearth.inventory.add("stone", 40.0)  # channels cost stone
 	for r in MapState.REGION_COUNT:
 		main.settlement.map.region_owned[r] = 1
-	(main.get_node("Hud") as Hud)._rebuild_categories()
+	(main.get_node("Hud") as Hud).refresh()
 	await wait_process_frames(2)
 	return main
 
@@ -39,33 +39,31 @@ func _on(b: Button) -> bool:
 
 
 func _open(hud: Hud, cat: String) -> void:
-	if hud._open_cat != "":
-		hud.open_category(hud._open_cat)
+	if hud._grid_page != "":
+		hud.open_category(hud._grid_page)
 	hud.open_category(cat)
 	await wait_process_frames(2)
 
 
-func _flyout(hud: Hud, name: String) -> Button:
-	return hud._fly_box.find_child(name, true, false) as Button
+func _cell(hud: Hud, id: String) -> Button:
+	return hud._cell_button(id)
 
 
 func test_active_tool_is_lit_and_goes_dark_when_the_mode_ends() -> void:
 	var main: Node = await _game()
 	var hud: Hud = main.get_node("Hud")
 	var build: BuildController = main.get_node("BuildController")
-	var tab := hud.tools_tab
-	tab.set_open(true)
-	assert_false(_on(tab.button("demolish")))
-	assert_false(_on(tab.button("upgrade")))
-	tab.button("demolish").pressed.emit()
-	assert_true(_on(tab.button("demolish")))
-	assert_false(_on(tab.button("upgrade")))
-	tab.button("upgrade").pressed.emit()
+	assert_false(_on(_cell(hud, "demolish")))
+	assert_false(_on(_cell(hud, "upgrade")))
+	_cell(hud, "demolish").pressed.emit()
+	assert_true(_on(_cell(hud, "demolish")))
+	assert_false(_on(_cell(hud, "upgrade")))
+	_cell(hud, "upgrade").pressed.emit()
 	assert_eq(build.mode, BuildController.Mode.UPGRADE)
-	assert_true(_on(tab.button("upgrade")))
-	assert_false(_on(tab.button("demolish")))
+	assert_true(_on(_cell(hud, "upgrade")))
+	assert_false(_on(_cell(hud, "demolish")))
 	build.cancel()
-	assert_false(_on(tab.button("upgrade")))
+	assert_false(_on(_cell(hud, "upgrade")))
 	await _open(hud, "housing")
 	hud.build_button("tent").pressed.emit()
 	assert_true(_on(hud.build_button("tent")))
@@ -77,11 +75,9 @@ func test_active_tool_is_lit_and_goes_dark_when_the_mode_ends() -> void:
 	await _open(hud, "roads")
 	for pair in [["road", BuildController.Mode.ROAD], ["paved", BuildController.Mode.PAVED], ["channel", BuildController.Mode.CHANNEL]]:
 		build.set_mode(pair[1])
-		assert_true(_on(_flyout(hud, "Tool_" + pair[0])), pair[0])
+		assert_true(_on(_cell(hud, pair[0])), pair[0])
 		build.cancel()
-		assert_false(_on(_flyout(hud, "Tool_" + pair[0])), pair[0])
-	build.set_mode(BuildController.Mode.DEMOLISH)
-	assert_true(_on(_flyout(hud, "Tool_demolish")))
+		assert_false(_on(_cell(hud, pair[0])), pair[0])
 
 
 func test_upgrade_mode_upgrades_on_click_stays_on_and_refuses_with_the_reason() -> void:
@@ -119,7 +115,7 @@ func test_channel_text_comes_from_data_in_tooltip_hint_and_help() -> void:
 	var hud: Hud = main.get_node("Hud")
 	var build: BuildController = main.get_node("BuildController")
 	await _open(hud, "roads")
-	var tip := _flyout(hud, "Tool_channel").tooltip_text
+	var tip := _cell(hud, "channel").tooltip_text
 	assert_string_contains(tip, "connected to water")
 	assert_string_contains(tip, "50%")
 	assert_string_contains(tip, "25%")

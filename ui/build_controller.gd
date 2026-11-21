@@ -28,7 +28,7 @@ func setup(s: Settlement, g: GhostView, ui_layer: CanvasLayer) -> void:
 	_hint.add_theme_color_override("font_color", Color("f2d27a"))
 	_hint.add_theme_color_override("font_outline_color", Color.BLACK)
 	_hint.add_theme_constant_override("outline_size", 6)
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # the channel hint is two long lines; stay clear of the era panel
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # the channel hint is two long lines; stay clear of the objectives panel
 	_hint.custom_minimum_size = Vector2(880, 0)
 	ui_layer.add_child(_hint)
 	_hint.visible = false

@@ -64,87 +64,49 @@ func test_model_marks_affordable_short_and_locked_entries() -> void:
 	assert_false(tool["enabled"])
 
 
-func test_cards_show_state_icons_and_numbers() -> void:
+func test_cells_show_state_name_cost_and_lock() -> void:
 	var hud := await _hud()
 	hud.open_category("refining")
 	await wait_process_frames(2)
 	var saw: Button = hud.build_button("sawmill")
 	var ref: Button = hud.build_button("refinery")
 	var tool: Button = hud.build_button("toolsmith")
-	assert_eq(saw.get_meta("card"), "ok")
-	assert_eq(ref.get_meta("card"), "short")
-	assert_eq(tool.get_meta("card"), "locked")
+	assert_eq(saw.get_meta("cell_state"), "ok")
+	assert_eq(ref.get_meta("cell_state"), "unaffordable")
+	assert_eq(tool.get_meta("cell_state"), "locked")
 	assert_eq(saw.get_meta("def_id"), "sawmill", "def_id meta stays for the tutorial and hint cards")
-	assert_true(saw.has_meta("reason"))
-	assert_true(tool.disabled)
-	assert_false(ref.disabled, "a short card still places a site")
-	assert_eq((saw.find_child("CardName", true, false) as Label).text, "Sawmill")
-	var wood: Control = saw.find_child("Cost_wood", true, false)
-	assert_not_null(wood)
-	assert_eq((wood.find_child("Num", true, false) as Label).text, "14")
-	assert_not_null(wood.find_child("Icon", true, false), "a cost draws the good's icon")
-	var gold: Control = ref.find_child("Cost_gold", true, false)
-	assert_eq((gold.find_child("Num", true, false) as Label).get_theme_color("font_color"), Hud.RED, "the short number is red")
-	var wood2: Control = ref.find_child("Cost_wood", true, false)
-	assert_ne((wood2.find_child("Num", true, false) as Label).get_theme_color("font_color"), Hud.RED)
+	assert_eq((saw.find_child("CellName", true, false) as Label).text, "Sawmill")
+	assert_null(saw.find_child("CellCost", true, false), "an affordable cell shows no cost")
+	var short := ref.find_child("CellCost", true, false) as Label
+	assert_not_null(short, "a short cell shows its short cost")
+	assert_eq(short.get_theme_color("font_color"), Hud.RED, "the short number is red")
 	assert_not_null(tool.find_child("Lock", true, false))
-	assert_eq((tool.find_child("UnlockReason", true, false) as Label).text, "Needs City era")
+	assert_eq(tool.tooltip_text, "Needs City era")
 	assert_null(saw.find_child("Lock", true, false))
 
 
-## Ticket 122: with every era unlocked all 12 categories share one row that fits inside 1280 px at UI scale 1.0.
-func test_twelve_categories_fit_on_one_row_at_1280() -> void:
+## The top-level grid keeps its category names and a press opens and closes the pane.
+func test_category_cells_keep_names_and_open_close_the_pane() -> void:
 	var hud := await _hud("ascendant")
-	hud._rebuild_categories()
-	var old := get_window().size
-	get_window().size = Vector2i(1280, 720)  # the headless window is tiny
-	await wait_process_frames(3)
-	var bar := hud.model.build_bar()
-	assert_eq(bar.size(), 12, "every category is unlocked in the Ascendant era")
-	var panel := hud._cat_box.get_parent() as Control
-	var r := panel.get_global_rect()
-	assert_gte(r.position.x, 0.0, "the bar starts inside 1280: %s" % r)
-	assert_lte(r.end.x, 1280.0, "the bar ends inside 1280: %s" % r)
-	var row_y := -1.0
-	for cat in bar:
-		var br := (hud._cat_buttons[cat["id"]] as Button).get_global_rect()
-		if row_y < 0.0:
-			row_y = br.position.y
-		assert_almost_eq(br.position.y, row_y, 0.5, "%s sits on the one row" % cat["id"])
-	get_window().size = old
+	hud.refresh()  # the era changed after the first build of the grid
+	for cell in hud.model.grid(""):
+		if str(cell["id"]) == "" or not HudModel.is_grid_category(str(cell["id"])) or str(cell["state"]) == "empty":
+			continue  # an empty category is a blank dim cell
+		var b := hud._cell_button(str(cell["id"]))
+		assert_eq((b.find_child("CellName", true, false) as Label).text, cell["label"], "%s keeps its name" % cell["id"])
+	hud._cell_button("housing").pressed.emit()
+	assert_eq(hud._grid_page, "housing", "a press opens its category")
+	hud._cell_button("back").pressed.emit()
+	assert_eq(hud._grid_page, "", "Back closes it")
 
 
-## Ticket 122: the category buttons keep their labels and their pressed signal (tests and the tutorial find them by name).
-func test_category_names_and_pressed_signals_stay() -> void:
-	var hud := await _hud("ascendant")
-	hud._rebuild_categories()
-	for cat in hud.model.build_bar():
-		var b: Button = hud._cat_buttons[cat["id"]]
-		assert_eq(b.text, cat["label"], "%s keeps its name" % cat["id"])
-	var housing: Button = hud._cat_buttons["housing"]
-	housing.pressed.emit()
-	assert_eq(hud._open_cat, "housing", "a press opens its category")
-	housing.pressed.emit()
-	assert_eq(hud._open_cat, "", "a second press closes it")
-
-
-func test_road_tools_stay_buttons_and_the_flyout_fits() -> void:
+func test_road_tools_are_cells_and_the_crowded_panes_fit_the_grid() -> void:
 	var hud := await _hud("ascendant")
 	hud.open_category("roads")
 	await wait_process_frames(2)
-	var road := hud._fly_box.find_child("Tool_road", true, false)
-	assert_true(road is Button)
-	var biggest := ""
-	var most := 0
-	for cat in hud.model.build_bar():
-		if cat["id"] != "roads" and (cat["entries"] as Array).size() > most:
-			most = (cat["entries"] as Array).size()
-			biggest = cat["id"]
-	hud.open_category(biggest)
-	await wait_process_frames(3)
-	var r := hud._fly_panel.get_global_rect()
-	assert_gte(most, 6, "the test needs a crowded category")
-	assert_lte(r.end.x, 930.0, "the cards leave the right-hand panel its width at 1280")
-	assert_lte(r.size.y, 520.0, "two rows of cards at most, the rest scrolls")
-	assert_lte(r.end.y, 720.0, "above the bottom bar, inside 720")
-
+	assert_true(hud._cell_button("road") is Button)
+	for cat in ["housing", "food", "water", "lumen", "logistics", "resources", "refining", "civic", "landmark"]:
+		hud.open_category(cat) if hud._grid_page == "" else hud._set_grid_page(cat)
+		await wait_process_frames(2)
+		assert_lte(hud._cmd_cells.size(), Hud.GRID_COLUMNS * 3, "%s fits the 5x3 grid" % cat)
+		assert_lte(hud._cmd_panel.get_global_rect().size.y, Hud.BAND_HEIGHT, "%s keeps the grid inside the band" % cat)

@@ -38,7 +38,7 @@ func _init() -> void:
 	main.start_new_game()
 	var s: Settlement = main.settlement
 	s.era_current = "skyborne"
-	(main.get_node("Hud") as Hud)._rebuild_categories()
+	(main.get_node("Hud") as Hud).refresh()
 	for r in MapState.REGION_COUNT:
 		s.map.set_region_owned(r, true)
 	s.hearth.inventory.add("wood", 900.0)

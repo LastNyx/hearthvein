@@ -21,7 +21,7 @@ func _init() -> void:
 	var m: HudModel = main.hud_model
 	var h := s.map.hearth_spot
 	s.era_override = "village"
-	(main.get_node("Hud") as Hud)._rebuild_categories()
+	(main.get_node("Hud") as Hud).refresh()
 	for y in range(h.y - 10, h.y + 11):
 		for x in range(h.x - 12, h.x + 30):
 			if MapState.in_bounds(x, y) and s.map.terrain_id_at(x, y) in ["forest", "stump"]:

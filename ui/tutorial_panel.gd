@@ -1,6 +1,6 @@
 class_name TutorialPanel
 extends PanelContainer
-## The tutorial goal panel under the era panel (ticket 83, D59a, D66): goal n/total, the instruction and the why, live
+## The tutorial goal panel under the clock row (ticket 83, D59a, D66): goal n/total, the instruction and the why, live
 ## numbers where they help, a Skip button with a confirm, and a check mark that flashes when a goal completes. Hidden
 ## unless TutorialSystem is active. It follows the system on every refresh(), so a loaded game shows the right goal.
 ## When the last goal completes (not skipped) a closing card opens: what next (Meeting Hall, Village gate numbers from

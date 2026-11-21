@@ -1741,7 +1741,8 @@ func _grid_cell(e: Dictionary) -> Dictionary:
 	var label := str(e["label"])
 	if str(e["kind"]) != "building":
 		label = label.get_slice(" (", 0)  # the positional key replaces the old hotkey hint
-	return {"id": str(e["id"]), "label": label, "key": "", "icon": "", "state": state, "reason": reason}
+	return {"id": str(e["id"]), "label": label, "key": "", "icon": "", "state": state, "reason": reason,
+			"tip": str(e.get("tip", ""))}
 
 
 ## "Not enough Wood, Stone" for the goods a cost is short of, "" when nothing is short.

@@ -243,23 +243,21 @@ func test_clear_tool_is_lit_and_marks_by_click_and_drag_and_x_unmarks() -> void:
 	var ms: Settlement = main.settlement
 	var hud: Hud = main.get_node("Hud")
 	var build: BuildController = main.get_node("BuildController")
-	var tab := hud.tools_tab
-	tab.set_open(true)
 	var mh := ms.map.hearth_spot
 	var row: Array[Vector2i] = []
 	for dx in range(3, 8):
 		var t := Vector2i(mh.x + dx, mh.y + 6)
 		ms.set_terrain(t, "forest")
 		row.append(t)
-	assert_string_contains(tab.button("clear").tooltip_text, "(Z)")
-	assert_string_contains(tab.button("clear").tooltip_text, "quarry")
-	assert_false(_on(tab.button("clear")))
-	tab.button("clear").pressed.emit()
+	assert_string_contains(hud._cell_button("clear").tooltip_text, "Clear (Z)")
+	assert_string_contains(hud._cell_button("clear").tooltip_text, "quarry")
+	assert_false(_on(hud._cell_button("clear")))
+	hud._cell_button("clear").pressed.emit()
 	assert_eq(build.mode, BuildController.Mode.CLEAR)
-	assert_true(_on(tab.button("clear")), "lit while active")
+	assert_true(_on(hud._cell_button("clear")), "lit while active")
 	assert_string_contains(build.hint_text(), "Clear")
 	build.cancel()
-	assert_false(_on(tab.button("clear")))
+	assert_false(_on(hud._cell_button("clear")))
 	build._unhandled_input(_key(KEY_Z))
 	assert_eq(build.mode, BuildController.Mode.CLEAR, "Z is the key")
 	build._click(row[0])
@@ -275,7 +273,7 @@ func test_clear_tool_is_lit_and_marks_by_click_and_drag_and_x_unmarks() -> void:
 	build._click(row[2])
 	assert_false(ms.is_clear_marked(row[2]), "X on a marked tile unmarks it")
 	assert_true(ms.is_clear_marked(row[3]))
-	assert_false(_on(tab.button("clear")))
+	assert_false(_on(hud._cell_button("clear")))
 
 
 func test_hover_over_an_unreachable_mark_says_no_yard_can_reach_it() -> void:

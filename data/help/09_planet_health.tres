@@ -7,7 +7,7 @@ script = ExtResource("1")
 id = "planet_health"
 order = 9
 title = "Planet health"
-body = "Planet health is shown in the top bar as a percent with its change over a year. It starts at {planet.start}%.
+body = "Planet health is shown in the town summary (bottom centre, nothing selected) as a percent with its change over a year. It starts at {planet.start}%.
 
 It falls a little every day: for each blighted tile ({planet.per_blight_tile}), and for each working extractor: Lumen Tap {building.lumen_tap.health_per_day}, Pump {building.lumen_pump.health_per_day}, Reactor {building.lumen_reactor.health_per_day}, Vein Bore {building.vein_bore.health_per_day}.
 

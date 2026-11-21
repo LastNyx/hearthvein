@@ -16,14 +16,14 @@ func _init() -> void:
 	var s: Settlement = main.settlement
 	var hud: Hud = main.get_node("Hud")
 	s.era_override = "ascendant"
-	hud._rebuild_categories()
+	hud.refresh()
 	hud.open_category("refining")
 	for i in 4:
 		await process_frame
 	var bar := hud.model.build_bar()
-	var r := (hud._cat_box.get_parent() as Control).get_global_rect()
-	print("bar: ", bar.size(), " categories, rect ", r, ", one row inside 1280: ",
-			r.position.x >= 0.0 and r.end.x <= 1280.0)
+	var r := hud._cmd_panel.get_global_rect()
+	print("grid: ", bar.size(), " categories, rect ", r, ", inside 1280x720: ",
+			r.position.x >= 0.0 and r.end.x <= 1280.0 and r.end.y <= 720.0)
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var path := OUT + "122-bar.png"

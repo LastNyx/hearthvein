@@ -25,7 +25,7 @@ func _init() -> void:
 		s.map.region_owned[r] = 1
 	s.era_override = "town"
 	var hud: Hud = main.get_node("Hud")
-	hud._rebuild_categories()
+	hud.refresh()
 	var y := h.y + 3
 	# Dirt road west to east along y, paved from x0 on; the seam is at x0.
 	var x0 := h.x - 1

@@ -2,6 +2,18 @@
 
 All notable changes to Hearthvein. Newest first.
 
+## Unreleased
+
+### Changed
+- New HUD layout. Top right: people, food, wood, stone, Lumen and gold with up to three pinned goods and a Goods button
+  (E), and a clock row under it with pause, 1x 2x 3x and a "?" for help. Top left: an Objectives panel with the next era
+  gate and the Dimming forecast, which you can collapse. Bottom left: a minimap (click to jump) with the Ground/Sky and
+  overlay buttons. Bottom centre: the selected building (or a town summary when nothing is selected), with notices above
+  it. Bottom right: a 5x3 command grid with a hotkey on every cell. All of it sits in one 148 px band at the screen bottom.
+- Clear is now Z and Plant is Y (K and N pick Logistics and Housing). The build menu key B is gone: the grid is always open.
+- The old tools column on the left is gone: speed is in the clock row, tools are in the grid, Help is F1 or the "?" button.
+- The tooltip of a building on the map no longer draws over the Resources, Workforce or Region pages.
+
 ## 1.1.9 - 2026-11-21
 
 ### Added
