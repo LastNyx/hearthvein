@@ -22,4 +22,6 @@ storage_cap = 0
 placement_rule = "river_bank"
 placement_radius = 0
 drives_workshop = true
+drive_worker_saving = 1
+drive_speed_factor = 0.5
 upgradable = false

@@ -176,3 +176,23 @@ func test_gloom_saves_and_loads_and_spread_stays_cheap() -> void:
 	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
 	print("PERF gloom: 8 spread hours in %.2f ms" % ms)
 	assert_lt(ms, SPREAD_BUDGET_MS, "eight spread hours stay within %.0f ms" % SPREAD_BUDGET_MS)
+
+
+## Ticket 175: the walkers' gloom path cost weight comes from LogisticsDef.gloom_path_weight.
+func test_the_gloom_path_weight_comes_from_logistics_data() -> void:
+	var s := _new_settlement()
+	var a := _open_ground(s)
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	s.step_hours(1)  # the walker system binds to the settlement on its first step
+	ws.set_gloom_tiles({})
+	var plain := ws._grid.get_point_weight_scale(a)
+	var old := reg.logistics.gloom_path_weight
+	ws.set_gloom_tiles({a: 0})
+	var heavy := ws._grid.get_point_weight_scale(a)
+	ws.set_gloom_tiles({})
+	reg.logistics.gloom_path_weight = 3.0
+	ws.set_gloom_tiles({a: 0})
+	var light := ws._grid.get_point_weight_scale(a)
+	reg.logistics.gloom_path_weight = old
+	assert_almost_eq(heavy / plain, 6.0, 0.001, "data weight 6")
+	assert_almost_eq(light / plain, 3.0, 0.001, "data weight 3")

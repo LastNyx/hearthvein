@@ -1249,7 +1249,9 @@ func _panel_rows(b: Building) -> Dictionary:
 	var extra: Array[String] = []
 	if ProductionSystem.wheel_driving(s, b) != null:
 		# Water Wheel (ticket 152): the selected driven workshop says what drives it.
-		extra.append("Water Wheel: -1 worker, runs at night" if ProductionSystem.wheel_active(s, b) \
+		var saved := ProductionSystem.wheel_driving(s, b).def.drive_worker_saving
+		extra.append(("Water Wheel: -%d worker%s, runs at night" % [saved, "" if saved == 1 else "s"]) \
+				if ProductionSystem.wheel_active(s, b) \
 				else "Water Wheel: fouled water, half speed")
 	extra.append_array(resident_lines(b))
 	extra.append(reservoir_text(b))

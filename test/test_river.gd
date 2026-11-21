@@ -302,3 +302,29 @@ func test_the_selection_line_names_the_wheel_and_the_fouled_water() -> void:
 	var wheel := ProductionSystem.wheel_driving(s, shop)
 	assert_true(s.set_fouled(_river_neighbour(s, wheel), true), "the river beside the wheel fouls")
 	assert_has(m.selection()["extra"], "Water Wheel: fouled water, half speed")
+
+
+## Ticket 175: the fouled-water speed factor comes from the Water Wheel's def.
+func test_the_fouled_speed_factor_comes_from_the_wheel_def() -> void:
+	var wheel_def := reg.get_building("water_wheel")
+	wheel_def.drive_speed_factor = 0.25
+	var clean := _new_settlement()
+	var lay := _layout(clean)
+	var clean_bread := _night_run(clean, lay, false)
+	var foul := _new_settlement()
+	var foul_bread := _night_run(foul, _layout(foul), true)
+	wheel_def.drive_speed_factor = 0.5
+	assert_gt(clean_bread, 0.0)
+	assert_almost_eq(foul_bread / clean_bread, 0.25, 0.06, "the bread ratio follows the data factor")
+
+
+## Ticket 175: the worker saving comes from the Water Wheel's def (0 = no saving, 2 = two fewer, never below 1).
+func test_the_worker_saving_comes_from_the_wheel_def() -> void:
+	var wheel_def := reg.get_building("water_wheel")
+	wheel_def.drive_worker_saving = 0
+	var s := _new_settlement()
+	var shop := _driven(s, _layout(s), "sawmill")
+	assert_eq(ProductionSystem.worker_slots_for(s, shop), 2, "saving 0: both day slots")
+	wheel_def.drive_worker_saving = 5
+	assert_eq(ProductionSystem.worker_slots_for(s, shop), 1, "a big saving still leaves one")
+	wheel_def.drive_worker_saving = 1

@@ -47,7 +47,6 @@ var _producers_count: int = -1
 var _producers_completion: int = -1
 var _first_out: Dictionary = {}  # recipe -> first output good id
 ## Water Wheel drives (ticket 152): driven building id -> wheel id, rebuilt when the layout moves.
-const WHEEL_SPEED_FACTOR := 0.5
 var _drive_key: Array = []
 var _drive_from: Dictionary = {}
 
@@ -213,21 +212,27 @@ static func wheel_active(s: Settlement, b: Building) -> bool:
 ## Day worker slots of `b` after the wheel's saving (never below 1 when the def has any slots).
 static func worker_slots_for(s: Settlement, b: Building) -> int:
 	var n := b.effective_worker_slots(s.registry)
-	return maxi(1, n - 1) if n > 0 and wheel_active(s, b) else n
+	return maxi(1, n - _wheel_saving(s, b)) if n > 0 and wheel_active(s, b) else n
 
 
 ## Night worker slots of `b` after the wheel's saving (never below 1 when the def has any slots).
 static func night_slots_for(s: Settlement, b: Building) -> int:
 	var n := b.def.night_worker_slots
-	return maxi(1, n - 1) if n > 0 and wheel_active(s, b) else n
+	return maxi(1, n - _wheel_saving(s, b)) if n > 0 and wheel_active(s, b) else n
 
 
-## Production modifier: a driven workshop whose wheel stands on fouled water runs at WHEEL_SPEED_FACTOR instead of
-## getting the worker saving; clean water and every other building are 1.0.
+## Workers the wheel driving `b` saves per shift (its def's drive_worker_saving); 0 when `b` is not driven.
+static func _wheel_saving(s: Settlement, b: Building) -> int:
+	var w := wheel_driving(s, b)
+	return w.def.drive_worker_saving if w != null else 0
+
+
+## Production modifier: a driven workshop whose wheel stands on fouled water runs at the wheel def's
+## drive_speed_factor instead of getting the worker saving; clean water and every other building are 1.0.
 static func wheel_speed_modifier(s: Settlement, b: Building) -> float:
 	var w := wheel_driving(s, b)
 	if w != null and FoulingSystem.wheel_on_foul_water(s, w):
-		return WHEEL_SPEED_FACTOR
+		return w.def.drive_speed_factor
 	return 1.0
 
 

@@ -1326,7 +1326,7 @@ func _wanted_slots() -> int:
 			n += b.def.worker_slots
 			sites += 1
 			continue
-		n += b.effective_worker_slots(s.registry) + b.def.hauler_slots
+		n += ProductionSystem.worker_slots_for(s, b) + b.def.hauler_slots
 		yard += b.def.builder_slots
 	return n + mini(yard, sites * 4)
 
@@ -1350,7 +1350,7 @@ func _gold_unstaffed() -> bool:
 		return false
 	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()
 	for b: Building in s.buildings.values():
-		if not b.site and not b.paused and PRODUCERS["gold"].has(b.def.id) and int(counts.get(b.id, 0)) < b.effective_worker_slots(s.registry):
+		if not b.site and not b.paused and PRODUCERS["gold"].has(b.def.id) and int(counts.get(b.id, 0)) < ProductionSystem.worker_slots_for(s, b):
 			return true
 	return false
 
@@ -1394,7 +1394,7 @@ func _refined_short(raw: String) -> bool:
 		# the raw producers give way only while a producer of the short good has empty slots (47h: with every refiner staffed the
 		# hold only kept the wood and stone stock under the landmark's cost)
 		for b: Building in s.buildings.values():
-			if not b.site and not b.paused and PRODUCERS[g].has(b.def.id) and int(counts.get(b.id, 0)) < b.effective_worker_slots(s.registry):
+			if not b.site and not b.paused and PRODUCERS[g].has(b.def.id) and int(counts.get(b.id, 0)) < ProductionSystem.worker_slots_for(s, b):
 				return true
 	return false
 

@@ -74,9 +74,9 @@ var _last_max_speed: float = -1.0
 var _structure_version: int = -1
 var _solid := PackedByteArray()  # per tile: 1 when the A* grid has it solid
 var _cache: Dictionary = {}  # int key -> Array[Vector2i] (empty array = no path)
-## Gloom (ticket 149): tiles to avoid, at GLOOM_WEIGHT times their usual cost. A detour wins when it is short enough;
+## Gloom (ticket 149): tiles to avoid, at LogisticsDef.gloom_path_weight times their usual cost. A detour wins when
+## it is short enough;
 ## a tile is never blocked by gloom. _gloom_applied is the subset whose weight the grid currently carries.
-const GLOOM_WEIGHT := 6.0
 var _gloom: Dictionary = {}
 var _gloom_applied: Dictionary = {}
 ## Sky layer grid (same size as the ground's, indexed by local sky tile), built with the ground grid. Only walked over
@@ -428,7 +428,7 @@ func min_walk_seconds(from: Vector2i, to: Vector2i) -> float:
 
 
 ## Live gloom set (ticket 149), owned by GloomSystem: it mutates the dictionary and calls this after every change, so
-## a reference is enough. Paths take a gloom tile at GLOOM_WEIGHT times its usual cost, so a walker goes around when
+## a reference is enough. Paths take a gloom tile at gloom_path_weight times its usual cost, so a walker goes around when
 ## the detour is short; gloom never blocks a tile.
 func set_gloom_tiles(tiles: Dictionary) -> void:
 	_gloom = tiles
@@ -439,7 +439,7 @@ func set_gloom_tiles(tiles: Dictionary) -> void:
 	_cache.clear()  # cached paths were planned without these weights
 
 
-## Puts GLOOM_WEIGHT on every open gloom tile the grid has not weighted yet and restores the plain weight of open
+## Puts gloom_path_weight on every open gloom tile the grid has not weighted yet and restores the plain weight of open
 ## tiles that left gloom. Solid tiles (forest, buildings) need no weight: nothing walks there anyway.
 func _apply_gloom_weights() -> void:
 	if _grid == null:
@@ -451,7 +451,7 @@ func _apply_gloom_weights() -> void:
 		if _solid[i] == 1 or _speeds[i] <= 0.0:
 			continue
 		_gloom_applied[t] = true
-		_grid.set_point_weight_scale(t, _max_speed / _speeds[i] * GLOOM_WEIGHT)
+		_grid.set_point_weight_scale(t, _max_speed / _speeds[i] * _s.registry.logistics.gloom_path_weight)
 	if _gloom_applied.is_empty():
 		return
 	for t: Vector2i in _gloom_applied.keys():

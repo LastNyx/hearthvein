@@ -299,6 +299,8 @@ func _validate() -> void:
 	elif logistics.island_width <= 0 or logistics.island_height <= 0 or logistics.island_max <= 0 \
 			or logistics.island_width > MapState.REGION_W or logistics.island_height > MapState.REGION_H:
 		errors.append("logistics: island size must fit a region and island_max must be positive")
+	elif logistics.gloom_path_weight < 1.0:
+		errors.append("logistics: gloom_path_weight must be at least 1")
 	elif logistics.night_shift_start < 0 or logistics.night_shift_start > 23 \
 			or logistics.night_shift_end < 0 or logistics.night_shift_end > 23 \
 			or logistics.night_shift_start == logistics.night_shift_end:
@@ -468,6 +470,10 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: unknown placement rule '%s'" % [who, b.placement_rule])
 	if not BuildingDef.LAYER_RULES.has(b.layers):
 		errors.append("%s: unknown layer rule '%s'" % [who, b.layers])
+	if b.drive_speed_factor < 0.0 or b.drive_speed_factor > 1.0:
+		errors.append("%s: drive_speed_factor must be 0..1" % who)
+	if b.drive_worker_saving < 0:
+		errors.append("%s: drive_worker_saving must not be negative" % who)
 	if b.raises_island and b.layers != "ground":
 		errors.append("%s: an island raiser stands on the ground" % who)
 	if b.sky_lift and (b.layers != "ground" or b.size != Vector2i(1, 1)):

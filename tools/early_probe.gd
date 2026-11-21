@@ -297,7 +297,7 @@ func _row() -> void:
 			continue
 		if b.paused or not b.connected:
 			continue
-		pw += b.effective_worker_slots(s.registry)
+		pw += ProductionSystem.worker_slots_for(s, b)
 		pf += int(crew.get(b.id, 0))
 		hw += b.def.hauler_slots
 		bw += b.def.builder_slots
@@ -309,7 +309,7 @@ func _row() -> void:
 	if _verbose:
 		var rows: Array[String] = []
 		for b: Building in s.buildings.values():
-			rows.append("%s#%d%s %d/%d%s" % [b.def.id, b.id, "(site %.2f%s)" % [b.build_progress(), "" if b.site_delivered() else " goods"] if b.site else "", int(crew.get(b.id, 0)), b.effective_worker_slots(s.registry), ":" + b.halt if b.halt != "" else ""])
+			rows.append("%s#%d%s %d/%d%s" % [b.def.id, b.id, "(site %.2f%s)" % [b.build_progress(), "" if b.site_delivered() else " goods"] if b.site else "", int(crew.get(b.id, 0)), ProductionSystem.worker_slots_for(s, b), ":" + b.halt if b.halt != "" else ""])
 		print("     ", " | ".join(rows), " | idle ", s.idle_citizens().size(), " build ", build, " haul ", haul)
 	var tot := s.totals()
 	print("%3d | %5d %4d | %4d/%-4d %4d/%-4d %4d/%-4d | %4d %4d | %5d %8d | %d/%d" % [day, s.citizens.size(), s.beds_total(), pf, pw,

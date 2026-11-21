@@ -186,3 +186,29 @@ func test_early_game_numbers() -> void:
 	var s := Settlement.new_game(42, reg)
 	assert_eq([s.hearth.inventory.amount_of("wood"), s.hearth.inventory.amount_of("stone")], [100.0, 0.0])
 	assert_eq([reg.logistics.builder_crew, reg.logistics.small_town_pop], [2, 20])
+
+
+# Ticket 175: the Water Wheel's drive numbers and the gloom path weight are checked at load.
+func test_wheel_and_gloom_numbers_are_validated() -> void:
+	_load_real()
+	var wheel := reg.get_building("water_wheel")
+	assert_eq([wheel.drive_speed_factor, wheel.drive_worker_saving, reg.logistics.gloom_path_weight], [0.5, 1, 6.0])
+	for bad in [-0.1, 1.5]:
+		wheel.drive_speed_factor = bad
+		reg.errors.clear()
+		reg._validate()
+		assert_true(_has_error("drive_speed_factor"), "speed factor %s is refused" % bad)
+	wheel.drive_speed_factor = 0.5
+	wheel.drive_worker_saving = -1
+	reg.errors.clear()
+	reg._validate()
+	assert_true(_has_error("drive_worker_saving"), "a negative saving is refused")
+	wheel.drive_worker_saving = 1
+	reg.logistics.gloom_path_weight = 0.5
+	reg.errors.clear()
+	reg._validate()
+	assert_true(_has_error("gloom_path_weight"), "a weight under 1 is refused")
+	reg.logistics.gloom_path_weight = 6.0
+	reg.errors.clear()
+	reg._validate()
+	assert_eq(reg.errors.size(), 0, "the real numbers pass")

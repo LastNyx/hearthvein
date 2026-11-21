@@ -203,6 +203,10 @@ const GOLD := "gold"
 ## that workshop needs one worker fewer per shift (min 1) and its night shift works without a lamp. On fouled water
 ## the drive gives no worker saving and the driven workshop runs at half speed instead.
 @export var drives_workshop: bool = false
+## Water Wheel numbers (spec N10), read from the wheel's def: workers the drive saves per shift (min 1 slot stays) and
+## the driven workshop's speed factor on fouled water (0-1).
+@export var drive_worker_saving: int = 1
+@export var drive_speed_factor: float = 0.5
 ## True for a workshop a Water Wheel can drive: the Sawmill, Mason and Bakery.
 @export var water_driven: bool = false
 ## True for a producer that only works with water at hand (Hydroponic Hall, ticket 39c): a wet tile under any tile of the

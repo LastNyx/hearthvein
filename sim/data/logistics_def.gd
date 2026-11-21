@@ -77,3 +77,5 @@ extends Resource
 ## Gloom (ticket 149, spec N8): in a Dimming night, gloom creeps from the forest this many tiles an hour over unlit,
 ## non-water land. Lit tiles push it back and dawn clears it.
 @export var gloom_spread_per_hour: int = 1
+## Walkers take a gloom tile at this many times its usual path cost (at least 1): a detour wins when it is short enough.
+@export var gloom_path_weight: float = 6.0
