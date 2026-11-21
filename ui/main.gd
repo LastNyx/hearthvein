@@ -63,6 +63,8 @@ var placement: PlacementView
 var walkers: WalkerView
 var trains: TrainView
 var airships: AirshipView
+## The night render (ticket 135): light pools, lit windows and kiln embers, in MapView.fx under the map tint.
+var night: NightView
 var overlay: OverlayView
 var hud: Hud
 var camera: CameraController
@@ -425,6 +427,10 @@ func _build_world(s: Settlement) -> void:
 	placement.name = "PlacementView"
 	view.add_child(placement)
 	placement.setup(s, view)
+	night = NightView.new()
+	night.name = "NightView"
+	view.fx.add_child(night)
+	night.setup(s)
 	walkers = WalkerView.new()
 	walkers.name = "WalkerView"
 	view.add_child(walkers)
