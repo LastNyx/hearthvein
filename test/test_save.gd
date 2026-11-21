@@ -104,6 +104,8 @@ const SKIP := {
 	"WalkerSystem._from_save": "one-shot load handshake, consumed by the first grid refresh",
 	"WalkerSystem._gloom": "gloom tile reference from GloomSystem, pushed again on the next hour after a load",
 	"WalkerSystem._gloom_applied": "gloom-weighted A* tiles, a cache rebuilt with the grid",
+	"WalkerSystem._flood": "flood tile reference from FloodSystem, pushed again by its load_state",
+	"WalkerSystem._flood_applied": "flood-solid A* tiles, a cache rebuilt with the grid",
 	"WalkerSystem._handcart_zones": "region handcart cache, rebuilt from the buildings when its key moves",
 	"WalkerSystem._zones_key": "cache key for _handcart_zones",
 	"Settlement.completion_version": "cache key only, bumped on site completion; caches rebuild after load",
@@ -391,6 +393,31 @@ func test_save_load_gives_identical_state() -> void:
 	for id in s.buildings:
 		assert_same(loaded.buildings[id].def, s.buildings[id].def, "defs are resolved through the registry")
 	_assert_same(s, loaded, "the loaded settlement differs from the saved one")
+
+
+func test_save_mid_flood_gives_identical_state() -> void:
+	# Ticket 181: a spring flood running at the save point. WalkerSystem._flood and _flood_applied are derived from
+	# FloodSystem (pushed again by its load_state, applied with the grid), so the round trip must still match.
+	var s := _fixture()
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	for i in 6:
+		if fs.active:
+			break
+		s.step_days(1)
+	s.step_seconds(0.2)
+	assert_true(fs.active, "a flood is running at the save point")
+	assert_gt(fs.flooded_tiles().size(), 0, "the river floods land on this map")
+	var path := _save_path()
+	assert_eq(SaveGame.save(s, path), OK)
+	var loaded := SaveGame.load(path, reg)
+	assert_not_null(loaded, "the mid-flood save loads")
+	if loaded == null:
+		return
+	_assert_same(s, loaded, "the mid-flood load differs from the saved settlement")
+	for i in 50:
+		s.step_seconds(0.2)
+		loaded.step_seconds(0.2)
+	_assert_same(s, loaded, "the loaded flood runs differently")
 
 
 func test_layout_change_made_before_a_save_is_re_planned() -> void:

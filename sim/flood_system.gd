@@ -26,6 +26,12 @@ var active: bool = false
 var start_day: int = -1
 
 
+func _init() -> void:
+	# Sized from the start (all dry, nothing silted), so a fresh game and a loaded one hold the same arrays.
+	flooded.resize(MapState.WIDTH * MapState.HEIGHT)
+	silt.resize(MapState.WIDTH * MapState.HEIGHT)
+
+
 func on_day(s: Settlement) -> void:
 	var water := s.registry.water
 	if water == null or water.flood_days <= 0 or water.flood_radius <= 0:
