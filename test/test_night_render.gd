@@ -137,3 +137,20 @@ func test_night_render_blends_additively_so_light_brightens_the_ground() -> void
 	var mat := v.material as CanvasItemMaterial
 	assert_not_null(mat, "the night render carries its own blend material")
 	assert_eq(mat.blend_mode, CanvasItemMaterial.BLEND_MODE_ADD, "the light adds to the world under the night tint")
+
+
+## Ticket 170 round 1: a lamp that lights (Settlement.light_version moves) shows its pool on the very next frame, not
+## up to REFRESH_SECONDS later (the lamps_night shot was taken before the timed refresh and showed no pool at all).
+func test_a_newly_lit_lamp_shows_its_pool_on_the_next_frame() -> void:
+	var s := _new_settlement()
+	var lamp := _put(s, "lamp", 5, 1)
+	lamp.input_buffer.add("wood", 2.0)
+	s.hearth.inventory.remove("wood", 1000.0)
+	_step_to(s, 18)
+	var v := NightView.new()
+	add_child_autofree(v)
+	v.setup(s)
+	assert_eq(v.pool_count(), 0, "no pool by day")
+	_step_to(s, 19)
+	v._process(0.01)  # far less than REFRESH_SECONDS
+	assert_eq(v.pool_count(), 1, "the lit lamp's pool is drawn on the next frame")

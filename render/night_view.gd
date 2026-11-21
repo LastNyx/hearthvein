@@ -24,6 +24,8 @@ var _windows: Array[Dictionary] = []
 var _embers: Array[Dictionary] = []
 var _lanterns: Array[Dictionary] = []
 var _since_refresh := 0.0
+## Settlement.light_version at the last refresh: a lamp lighting or going dark refreshes at once, not on the timer.
+var _light_seen := -1
 ## Time since setup: drives the lantern walker along its route at a flat pace (render only).
 var _time := 0.0
 
@@ -38,8 +40,14 @@ func _init() -> void:
 
 func setup(s: Settlement) -> void:
 	settlement = s
+	_light_seen = s.light_version
 	z_index = 5  # inside MapView.fx: above the y-sorted objects and their glows
 	refresh()
+
+
+## How many lamp pools are being drawn right now.
+func pool_count() -> int:
+	return _pools.size()
 
 
 ## Rebuild the model and the drawing.
@@ -56,8 +64,9 @@ func _process(delta: float) -> void:
 		return
 	_time += delta
 	_since_refresh += delta
-	if _since_refresh >= REFRESH_SECONDS:
+	if _since_refresh >= REFRESH_SECONDS or settlement.light_version != _light_seen:
 		_since_refresh = 0.0
+		_light_seen = settlement.light_version
 		refresh()
 	elif not _lanterns.is_empty():
 		queue_redraw()  # the lantern walker moves every frame

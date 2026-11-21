@@ -11,8 +11,8 @@ extends RefCounted
 const POOL_STEPS := 3
 ## Warm light of the pools and the windows. The light is added to the tinted ground (ticket 170), so a low alpha
 ## keeps the night map readable while the three steps still read warm.
-const POOL_COLOR := Color(1.0, 0.72, 0.38)
-const POOL_ALPHA := 0.08
+const POOL_COLOR := Color(1.0, 0.6, 0.25)
+const POOL_ALPHA := 0.05
 ## Buildings whose working sprite shows glowing embers at night (ticket 135: the kiln).
 const EMBER_BUILDINGS := ["charcoal_kiln"]
 
