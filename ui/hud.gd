@@ -15,6 +15,8 @@ const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
 const DONE := Color("78be5a")  # a met objective (ticket 126)
+## The five overlay keys, the one table both the input and the minimap's labels read (ticket 130b, spec H4).
+const OVERLAY_KEYS := {"blight": KEY_V, "roads": KEY_G, "water": KEY_T, "coverage": KEY_H, "grid": KEY_L}
 
 ## The Help button of the tools tab (Main opens the help screen).
 signal help_requested
@@ -95,7 +97,7 @@ var _sel_body_key := ""
 var _sel_halt: Label
 var _sel_warn: Label
 var _sel_up_cost: HBoxContainer
-var _sel_up_row: HBoxContainer
+var _sel_up_row: VBoxContainer
 var _sel_up_key := ""
 var _sel_up_reason: Label
 var _sel_up_btn: Button
@@ -687,7 +689,13 @@ func _build_selection_panel(parent: Node) -> void:
 	_sel_pic = PanelContainer.new()
 	_sel_pic.name = "SelectionPic"
 	_sel_pic.custom_minimum_size = SEL_PIC
-	_sel_pic.add_theme_stylebox_override("panel", _style(Color(0.16, 0.21, 0.14), Color(0, 0, 0, 0), 4, 0))
+	# No inner margins: the sprite's box is exactly SEL_PIC, so the largest whole scale uses all of it (130b).
+	var pic_sb := _style(Color(0.16, 0.21, 0.14), Color(0, 0, 0, 0), 4, 0)
+	pic_sb.content_margin_left = 0.0
+	pic_sb.content_margin_right = 0.0
+	pic_sb.content_margin_top = 0.0
+	pic_sb.content_margin_bottom = 0.0
+	_sel_pic.add_theme_stylebox_override("panel", pic_sb)
 	_sel_pic.clip_contents = true
 	_sel_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sel_pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -708,24 +716,27 @@ func _build_selection_panel(parent: Node) -> void:
 	stack.add_child(centre)
 	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	centre.add_child(_sel_sprite)
-	var badge := PanelContainer.new()
-	badge.name = "TierBadge"
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.add_theme_stylebox_override("panel", _style(Color(0.09, 0.075, 0.07, 0.9), GOLD, 4, 1, 4))
-	stack.add_child(badge)
-	badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	badge.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	badge.offset_left = 3
-	badge.offset_bottom = -3
-	_sel_tier = _label(badge, 13, GOLD)
 	# Left column: name, tier, kind, workers, status. Right column: makes, buffers, priority, upgrade.
 	var info := VBoxContainer.new()
 	info.name = "SelectionLeft"
 	info.add_theme_constant_override("separation", 0)
 	info.custom_minimum_size = Vector2(SEL_LEFT_W, 0)
 	row.add_child(info)
-	_sel_title = _label(info, 22, CYAN)
-	_sel_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# The name row: the name and, beside it as in the mockup, the tier badge (ticket 130b).
+	var title_row := HBoxContainer.new()
+	title_row.name = "SelectionTitleRow"
+	title_row.add_theme_constant_override("separation", 6)
+	info.add_child(title_row)
+	# The title keeps its full width so the badge sits right after the name, as in the mockup; the font drops to
+	# the body size first, so it fits its column.
+	_sel_title = _label(title_row, 22, CYAN)
+	var badge := PanelContainer.new()
+	badge.name = "TierBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.add_theme_stylebox_override("panel", _style(Color(0.09, 0.075, 0.07, 0.9), GOLD, 4, 1, 4))
+	title_row.add_child(badge)
+	_sel_tier = _label(badge, 13, GOLD)
 	_sel_sub = _label(info, 14, DIM)
 	_sel_sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_sel_workers_row = HBoxContainer.new()
@@ -775,11 +786,16 @@ func _build_selection_panel(parent: Node) -> void:
 	_sel_out_row = _bar_row(right, "Out")
 	_sel_out_bar = _sel_out_row.get_meta("bar")
 	_sel_out_text = _sel_out_row.get_meta("value")
+	# The priority title rides above its buttons: the label + four buttons on one line would widen the panel past
+	# what the bottom band leaves for the bigger selection sprite (ticket 130b).
+	var pcol := VBoxContainer.new()
+	pcol.add_theme_constant_override("separation", 1)
+	right.add_child(pcol)
+	_sel_prio_title = _label(pcol, 13, DIM)
 	var prow := HBoxContainer.new()
 	prow.add_theme_constant_override("separation", 3)
-	right.add_child(prow)
+	pcol.add_child(prow)
 	_prio_row = prow
-	_sel_prio_title = _label(prow, 13, DIM)
 	for p in ["low", "normal", "high"]:
 		var b := _compact_button(prow, HudModel.PRIORITY_LABELS[p])
 		b.pressed.connect(func() -> void: model.set_priority(p))
@@ -787,9 +803,11 @@ func _build_selection_panel(parent: Node) -> void:
 	var pause := _compact_button(prow, "Pause")
 	pause.pressed.connect(func() -> void: model.toggle_pause())
 	_prio_buttons["paused"] = pause
-	var urow := HBoxContainer.new()
+	# Cost under the button, not beside it: the pair on one line is the widest thing in the right column and the
+	# bigger picture needs the room (ticket 130b).
+	var urow := VBoxContainer.new()
 	urow.name = "UpgradeRow"
-	urow.add_theme_constant_override("separation", 6)
+	urow.add_theme_constant_override("separation", 1)
 	right.add_child(urow)
 	_sel_up_row = urow
 	_sel_up_btn = _compact_button(urow, "Upgrade (U)")
@@ -941,17 +959,19 @@ func _refresh_selection() -> void:
 		_sel_sprite.custom_minimum_size = tex_size * scale
 	_sel_title.text = sel["title"]
 	_sel_title.tooltip_text = sel["title"]
-	# A long name drops to the small font before it would be trimmed.
+	# A long name drops to the small font before it would be trimmed; the tier badge shares its row (ticket 130b).
 	var big_w := _font.get_string_size(_sel_title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _px_size(22)).x
-	var long_name := big_w > SEL_LEFT_W
+	var long_name := big_w > SEL_LEFT_W - SEL_BADGE_W
 	_sel_title.add_theme_font_override("font", _px_font(16 if long_name else 22))
 	_sel_title.add_theme_font_size_override("font_size", _px_size(16 if long_name else 22))
 	_sel_tier.text = sel["tier_text"]
 	_sel_sub.text = sel["subtitle"]
 	_sel_makes.text = "Makes %s" % sel["makes"] if sel["makes"] != "" else ""
 	_sel_makes.visible = sel["makes"] != ""
+	_sel_makes.tooltip_text = _sel_makes.text  # the row may trim at the narrow right column
 	_sel_uses.text = sel["uses"]
 	_sel_uses.visible = sel["uses"] != ""
+	_sel_uses.tooltip_text = sel["uses"]
 	_sel_workers_row.visible = bool(sel["show_workers"])
 	_sel_workers_text.text = sel["workers_text"]
 	_fill_pips(int(sel["workers_filled"]), int(sel["workers_slots"]))
@@ -1066,15 +1086,19 @@ func _refresh_town() -> void:
 ## The bottom band of hud-rts-spec H7: the minimap on the left, the selection panel (or town summary) centred, and the
 ## command grid on the right.
 const BAND_HEIGHT := 148.0
-const SEL_PIC := Vector2(90, 90)
-const SEL_LEFT_W := 180.0
-const SEL_RIGHT_W := 290.0
+const SEL_PIC := Vector2(128, 128)
+const SEL_LEFT_W := 190.0
+## Room the tier badge needs beside the name before the title drops to the body font (ticket 130b).
+const SEL_BADGE_W := 66.0
+const SEL_RIGHT_W := 254.0
 const TOWN_LEFT_W := 340.0
 ## Panel border and margins that eat into BAND_HEIGHT - MARGIN.
 const SEL_PAD := 18.0
-const CELL_SIZE := Vector2(76, 36)
+const CELL_SIZE := Vector2(76, 38)
 const CELL_GAP := 3
-const CELL_PIC := 16
+const CELL_PIC := 28
+## Grid names use the smaller body size (Tiny5 at half its 16 px grid) so every name shows whole (130b).
+const CELL_NAME_SIZE := 8
 const GRID_COLUMNS := 5
 
 
@@ -1182,7 +1206,7 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 	var key := _label(top, 11, DIM)
 	key.name = "CellKey"
 	key.text = "" if empty else str(cell["key"])
-	key.custom_minimum_size = Vector2(24, 0)
+	key.custom_minimum_size = Vector2(26, 0)  # "Esc" fits
 	var pic := Control.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pic.custom_minimum_size = Vector2(CELL_PIC, CELL_PIC)
@@ -1203,7 +1227,11 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	else:
 		var icon := str(cell.get("icon", ""))
-		if icon != "":
+		if icon == "obelisk":  # the Landmark category; the moon belongs to the night-building badge (ticket 130b)
+			var obelisk := ObeliskGlyph.new()
+			pic.add_child(obelisk)
+			obelisk.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		elif icon != "":
 			var ir := _icon(pic, icon, CELL_PIC)
 			ir.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if locked and not empty:
@@ -1213,7 +1241,7 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 		lock.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	var cost_slot := Control.new()
 	cost_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cost_slot.custom_minimum_size = Vector2(24, 0)
+	cost_slot.custom_minimum_size = Vector2(22, 0)
 	top.add_child(cost_slot)
 	# Unaffordable: the short cost in red (the hover card lists every cost with its have N).
 	if str(cell["state"]) == "unaffordable":
@@ -1230,6 +1258,7 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 	var nm := _label(v, 12, DIM if locked else INK)
 	nm.name = "CellName"
 	nm.text = "" if empty else str(cell["label"])
+	nm.add_theme_font_size_override("font_size", CELL_NAME_SIZE)  # every name shows whole at 76 px wide
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if entry != null:
@@ -1353,6 +1382,29 @@ class LockGlyph extends Control:
 		draw_line(Vector2(16, 9), Vector2(16, 12), gold, 3.0)
 		draw_rect(Rect2(1, 12, 18, 11), gold)
 		draw_rect(Rect2(8, 15, 4, 5), Color("3a2e18"))
+
+
+## A small pixel obelisk for the Landmark category cell (ticket 130b). The moon is the night-building badge's.
+class ObeliskGlyph extends Control:
+	func _init() -> void:
+		custom_minimum_size = Vector2(Hud.CELL_PIC, Hud.CELL_PIC)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		var stone := Color("cfc8b4")
+		var shade := Color("8a8578")
+		var dark := Color("57534a")
+		var gold := Color("f2d27a")
+		draw_rect(Rect2(roundf(w * 0.16), h * 0.84, roundf(w * 0.68), maxf(1.0, h * 0.08)), shade)
+		draw_rect(Rect2(roundf(w * 0.10), h * 0.92, roundf(w * 0.80), maxf(1.0, h * 0.06)), dark)
+		draw_rect(Rect2(roundf(w * 0.38), h * 0.20, roundf(w * 0.24), h * 0.64), stone)
+		draw_rect(Rect2(roundf(w * 0.38), h * 0.20, maxf(2.0, roundf(w * 0.06)), h * 0.64), shade)
+		draw_rect(Rect2(roundf(w * 0.45), h * 0.32, maxf(2.0, roundf(w * 0.06)), h * 0.38), Color("6fd8e8"))
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(roundf(w * 0.38), h * 0.20), Vector2(w * 0.5, h * 0.06),
+			Vector2(roundf(w * 0.62), h * 0.20)]), gold)
 
 
 ## Hover text of the top-level tool cells (the old tools column's tooltips).
@@ -1505,12 +1557,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_grid_page("")
 				get_viewport().set_input_as_handled()
 				return
+		for id in OVERLAY_KEYS:
+			if kc == OVERLAY_KEYS[id]:
+				_on_overlay(id)
+				return
 		match kc:
-			KEY_V: _on_overlay("blight")
-			KEY_G: _on_overlay("roads")
-			KEY_T: _on_overlay("water")
-			KEY_H: _on_overlay("coverage")
-			KEY_L: _on_overlay("grid")
 			KEY_M: toggle_region_map()
 			KEY_Q: workforce_page.toggle()
 			KEY_E: resources_page.toggle()

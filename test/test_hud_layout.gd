@@ -268,6 +268,65 @@ func test_selection_panel_fits_longest_name_and_longest_halt_reason() -> void:
 		await wait_process_frames(2)
 
 
+# AC (130b): the selection sprite is drawn at the largest integer scale that fits its box, and the tier badge sits
+# beside the name, never on the sprite.
+func test_selection_sprite_largest_integer_scale_and_badge_beside_the_name() -> void:
+	var main: Node = await _game(Vector2i(1280, 720), 1.0)
+	var s: Settlement = main.settlement
+	var hud: Hud = main.get_node("Hud")
+	var bid := _spot_for(s, "sawmill")
+	assert_true(bid >= 0, "a sawmill")
+	main.hud_model.select(bid)
+	hud.refresh()
+	await wait_process_frames(3)
+	var entry: Dictionary = ArtLibrary.manifest()["buildings"][str(s.buildings[bid].def.id)]
+	var tex := Vector2(float(entry["w"]), float(entry["h"]))
+	var size := hud._sel_sprite.custom_minimum_size
+	var k := size.x / tex.x
+	assert_almost_eq(size.y, tex.y * k, 0.01, "one whole-number scale on both axes")
+	assert_gt(k, 1.0, "the sprite is drawn larger than its art")
+	assert_lte(size.x, Hud.SEL_PIC.x + 0.5, "the sprite fits its box across")
+	assert_lte(size.y, Hud.SEL_PIC.y + 0.5, "the sprite fits its box down")
+	assert_true(tex.x * (k + 1.0) > Hud.SEL_PIC.x + 0.5 or tex.y * (k + 1.0) > Hud.SEL_PIC.y + 0.5,
+			"no larger whole-number scale fits")
+	assert_true(hud._sel_pic.get_global_rect().encloses(hud._sel_sprite.get_global_rect()),
+			"the sprite is inside the picture box")
+	var badge := hud._sel_panel.find_child("TierBadge", true, false) as Control
+	assert_not_null(badge, "the tier badge")
+	assert_false(badge.get_global_rect().intersects(hud._sel_sprite.get_global_rect()),
+			"the badge does not overlap the sprite")
+
+
+# AC (130b): every building name shows whole in its command-grid cell at 1280x720.
+func test_no_grid_label_truncated_for_any_building() -> void:
+	var main: Node = await _game(Vector2i(1280, 720), 1.0)
+	var hud: Hud = main.get_node("Hud")
+	var pages: Array[String] = [""]
+	for c in HudModel.GRID_TOP:
+		if HudModel.is_grid_category(str(c[0])):
+			pages.append(str(c[0]))
+	var checked := 0
+	for page in pages:
+		var p := page
+		for no in range(1, 4):
+			if no > 1:
+				p = "%s:%d" % [page, no]
+			hud._set_grid_page(p)
+			await wait_process_frames(2)
+			for b in hud._cmd_cells:
+				var nm := b.find_child("CellName", true, false) as Label
+				if nm == null or nm.text == "":
+					continue
+				var w := nm.get_theme_font("font").get_string_size(nm.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+						nm.get_theme_font_size("font_size")).x
+				assert_lte(w, nm.size.x + 0.5, "the full name '%s' shows" % nm.text)
+				checked += 1
+			var cells := hud.model.grid(p)
+			if cells.size() < 15 or str(cells[14]["id"]) != "more":
+				break
+	assert_gt(checked, 0, "labels were checked")
+
+
 func test_map_hover_tip_hides_under_a_full_page() -> void:
 	var main: Node = await _game(Vector2i(1280, 720), 1.0, "village")
 	var s: Settlement = main.settlement

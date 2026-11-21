@@ -22,9 +22,10 @@ const PAVED := Color("c8b088")
 const VOID := Color("0b1020")
 ## How much an unbought region's terrain darkens.
 const DIM := 0.55
-## id, label, key: the overlay toggles right of the map, in the same order and with the same keys as the HUD.
-const TOGGLES := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
-		["coverage", "Cover", "H"], ["grid", "Grid", "L"]]
+## id, label: the overlay toggles right of the map, in the same order as the HUD. Each shows its key from
+## Hud.OVERLAY_KEYS, the one table the input reads too (ticket 130b).
+const TOGGLES := [["blight", "Blight"], ["roads", "Roads"], ["water", "Water"],
+		["coverage", "Cover"], ["grid", "Grid"]]
 ## Settlement events that change what the image shows. Nothing else (a frame passing, the camera moving) rebuilds it.
 const EVENTS := ["terrain_changed", "road_changed", "region_bought", "building_placed", "building_completed",
 		"building_demolished", "building_upgraded", "island_raised", "island_removed"]
@@ -86,9 +87,10 @@ func setup(h: Hud, m: HudModel, cam: Camera2D) -> void:
 	col.custom_minimum_size = Vector2(76, 0)
 	row.add_child(col)
 	for pair in TOGGLES:
-		var b := hud._compact_button(col, "%s %s" % [pair[2], pair[1]])
+		var key := OS.get_keycode_string(Hud.OVERLAY_KEYS[pair[0]])
+		var b := hud._compact_button(col, "%s %s" % [key, pair[1]])
 		b.name = "Overlay_" + str(pair[0])
-		b.tooltip_text = "%s overlay (%s)" % [pair[1], pair[2]]
+		b.tooltip_text = "%s overlay (%s)" % [pair[1], key]
 		b.pressed.connect(_on_overlay.bind(pair[0]))
 		_toggles[pair[0]] = b
 	for kind in EVENTS:

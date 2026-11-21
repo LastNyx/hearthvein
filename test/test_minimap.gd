@@ -152,7 +152,7 @@ func test_minimap_overlay_toggles_match_the_keys() -> void:
 		var id: String = pair[0]
 		var b: Button = mini.overlay_button(id)
 		assert_not_null(b, id)
-		assert_string_contains(b.text, pair[2], "the button carries its key")
+		assert_string_contains(b.text, OS.get_keycode_string(Hud.OVERLAY_KEYS[id]), "the button carries its key")
 		var before := m.overlay_on(id)
 		b.pressed.emit()
 		assert_eq(m.overlay_on(id), not before, "the %s button toggles it" % id)
@@ -164,6 +164,27 @@ func test_minimap_overlay_toggles_match_the_keys() -> void:
 	assert_eq(m.overlay_on("blight"), not on, "V toggles the same state")
 	main.hud._unhandled_input(ev)
 	assert_eq(m.overlay_on("blight"), on)
+
+
+# AC (130b): every overlay label names the key the HUD input reads from the same table (Hud.OVERLAY_KEYS).
+func test_overlay_labels_use_the_input_key_table() -> void:
+	var main: Node = await _game()
+	var mini: Minimap = _mini(main)
+	var m: HudModel = main.hud_model
+	var ids: Array[String] = ["blight", "roads", "water", "coverage", "grid"]
+	var letters: Array[String] = ["V", "G", "T", "H", "L"]
+	for i in ids.size():
+		var id := ids[i]
+		var key: Key = Hud.OVERLAY_KEYS[id]
+		assert_eq(OS.get_keycode_string(key), letters[i], "the %s key is %s" % [id, letters[i]])
+		assert_eq((mini.overlay_button(id).text as String).split(" ")[0], letters[i],
+				"the %s button shows its key" % id)
+		var ev := InputEventKey.new()
+		ev.keycode = key
+		ev.pressed = true
+		var before := m.overlay_on(id)
+		main.hud._unhandled_input(ev)
+		assert_eq(m.overlay_on(id), not before, "%s toggles through the same table" % letters[i])
 
 
 # AC5: the old top-right Overlays button (and its menu) is gone.

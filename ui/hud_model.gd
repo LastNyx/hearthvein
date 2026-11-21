@@ -18,7 +18,7 @@ const GRID_TOP := [
 		["food", "Food", "F", "food"], ["water", "Water", "W", ""], ["lumen", "Lumen", "I", "lumen"],
 		["logistics", "Logistics", "K", "planks"], ["resources", "Resources", "S", "wood"],
 		["refining", "Refining", "D", "tools"], ["civic", "Civic", "A", "spirit"],
-		["landmark", "Landmark", "O", "moon"],
+		["landmark", "Landmark", "O", "obelisk"],
 		["demolish", "Demolish", "X", "cut_stone"], ["upgrade", "Upgrade", "U", "gold"],
 		["clear", "Clear", "Z", "wood"], ["plant", "Plant", "Y", "wood"], ["region", "Region", "M", "planet"]]
 ## Positional keys of a category pane, cell 0 first; the last cell (index 14) is More (B) or Back (Esc).
@@ -992,7 +992,7 @@ static func _ordinal(n: int) -> String:
 const TIER_ROMAN: Array[String] = ["", "I", "II", "III"]
 ## The town summary's fixed strings (ticket 128): the settlement has no player-given name yet.
 const TOWN_NAME := "Hearthvein"
-const TOWN_HINT := "Click a building to see it here. Esc clears the selection."
+const TOWN_HINT := "Click a building to see it here."  # Esc is in the help screen (ticket 130b)
 
 ## Panel data of the selected building or {} : title, lines (strings), halt text, priority, paused, site progress.
 ## Ticket 128 adds the rows of the fixed bottom-centre panel: tier_text, subtitle ("Refining, village era"),

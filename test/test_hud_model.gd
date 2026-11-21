@@ -286,7 +286,7 @@ func test_site_rows_and_the_town_summary() -> void:
 	assert_eq(t["planet"], 81)
 	assert_eq(t["planet_text"], "81 / 100")
 	assert_string_contains(t["planet_trend"], "/ yr")
-	assert_eq(t["hint"], "Click a building to see it here. Esc clears the selection.")
+	assert_eq(t["hint"], "Click a building to see it here.", "Esc is in the help screen (130b)")
 	var id := s.place_building("storehouse", _site_free_spot())
 	assert_true(id >= 0)
 	m.select(id)
