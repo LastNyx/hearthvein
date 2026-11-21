@@ -26,9 +26,9 @@ const GRID_KEYS: Array[String] = ["Q", "W", "E", "R", "T", "A", "S", "D", "F", "
 ## Building cells a pane page holds before its last cell turns into More.
 const GRID_PAGE := 14
 ## Top bar order (ticket 112, build_menu.png): food, wood, charcoal, stone, planks, cut stone, tools, lumen, cells,
-## gold; people follow in their own box.
+## gold, then silk (ticket 144); people follow in their own box.
 const RESOURCES: Array[String] = ["food", "wood", "charcoal", "stone", "planks", "cut_stone", "tools", "lumen",
-		"cells", "gold"]
+		"cells", "gold", "silk"]
 ## The fixed top-right entries (ticket 125, hud-rts-spec H5): people then the five core goods, before the pins.
 const CORE_TOP: Array[String] = ["people", "food", "wood", "stone", "lumen", "gold"]
 ## Pinned goods shown beside the six fixed entries (ticket 125); a fourth pin drops the oldest.
@@ -140,7 +140,7 @@ func _stock() -> Dictionary:
 	return {"food": food, "wood": float(t.get("wood", 0.0)), "charcoal": float(t.get("charcoal", 0.0)),
 			"stone": float(t.get("stone", 0.0)), "planks": float(t.get("planks", 0.0)),
 			"cut_stone": float(t.get("cut_stone", 0.0)), "tools": float(t.get("tools", 0.0)), "lumen": lumen,
-			"cells": float(t.get("lumen_cells", 0.0)), "gold": s.gold}
+			"cells": float(t.get("lumen_cells", 0.0)), "gold": s.gold, "silk": float(t.get("silk", 0.0))}
 
 
 # ---------------------------------------------------------------- top bar
@@ -1000,6 +1000,7 @@ func halt_text(b: Building) -> String:
 		"dry": return "Halted: no water in reach"
 		"too_far": return "Halted: too far from a builders' yard"
 		"unlit": return "Needs a lamp"
+		"needs_light": return "Needs more lit tiles nearby"
 	return ""
 
 

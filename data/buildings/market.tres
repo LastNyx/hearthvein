@@ -20,3 +20,4 @@ storage_mode = "none"
 storage_cap = 0
 gold_per_worker_day = 1.5
 market_reach = 12
+sells_goods = true

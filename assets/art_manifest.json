@@ -1541,6 +1541,35 @@
    },
    "w": 63
   },
+  "moonmoth_loft": {
+   "base": [
+    18,
+    46
+   ],
+   "file": "buildings/moonmoth_loft.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/moonmoth_loft_fx.png",
+    "offset": [
+     -12,
+     -43
+    ]
+   },
+   "generic": false,
+   "h": 47,
+   "shadow": {
+    "file": "buildings/moonmoth_loft_shadow.png",
+    "offset": [
+     -13,
+     -3
+    ]
+   },
+   "w": 37
+  },
   "observatory": {
    "base": [
     33,
@@ -2437,6 +2466,7 @@
   "planet": "ui/icon_planet.png",
   "planks": "ui/icon_planks.png",
   "pop": "ui/icon_pop.png",
+  "silk": "ui/icon_silk.png",
   "spirit": "ui/icon_spirit.png",
   "stone": "ui/icon_stone.png",
   "tools": "ui/icon_tools.png",

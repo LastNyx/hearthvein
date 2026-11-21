@@ -383,6 +383,50 @@ def grove_art(lit=True):
     return a.finish()
 
 
+# ---------------------------------------------------------------- Moonmoth Loft (1x1, ticket 144)
+def loft_art(lit=True):
+    """A stilted loft with a silk drying rack, a lantern by the door and pale moths (2x2 pixels, readable at 1x)."""
+    a = Art(40, 46)
+    P = M.P
+    # stilts and floor
+    for x in (5, 14, 25, 34):
+        a.rect(x, 33, x + 2, 45, P["wood_d"])
+        a.rect(x, 33, x, 45, P["wood"])
+    a.rect(3, 31, 37, 34, P["wood_d"])
+    a.rect(3, 31, 37, 31, P["wood_l"])
+    # plank walls and the steep thatch roof
+    a.rect(6, 13, 34, 31, P["wood"])
+    for y in range(15, 31, 4):
+        a.rect(6, y, 34, y, P["wood_d"])
+    a.rect(6, 13, 6, 31, P["wood_l"])
+    a.d.polygon([(3, 14), (20, 2), (37, 14)], fill=P["thatch"])
+    a.d.polygon([(8, 14), (20, 6), (32, 14)], fill=P["thatch_l"])
+    a.d.line([(3, 14), (37, 14)], fill=P["thatch_d"])
+    # door, shuttered window and the jar lantern
+    a.rect(17, 22, 23, 31, P["wood_d"])
+    a.rect(18, 23, 22, 31, c("4a3a2a"))
+    a.rect(8, 17, 13, 21, c("2a2436"))
+    if lit:
+        a.rect(9, 18, 12, 20, c("ffd060"), True)
+    a.rect(13, 24, 16, 28, c("ffc65a"), lit)
+    a.rect(13, 23, 16, 23, P["iron_d"])
+    if lit:
+        a.rect(14, 25, 15, 27, c("fff3c0"), True)
+    # silk drying rack in front: a frame and five hanging strips
+    for x in (10, 30):
+        a.rect(x, 34, x + 1, 43, P["wood_d"])
+    a.rect(10, 34, 31, 35, P["wood_l"])
+    cols = (c("d6c8f0"), c("aa96d2"), c("e6ecff"))
+    for i, x in enumerate((13, 17, 21, 25, 28)):
+        ln = (7, 9, 6, 8, 5)[i]
+        a.rect(x, 36, x + 1, 36 + ln, cols[i % 3])
+        a.rect(x + 1, 36, x + 1, 36 + ln, c("6e6096"))
+    # pale moths round the loft: 2x2 pixels, so they read at 1x; emissive (for the glow) once the lamp is lit
+    for (x, y) in ((8, 8), (30, 6), (22, 1), (3, 16), (35, 20), (6, 25)):
+        a.rect(x, y, x + 1, y + 1, c("e6ecff"), lit)
+    return a.finish()
+
+
 # ---------------------------------------------------------------- scene: day render first, then the night pass
 class Scene:
     def __init__(self, tw, th, seed=3):

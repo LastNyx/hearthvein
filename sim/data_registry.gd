@@ -263,8 +263,10 @@ func _validate() -> void:
 		if hp.title == "" or hp.body == "":
 			errors.append("help page '%s': empty title or body" % hp.id)
 	for g: GoodDef in goods.values():
-		if g.kind != GoodDef.KIND_BASE and g.kind != GoodDef.KIND_REFINED:
+		if g.kind != GoodDef.KIND_BASE and g.kind != GoodDef.KIND_REFINED and g.kind != GoodDef.KIND_LUXURY:
 			errors.append("good '%s': unknown kind '%s'" % [g.id, g.kind])
+		if g.sale_price < 0.0 or g.sale_keep < 0.0:
+			errors.append("good '%s': sale_price and sale_keep must not be negative" % g.id)
 	for t: TerrainDef in terrain.values():
 		if t.fertility_start < 0.0 or t.fertility_start > 1.0:
 			errors.append("terrain '%s': fertility_start out of 0..1" % t.id)
@@ -521,6 +523,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: work_needs_water without a recipe" % who)
 	if b.work_needs_wet and b.recipe == null:
 		errors.append("%s: work_needs_wet without a recipe" % who)
+	if b.min_lit_tiles < 0 or b.lit_tile_radius < 0 or (b.min_lit_tiles > 0) != (b.lit_tile_radius > 0):
+		errors.append("%s: min_lit_tiles and lit_tile_radius go together and must not be negative" % who)
 	if b.needs_water and b.housing_beds <= 0:
 		errors.append("%s: needs_water without housing beds" % who)
 	if b.region_haul_load < 0.0:

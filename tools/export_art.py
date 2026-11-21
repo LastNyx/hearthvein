@@ -1414,6 +1414,8 @@ SHEET = {
     # ticket 134: the night-only buildings from the night mockups (day base, lit frame from the glow)
     "charcoal_kiln": lambda: NightSprite(N.kiln_art(False), N.kiln_art(True), 2, 2, (1.0, 9), (255, 150, 60), 16),
     "glowcap_grove": lambda: NightSprite(N.grove_art(False), N.grove_art(True), 2, 2, (1.0, 8), (120, 240, 200), 30),
+    # ticket 144: the Moonmoth Loft, pale moths round a lantern (1x1)
+    "moonmoth_loft": lambda: NightSprite(N.loft_art(False), N.loft_art(True), 1, 1, (0.9, 5), (228, 232, 255), 12),
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}
@@ -1550,7 +1552,7 @@ def export_icons(manifest):
     """
     v2 = {"food": "food", "wood": "wood", "charcoal": "charcoal", "stone": "stone", "planks": "planks",
           "cut_stone": "cut_stone", "tools": "tools", "lumen": "lumen", "cells": "cells", "gold": "gold",
-          "pop": "people"}
+          "pop": "people", "silk": "silk"}
     for k, art in v2.items():
         save(MV.icon_v2(art), OUT / "ui" / f"icon_{k}.png")
     names = ["spirit", "moon"]
