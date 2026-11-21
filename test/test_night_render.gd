@@ -125,3 +125,15 @@ func test_the_hud_layer_is_not_tinted_at_night() -> void:
 	assert_not_null(night, "the light pools and lit windows draw in the map")
 	assert_false(hud.is_ancestor_of(night), "the night render is not part of the HUD")
 	DirAccess.remove_absolute(main.settings_path)
+
+
+## Ticket 170: the night render blends additively, so its warm pools, lantern and window light add to the tinted
+## ground instead of being darkened by the night tint with it.
+func test_night_render_blends_additively_so_light_brightens_the_ground() -> void:
+	var s := _new_settlement()
+	var v := NightView.new()
+	add_child_autofree(v)
+	v.setup(s)
+	var mat := v.material as CanvasItemMaterial
+	assert_not_null(mat, "the night render carries its own blend material")
+	assert_eq(mat.blend_mode, CanvasItemMaterial.BLEND_MODE_ADD, "the light adds to the world under the night tint")
