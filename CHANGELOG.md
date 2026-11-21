@@ -9,6 +9,12 @@ All notable changes to Hearthvein. Newest first.
   Posts (charcoal, 2 a night), Lumen Lamps (3 Lumen a night) and Grid Lamps light the ground; the Charcoal Kiln, Glowcap
   Grove (3 food per night worker), Tavern, Night Watch (a lantern walker) and Moonmoth Loft (silk, sold at the Market) use it.
   Buildings that work at night carry a moon badge.
+- Night Market: sells your surplus goods for gold once the night shift starts, and every 4 to 6 nights a caravan parks beside
+  it with one offer (tools or Lumen cells for gold) that you can buy until dawn.
+- Moon phases: an 8-day cycle shown on the clock. At full moon lamps reach one tile further and Spirit rises by 2; at new
+  moon the Glowcap Grove makes 25% more.
+- Night arrivals: with the Hearth lit at night, newcomers arrive after dark as well. A dark Hearth keeps them waiting.
+- Bakery: bakes crops and charcoal into bread, a better food.
 
 ### Changed
 - The economy is tighter. Forager, Farm and Fishing Dock make 4 food per worker a day (was 6 to 8), and in winter they make

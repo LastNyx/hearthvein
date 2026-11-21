@@ -116,6 +116,21 @@ refined good are physical goods held in storehouses and moved by haulers.
   walker lights radius 1 along its route (1 charcoal). Kiln: 2 charcoal per worker-day. Glowcap Grove: 3 food per night
   worker. Beds: Hut 4/3, Lodge 5/3, Cottage tiers 5, 7, 9. Fair share: slots of one rank, priority and shift are filled one
   each round-robin across the buildings, so the last built are not left empty; High priority beats Normal across categories.
+- Night life (tickets 139-147): the night-only buildings are the Tavern (4 crops a night, Spirit r4), Bakery (4 crops + 2
+  charcoal -> 3 bread, a better food), Charcoal Kiln (4 wood -> 2 charcoal), Night Watch (patrol, 1 charcoal a night),
+  Moonmoth Loft (silk, 8 gold each above 10 kept; needs 3 lit tiles within 2) and the Night Market (2x2, 30W 20P 60G, 3 night
+  workers). Night slots are filled after every day slot, so night buildings only use hands the day shift leaves idle.
+- Moon (ticket 145): an 8-day cycle, one phase a day (day 1 new, day 5 full). Full moon: every lamp reaches 1 tile further
+  and Spirit +2; new moon: Glowcap Grove +25%. The clock shows the phase.
+- Night arrivals (ticket 146): at the night shift's start newcomers add 0.5 to a night bar under the same conditions as the
+  daily immigrant (Spirit, a free bed, not in a Dimming); at 1 a newcomer arrives, but only if the Hearth or a tile touching
+  it is lit tonight. Dark, the newcomer waits and a hint says why.
+- Night Market (ticket 141): while lit and staffed it sells surplus priced goods once, at the night shift's start. Every 4-6
+  nights (from the settlement seed and the day only) a caravan parks beside the first lit, staffed Night Market with one offer
+  (tools x5 for 40 gold, or Lumen cells x6 for 45), tonight only, one buy, gone at 06:00. A night with no such market is skipped.
+- Balance (ticket 147): the balance bot lights the Hearth with a Brazier, then builds the Night Watch, Night Market, Kiln,
+  Loft, Bakery and Tavern only once the era's gold gate is nearly met (Village, Town) or from City on, when wood and gold
+  are in surplus, and buys a caravan offer when the landmark lacks that good or the stock is low. It never forces them.
 - Food types for variety: forage, fish, crops, greenhouse, meals (counts once), sky (Sky Garden), orchard.
 
 ## 8. Hauling and logistics (D39)

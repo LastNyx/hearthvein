@@ -90,6 +90,10 @@ const FAR_SITE_DAYS := 5
 ## Longest one-way walk (game hours) from a yard to a site before the bot builds a yard closer to it (102).
 const YARD_WALK_MAX := 1.5
 const SEARCH_RADIUS := 26
+## Night life (147): population, wood stock and gold (over this plus a share of the gate's) before the bot builds for the night.
+const NIGHT_POP := 30
+const NIGHT_WOOD := 60.0
+const NIGHT_GOLD := 60.0
 const LM_RADIUS := 34
 const WOOD_KEEP := 330.0
 const WOOD_KEEP_ERA := 6
@@ -122,6 +126,7 @@ var _homes_elsewhere: bool = false
 var _skyheart_done_day: int = -1
 var _great_end: String = ""
 var _verbose: bool = false
+var _caravans_bought: int = 0
 var _stall_years: int = STALL_YEARS_DEFAULT  # argument stall=<years>: a run with no era change for this long stops
 var _map_day: int = 150  # verbose runs print an ASCII map of the town on this day (argument map=<day>)
 var _made_acc := 0.0
@@ -679,6 +684,7 @@ func _report(stalled: bool, secs: float) -> void:
 	if _measure:
 		print(_measure_text())
 	print("Buildings at the end: ", counts)
+	print("Night life: lamps %d, watch %d, kilns %d, taverns %d, bakeries %d, lofts %d, night markets %d, caravan buys %d" % [_count("lamp"), _count("night_watch"), _count("charcoal_kiln"), _count("tavern"), _count("bakery"), _count("moonmoth_loft"), _count("night_market"), _caravans_bought])
 	print("Skyheart finished: ", ("day %d" % _skyheart_done_day) if _skyheart_done_day >= 0 else "no")
 	print("Great Dimming: ", _great_end if _great_end != "" else "not over")
 	var camp := s.get_system(CampaignSystem) as CampaignSystem
@@ -1170,6 +1176,7 @@ func _act() -> void:
 	_throttle(pop)
 	_track_labour(pop)
 	_chain_priority()
+	_caravan()
 	_relocate_woodcutters()
 	_cancel_stale_yards()
 	_yards(pop, s.registry.get_era(s.era_current).order)
@@ -1768,6 +1775,7 @@ func _support(pop: int, reserve: Dictionary) -> void:
 				if s.is_unlocked(s.registry.get_building(id)) and _afford(id, res):
 					if _place(id, spot, 6) != null:
 						break
+	_night_life(pop, res)
 	# regional storehouses
 	_regional_storehouses()
 	# healing in the last era
@@ -1778,6 +1786,117 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	# Lumen cells and tools matter for the big landmarks: keep one refinery and toolsmith early
 	if era >= 5 and _count("lumen_pylon") < 0:
 		pass
+
+
+## Night life (ticket 147). Night slots are filled after every day slot, so night buildings only use hands the day shift
+## leaves idle. One Brazier by the Hearth lights the arrival point (night newcomers, 146); the night buildings go inside a
+## lamp's pool (a new Brazier when none has room). Order: Brazier, Night Watch, Night Market, Charcoal Kiln (fuel for the Watch and the
+## Bakery), Moonmoth Loft, Bakery, Tavern. Each waits for a wood stock above its cost and a gold surplus.
+func _night_life(pop: int, res: Dictionary) -> void:
+	var era := s.registry.get_era(s.era_current).order
+	if pop < NIGHT_POP or era < 2 or (_lm_open() and era < CITY_ORDER):
+		return  # before City the era's landmark comes first (its goods and gold are the gate)
+	var gold_need := float(s.era_gate().get("gold_need", 0))
+	# the landmark's reserve counts for half of the planks only (night buildings are small, and the Night Market pays back)
+	res = {"planks": 0.5 * float(res.get("planks", 0.0))}
+	var plenty: bool = float(_stock.get("wood", 0.0)) > NIGHT_WOOD and s.gold > NIGHT_GOLD + (0.8 if era < CITY_ORDER else 0.3) * gold_need
+	if not plenty:
+		return
+	if _count("lamp") < 1 and _afford("lamp", res):
+		_place_night("lamp", _lamp_spot(), 0)
+		return
+	var lamps: Array[Building] = []
+	for b: Building in s.buildings.values():
+		if b.def.lamp and not b.site:
+			lamps.append(b)
+	if lamps.is_empty():
+		return
+	var want: Array = []
+	if _count("night_watch") < 1:
+		want.append("night_watch")
+	if _count("night_market") < 1 and s.is_unlocked(s.registry.get_building("night_market")):
+		want.append("night_market")
+	if _count("charcoal_kiln") < 1 and s.is_unlocked(s.registry.get_building("charcoal_kiln")):
+		want.append("charcoal_kiln")
+	if _count("moonmoth_loft") < 1 + pop / 120 and s.is_unlocked(s.registry.get_building("moonmoth_loft")):
+		want.append("moonmoth_loft")
+	if _count("charcoal_kiln") > 0 and _count("bakery") < 1 + pop / 150 and s.is_unlocked(s.registry.get_building("bakery")):
+		want.append("bakery")
+	if pop >= 60 and _count("tavern") < 1 + pop / 150 and float(_stock.get("food", 0.0)) > 6.0 * float(pop):
+		want.append("tavern")
+	for id: String in want:
+		if not _afford(id, res):
+			continue
+		if id == "night_watch":
+			if _place_night(id, _hearth_near(), 10) != null:
+				return
+			continue
+		for lamp in lamps:
+			if _place_night(id, lamp.origin, 3) != null:
+				return
+		# no room inside any pool: one more Brazier a little way out, the next try goes there
+		if lamps.size() < 2 + _night_count() / 2 and _afford("lamp", res):
+			_place_night("lamp", _lamp_spot(), 0)
+		return
+
+
+## _place for the night buildings: a spot that is not found never counts as "the settlement is full" (no region is bought for it).
+func _place_night(id: String, near: Vector2i, radius: int) -> Building:
+	var blocked := _blocked_today
+	var b := _place(id, near, radius)
+	_blocked_today = blocked
+	return b
+
+
+## A tile near the Hearth with the most free ground around it inside a Brazier's pool (radius 3), at least 12 tiles free.
+func _lamp_spot() -> Vector2i:
+	var best := _hearth_near()
+	var best_free := 11
+	var looked := 0
+	for off: Vector2i in _offsets:
+		if off.length_squared() > 14 * 14 or looked > 120:
+			break
+		var t := _hearth_near() + off
+		if int(_bad_tiles.get(t, -1)) > s.clock.total_days() or not s.can_place("lamp", t)["ok"]:
+			continue
+		looked += 1
+		var free := 0
+		for dy in range(-3, 4):
+			for dx in range(-3, 4):
+				if dx * dx + dy * dy <= 9 and s.can_place("lamp", t + Vector2i(dx, dy))["ok"]:
+					free += 1
+		if free > best_free:
+			best_free = free
+			best = t
+			if free >= 20:
+				break
+	return best
+
+
+func _night_count() -> int:
+	var n := 0
+	for b: Building in s.buildings.values():
+		if b.def.night_only:
+			n += 1
+	return n
+
+
+## A caravan parked at a Night Market (it stays 20:00-06:00, so the midnight pass sees it): buys the offer when the
+## good is one the bot needs (the landmark lacks it, or the stock is low from City on) and the gold is not the gate's.
+func _caravan() -> void:
+	var cs := s.get_system(CaravanSystem) as CaravanSystem
+	if cs == null or not cs.visiting() or cs.bought():
+		return
+	var o := cs.offer()
+	var good := str(o["good"])
+	var gold_need := float(s.era_gate().get("gold_need", 0))
+	var spare: float = s.gold - float(o["gold"]) - NIGHT_GOLD
+	var lacks := _lm_lacks(good) >= 0.5 * float(o["amount"]) and spare >= 0.5 * gold_need
+	var low := s.registry.get_era(s.era_current).order >= CITY_ORDER and float(_stock.get(good, 0.0)) < 2.0 * float(o["amount"]) and spare >= gold_need
+	if (lacks or low) and cs.buy(s):
+		_caravans_bought += 1
+		if _verbose:
+			print("   d%d caravan bought %s x%d for %d" % [s.clock.total_days(), good, int(o["amount"]), int(o["gold"])])
 
 
 ## The blighted tile with the most blighted neighbours (r5) among those no cleaner, built or planned, reaches; (-1, -1)

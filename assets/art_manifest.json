@@ -2206,7 +2206,7 @@
   },
   "tavern": {
    "base": [
-    33,
+    34,
     52
    ],
    "file": "buildings/tavern.png",
@@ -2218,7 +2218,7 @@
    "fx": {
     "file": "buildings/tavern_fx.png",
     "offset": [
-     -32,
+     -33,
      -39
     ]
    },
@@ -2231,7 +2231,7 @@
      -6
     ]
    },
-   "w": 66
+   "w": 68
   },
   "tax_office": {
    "base": [
