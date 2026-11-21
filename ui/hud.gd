@@ -1,7 +1,7 @@
 class_name Hud
 extends CanvasLayer
 ## The in-game HUD (design.md section 20, docs/mockups/scene_village.png): top bar with resources, pop/beds, Spirit and
-## planet health; era + Dimming panel; selected-building panel; bottom build bar by category; notices; overlay buttons.
+## planet health; objectives panel; selected-building panel; bottom band with the minimap and the category bar; notices.
 ## Thin: every number and string comes from HudModel, every command goes through HudModel or BuildController.
 
 const FONT_PATH := "res://assets/ui/PixelifySans.ttf"  # headings; OFL 1.1, see PixelifySans-OFL.txt
@@ -15,8 +15,6 @@ const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
 const DONE := Color("78be5a")  # a met objective (ticket 126)
-const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
-		["coverage", "Coverage", "H"], ["grid", "Grid", "L"]]  # id, label, key
 
 ## The Help button of the tools tab (Main opens the help screen).
 signal help_requested
@@ -54,10 +52,8 @@ var _spirit_bar: ProgressBar
 var _spirit_label: Label
 var _spirit_box: Control
 var _planet_label: Label
-var _overlay_buttons: Dictionary = {}
-var _overlay_toggle: Button
-var _layer_tag: Button
-var _overlay_panel: PanelContainer
+## The bottom-band minimap (ticket 127): the map image, the camera rectangle and the layer/overlay toggles.
+var minimap: Minimap
 ## Top-left objectives panel (ticket 126): the title, the collapsing body, and the one-line collapsed form.
 var objectives_panel: PanelContainer
 var _objectives_body: VBoxContainer
@@ -163,7 +159,6 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(right)
 	_right_col = right
-	_build_overlay_menu(right)
 	_build_objectives_panel(left)
 	_build_notes(center)
 	_float = Control.new()
@@ -504,44 +499,12 @@ func _build_clock_panel(parent: Node) -> void:
 	_icon(pl, "planet", 22)
 	_planet_label = _label(pl, 15)
 	pl.tooltip_text = "Planet health and its change over the last year"
-	_layer_tag = _button(extra, "Ground (Tab)", 13)
-	_layer_tag.pressed.connect(func() -> void: model.toggle_layer())
-	_overlay_toggle = _button(extra, "Overlays", 13)
-	_overlay_toggle.pressed.connect(toggle_overlay_menu)
 
 
-## One compact flyout under the top bar holds every overlay toggle (room for more); keys work with it closed.
-func _build_overlay_menu(parent: Node) -> void:
-	_overlay_panel = _panel(parent)
-	_overlay_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-	_overlay_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
-	_overlay_panel.add_child(v)
-	for pair in OVERLAYS:
-		var b := _button(v, "%s (%s)" % [pair[1], pair[2]], 14)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.pressed.connect(_on_overlay.bind(pair[0]))
-		_overlay_buttons[pair[0]] = b
-	_overlay_panel.visible = false
-
-
-func toggle_overlay_menu() -> void:
-	_overlay_panel.visible = not _overlay_panel.visible
-	_refresh_overlay_buttons()
-
-
+## An overlay key (V G T H L) toggles the same state as the minimap's buttons.
 func _on_overlay(id: String) -> void:
 	model.toggle_overlay(id)
-	_refresh_overlay_buttons()
-
-
-func _refresh_overlay_buttons() -> void:
-	var any := false
-	for id in _overlay_buttons:
-		_style_button(_overlay_buttons[id], model.overlay_on(id))
-		any = any or model.overlay_on(id)
-	_style_button(_overlay_toggle, any or _overlay_panel.visible)
+	minimap.refresh_toggles()
 
 
 # ---------------------------------------------------------------- objectives panel (ticket 126)
@@ -808,6 +771,9 @@ const CARD_ROWS := 2
 const CARD_GAP := 6
 ## Category buttons use a slim style so all of them (12 with every era unlocked) share one row at 1280 px (ticket 122).
 const CAT_BUTTON_PAD := 6
+## The bottom band of hud-rts-spec H7: the minimap on the left, the category bar in the middle for now (tickets 128 and
+## 129 add the selection panel centre and the command grid right).
+const BAND_HEIGHT := 148.0
 
 
 func _build_bar(parent: Node) -> void:
@@ -827,8 +793,22 @@ func _build_bar(parent: Node) -> void:
 	_fly_box.add_theme_constant_override("separation", 6)
 	fly_col.add_child(_fly_box)
 	_fly_panel.visible = false
-	var p := _panel(parent)
-	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var band := HBoxContainer.new()
+	band.name = "BottomBand"
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.custom_minimum_size = Vector2(0, BAND_HEIGHT)
+	parent.add_child(band)
+	minimap = Minimap.new()
+	minimap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	band.add_child(minimap)
+	minimap.setup(self, model, camera)
+	var mid := CenterContainer.new()
+	mid.name = "BottomMid"
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	band.add_child(mid)
+	var p := _panel(mid)
 	_bar_panel = p
 	_cat_box = GridContainer.new()
 	_cat_box.add_theme_constant_override("h_separation", 4)
@@ -1135,9 +1115,8 @@ func refresh() -> void:
 	_refresh_pins()
 	var active: bool = model.dimming_state() == "active"
 	objectives_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
-	_refresh_overlay_buttons()
 	model.sync_layer()
-	_refresh_layer_tag()
+	minimap.refresh_toggles()
 	tools_tab.refresh()
 	_refresh_flyout_cards()
 	_refresh_selection()
@@ -1155,14 +1134,6 @@ func _refresh_clock_buttons() -> void:
 	_style_button(_pause_button, speed == 0)
 	for i in _speed_buttons.size():
 		_style_button(_speed_buttons[i], speed == i + 1)
-
-
-func _refresh_layer_tag() -> void:
-	var sky := model.active_layer == Building.LAYER_SKY
-	_layer_tag.text = "%s (Tab)" % model.layer_name()
-	_style_button(_layer_tag, sky)
-	_layer_tag.tooltip_text = "Tab switches between the ground and the sky islands"
-	_layer_tag.visible = model.layer_tag_visible()
 
 
 func toggle_region_map() -> void:
@@ -1241,14 +1212,15 @@ func _unhandled_input(event: InputEvent) -> void:
 # ---------------------------------------------------------------- tutorial highlight (ticket 83)
 
 ## The button the current tutorial goal points at, or null: the goal's build button when its category flyout is open,
-## else that category's button; the Roads category / road tool for the road goal; an overlay's button (its toggle
-## while the overlay menu is closed) for an overlay goal. Null when the tutorial is not active.
+## else that category's button; the Roads category / road tool for the road goal; the minimap's overlay button for an
+## overlay goal. Null when the tutorial is not active.
 func highlight_button() -> Button:
 	var g := (model.s.get_system(TutorialSystem) as TutorialSystem).current_goal()
 	if g == null or g.highlight == "":
 		return null
-	if _overlay_buttons.has(g.highlight):
-		return _overlay_buttons[g.highlight] if _overlay_panel.visible else _overlay_toggle
+	var ov := minimap.overlay_button(g.highlight)
+	if ov != null:
+		return ov
 	var cat := ""
 	var entry := ""
 	if g.highlight == "road":

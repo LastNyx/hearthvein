@@ -403,7 +403,7 @@ func test_roads_category_offers_rail_track_from_conflux() -> void:
 	assert_eq(HudModel.track_refusal_text("road"), "A road is here")
 
 
-func test_hud_overlay_keys_and_menu_buttons() -> void:
+func test_hud_overlay_keys_and_minimap_buttons() -> void:
 	var main: Node = load("res://ui/main.tscn").instantiate()
 	main.game_seed = SEED
 	add_child_autofree(main)
@@ -416,11 +416,9 @@ func test_hud_overlay_keys_and_menu_buttons() -> void:
 	ev.pressed = true
 	hud._unhandled_input(ev)
 	assert_true(model.overlay_on("water"))
-	hud.toggle_overlay_menu()
-	assert_true(hud._overlay_panel.visible)
-	(hud._overlay_buttons["roads"] as Button).pressed.emit()
+	hud.minimap.overlay_button("roads").pressed.emit()
 	assert_true(model.overlay_on("roads"))
-	(hud._overlay_buttons["water"] as Button).pressed.emit()
+	hud.minimap.overlay_button("water").pressed.emit()
 	assert_false(model.overlay_on("water"))
 
 
