@@ -23,6 +23,8 @@ var s: Settlement
 var notifications: NotificationCenter
 ## User settings hold the pinned goods (ticket 125); null in plain model tests, pins then live in memory only.
 var settings: GameSettings
+## Objectives panel collapsed to one line (ticket 126); read from and written to the user settings.
+var _objectives_collapsed: bool = false
 var _pins: Array[String] = []
 var selected_id: int = -1
 var overlays := {"blight": false, "roads": false, "water": false, "coverage": false, "grid": false}
@@ -42,6 +44,7 @@ func _init(settlement: Settlement, game_settings: GameSettings = null) -> void:
 		_deltas[k] = 0
 	_mark = _stock()
 	if settings != null:
+		_objectives_collapsed = settings.objectives_collapsed
 		for g in settings.pinned_goods:
 			_add_pin(g)
 	s.events.subscribe("day_started", _on_day)
@@ -304,6 +307,11 @@ func era_name() -> String:
 	return e.display_name if e != null else s.era_id()
 
 
+## "Year 1, Spring": the date line the clock panel shows.
+func date_text() -> String:
+	return "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]
+
+
 ## Lines of the era panel: era title, the next-era gate, the Dimming line, the date.
 func era_panel() -> Dictionary:
 	var gate := s.era_gate()
@@ -317,7 +325,7 @@ func era_panel() -> Dictionary:
 	return {"title": "Era: %s" % era_name(), "gate": gate_text, "dimming": dimming_text(),
 			"dimming_state": dimming_state(), "light": dimming_light_text(), "light_short": dimming_short_text(),
 			"output": dimming_output_text(), "stock": dimming_stock_text(),
-			"date": "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]}
+			"date": date_text()}
 
 
 func dimming_state() -> String:
@@ -439,6 +447,144 @@ func dimming_building_text(b: Building) -> String:
 		return ""
 	var f := DimmingSystem.output_modifier(s, b)
 	return "" if f >= 1.0 else "x%s Dimming" % factor_text(f)
+
+
+# ---------------------------------------------------------------- objectives panel (ticket 126)
+
+## The panel's subtitle: "Town -> City: gate parts", or "Ascendant: win objectives" at the last era.
+func objectives_header() -> String:
+	var gate := s.era_gate()
+	if gate["next"] == "":
+		return "%s: win objectives" % era_name()
+	var nxt := s.registry.get_era(gate["next"])
+	return "%s -> %s: gate parts" % [era_name(), nxt.display_name if nxt != null else str(gate["next"])]
+
+
+## The rows of the objectives panel: one per gate part of the next era (People, Gold and its landmark), or the win
+## objectives at the last era. Plain data (label, value, max, done, kind) so it is testable without nodes; the HUD
+## draws a bar from value/max and the text from kind.
+func objectives() -> Array[Dictionary]:
+	var gate := s.era_gate()
+	if gate["next"] == "":
+		return _win_objectives()
+	var rows: Array[Dictionary] = []
+	var pop_have := int(gate["pop"])
+	var pop_need := int(gate["pop_need"])
+	rows.append({"label": "People", "value": pop_have, "max": pop_need, "done": pop_have >= pop_need, "kind": "pop"})
+	var gold_have := floori(float(gate["gold"]))
+	var gold_need := int(gate["gold_need"])
+	rows.append({"label": "Gold", "value": gold_have, "max": gold_need, "done": gold_have >= gold_need, "kind": "gold"})
+	var lm := s.registry.get_building(gate["landmark"])
+	var built := bool(gate["landmark_built"])
+	rows.append({"label": lm.display_name if lm != null else str(gate["landmark"]), "value": 1 if built else 0,
+			"max": 1, "done": built, "kind": "landmark"})
+	return rows
+
+
+## The win objectives of the last era: the Skyheart's stages, surviving the Great Dimming, and planet health at or
+## above PlanetDef.win_health (the campaign's win line).
+func _win_objectives() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var stage := 0
+	var stages := 4
+	var sky_def := s.registry.get_building("skyheart")
+	if sky_def != null:
+		stages = sky_def.stages.size()
+	for b: Building in s.buildings.values():
+		if b.def.id == "skyheart":
+			stages = b.def.stages.size()
+			stage = mini(b.stage, stages)
+			break
+	rows.append({"label": "Skyheart", "value": stage, "max": stages, "done": stage >= stages, "kind": "skyheart"})
+	var gd_done := GreatDimmingSystem.is_done(s)
+	rows.append({"label": "Great Dimming", "value": 1 if gd_done else 0, "max": 1, "done": gd_done,
+			"kind": "great_dimming"})
+	var health := roundi(s.planet_health())
+	var need := roundi(s.registry.planet.win_health)
+	rows.append({"label": "Planet health >= %d%%" % need, "value": health, "max": 100,
+			"done": float(health) >= float(need), "kind": "planet"})
+	return rows
+
+
+## One line for the collapsed panel: "Objectives: City 2/3, Dimming in 2 days".
+func objectives_collapsed_text() -> String:
+	var rows := objectives()
+	var done := 0
+	for r in rows:
+		if bool(r["done"]):
+			done += 1
+	var label := era_name()
+	var gate := s.era_gate()
+	if gate["next"] != "":
+		var nxt := s.registry.get_era(gate["next"])
+		label = nxt.display_name if nxt != null else str(gate["next"])
+	return "Objectives: %s %d/%d, %s" % [label, done, rows.size(), dimming_summary()]
+
+
+## The short Dimming phrase the collapsed line carries: "Dimming in 2 days", "Dimming day 1 of 3", "No Dimming
+## expected".
+func dimming_summary() -> String:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return "No Dimming expected"
+	var st := d.status(s)
+	var label := "Great Dimming" if st.get("great", false) else "Dimming"
+	match st["state"]:
+		"forecast":
+			var n: int = st["days_until"]
+			return "%s %s" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n)]
+		"active":
+			return "%s day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])]
+	return "No Dimming expected"
+
+
+## The Dimming lines of the objectives panel: a forecast gives "Dimming in N days, lasts M" and "Lumen output halves.
+## Stock: N days."; an active Dimming gives "Dimming: day N of M" plus the light-short warning when it is short.
+## Empty outside both. The numbers are the ones the old era panel gathered.
+func objectives_dimming_lines() -> Array[String]:
+	var d := s.get_system(DimmingSystem) as DimmingSystem
+	if d == null:
+		return []
+	var st := d.status(s)
+	var label := "Great Dimming" if st.get("great", false) else "Dimming"
+	var lines: Array[String] = []
+	if st["state"] == "forecast":
+		var n: int = st["days_until"]
+		lines.append("%s %s, lasts %d" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n),
+				int(st["length"])])
+		lines.append("Lumen output halves. Stock: %d days." % dimming_stock_days())
+	elif st["state"] == "active":
+		lines.append("%s: day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])])
+		var short := dimming_short_text()
+		if short != "":
+			lines.append(short)
+	return lines
+
+
+## Days the Lumen stock covers the settlement's light need, the "about N days" the old panel showed: floor((Lumen +
+## cells x lumen_per_cell) / need).
+func dimming_stock_days() -> int:
+	var need := DimmingSystem.light_need(s)
+	if need <= 0.0:
+		return 0
+	var t := s.totals()
+	var lumen := floori(float(t.get("lumen", 0.0)))
+	var cells := floori(float(t.get("lumen_cells", 0.0)))
+	return floori((float(lumen) + float(cells) * s.registry.planet.lumen_per_cell) / need)
+
+
+## True when the objectives panel is collapsed (the one-line form); stored in the user settings.
+func objectives_collapsed() -> bool:
+	return _objectives_collapsed
+
+
+## Collapses or expands the objectives panel and saves the state to the user settings.
+func toggle_objectives_collapsed() -> bool:
+	_objectives_collapsed = not _objectives_collapsed
+	if settings != null:
+		settings.objectives_collapsed = _objectives_collapsed
+		settings.save()
+	return _objectives_collapsed
 
 
 # ---------------------------------------------------------------- layer (ticket 40d)

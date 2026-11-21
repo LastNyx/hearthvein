@@ -14,6 +14,7 @@ const PURPLE := Color("b496d2")
 const RED := Color("e86a5a")
 const PANEL_BG := Color(0.094, 0.078, 0.071, 0.92)
 const PANEL_EDGE := Color(0.353, 0.314, 0.275)
+const DONE := Color("78be5a")  # a met objective (ticket 126)
 const OVERLAYS := [["blight", "Blight", "V"], ["roads", "Roads", "G"], ["water", "Water", "T"],
 		["coverage", "Coverage", "H"], ["grid", "Grid", "L"]]  # id, label, key
 
@@ -57,17 +58,19 @@ var _overlay_buttons: Dictionary = {}
 var _overlay_toggle: Button
 var _layer_tag: Button
 var _overlay_panel: PanelContainer
-var _era_title: Label
-var _era_dimming: Label
-var _era_light: Label
-var _era_short: Label
-var _era_output: Label
-var _era_gate: Label
-var _era_date: Label
-var _era_season: Label
-var _clock_dial: ClockDial
-var _era_panel: PanelContainer
-var _moon: TextureRect
+## Top-left objectives panel (ticket 126): the title, the collapsing body, and the one-line collapsed form.
+var objectives_panel: PanelContainer
+var _objectives_body: VBoxContainer
+var _objectives_toggle: Button
+var _obj_header: Label
+var _obj_collapsed_line: Label
+var _obj_rows: Array[HBoxContainer] = []
+var _obj_icons: Array[TextureRect] = []
+var _obj_labels: Array[Label] = []
+var _obj_bars: Array[ProgressBar] = []
+var _obj_values: Array[Label] = []
+var _obj_dimming: Label
+var _obj_light: Label
 var _notes_box: VBoxContainer
 var _notes_key := ""
 var _sel_panel: PanelContainer
@@ -161,7 +164,7 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	mid.add_child(right)
 	_right_col = right
 	_build_overlay_menu(right)
-	_build_era_panel(right)
+	_build_objectives_panel(left)
 	_build_notes(center)
 	_float = Control.new()
 	_float.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -541,44 +544,130 @@ func _refresh_overlay_buttons() -> void:
 	_style_button(_overlay_toggle, any or _overlay_panel.visible)
 
 
-# ---------------------------------------------------------------- era and Dimming panel
+# ---------------------------------------------------------------- objectives panel (ticket 126)
 
-func _build_era_panel(parent: Node) -> void:
-	_era_panel = _panel(parent)
-	_era_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-	_era_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	_era_panel.custom_minimum_size = Vector2(360, 0)
+## The top-left panel of spec H6: "Objectives" with a collapse button, then a row per gate part (icon, label, bar,
+## progress) or, at the last era, the win objectives, and the Dimming lines under them. Collapsed it is one line.
+func _build_objectives_panel(parent: Node) -> void:
+	objectives_panel = _panel(parent)
+	objectives_panel.name = "Objectives"
+	objectives_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	objectives_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	objectives_panel.custom_minimum_size = Vector2(340, 0)
 	var v := VBoxContainer.new()
-	_era_panel.add_child(v)
-	_era_title = _label(v, 18, GOLD)
-	var clock_row := HBoxContainer.new()
-	clock_row.add_theme_constant_override("separation", 8)
-	v.add_child(clock_row)
-	_clock_dial = ClockDial.new()
-	_clock_dial.custom_minimum_size = Vector2(56, 36)
-	_clock_dial.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_clock_dial.tooltip_text = "The sun is up 05-21, the moon 21-05"
-	clock_row.add_child(_clock_dial)
-	var dates := VBoxContainer.new()
-	dates.add_theme_constant_override("separation", 0)
-	clock_row.add_child(dates)
-	_era_date = _label(dates, 17)
-	_era_season = _label(dates, 12, DIM)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	v.add_child(row)
-	_moon = _icon(row, "moon", 24)
-	_era_dimming = _label(row, 17, Color("c8d2f0"))
-	_era_light = _label(v, 12, Color("c8d2f0"))
-	_era_light.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_era_light.custom_minimum_size = Vector2(336, 0)
-	_era_short = _label(v, 12, RED)
-	_era_output = _label(v, 12, DIM)
-	_era_output.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_era_output.custom_minimum_size = Vector2(336, 0)
-	_era_gate = _label(v, 12, DIM)
-	_era_gate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_era_gate.custom_minimum_size = Vector2(336, 0)
+	v.add_theme_constant_override("separation", 4)
+	objectives_panel.add_child(v)
+	var head := HBoxContainer.new()
+	v.add_child(head)
+	var title := _label(head, 18, GOLD)
+	title.text = "Objectives"
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(spacer)
+	_objectives_toggle = _button(head, "-", 15)
+	_objectives_toggle.name = "ObjectivesCollapse"
+	_objectives_toggle.tooltip_text = "Collapse or expand the objectives"
+	_objectives_toggle.pressed.connect(func() -> void:
+		model.toggle_objectives_collapsed()
+		_refresh_objectives())
+	_obj_collapsed_line = _label(v, 13)
+	_obj_collapsed_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_objectives_body = VBoxContainer.new()
+	_objectives_body.add_theme_constant_override("separation", 4)
+	v.add_child(_objectives_body)
+	_obj_header = _label(_objectives_body, 12, CYAN)
+	_obj_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	for i in 3:  # three gate parts, three win objectives
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		_objectives_body.add_child(row)
+		_obj_rows.append(row)
+		_obj_icons.append(_icon(row, "pop", 20))
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 0)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(col)
+		_obj_labels.append(_label(col, 13))
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(150, 8)
+		bar.show_percentage = false
+		bar.max_value = 1.0
+		bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+		bar.add_theme_stylebox_override("fill", _style(DONE, Color(0, 0, 0, 0), 2, 0))
+		col.add_child(bar)
+		_obj_bars.append(bar)
+		var value := _label(row, 13)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		value.custom_minimum_size = Vector2(96, 0)
+		value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_obj_values.append(value)
+	_obj_dimming = _label(_objectives_body, 13, CYAN)
+	_obj_dimming.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_obj_light = _label(_objectives_body, 12, DIM)
+	_obj_light.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+## Copies the objectives rows and Dimming lines onto the panel, or shows the one-line collapsed form.
+func _refresh_objectives() -> void:
+	var collapsed := model.objectives_collapsed()
+	_objectives_toggle.text = "+" if collapsed else "-"
+	_obj_collapsed_line.visible = collapsed
+	_obj_collapsed_line.text = model.objectives_collapsed_text()
+	_objectives_body.visible = not collapsed
+	if collapsed:
+		return
+	_obj_header.text = model.objectives_header()
+	var rows := model.objectives()
+	for i in _obj_rows.size():
+		var row := _obj_rows[i]
+		if i >= rows.size():
+			row.visible = false
+			continue
+		row.visible = true
+		var r: Dictionary = rows[i]
+		var done := bool(r["done"])
+		var col := DONE if done else INK
+		_obj_icons[i].texture = ArtLibrary.texture(ArtLibrary.manifest()["icons"][_objective_icon(str(r["kind"]))])
+		_obj_labels[i].text = str(r["label"])
+		_obj_labels[i].add_theme_color_override("font_color", col)
+		_obj_bars[i].max_value = maxf(1.0, float(r["max"]))
+		_obj_bars[i].value = clampf(float(r["value"]), 0.0, float(r["max"]))
+		_obj_bars[i].add_theme_stylebox_override("fill", _style(col, Color(0, 0, 0, 0), 2, 0))
+		_obj_values[i].text = _objective_value_text(r)
+		var value_col := col
+		if str(r["kind"]) == "landmark" and not done:
+			value_col = RED
+		_obj_values[i].add_theme_color_override("font_color", value_col)
+	var lines := model.objectives_dimming_lines()
+	var active := model.dimming_state() == "active"
+	_obj_dimming.text = lines[0] if lines.size() > 0 else ""
+	_obj_dimming.visible = _obj_dimming.text != ""
+	_obj_dimming.add_theme_color_override("font_color", RED if active else CYAN)
+	_obj_light.text = lines[1] if lines.size() > 1 else ""
+	_obj_light.visible = _obj_light.text != ""
+	_obj_light.add_theme_color_override("font_color", RED if active else DIM)
+
+
+func _objective_icon(kind: String) -> String:
+	match kind:
+		"gold": return "gold"
+		"landmark", "skyheart": return "lumen"
+		"great_dimming": return "moon"
+		"planet": return "planet"
+	return "pop"
+
+
+func _objective_value_text(r: Dictionary) -> String:
+	match str(r["kind"]):
+		"landmark":
+			return "built" if bool(r["done"]) else "not built"
+		"great_dimming":
+			return "survived" if bool(r["done"]) else "not yet"
+		"planet":
+			return "%d%% / %d%%" % [int(r["value"]), int(r["max"])]
+	return "%d / %d" % [int(r["value"]), int(r["max"])]
 
 
 # ---------------------------------------------------------------- notices
@@ -1035,31 +1124,17 @@ func refresh() -> void:
 	_spirit_box.tooltip_text = sp["tooltip"]
 	_spirit_bar.tooltip_text = sp["tooltip"]
 	_planet_label.text = model.planet()["text"]
-	var ep := model.era_panel()
-	_era_title.text = ep["title"]
-	_era_dimming.text = ep["dimming"]
-	var detail: String = ep["stock"] if ep["light"] == "" else ep["light"]
-	_era_light.text = detail
-	_era_light.visible = detail != ""
-	_era_short.text = ep["light_short"]
-	_era_short.visible = ep["light_short"] != ""
-	_era_output.text = ep["output"]
-	_era_output.visible = ep["output"] != ""
-	_era_gate.text = ep["gate"]
+	_refresh_objectives()
 	var hours_f := float(model.s.clock.hour())
 	if driver != null:
 		hours_f += driver.hour_fraction()
-	_era_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
-	_era_season.text = ep["date"] if driver == null else "%s  -  %s" % [ep["date"], driver.speed_text()]
-	_clock_dial.set_time(hours_f, model.s.registry.day_night)
 	_row_dial.set_time(hours_f, model.s.registry.day_night)
 	_clock_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
-	_clock_season.text = ep["date"]
+	_clock_season.text = model.date_text()
 	_refresh_clock_buttons()
 	_refresh_pins()
-	var active: bool = ep["dimming_state"] == "active"
-	_era_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
-	_moon.visible = ep["dimming_state"] != "none"
+	var active: bool = model.dimming_state() == "active"
+	objectives_panel.add_theme_stylebox_override("panel", _style(PANEL_BG, CYAN if active else PANEL_EDGE))
 	_refresh_overlay_buttons()
 	model.sync_layer()
 	_refresh_layer_tag()

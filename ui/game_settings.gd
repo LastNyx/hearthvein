@@ -24,6 +24,8 @@ var volume_ambience: float = 0.8
 var mute_in_background: bool = true
 ## Bottom-left tools tab open or collapsed (ticket 88).
 var tools_open: bool = true
+## Top-left objectives panel collapsed to one line (ticket 126).
+var objectives_collapsed: bool = false
 ## Goods pinned onto the HUD top-right cluster, oldest first (ticket 125); at most HudModel.PIN_LIMIT.
 var pinned_goods: Array[String] = []
 ## The version the What's new panel was last offered for (ticket 92); empty before the first launch.
@@ -42,6 +44,7 @@ func to_dict() -> Dictionary:
 		"tutorial_first_run_done": tutorial_first_run_done, "seen_hints": seen_hints.duplicate(),
 		"volume_master": volume_master, "volume_effects": volume_effects, "volume_ambience": volume_ambience,
 		"mute_in_background": mute_in_background, "tools_open": tools_open,
+		"objectives_collapsed": objectives_collapsed,
 		"pinned_goods": pinned_goods.duplicate(),
 		"last_seen_version": last_seen_version,
 		"check_updates": check_updates, "update_last_check": update_last_check,
@@ -60,6 +63,7 @@ func load_file() -> void:
 	tutorial_first_run_done = _bool(cf, "tutorial_first_run_done", tutorial_first_run_done)
 	mute_in_background = _bool(cf, "mute_in_background", mute_in_background)
 	tools_open = _bool(cf, "tools_open", tools_open)
+	objectives_collapsed = _bool(cf, "objectives_collapsed", objectives_collapsed)
 	check_updates = _bool(cf, "check_updates", check_updates)
 	var ulc: Variant = cf.get_value(SECTION, "update_last_check", 0)
 	update_last_check = int(ulc) if ulc is int or ulc is float else 0
