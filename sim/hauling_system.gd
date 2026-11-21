@@ -21,6 +21,13 @@ extends SimSystem
 ##
 ## Consumers: a building whose recipe has inputs, and (from Town) a building with Lumen upkeep. Need = input amount
 ## x worker slots x input_buffer_days per good, plus upkeep_lumen x input_buffer_days of Lumen (input_need).
+##
+## River Docks (ticket 153): two finished docks on the same river form a boat link. A trip's time is the faster of
+## walking the roads and walking to a dock, riding the boat to a dock near the destination and walking on; the boat is
+## chosen only when strictly faster (journey). Downstream runs at LogisticsDef.river_downstream_factor times a dirt
+## road's walk speed, upstream at river_upstream_factor. A hauler on a river trip walks to the first dock, waits there
+## while the boat runs (BoatView draws it along the river tiles), then walks on from the second dock. The ride is part
+## of the trip state, so a save mid-river resumes it.
 
 const SAVE_KEY := "hauling"
 
@@ -35,12 +42,24 @@ class Trip extends RefCounted:
 	var planned: float = 0.0
 	var carried: float = 0.0
 	var picked_up: bool = false
+	## River leg (ticket 153): when the fastest way between the doors is a boat, the hauler walks to dock_a, rides the
+	## boat along the river (boat_path) to dock_b, then walks on. dock_a = -1 for a plain road trip.
+	var dock_a: int = -1
+	var dock_b: int = -1
+	var boat_path: Array[Vector2i] = []
+	var boat_seconds: float = 0.0
+	var boat_elapsed: float = 0.0
+	var boat_started: bool = false
+	var boat_done: bool = false
+	var downstream: bool = true
 
 	func to_dict() -> Dictionary:
 		return {
 			"citizen_id": citizen_id, "good": good, "src": src, "src_door": src_door, "dst": dst,
 			"dst_input": dst_input, "dst_upgrade": dst_upgrade, "planned": planned, "carried": carried,
-			"picked_up": picked_up,
+			"picked_up": picked_up, "dock_a": dock_a, "dock_b": dock_b, "boat_path": boat_path,
+			"boat_seconds": boat_seconds, "boat_elapsed": boat_elapsed, "boat_started": boat_started,
+			"boat_done": boat_done, "downstream": downstream,
 		}
 
 	static func from_dict(d: Dictionary) -> Trip:
@@ -55,6 +74,14 @@ class Trip extends RefCounted:
 		t.planned = float(d["planned"])
 		t.carried = float(d["carried"])
 		t.picked_up = bool(d["picked_up"])
+		t.dock_a = int(d.get("dock_a", -1))
+		t.dock_b = int(d.get("dock_b", -1))
+		t.boat_path.assign(d.get("boat_path", []))
+		t.boat_seconds = float(d.get("boat_seconds", 0.0))
+		t.boat_elapsed = float(d.get("boat_elapsed", 0.0))
+		t.boat_started = bool(d.get("boat_started", false))
+		t.boat_done = bool(d.get("boat_done", false))
+		t.downstream = bool(d.get("downstream", true))
 		return t
 
 var trips: Dictionary = {}  # citizen id -> Trip
@@ -62,6 +89,7 @@ var _reserved: Dictionary = {}  # "kind:building:good" -> float; kinds d (door o
 ## Walking seconds per building pair. find_path already caches the path, but summing its tiles again was most of the
 ## cost of planning a trip (ticket 55: a plan scans every storage building). Doors only move when the grid changes.
 var _walk_cache: Dictionary = {}  # "a:b" -> float (INF when unreachable)
+var _journey_cache: Dictionary = {}  # "a:b" -> float, the same pair with a river leg when that is faster (ticket 153)
 var _walk_version: int = -1
 
 
@@ -151,12 +179,14 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_retry_left = float(d.get("retry_left", 0.0))
 	# Caches: rebuilt from the loaded layout and grid when first needed.
 	_walk_cache.clear()
+	_journey_cache.clear()
 	_walk_version = -1
 	_ids.clear()
 	_storages.clear()
 	_blds.clear()
 	_door_blds.clear()
 	_site_blds.clear()
+	_docks.clear()
 	_layout_version = -1
 	_layout_count = -1
 	_layout_completion = -1
@@ -169,6 +199,9 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	for cid in trips.keys():
 		var t: Trip = trips[cid]
 		var in_shift := _in_shift_for(s, s.citizens.get(cid))
+		if t.boat_started and not t.boat_done:
+			_ride(s, ws, t, seconds)
+			continue
 		var guard := 0
 		while trips.has(cid) and guard < 8 and _advance(s, ws, t, in_shift):
 			guard += 1
@@ -248,6 +281,7 @@ var _layout_completion: int = -1
 var _blds: Array[Building] = []  # every building in id order
 var _door_blds: Array[Building] = []  # ... those with a door buffer (producers)
 var _site_blds: Array[Building] = []  # ... those still under construction
+var _docks: Array[Building] = []  # ... River Docks (ticket 153), the river leg's endpoints
 
 
 func _layout(s: Settlement) -> void:
@@ -263,6 +297,7 @@ func _layout(s: Settlement) -> void:
 	_blds.clear()
 	_door_blds.clear()
 	_site_blds.clear()
+	_docks.clear()
 	for id in _ids:
 		var b: Building = s.buildings[id]
 		_blds.append(b)
@@ -272,6 +307,8 @@ func _layout(s: Settlement) -> void:
 			_door_blds.append(b)
 		if b.inventory != null:
 			_storages.append(b)
+		if b.def.river_dock:
+			_docks.append(b)
 
 
 ## Nested lookups instead of a formatted key: a plan asks this once per building it scans (ticket 55).
@@ -302,10 +339,11 @@ func _reserve(kind: String, bid: int, good: String, amount: float) -> void:
 
 
 ## Walking seconds between two building doors, INF when unreachable. Cached per pair until the grid changes.
-func _walk(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> float:
+func _direct_walk(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> float:
 	if _walk_version != s.grid_version:
 		_walk_version = s.grid_version
 		_walk_cache.clear()
+		_journey_cache.clear()
 	var key := Vector2i(a.id, b.id)
 	if _walk_cache.has(key):
 		return _walk_cache[key]
@@ -313,6 +351,142 @@ func _walk(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> float:
 	var t := INF if p.is_empty() else ws.path_seconds(p)
 	_walk_cache[key] = t
 	return t
+
+
+## Seconds a hauler needs between two building doors on the fastest way: walking the roads, or walking to a River
+## Dock, riding the boat to a dock near the destination and walking on. Cached per pair until the grid changes.
+func _walk(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> float:
+	if _walk_version != s.grid_version:
+		_walk_version = s.grid_version
+		_walk_cache.clear()
+		_journey_cache.clear()
+	var key := Vector2i(a.id, b.id)
+	if _journey_cache.has(key):
+		return _journey_cache[key]
+	var t := float(journey(s, ws, a, b)["seconds"])
+	_journey_cache[key] = t
+	return t
+
+
+## The fastest trip between two building doors as a dict: {seconds, river, dock_a, dock_b, path, downstream,
+## boat_seconds}. The river leg is picked only when it is strictly faster than the roads. seconds = INF when neither
+## way reaches.
+func journey(s: Settlement, ws: WalkerSystem, a: Building, b: Building) -> Dictionary:
+	var best := {"seconds": _direct_walk(s, ws, a, b), "river": false, "dock_a": -1, "dock_b": -1,
+			"path": [] as Array[Vector2i], "downstream": true, "boat_seconds": 0.0}
+	_layout(s)
+	if _docks.size() < 2:
+		return best
+	var docks: Array[Building] = []
+	for x in _docks:
+		if not x.site and not x.paused:
+			docks.append(x)
+	if docks.size() < 2:
+		return best
+	for da in docks:
+		var to_dock := 0.0 if da == a else _direct_walk(s, ws, a, da)
+		if to_dock == INF:
+			continue
+		for db in docks:
+			if db == da:
+				continue
+			var from_dock := 0.0 if db == b else _direct_walk(s, ws, db, b)
+			if from_dock == INF:
+				continue
+			var link := river_link(s, da, db)
+			if not link["ok"]:
+				continue
+			var total: float = to_dock + float(link["seconds"]) + from_dock
+			if total < float(best["seconds"]) - Inventory.EPS:
+				best = {"seconds": total, "river": true, "dock_a": da.id, "dock_b": db.id,
+						"path": link["path"], "downstream": link["downstream"],
+						"boat_seconds": link["seconds"]}
+	return best
+
+
+## The boat leg between two finished River Docks on the same river, or {"ok": false}. Downstream runs at
+## LogisticsDef.river_downstream_factor times a dirt road's walk speed, upstream at river_upstream_factor; the docks'
+## places on MapState.river_path (downstream order, which follows the flow data) tell which way is which. `path` is
+## the river tiles from the first dock to the second, in order of travel.
+static func river_link(s: Settlement, a: Building, b: Building) -> Dictionary:
+	var no := {"ok": false}
+	if a == null or b == null or a == b or a.def == null or b.def == null:
+		return no
+	if not a.def.river_dock or not b.def.river_dock or a.site or b.site:
+		return no
+	var ta := _dock_river_tile(s, a)
+	var tb := _dock_river_tile(s, b)
+	if ta.x < 0 or tb.x < 0:
+		return no
+	var path := _river_walk(s, ta, tb)
+	if path.is_empty():
+		return no
+	var downstream := _river_index(s, tb) > _river_index(s, ta)
+	var road := s.registry.get_road_by_level(Settlement.ROAD_DIRT)
+	var base := road.walk_speed if road != null else 1.0
+	var factor := s.registry.logistics.river_downstream_factor if downstream \
+			else s.registry.logistics.river_upstream_factor
+	var speed := base * factor
+	return {"ok": true, "downstream": downstream, "seconds": float(path.size() - 1) / speed if speed > 0.0 \
+			else INF, "path": path}
+
+
+## The river tile a dock stands beside: of its footprint's 4-neighbour river tiles, the one nearest the river's entry
+## (the lowest river_path index). (-1, -1) when it touches no river.
+static func _dock_river_tile(s: Settlement, b: Building) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_i := 1 << 30
+	for t in b.tiles():
+		for d in Placement.DIRS:
+			var n: Vector2i = t + d
+			if not MapState.in_bounds(n.x, n.y) or not s.map.is_river(n.x, n.y):
+				continue
+			var i := _river_index(s, n)
+			if i < best_i:
+				best_i = i
+				best = n
+	return best
+
+
+## Index of a river tile's nearest centreline point on MapState.river_path (downstream order; ties lowest index).
+static func _river_index(s: Settlement, tile: Vector2i) -> int:
+	var best := 0
+	var best_d := 1 << 30
+	for i in s.map.river_path.size():
+		var d: int = (s.map.river_path[i] - tile).length_squared()
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
+
+
+## Shortest path along river tiles (4-neighbour), from first to last tile included; [] when the water does not join
+## them. Deterministic: neighbours are tried in Placement.DIRS order.
+static func _river_walk(s: Settlement, from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if from == to:
+		out.append(from)
+		return out
+	var parent := {from: from}
+	var queue: Array[Vector2i] = [from]
+	var head := 0
+	while head < queue.size():
+		var c: Vector2i = queue[head]
+		head += 1
+		for d in Placement.DIRS:
+			var n: Vector2i = c + d
+			if parent.has(n) or not MapState.in_bounds(n.x, n.y) or not s.map.is_river(n.x, n.y):
+				continue
+			parent[n] = c
+			queue.append(n)
+	if not parent.has(to):
+		return out
+	var c := to
+	while c != from:
+		out.push_front(c)
+		c = parent[c]
+	out.push_front(from)
+	return out
 
 
 ## Nearest storage (by walking time from `from`, ties lowest id) with room for `amount` of `good`.
@@ -535,6 +709,13 @@ func _start(s: Settlement, ws: WalkerSystem, t: Trip) -> void:
 	var cid := t.citizen_id
 	_reserve("d" if t.src_door else "s", t.src, t.good, t.planned)
 	_reserve(_dst_kind(t), t.dst, t.good, t.planned)
+	var j := journey(s, ws, s.buildings[t.src], s.buildings[t.dst])
+	if j["river"]:
+		t.dock_a = int(j["dock_a"])
+		t.dock_b = int(j["dock_b"])
+		t.boat_path.assign(j["path"])
+		t.boat_seconds = float(j["boat_seconds"])
+		t.downstream = bool(j["downstream"])
 	if not ws.walk_to_building(cid, t.src):
 		_abort(s, ws, t)
 
@@ -549,7 +730,9 @@ func _advance(s: Settlement, ws: WalkerSystem, t: Trip, in_shift: bool) -> bool:
 		return false
 	if not w.path.is_empty():
 		return false
-	var target := t.dst if t.picked_up else t.src
+	var target := t.src
+	if t.picked_up:
+		target = t.dst if t.dock_a < 0 or t.boat_done else t.dock_a
 	if w.at_building != target:
 		if w.blocked or w.dest_building != target:
 			_abort(s, ws, t)
@@ -563,9 +746,12 @@ func _advance(s: Settlement, ws: WalkerSystem, t: Trip, in_shift: bool) -> bool:
 		if t.carried <= Inventory.EPS:
 			_abort(s, ws, t)
 			return true
-		if not ws.walk_to_building(cid, t.dst):
+		if not ws.walk_to_building(cid, t.dst if t.dock_a < 0 else t.dock_a):
 			_abort(s, ws, t)
 		return true
+	if t.dock_a >= 0 and not t.boat_done:
+		t.boat_started = true  # standing at the first dock: the ride runs in on_seconds (_ride)
+		return false
 	# Drop.
 	var dst: Building = s.buildings[t.dst]
 	var inv: Inventory = dst.upgrade_buffer if t.dst_upgrade else (dst.input_buffer if t.dst_input else dst.inventory)
@@ -581,6 +767,47 @@ func _advance(s: Settlement, ws: WalkerSystem, t: Trip, in_shift: bool) -> bool:
 	trips.erase(cid)
 	_next_or_release(s, ws, cid, in_shift)
 	return false
+
+
+## One step of a river ride (ticket 153): the hauler waits at the first dock while the boat runs. When the ride is
+## over the hauler appears at the second dock's door and walks on to the destination.
+func _ride(s: Settlement, ws: WalkerSystem, t: Trip, seconds: float) -> void:
+	if not s.buildings.has(t.dock_a) or not s.buildings.has(t.dock_b):
+		_abort(s, ws, t)
+		return
+	t.boat_elapsed += seconds
+	if t.boat_elapsed + Inventory.EPS < t.boat_seconds:
+		return
+	t.boat_done = true
+	var dock: Building = s.buildings.get(t.dock_b)
+	if ws.walker_of(t.citizen_id) == null or dock == null:
+		_abort(s, ws, t)
+		return
+	ws.place_walker(t.citizen_id, ws.door_tile(dock))
+	if not ws.walk_to_building(t.citizen_id, t.dst):
+		_abort(s, ws, t)
+
+
+## True while any hauler is riding a river link (a cheap test for the renderer).
+func has_boats() -> bool:
+	for cid in trips:
+		var t: Trip = trips[cid]
+		if t.boat_started and not t.boat_done and t.boat_seconds > 0.0:
+			return true
+	return false
+
+
+## Boats in flight for the renderer (BoatView): one dict per hauler riding a river link,
+## {path: Array[Vector2i], progress: 0..1, downstream: bool}.
+func active_boats() -> Array:
+	var out := []
+	for cid in trips:
+		var t: Trip = trips[cid]
+		if not t.boat_started or t.boat_done or t.boat_seconds <= 0.0:
+			continue
+		out.append({"path": t.boat_path, "progress": clampf(t.boat_elapsed / t.boat_seconds, 0.0, 1.0),
+				"downstream": t.downstream})
+	return out
 
 
 func _next_or_release(s: Settlement, ws: WalkerSystem, cid: int, in_shift: bool) -> void:

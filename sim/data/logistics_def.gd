@@ -74,6 +74,10 @@ extends Resource
 ## (ticket 40c). Entering the other layer costs this instead of 1 / tile speed.
 @export var lift_ride_seconds: float = 3.0
 @export var dock_ride_seconds: float = 6.0
+## River Docks (ticket 153, spec N10): a boat's speed between two docks on the same river, as a multiple of a dirt
+## road's walk speed. Downstream is quick, upstream is a long pull against the flow (0.75 = three quarters of a walk).
+@export var river_downstream_factor: float = 3.0
+@export var river_upstream_factor: float = 0.75
 ## Gloom (ticket 149, spec N8): in a Dimming night, gloom creeps from the forest this many tiles an hour over unlit,
 ## non-water land. Lit tiles push it back and dawn clears it.
 @export var gloom_spread_per_hour: int = 1
