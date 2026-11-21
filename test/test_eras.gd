@@ -366,9 +366,9 @@ func test_every_town_building_can_be_built() -> void:
 		var st_spot := _village_spot(s, "storehouse")
 		assert_ne(st_spot, Vector2i(-1, -1), "a storehouse fits on seed 42")
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
-	_stock(s, "wood", 380.0)  # the Town set costs 345 wood and 345 stone
-	_stock(s, "stone", 380.0)
-	_stock(s, "planks", 125.0)
+	_stock(s, "wood", 380.0)  # the Town set's wood and stone, the Bakery (ticket 140) included
+	_stock(s, "stone", 400.0)
+	_stock(s, "planks", 140.0)
 	_stock(s, "lumen", 400.0)  # the whole cost plus the Town upkeep that runs while the sites go up
 	_stock(s, "cut_stone", 45.0)
 	_stock(s, "food", 600.0)
@@ -380,7 +380,7 @@ func test_every_town_building_can_be_built() -> void:
 		if d.era == "town":
 			town.append(d)
 	town.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
-	assert_eq(town.size(), 11, "the Town set (Cleanser moved to Village in 1.1.4) of design section 16")
+	assert_eq(town.size(), 12, "the Town set (Cleanser moved to Village in 1.1.4; Bakery added in 1.1.12) of design section 16")
 
 	for d in town:
 		var spot := _village_spot(s, d.id)
