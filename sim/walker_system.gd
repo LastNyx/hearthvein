@@ -380,6 +380,16 @@ func path_seconds(p: Array[Vector2i]) -> float:
 	return t
 
 
+## A walk between two ground tiles takes at least this long: one step per tile of the straight (Manhattan) distance at
+## the fastest tile speed. 0 when either end is not on the ground layer (lifts and docks make other trips). A cheap
+## test that rules a trip out without a path search (ticket 157).
+func min_walk_seconds(from: Vector2i, to: Vector2i) -> float:
+	if MapState.layer_of(from) != Building.LAYER_GROUND or MapState.layer_of(to) != Building.LAYER_GROUND:
+		return 0.0
+	_refresh_grid()
+	return float(absi(from.x - to.x) + absi(from.y - to.y)) / _max_speed
+
+
 ## Cached path from one global tile to another, start and end included, [] when unreachable. Start and end are
 ## walkable even when they are building doors. Crosses layers only through a lift or dock link (see class comment).
 func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:

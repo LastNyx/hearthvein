@@ -11,6 +11,8 @@ var _subs: Dictionary = {}  # kind -> Array[Callable]; "" subscribes to every ki
 func emit(kind: String, data: Dictionary = {}) -> void:
 	var entry := {"hour": now_hours, "kind": kind, "data": data}
 	log.append(entry)
+	if log.size() >= SAVED_LOG_LIMIT * 2:  # amortised trim: the oldest half goes, the saved tail stays whole
+		log = log.slice(log.size() - SAVED_LOG_LIMIT)
 	for key in [kind, ""]:
 		if _subs.has(key):
 			for c: Callable in _subs[key].duplicate():
@@ -43,7 +45,8 @@ func log_of(kind: String) -> Array[Dictionary]:
 
 
 ## Only the newest entries of the log are saved (ticket 19c): walker_arrived fires on every arrival, so an untrimmed
-## log would make the save grow with years of play. The in-memory log is not trimmed; the loaded one is just shorter.
+## log would make the save grow with years of play. The in-memory log is
+## trimmed back to the limit when it reaches twice the limit (ticket 157).
 const SAVED_LOG_LIMIT := 500
 
 ## The log and its clock stamp, for a save. Subscribers are views: they attach again after a load.

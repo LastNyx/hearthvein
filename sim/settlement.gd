@@ -1769,6 +1769,7 @@ func mark_clear(tile: Vector2i) -> bool:
 	if cs == null or not can_mark_clear(tile)["ok"]:
 		return false
 	cs.clear_marks[MapState.idx(tile.x, tile.y)] = 0.0
+	cs.note_mark_added(self, MapState.idx(tile.x, tile.y))
 	events.emit("clear_marks_changed", {"tile": tile, "marked": true, "cleared": false})
 	refresh_population()  # builders' slots open for it
 	return true
@@ -1782,6 +1783,7 @@ func unmark_clear(tile: Vector2i) -> bool:
 	var i := MapState.idx(tile.x, tile.y)
 	cs.clear_marks.erase(i)
 	cs.clear_far.erase(i)
+	cs.note_mark_removed(self, i)
 	events.emit("clear_marks_changed", {"tile": tile, "marked": false, "cleared": false})
 	refresh_population()
 	return true

@@ -14,10 +14,16 @@ var label: Label
 var _last_speed: int = 1
 
 
+## Longest real frame the sim follows (ticket 157). A slow frame (a hitch, a window drag, a debugger stop) used to feed
+## its whole length into the next step, so a heavy step made the next one heavier: a death spiral at x3. Now a long
+## frame only slows the game down: at most MAX_FRAME_SECONDS x speed of game time passes per frame.
+const MAX_FRAME_SECONDS := 0.25
+
+
 func advance(delta: float) -> void:
 	if settlement == null or speed == 0:
 		return
-	settlement.step_seconds(delta * speed)
+	settlement.step_seconds(minf(delta, MAX_FRAME_SECONDS) * speed)
 
 
 func set_speed(s: int) -> void:
