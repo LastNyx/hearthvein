@@ -1325,7 +1325,9 @@ PROPS = {
 
 # Prop scatter per terrain id (positions are hashed per tile by the loader). x/y: sprite base point inside the tile.
 SCATTER = {
-    "forest": {"p_first": 1.0, "p_second": 0.6, "edge_jitter": 12, "x": [4, 28], "y": [18, 32], "choices": [
+    # ticket 160: the trunk point is clamped inside its own tile after all jitter (x then y, inclusive)
+    "forest": {"p_first": 1.0, "p_second": 0.6, "edge_jitter": 4, "x": [4, 28], "y": [18, 32],
+               "trunk_clamp": [4, 27, 18, 31], "choices": [
         ["pine_0", 0.1], ["pine_1", 0.1], ["pine_2", 0.1], ["oak_autumn_0", 0.075], ["oak_autumn_1", 0.075],
         ["oak_deep_0", 0.04], ["oak_lumen_0", 0.006], ["oak_green_0", 0.13], ["oak_green_1", 0.13],
         ["oak_green_2", 0.13], ["oak_green_3", 0.13]]},
@@ -1477,7 +1479,8 @@ TINT = {
 
 def generic_house(cat, fw, fh, seed, bid=None):
     roof, wall, shut, light = TINT[cat]
-    w = fw * 30 - 8 if fw > 1 else 22
+    # ticket 160: a multi-tile house touches the ground across its whole footprint (64 or 96 px), like the 1-wide ones
+    w = fw * 32 if fw > 1 else 22
     wall_h = 13 + 4 * (fh - 1)
     apex = max(8, min(20, int(w * 0.42)))
     depth = 8 + 3 * (fh - 1)

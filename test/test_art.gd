@@ -743,6 +743,98 @@ func test_crew_standing_at_its_site_is_drawn_and_spread() -> void:
 	assert_eq(seen.size(), 4, "a crew of four does not stack")
 
 
+# ---------------------------------------------------------------- art fits the grid (ticket 160)
+func test_every_trunk_sits_inside_its_own_tile() -> void:
+	var trunks := 0
+	for sd in [42, 7, 1234]:
+		var s := Settlement.new_game(sd, _reg)
+		for y in MapState.HEIGHT:
+			for x in MapState.WIDTH:
+				var id := s.map.terrain_id_at(x, y)
+				if ArtLibrary.ground_of(id) != "forest":
+					continue
+				var open := PropBatch.open_dir(s.map, x, y)
+				for p: Dictionary in ArtLibrary.scatter(id, x, y, open):
+					var pos: Vector2 = p["pos"]
+					var owner := Vector2i(floori(pos.x / ArtLibrary.TILE), floori(pos.y / ArtLibrary.TILE))
+					trunks += 1
+					assert_eq(owner, Vector2i(x, y), "seed %d: %s trunk at %s stands on tile %s" % [sd, p["name"], pos, Vector2i(x, y)])
+	assert_gt(trunks, 1000, "the maps scatter thousands of trunks")
+
+
+func test_manifest_footprints_match_the_building_sizes() -> void:
+	var bad: Array[String] = []
+	for id in _reg.buildings.keys():
+		var def: BuildingDef = _reg.buildings[id]
+		var fp: Array = ArtLibrary.building_entry(id)["footprint"]
+		var art_fp := Vector2i(int(fp[0]), int(fp[1]))
+		if art_fp != def.size:
+			bad.append("%s: art %s, .tres %s" % [id, art_fp, def.size])
+	assert_eq(bad, [] as Array[String], "manifest footprints that disagree with the .tres")
+	var sky: Array = ArtLibrary.building_entry("skyheart")["footprint"]
+	assert_eq(Vector2i(int(sky[0]), int(sky[1])), Vector2i(4, 4), "the Skyheart fills its 4x4 .tres footprint")
+
+
+func test_market_art_fills_its_footprint() -> void:
+	var e := ArtLibrary.building_entry("market")
+	var fp: Array = e["footprint"]
+	var foot_w := int(fp[0]) * ArtLibrary.TILE
+	var img := ArtLibrary.texture(e["file"]).get_image()
+	assert_gte(img.get_height(), 60, "the market is 60+ px tall on a 64 px deep footprint")
+	var row := img.get_height() - 1
+	var contact := 0
+	while row > 0 and contact == 0:  # the lowest inked row: the outline under the base
+		for x in img.get_width():
+			if img.get_pixel(x, row).a > 0.5:
+				contact += 1
+		if contact == 0:
+			row -= 1
+	assert_gte(contact, int(ceil(foot_w * 0.9)), "the base covers 90%% of the %d px footprint width" % foot_w)
+
+
+## True when a trunk other than `skip` stands within 60 px of `world` on a forest tile near it.
+func _crowded_forest(s: Settlement, world: Vector2, skip: Vector2) -> bool:
+	var bt := Vector2i(floori(world.x / ArtLibrary.TILE), floori(world.y / ArtLibrary.TILE))
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var t := bt + Vector2i(dx, dy)
+			if not MapState.in_bounds(t.x, t.y):
+				continue
+			var id := s.map.terrain_id_at(t.x, t.y)
+			if ArtLibrary.ground_of(id) != "forest":
+				continue
+			for q: Dictionary in ArtLibrary.scatter(id, t.x, t.y, PropBatch.open_dir(s.map, t.x, t.y)):
+				if q["pos"] != skip and world.distance_to(q["pos"]) < 60.0:
+					return true
+	return false
+
+
+func test_clear_picks_the_trunk_tile_under_a_canopy() -> void:
+	var s := Settlement.new_game(42, _reg)
+	var trunk := Vector2i(-1, -1)
+	var trunk_pos := Vector2.ZERO
+	for y in range(1, MapState.HEIGHT - 1):
+		if trunk.x >= 0:
+			break
+		for x in range(1, MapState.WIDTH - 1):
+			var id := s.map.terrain_id_at(x, y)
+			if ArtLibrary.ground_of(id) != "forest":
+				continue
+			for p: Dictionary in ArtLibrary.scatter(id, x, y, PropBatch.open_dir(s.map, x, y)):
+				var pos: Vector2 = p["pos"]
+				if not _crowded_forest(s, pos + Vector2(0, -ArtLibrary.TILE), pos):
+					trunk = Vector2i(x, y)
+					trunk_pos = pos
+					break
+			if trunk.x >= 0:
+				break
+	assert_true(trunk.x >= 0, "found a lone forest trunk")
+	var hover := trunk_pos + Vector2(0, -ArtLibrary.TILE)
+	assert_ne(Vector2i(floori(hover.x / ArtLibrary.TILE), floori(hover.y / ArtLibrary.TILE)), trunk,
+			"the hover point is over the canopy, one tile above the trunk")
+	assert_eq(BuildController.pick_clear(s, hover)["tile"], trunk, "Clear picks the trunk's tile, not the canopy's tile")
+
+
 func test_generic_buildings_have_a_signature_prop_and_sign() -> void:
 	var ids := ["forager", "storehouse", "fishing_dock", "quarry", "sawmill", "forester", "builders_yard", "workshop",
 		"tax_office", "well", "mason", "refinery", "kitchen", "handcart_shed", "lift_anchor", "lumen_arcology",

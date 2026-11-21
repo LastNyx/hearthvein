@@ -95,10 +95,64 @@ func _mouse_tile() -> Vector2i:
 	return Vector2i(floori(p.x / GhostView.TILE), floori(p.y / GhostView.TILE))
 
 
+## What the Clear tool picks at a world point (ticket 160): {tile, tree}. A canopy hangs over the tile above its
+## trunk, so the trunk's owning tile wins, not the tile under the cursor: the nearest trunk in the 3x3 tiles around
+## the cursor whose sprite covers the point (or whose base is within 12 px). Defaults to the tile under the cursor.
+static func pick_clear(s: Settlement, world: Vector2) -> Dictionary:
+	var base := Vector2i(floori(world.x / GhostView.TILE), floori(world.y / GhostView.TILE))
+	var best := base
+	var best_tree: Dictionary = {}
+	var best_d := INF
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var t := base + Vector2i(dx, dy)
+			if not MapState.in_bounds(t.x, t.y):
+				continue
+			var id := s.map.terrain_id_at(t.x, t.y)
+			if ArtLibrary.ground_of(id) != "forest":
+				continue
+			for p: Dictionary in ArtLibrary.scatter(id, t.x, t.y, PropBatch.open_dir(s.map, t.x, t.y)):
+				var pos: Vector2 = p["pos"]
+				var d := world.distance_to(pos)
+				if d > best_d or (d > 12.0 and not _prop_rect(p, pos).has_point(world)):
+					continue
+				best_d = d
+				best = t
+				best_tree = p
+	return {"tile": best, "tree": best_tree}
+
+
+## The screen rectangle a prop sprite covers when its base point sits at `pos`.
+static func _prop_rect(p: Dictionary, pos: Vector2) -> Rect2:
+	var e := ArtLibrary.prop_entry(String(p["name"]))
+	var base := Vector2(float(e["base"][0]), float(e["base"][1]))
+	return Rect2(pos - base, Vector2(float(e["w"]), float(e["h"]))).grow(2.0)
+
+
+## What the pointer acts on: {tile, tree}. Clear (and Demolish off a building) resolve a canopy to the tile its
+## trunk stands on, so the trunk's tile is marked / unmarked rather than the empty tile behind the leaves.
+func _tool_hover() -> Dictionary:
+	var raw := _mouse_tile()
+	if _layer() != Building.LAYER_GROUND:
+		return {"tile": raw, "tree": {}}
+	if mode == Mode.CLEAR or (mode == Mode.DEMOLISH and settlement.building_at(raw, Building.LAYER_GROUND) == null):
+		return pick_clear(settlement, ghost.get_global_mouse_position())
+	return {"tile": raw, "tree": {}}
+
+
+## The tile a click or drag acts on.
+func _tool_tile() -> Vector2i:
+	return _tool_hover()["tile"]
+
+
 func _process(_d: float) -> void:
-	if mode == Mode.NONE:
+	if settlement == null or ghost == null:
 		return
-	var t := _mouse_tile()
+	var hover := _tool_hover()
+	var t: Vector2i = hover["tile"]
+	if mode == Mode.NONE:
+		ghost.set_hover(t, Vector2i.ONE)
+		return
 	match mode:
 		Mode.BUILD:
 			var def := settlement.registry.get_building(def_id)
@@ -154,6 +208,17 @@ func _process(_d: float) -> void:
 			var b := settlement.building_at(t, dl)
 			ghost.set_state(null, t, (b != null and b != settlement.hearth) or _road_level(t, dl) != 0
 					or (dl == Building.LAYER_GROUND and (settlement.channel_at(t) or settlement.track_at(t) or settlement.is_clear_marked(t) or settlement.is_plant_marked(t))), true)
+	# The thin tile outline on the pointer tools (ticket 160), with the tree or building that would go.
+	match mode:
+		Mode.CLEAR:
+			ghost.set_hover(t, Vector2i.ONE, hover["tree"])
+		Mode.DEMOLISH:
+			var hb := settlement.building_at(t, _layer())
+			ghost.set_hover(t, hb.def.size if hb != null else Vector2i.ONE, hover["tree"])
+		Mode.PLANT:
+			ghost.set_hover(t, Vector2i.ONE)
+		_:
+			ghost.clear_hover()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -180,11 +245,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
-				_click(_mouse_tile())
+				_click(_tool_tile())
 			else:
 				_painting = false
 	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED or mode == Mode.TRACK or mode == Mode.CLEAR or mode == Mode.PLANT):
-		_paint_to(_mouse_tile())
+		_paint_to(_tool_tile())
 
 
 func _click(t: Vector2i) -> void:

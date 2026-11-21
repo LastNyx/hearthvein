@@ -13,6 +13,12 @@ var valid := false
 var show_tile := false
 ## Tiles a channel placed here would wet (ticket 95), tinted blue under the tile.
 var wet_tiles: Array[Vector2i] = []
+## Hover marker (ticket 160): a thin outline on the tile or footprint the pointer acts on, even with no tool active,
+## and the tree a Clear / Demolish click would fell, tinted red.
+var hover_on := false
+var hover_tile := Vector2i.ZERO
+var hover_size := Vector2i.ONE
+var hover_tree: Dictionary = {}
 
 
 static func color_for(is_valid: bool) -> Color:
@@ -25,7 +31,7 @@ func set_state(d: BuildingDef, t: Vector2i, is_valid: bool, visible_tile: bool) 
 	valid = is_valid
 	show_tile = visible_tile
 	wet_tiles = []
-	visible = visible_tile
+	visible = visible_tile or hover_on
 	queue_redraw()
 
 
@@ -35,7 +41,36 @@ func set_wet(tiles: Array[Vector2i]) -> void:
 	queue_redraw()
 
 
+## The hover marker: outline `size` tiles from `t`, and tint the `tree` prop {name, pos} that a Clear would fell.
+func set_hover(t: Vector2i, size: Vector2i, tree: Dictionary = {}) -> void:
+	hover_on = true
+	hover_tile = t
+	hover_size = size
+	hover_tree = tree
+	visible = true
+	queue_redraw()
+
+
+## No hover marker (a tool that draws its own footprint preview).
+func clear_hover() -> void:
+	if not hover_on:
+		return
+	hover_on = false
+	hover_tree = {}
+	visible = show_tile
+	queue_redraw()
+
+
 func _draw() -> void:
+	if hover_on:
+		var hr := Rect2(Vector2(hover_tile) * TILE, Vector2(hover_size) * TILE)
+		draw_rect(hr, Color(0.05, 0.03, 0.02, 0.65), false, 2.0)
+		draw_rect(hr.grow(-1.0), Color(1, 1, 1, 0.65), false, 1.0)
+		if not hover_tree.is_empty():
+			var e := ArtLibrary.prop_entry(String(hover_tree["name"]))
+			var p: Vector2 = hover_tree["pos"]
+			draw_texture(ArtLibrary.texture(e["file"]), p - Vector2(float(e["base"][0]), float(e["base"][1])),
+					Color(1.0, 0.35, 0.3, 0.7))
 	if not show_tile:
 		return
 	for w in wet_tiles:
