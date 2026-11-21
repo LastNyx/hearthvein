@@ -1381,6 +1381,16 @@ def lamp_sprite(kind):
     return M.Sprite(img, 1, 1, glows=[(gx, gy, r, col)], shadow=(0.9, 5))
 
 
+def tavern_sprite():
+    """The Tavern (ticket 139): the approved nightlife mockup art, warm windows and a hanging sign, as a 2x1 sprite.
+
+    Two warm halos: the mug on the hanging sign and the door lantern (the mockup's emissive pixels).
+    """
+    import mockups_nightlife as NL  # lazy: the nightlife mockups are heavy and only the Tavern needs them
+    img, _, _ = NL.tavern_art(True)
+    return M.Sprite(img, 2, 1, glows=[(9, 21, 9, (255, 200, 90)), (61, 31, 7, (255, 170, 70))], shadow=(1.0, 9))
+
+
 SHEET = {
     "hearth": lambda: M.b_hearth(), "tent": lambda: M.b_tent(0), "woodcutter": lambda: M.b_woodcutter(1),
     "lumen_tap": lambda: M.b_lumen_mill(), "meeting_hall": lambda: M.b_meeting_hall(),
@@ -1414,6 +1424,8 @@ SHEET = {
     # ticket 134: the night-only buildings from the night mockups (day base, lit frame from the glow)
     "charcoal_kiln": lambda: NightSprite(N.kiln_art(False), N.kiln_art(True), 2, 2, (1.0, 9), (255, 150, 60), 16),
     "glowcap_grove": lambda: NightSprite(N.grove_art(False), N.grove_art(True), 2, 2, (1.0, 8), (120, 240, 200), 30),
+    # ticket 139: the Tavern, composed in the nightlife mockups (warm windows, hanging sign, barrels)
+    "tavern": tavern_sprite,
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}

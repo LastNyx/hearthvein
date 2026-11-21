@@ -2088,6 +2088,35 @@
    },
    "w": 62
   },
+  "tavern": {
+   "base": [
+    33,
+    52
+   ],
+   "file": "buildings/tavern.png",
+   "flat": false,
+   "footprint": [
+    2,
+    1
+   ],
+   "fx": {
+    "file": "buildings/tavern_fx.png",
+    "offset": [
+     -32,
+     -39
+    ]
+   },
+   "generic": false,
+   "h": 53,
+   "shadow": {
+    "file": "buildings/tavern_shadow.png",
+    "offset": [
+     -26,
+     -6
+    ]
+   },
+   "w": 66
+  },
   "tax_office": {
    "base": [
     16,

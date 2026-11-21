@@ -57,6 +57,10 @@ const GOLD := "gold"
 ## Night-only building (ticket 134: Charcoal Kiln, Glowcap Grove): it exists for its night slots alone, so it opens no
 ## day work slots and ProductionSystem makes nothing by day even if a worker is somehow at its door.
 @export var night_only: bool = false
+## Goods a building drinks or eats each night while its night shift works and it is lit (Tavern: 4 crops). Unlike a
+## recipe it makes no good: haulers bring the goods in like any consumer, and SpiritSystem takes one night's amount
+## at the night shift start. A building that cannot pay serves nothing that night. Empty = drinks nothing.
+@export var night_inputs: Dictionary = {}
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
 @export var housing_beds: int = 0
@@ -145,6 +149,10 @@ const GOLD := "gold"
 ## this building: Shrine 6, Park 5, Observatory 8, Hall of Seasons 12 (design.md sections 11, 16-17). 0 = no coverage.
 ## CoverageSystem owns the query; the Spirit "coverage" factor reads it.
 @export var coverage_radius: int = 0
+## Tiles a home must be within (Chebyshev, footprint to footprint, measured like coverage_radius) to be cheered at
+## night by this building while its night shift works and it is lit (Tavern: 4). Apart from coverage_radius so a
+## Tavern never joins the Shrine/Park coverage factor; SpiritSystem's "tavern" factor owns this query. 0 = no cheer.
+@export var spirit_radius: int = 0
 ## Dimming forecast lead in seasons while at least one finished, staffed, unpaused building of this def stands on a
 ## settled island or the ground (Observatory: 2, ticket 41d). The longest lead wins; 0 = no effect, the planet's
 ## dimming_forecast_seasons (1) applies. DimmingSystem.forecast_lead owns the query.

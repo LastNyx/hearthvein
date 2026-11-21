@@ -1133,6 +1133,8 @@ const CELL_INSET := 3
 ## Grid names: Tiny5 at 14 is readable, 12 is the smallest allowed; a name too long for the cell steps down to 12
 ## and, if still too long, has its glyph spacing tightened rather than shrunk further (ticket 130c).
 const CELL_NAME_SIZE := 14
+## The moon badge on a night building's icon (ticket 139).
+const CELL_BADGE := 10
 const CELL_NAME_MIN := 12
 const CELL_KEY_SIZE := 12
 const GRID_COLUMNS := 5
@@ -1299,6 +1301,12 @@ func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 		elif icon != "":
 			var ir := _icon(pic, icon, CELL_PIC)
 			ir.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if bool(cell.get("night", false)) and not empty:
+		# A small moon on the icon's top-left corner for buildings with night slots or night only (ticket 139, N12).
+		var moon := _icon(pic, "moon", CELL_BADGE)
+		moon.name = "NightBadge"
+		moon.position = Vector2.ZERO
+		moon.size = Vector2(CELL_BADGE, CELL_BADGE)
 	if locked and not empty:
 		# A small padlock on the icon's top-right corner, clear of the name (ticket 130c).
 		var lock := LockGlyph.new()
@@ -1880,6 +1888,11 @@ func _fill_detail(d: Dictionary) -> void:
 	title.name = "DetailTitle"
 	title.text = d["title"]
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if bool(d.get("night", false)):
+		# The moon badge beside the kind line for a night building (ticket 139, N12).
+		var moon := _icon(head, "moon", 14)
+		moon.name = "NightBadge"
+		moon.size_flags_vertical = Control.SIZE_SHRINK_END
 	var kind := _label(head, 12, DIM)
 	kind.text = d["kind"]
 	kind.size_flags_vertical = Control.SIZE_SHRINK_END

@@ -22,6 +22,9 @@ extends Resource
 ## light_bonus_max. 0 = no bonus.
 @export var light_bonus: float = 1.0
 @export var light_bonus_max: float = 3.0
+## Tavern (ticket 139): +tavern_bonus times the share of finished homes within a staffed, lit Tavern's coverage
+## radius, at night only. 0 = no bonus.
+@export var tavern_bonus: float = 5.0
 @export var grief_max: float = 10.0
 ## Planet grief = (grief_below - health) / grief_divisor when health (0-100) is below grief_below.
 @export var grief_below: float = 60.0

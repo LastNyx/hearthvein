@@ -470,6 +470,7 @@ func _validate_building(b: BuildingDef) -> void:
 	if b.size.x < 1 or b.size.y < 1:
 		errors.append("%s: size must be at least 1x1" % who)
 	_check_amounts(b.cost, who + " cost", true)
+	_check_amounts(b.night_inputs, who + " night input", false)
 	if b.recipe != null:
 		_check_amounts(b.recipe.inputs, who + " recipe input", false)
 		_check_amounts(b.recipe.outputs, who + " recipe output", false)
@@ -513,6 +514,8 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: darkness_factor must be 0-1" % who)
 	if b.coverage_radius < 0:
 		errors.append("%s: coverage_radius must not be negative" % who)
+	if b.spirit_radius < 0:
+		errors.append("%s: spirit_radius must not be negative" % who)
 	if b.wet_radius < 0:
 		errors.append("%s: wet_radius must not be negative" % who)
 	if b.water_radius < 0:
