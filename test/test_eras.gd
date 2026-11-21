@@ -370,7 +370,7 @@ func test_every_town_building_can_be_built() -> void:
 	_stock(s, "stone", 400.0)
 	_stock(s, "planks", 172.0)  # +20 for the Night Market (141)
 	_stock(s, "lumen", 400.0)  # the whole cost plus the Town upkeep that runs while the sites go up
-	_stock(s, "cut_stone", 45.0)
+	_stock(s, "cut_stone", 47.0)  # +2 for the Levee (154)
 	_stock(s, "food", 600.0)
 
 	var real := DataRegistry.new()
@@ -380,7 +380,7 @@ func test_every_town_building_can_be_built() -> void:
 		if d.era == "town":
 			town.append(d)
 	town.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
-	assert_eq(town.size(), 15, "the Town set (Cleanser moved to Village in 1.1.4; Bakery, Moonmoth Loft and Night Market added in 1.1.10-1.1.12; River Dock in 153) of design section 16")
+	assert_eq(town.size(), 16, "the Town set (Cleanser moved to Village in 1.1.4; Bakery, Moonmoth Loft and Night Market added in 1.1.10-1.1.12; River Dock in 153; Levee in 154) of design section 16")
 
 	for d in town:
 		var spot := _village_spot(s, d.id)
