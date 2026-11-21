@@ -28,7 +28,7 @@ func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
 			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished",
-			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone"]:
+			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone", "season_started"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -106,6 +106,10 @@ func _on_event(e: Dictionary) -> void:
 			raise("skyheart:finished", "milestone", "The Skyheart is finished")
 		"milestone":
 			raise("milestone:%s" % d["id"], "milestone", "Milestone: %s" % d["name"])
+		"season_started":
+			if d["season"] == "winter":
+				raise("winter:%d" % int(d["year"]), "season", "Lean winter: food x%s" % \
+						str(s.registry.planet.winter_food_factor))
 		"building_demolished":
 			_clear_building(d["id"])
 		"era_changed":

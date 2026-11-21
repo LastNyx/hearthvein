@@ -18,7 +18,7 @@ const DEFAULT_SEED := 42
 
 ## Worker slots wanted per citizen for each good's producers (the bot builds the good that is furthest below its share).
 const SHARES := {
-	"food": 0.4, "wood": 0.16, "stone": 0.07, "lumen": 0.12, "gold": 0.10, "planks": 0.04, "cut_stone": 0.05,
+	"food": 0.6, "wood": 0.16, "stone": 0.07, "lumen": 0.12, "gold": 0.17, "planks": 0.04, "cut_stone": 0.05,
 	"lumen_cells": 0.05, "tools": 0.03,
 }
 ## From City on these replace the share above (the Nexus and everything after it eat Lumen: light, cells, upkeep, 47g).
@@ -146,6 +146,11 @@ var _m_why := {}  # "good:halt" -> staffed producer-hours halted for another rea
 var _m_room := {}  # output good -> door-full hours in which some storage still had room for it (the haulers' fault)
 var _m_goods := {}  # missing good -> site-hours waiting for it
 var _m_prod := {}  # output good -> [staffed producer-hours, hours halted on a full door]
+var _pressure_only: bool = false  # argument pressure: stop after the first Town day (the stock-pressure check of 159 only)
+var _press_food: float = -1.0  # food stock at the end of winter, year 1
+var _press_pop: int = 0  # ... and the citizens then
+var _vil_net := 0.0  # sum of the daily Lumen stock change (raw + cells x lumen_per_cell) over the days played in the Village
+var _vil_days := 0
 var _gate_seen := {}  # gate part -> [day, gold] when it was first met in the current era
 
 
@@ -153,6 +158,7 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var seed_value := int(args[0]) if args.size() > 0 and args[0].is_valid_int() else DEFAULT_SEED
 	_verbose = args.has("v")
+	_pressure_only = args.has("pressure")
 	_measure = args.has("m")
 	for a in args:
 		if a.begins_with("map="):
@@ -179,6 +185,8 @@ func _init() -> void:
 		_gold_before = s.gold
 		_act()
 		_track_gold_start()
+		var lumen_before := _lumen_all()
+		var in_village := s.era_id() == "village"
 		if _verbose and s.clock.total_days() % 12 == 11:
 			s.step_hours(10)
 			_dbg_builders()
@@ -192,6 +200,14 @@ func _init() -> void:
 			s.step_hours(GameClock.HOURS_PER_DAY)
 		var day := s.clock.total_days()
 		_track_gold_end()
+		if in_village:
+			_vil_net += _lumen_all() - lumen_before
+			_vil_days += 1
+		if day == GameClock.DAYS_PER_YEAR:  # the end of winter, year 1
+			_press_food = _food_all()
+			_press_pop = s.citizens.size()
+		if _pressure_only and s.era_id() != "camp" and s.era_id() != "village" and _press_food >= 0.0:
+			break
 		if _verbose:
 			var fs := float(_stock.get("food", 0.0))
 			var tt := s.totals()
@@ -366,6 +382,19 @@ func _init() -> void:
 				var key := "idle" if jb == null else ("%s/%s" % [jb.def.category, jb.def.id] if c.job_kind == Citizen.JOB_WORK else ("haul" if c.job_kind == Citizen.JOB_HAUL else "build"))
 				by_cat[key] = int(by_cat.get(key, 0)) + 1
 			print("    diag jobs: ", by_cat)
+			var fp_unpaid := 0
+			var fp_halts := {}
+			var fp_made := 0.0
+			for b: Building in s.buildings.values():
+				if b.site or b.def.category != "food":
+					continue
+				if b.def.upkeep_lumen > 0.0 and not b.paused and not us_.is_paid(b.id):
+					fp_unpaid += 1
+				fp_halts[b.halt] = int(fp_halts.get(b.halt, 0)) + 1
+			var fled := s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
+			for g in GrowthSystem.food_goods(s.registry):
+				fp_made += float(fled.yesterday(g)["made"])
+			print("    diag food: made yesterday %d, upkeep unpaid at %d food buildings, halts %s" % [int(fp_made), fp_unpaid, fp_halts])
 			var hw := []
 			for hid in HOUSING:
 				var hd := s.registry.get_building(hid)
@@ -631,6 +660,7 @@ func _report(stalled: bool, secs: float) -> void:
 	var counts := {}
 	for b: Building in s.buildings.values():
 		counts[b.def.id] = int(counts.get(b.def.id, 0)) + 1
+	print(_pressure_text())
 	print("Labour: wanted slots / citizens at most %.2f since the last era (days over %d); producers placed %d within idle hands, %d let through" % [_wanted_max, _wanted_over, _placed_capped, _placed_exempt])
 	_refresh_stock()
 	print("End stocks: wood %d stone %d planks %d cut_stone %d (storage)" % [int(_stock.get("wood", 0.0)), int(_stock.get("stone", 0.0)), int(_stock.get("planks", 0.0)), int(_stock.get("cut_stone", 0.0))])
@@ -642,6 +672,29 @@ func _report(stalled: bool, secs: float) -> void:
 	print("Great Dimming: ", _great_end if _great_end != "" else "not over")
 	var camp := s.get_system(CampaignSystem) as CampaignSystem
 	print("Campaign outcome: ", camp.outcome if camp.outcome != "" else "open")
+
+
+## Raw Lumen plus cells at their raw worth (a cell made from raw Lumen is not a loss to the stock check).
+func _lumen_all() -> float:
+	var tt := s.totals()
+	return float(tt.get("lumen", 0.0)) + float(tt.get("lumen_cells", 0.0)) * s.registry.planet.lumen_per_cell
+
+
+func _food_all() -> float:
+	var tt := s.totals()
+	var n := 0.0
+	for g in GrowthSystem.food_goods(s.registry):
+		n += float(tt.get(g, 0.0))
+	return n
+
+
+## Stock-pressure check (ticket 159): food at the end of winter, year 1, is under 6 days per citizen (1 a day each),
+## and the Village's Lumen stock changes by 0..+20 a day on average.
+func _pressure_text() -> String:
+	var per := _press_food / float(maxi(1, _press_pop)) if _press_food >= 0.0 else -1.0
+	var net := _vil_net / float(_vil_days) if _vil_days > 0 else 0.0
+	return "Pressure: winter-end food %d for %d citizens = %.1f days each (want < 6): %s; Village Lumen net %+.1f a day over %d days (want 0..+20): %s" % [
+		int(_press_food), _press_pop, per, ("OK" if per >= 0.0 and per < 6.0 else "OUT"), net, _vil_days, ("OK" if net >= 0.0 and net <= 20.0 else "OUT")]
 
 
 ## One hour of site and producer samples (argument m).
@@ -1157,6 +1210,8 @@ func _act() -> void:
 func _throttle(pop: int) -> void:
 	if s.registry.get_era(s.era_current).order >= GOLD_THROTTLE_ORDER:
 		_gold_throttle()
+	else:
+		_gold_priority()
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
 		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
@@ -1217,6 +1272,20 @@ func _lumen_low() -> bool:
 	elif lumen > LUMEN_BACK:
 		_lumen_short = false
 	return _lumen_short
+
+
+## Before the Skyborne throttle: while the era gate still lacks gold, the Markets get High priority. Gold ranks last of the
+## categories, and with food halved (159) every hand went to the fields and the Markets stood empty (gold was the wall).
+func _gold_priority() -> void:
+	var g := s.era_gate()
+	var fed := _food_all() >= 3.0 * float(s.citizens.size())  # High beats Normal across categories: never above the food
+	var short: bool = g["next"] != "" and s.gold < float(g.get("gold_need", 0)) and fed
+	for b: Building in s.buildings.values():
+		if b.site or not PRODUCERS["gold"].has(b.def.id) or b.paused:
+			continue
+		var want := "high" if short else "normal"
+		if b.priority != want:
+			s.set_building_priority(b.id, want)
 
 
 func _gold_throttle() -> void:

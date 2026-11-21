@@ -104,6 +104,7 @@ func test_sawmill_consumes_hauled_wood_and_planks_reach_storage() -> void:
 	s.hearth.inventory.add("wood", 400.0)  # clamped to the Hearth's 150
 	s.hearth.inventory.add("stone", 400.0)  # clamped to the Hearth's 150
 	s.hearth.inventory.add("food", 200.0)  # no starving workers skewing the rate
+	s.hearth.inventory.add("lumen", 100.0)  # ticket 159: the Sawmill pays 1 Lumen a day from the Village
 	var saw := _put(s, "sawmill", 4)
 	_put(s, "lamp", 6)  # ticket 133: the nightslot works only inside a fuelled lamp's light (haulers bring its wood)
 	s.step_days(3)  # the crew walks to work and haulers fill the two-day input buffer

@@ -469,6 +469,14 @@ func dimming_building_text(b: Building) -> String:
 	return "" if f >= 1.0 else "x%s Dimming" % factor_text(f)
 
 
+## "x0.5 Lean winter" while winter lowers this food building's output, "" otherwise (ticket 159).
+func lean_winter_text(b: Building) -> String:
+	if b == null or b.site:
+		return ""
+	var f := ProductionSystem.winter_modifier(s, b)
+	return "" if f >= 1.0 else "x%s Lean winter" % factor_text(f)
+
+
 # ---------------------------------------------------------------- objectives panel (ticket 126)
 
 ## The panel's subtitle: "Town -> City: gate parts", or "Ascendant: win objectives" at the last era.
@@ -1506,6 +1514,9 @@ func tooltip_for_building(b: Building) -> Dictionary:
 	var dim := dimming_building_text(b)
 	if dim != "":
 		status.append(dim)
+	var lean := lean_winter_text(b)
+	if lean != "":
+		status.append(lean)
 	return _tooltip(b.display_name(s.registry), b.def, status, _def_tooltip_lines(b.def, b))
 
 

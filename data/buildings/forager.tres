@@ -7,7 +7,7 @@
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
 inputs = {}
-outputs = {"food": 8.0}
+outputs = {"food": 4.0}
 
 [sub_resource type="Resource" id="Tier2"]
 script = ExtResource("3")
@@ -43,5 +43,6 @@ dimming_factor = 0.5
 placement_rule = "near_forage"
 placement_radius = 3
 recipe = SubResource("Recipe")
+lean_winter = true
 upgradable = true
 tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])
