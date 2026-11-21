@@ -1098,6 +1098,13 @@ func is_lit(b: Building) -> bool:
 	return ls == null or ls.is_building_lit(self, b)
 
 
+## True when `tile` is inside a fuelled lamp's radius tonight (ticket 133). The answer comes from a per-night cache that
+## LightingSystem rebuilds on a build, a demolish or a change of any lamp's lit state. Always true with no LightingSystem.
+func is_tile_lit(tile: Vector2i) -> bool:
+	var ls := get_system(LightingSystem) as LightingSystem
+	return ls == null or ls.is_tile_lit(self, tile)
+
+
 ## True during the lamp hours (LogisticsDef.lamp_light_start to lamp_light_end, 19 to 7 wrapping midnight).
 func is_lamp_hour(hour: int = -1) -> bool:
 	var h := clock.hour() if hour < 0 else hour

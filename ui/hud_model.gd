@@ -274,7 +274,7 @@ func population() -> Dictionary:
 
 const FACTOR_NAMES := {"base": "Base", "food_types": "Food variety", "coverage": "Coverage", "hunger": "Hunger",
 		"homeless": "Homeless", "blight": "Blight", "water": "Water", "darkness": "Darkness",
-		"tax_office": "Tax Office", "planet_grief": "Planet grief"}
+		"tax_office": "Tax Office", "planet_grief": "Planet grief", "light": "Lit homes"}
 
 
 ## {value, target, text, state (good|ok|bad), tooltip}. The tooltip lists the factors in the sim's order.

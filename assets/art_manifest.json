@@ -967,6 +967,122 @@
    },
    "w": 32
   },
+  "lamp": {
+   "base": [
+    10,
+    37
+   ],
+   "file": "buildings/lamp.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lamp_fx.png",
+    "offset": [
+     -13,
+     -38
+    ]
+   },
+   "generic": false,
+   "h": 38,
+   "shadow": {
+    "file": "buildings/lamp_shadow.png",
+    "offset": [
+     -7,
+     -3
+    ]
+   },
+   "w": 20
+  },
+  "lamp_grid": {
+   "base": [
+    10,
+    36
+   ],
+   "file": "buildings/lamp_grid.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lamp_grid_fx.png",
+    "offset": [
+     -15,
+     -39
+    ]
+   },
+   "generic": false,
+   "h": 37,
+   "shadow": {
+    "file": "buildings/lamp_grid_shadow.png",
+    "offset": [
+     -7,
+     -3
+    ]
+   },
+   "w": 20
+  },
+  "lamp_lantern": {
+   "base": [
+    8,
+    40
+   ],
+   "file": "buildings/lamp_lantern.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lamp_lantern_fx.png",
+    "offset": [
+     -11,
+     -44
+    ]
+   },
+   "generic": false,
+   "h": 41,
+   "shadow": {
+    "file": "buildings/lamp_lantern_shadow.png",
+    "offset": [
+     -6,
+     -3
+    ]
+   },
+   "w": 16
+  },
+  "lamp_lumen": {
+   "base": [
+    9,
+    38
+   ],
+   "file": "buildings/lamp_lumen.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/lamp_lumen_fx.png",
+    "offset": [
+     -14,
+     -42
+    ]
+   },
+   "generic": false,
+   "h": 39,
+   "shadow": {
+    "file": "buildings/lamp_lumen_shadow.png",
+    "offset": [
+     -7,
+     -3
+    ]
+   },
+   "w": 18
+  },
   "lift_anchor": {
    "base": [
     46,

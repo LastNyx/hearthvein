@@ -238,3 +238,73 @@ func test_charcoal_ledger_resources_page_and_save() -> void:
 	var kept: Building = loaded.buildings[lamp.id]
 	assert_almost_eq(kept.input_buffer.amount_of("charcoal"), 1.0, 0.001, "the remaining fuel is saved")
 	assert_true(loaded.is_lit(kept), "the lamp is still lit tonight after a load")
+
+
+## A hauler brings the lamp its fuel like any other input: a Brazier left alone fills its buffer from the stock.
+func test_haulers_deliver_lamp_fuel_and_the_need_follows_the_tier() -> void:
+	var s := _new_settlement()
+	var lamp := _put(s, "lamp", 5, 1)
+	assert_almost_eq(float(HaulingSystem.need_for(reg, lamp).get("wood", 0.0)), 1.0 * reg.logistics.input_buffer_days,
+			0.001, "tier I needs a few nights of wood")
+	lamp.tier = 2
+	var need := HaulingSystem.need_for(reg, lamp)
+	assert_false(need.has("wood"), "the Lantern Post burns no wood")
+	assert_gt(float(need.get("charcoal", 0.0)), 0.0, "it needs charcoal")
+	lamp.tier = 4
+	assert_false(HaulingSystem.need_for(reg, lamp).has("lumen"), "the Grid Lamp is never hauled")
+	lamp.tier = 1
+	s.hearth.inventory.add("wood", 50.0)
+	s.step_hours(12)
+	assert_gt(lamp.input_buffer.amount_of("wood"), 0.9, "a hauler delivered the fuel")
+
+
+## The Grid Lamp draws its fuel from the grid at dusk and never from its own buffer.
+func test_grid_lamp_burns_grid_lumen() -> void:
+	var s := _new_settlement()
+	s.era_override = "city"
+	var pylon := _put(s, "lumen_pylon", 3)
+	var lamp := _put(s, "lamp", 6)
+	var mill := _put(s, "sawmill", 8)
+	lamp.tier = 4
+	assert_true(GridSystem.on_grid(s, lamp))
+	assert_not_null(pylon)
+	s.hearth.inventory.remove("lumen", 1000.0)  # the start stock would light the lamp
+	_step_to(s, 19)
+	assert_false(s.is_lit(mill), "no Lumen on the grid: dark")
+	s.hearth.inventory.add("lumen", 10.0)
+	_step_to(s, 18)
+	var before: float = s.hearth.inventory.amount_of("lumen")
+	s.step_hours(1)
+	assert_true(s.is_lit(mill), "grid Lumen lights the Grid Lamp radius (9)")
+	assert_almost_eq(s.hearth.inventory.amount_of("lumen"), before - 1.0, 0.01, "one Lumen drawn from the grid")
+	assert_almost_eq(lamp.input_buffer.amount_of("lumen"), 0.0, 0.001, "nothing came through the buffer")
+	assert_true(s.is_tile_lit(mill.origin), "the tile query agrees")
+	assert_false(s.is_tile_lit(Vector2i(mill.origin.x + 20, mill.origin.y)), "outside the radius is dark")
+
+
+## Lit homes at night raise Spirit: the factor is light_bonus times the lit share of homes, capped.
+func test_lit_homes_give_a_spirit_bonus_at_night() -> void:
+	var s := _new_settlement()
+	var sp := s.get_system(SpiritSystem) as SpiritSystem
+	var home := _put(s, "cottage", 5)
+	var lamp := _put(s, "lamp", 5, 1)
+	lamp.input_buffer.add("wood", 2.0)
+	s.hearth.inventory.remove("wood", 1000.0)  # no stock for the haulers to refuel the lamp from
+	assert_eq(sp.factor_value(s, "light"), 0.0, "no bonus in the day")
+	_step_to(s, 21)
+	assert_true(s.is_lit(home))
+	var homes := 0
+	var lit := 0
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if not b.site and b.def.housing_beds > 0:
+			homes += 1
+			lit += 1 if s.is_lit(b) else 0
+	var want := minf(reg.spirit.light_bonus * float(lit) / float(homes), reg.spirit.light_bonus_max)
+	assert_gt(want, 0.0)
+	assert_almost_eq(sp.factor_value(s, "light"), want, 0.001, "lit share of homes x the data bonus")
+	assert_true((sp.breakdown(s)["factors"] as Dictionary).has("light"), "the breakdown lists it")
+	lamp.input_buffer.remove("wood", 5.0)
+	_step_to(s, 7)
+	_step_to(s, 21)
+	assert_eq(sp.factor_value(s, "light"), 0.0, "a dark night gives nothing")

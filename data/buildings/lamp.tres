@@ -10,6 +10,7 @@ era = "village"
 lamp_radius = 5
 lamp_fuel = "charcoal"
 lamp_fuel_per_night = 1.0
+art_id = "lamp_lantern"
 extra_worker_slots = 0
 
 [sub_resource type="Resource" id="Tier3"]
@@ -19,6 +20,7 @@ era = "town"
 lamp_radius = 7
 lamp_fuel = "lumen"
 lamp_fuel_per_night = 1.0
+art_id = "lamp_lumen"
 extra_worker_slots = 0
 
 [sub_resource type="Resource" id="Tier4"]
@@ -29,6 +31,7 @@ lamp_radius = 9
 lamp_fuel = "lumen"
 lamp_fuel_per_night = 1.0
 lamp_grid = true
+art_id = "lamp_grid"
 extra_worker_slots = 0
 cost = {"tools": 4, "lumen_cells": 8, "cut_stone": 6}
 

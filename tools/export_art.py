@@ -1350,6 +1350,19 @@ def export_props(manifest):
 
 
 # Buildings that appear on the approved sheets (docs/mockups/buildings_*.png) use exactly those b_* functions.
+# Where each lamp's light sits in its sprite (x, y from the top left) and its glow radius and colour.
+LAMP_GLOW = {"brazier": (10, 12, 14, (255, 150, 60)), "lantern": (10, 9, 14, (255, 190, 90)),
+             "lumen": (10, 11, 16, (127, 224, 240)), "grid": (10, 12, 16, (205, 240, 255))}
+
+
+def lamp_sprite(kind):
+    """A 1x1 lamp (ticket 133): the night mockup art (lit look) with a halo for the glow layer."""
+    import mockups_night as N  # lazy: it loads the manifest and the HUD kit at import
+    img, _, _ = N.lamp_art(kind, True)
+    gx, gy, r, col = LAMP_GLOW[kind]
+    return M.Sprite(img, 1, 1, glows=[(gx, gy, r, col)], shadow=(0.9, 5))
+
+
 SHEET = {
     "hearth": lambda: M.b_hearth(), "tent": lambda: M.b_tent(0), "woodcutter": lambda: M.b_woodcutter(1),
     "lumen_tap": lambda: M.b_lumen_mill(), "meeting_hall": lambda: M.b_meeting_hall(),
@@ -1377,6 +1390,9 @@ SHEET = {
     "vein_bore": lambda: M.b_vein_bore(), "hydroponic_hall": lambda: M.b_hydroponic_hall(),  # ticket 39b, 39c
     # tier art (TierDef.art_id): Tent II = Hut, Tent III = Lodge
     "hut": lambda: M.b_hut(9), "lodge": lambda: M.b_lodge(10),
+    # ticket 133: the Lamp (Brazier) and its tier art, drawn in mockups_night.lamp_art
+    "lamp": lambda: lamp_sprite("brazier"), "lamp_lantern": lambda: lamp_sprite("lantern"),
+    "lamp_lumen": lambda: lamp_sprite("lumen"), "lamp_grid": lambda: lamp_sprite("grid"),
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}
