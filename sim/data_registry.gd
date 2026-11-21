@@ -357,6 +357,10 @@ func _validate() -> void:
 			or day_night.moon_full_day > day_night.moon_cycle_days or day_night.moon_full_lamp_bonus < 0 \
 			or day_night.moon_new_glowcap <= 0.0):
 		errors.append("day and night: invalid moon numbers")
+	if day_night != null and (day_night.dimming_night_start < 0 or day_night.dimming_night_start > 23 \
+			or day_night.dimming_night_end < 0 or day_night.dimming_night_end > 23 \
+			or day_night.dimming_night_start == day_night.dimming_night_end):
+		errors.append("day and night: the Dimming night hours must be 0-23 and differ")
 	if regions == null:
 		if not goods.is_empty():
 			errors.append("missing regions definition")

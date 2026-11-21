@@ -332,6 +332,21 @@ func date_text() -> String:
 	return "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]
 
 
+## "Dimming: night 16-09" for the clock row while a Dimming is on (ticket 148, spec N8), "" otherwise. The hours come
+## from DayNightDef, the one window the shift, the lamps and the tint read.
+func dimming_night_tag() -> String:
+	if not DimmingSystem.is_active(s):
+		return ""
+	var w := s.dimming_night_window()
+	return "Dimming: night %02d-%02d" % [w.x, w.y]
+
+
+## "Nights run 16-09.": the objectives line naming the Dimming's long night (ticket 148).
+func dimming_nights_text() -> String:
+	var w := s.dimming_night_window()
+	return "Nights run %02d-%02d." % [w.x, w.y]
+
+
 ## " - Full moon" while tonight is the full-moon night (ticket 145), else "". Appended to the clock row's season line.
 func moon_tag() -> String:
 	var dn := s.registry.day_night
@@ -589,9 +604,9 @@ func dimming_summary() -> String:
 	return "No Dimming expected"
 
 
-## The Dimming lines of the objectives panel: a forecast gives "Dimming in N days, lasts M" and "Lumen output halves.
-## Stock: N days."; an active Dimming gives "Dimming: day N of M" plus the light-short warning when it is short.
-## Empty outside both. The numbers are the ones the old era panel gathered.
+## The Dimming lines of the objectives panel: a forecast gives "Dimming in N days, lasts M" and "Nights run 16-09.
+## Lumen output halves. Stock: N days."; an active Dimming gives "Dimming: day N of M" then "Nights run 16-09." plus
+## the light-short warning when it is short. Empty outside both. The numbers are the ones the old era panel gathered.
 func objectives_dimming_lines() -> Array[String]:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
 	if d == null:
@@ -603,12 +618,14 @@ func objectives_dimming_lines() -> Array[String]:
 		var n: int = st["days_until"]
 		lines.append("%s %s, lasts %d" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n),
 				int(st["length"])])
-		lines.append("Lumen output halves. Stock: %d days." % dimming_stock_days())
+		lines.append("%s Lumen output halves. Stock: %d days." % [dimming_nights_text(), dimming_stock_days()])
 	elif st["state"] == "active":
 		lines.append("%s: day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])])
+		var second := dimming_nights_text()
 		var short := dimming_short_text()
 		if short != "":
-			lines.append(short)
+			second += " " + short
+		lines.append(second)
 	return lines
 
 

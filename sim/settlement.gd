@@ -1083,14 +1083,51 @@ func planet_health() -> float:
 
 # ---------------------------------------------------------------- citizens and jobs
 
-## True while the night shift runs (LogisticsDef.night_shift_start to night_shift_end, wrapping midnight). `hour`
-## defaults to the clock's hour. Night slots, their walkers and their production all read this one answer.
-func is_night(hour: int = -1) -> bool:
-	var h := clock.hour() if hour < 0 else hour
+## True when `hour` falls in a [start, end) window that may wrap midnight.
+static func in_window(hour: int, window: Vector2i) -> bool:
+	if window.x < window.y:
+		return hour >= window.x and hour < window.y
+	return hour >= window.x or hour < window.y
+
+
+## The long night of a Dimming as [start, end] (ticket 148, spec N8), from DayNightDef (16-09). The single source the
+## shift, the lamps, the tint and the day shift all read while DimmingSystem.is_active.
+func dimming_night_window() -> Vector2i:
+	var dn := registry.day_night if registry != null else null
+	return Vector2i(dn.dimming_night_start, dn.dimming_night_end) if dn != null else Vector2i(16, 9)
+
+
+## Hours of tonight's night shift as [start, end] (wrapping midnight): normal LogisticsDef.night_shift_start/end
+## (20-06); in a Dimming the long night dimming_night_window (16-09).
+func night_window() -> Vector2i:
+	if DimmingSystem.is_active(self):
+		return dimming_night_window()
 	var lg := registry.logistics if registry != null else null
-	var start := lg.night_shift_start if lg != null else 20
-	var end := lg.night_shift_end if lg != null else 6
-	return h >= start or h < end
+	return Vector2i(lg.night_shift_start if lg != null else 20, lg.night_shift_end if lg != null else 6)
+
+
+## Hours the lamps burn as [start, end] (wrapping midnight): normal LogisticsDef.lamp_light_start/end (19-07); in a
+## Dimming the same long night as the shift, so the light comes up and goes out with it.
+func lamp_window() -> Vector2i:
+	if DimmingSystem.is_active(self):
+		return dimming_night_window()
+	var lg := registry.logistics if registry != null else null
+	return Vector2i(lg.lamp_light_start if lg != null else 19, lg.lamp_light_end if lg != null else 7)
+
+
+## Hours the day shift works as [start, end] (never wrapping): normal WalkerSystem.WORK_START_HOUR/WORK_END_HOUR
+## (06-18); in a Dimming the short day between the long nights, dimming_night_end to dimming_night_start (09-16).
+func day_window() -> Vector2i:
+	if DimmingSystem.is_active(self):
+		var w := dimming_night_window()
+		return Vector2i(w.y, w.x)
+	return Vector2i(WalkerSystem.WORK_START_HOUR, WalkerSystem.WORK_END_HOUR)
+
+
+## True while the night shift runs (night_window, wrapping midnight). `hour` defaults to the clock's hour. Night slots,
+## their walkers and their production all read this one answer.
+func is_night(hour: int = -1) -> bool:
+	return in_window(clock.hour() if hour < 0 else hour, night_window())
 
 
 ## True when `b` counts as lit, so its night slots work (spec N2: a night-shift building works only inside a working
@@ -1129,13 +1166,9 @@ func lamp_radius_bonus() -> int:
 	return Moon.lamp_bonus(moon_days(), dn) if dn != null else 0
 
 
-## True during the lamp hours (LogisticsDef.lamp_light_start to lamp_light_end, 19 to 7 wrapping midnight).
+## True during the lamp hours (lamp_window: normal 19 to 7, a Dimming's long night 16 to 9, wrapping midnight).
 func is_lamp_hour(hour: int = -1) -> bool:
-	var h := clock.hour() if hour < 0 else hour
-	var lg := registry.logistics if registry != null else null
-	var start := lg.lamp_light_start if lg != null else 19
-	var end := lg.lamp_light_end if lg != null else 7
-	return h >= start or h < end
+	return in_window(clock.hour() if hour < 0 else hour, lamp_window())
 
 
 ## Re-run housing and job assignment now (also runs every hour via JobSystem).
