@@ -121,3 +121,36 @@ func test_route_tiles_lit_radius_1_at_night_when_staffed_and_fuelled() -> void:
 	assert_eq(_night_workers(alone, alone_watch), 0, "nobody works the watch")
 	assert_almost_eq(alone_watch.input_buffer.amount_of("charcoal"), 2.0, 0.001, "nothing burnt")
 	assert_false(alone.is_tile_lit(Vector2i(ahs.x + 4, ahs.y)), "no staff, no light")
+
+
+## Ticket 164: NightRenderModel.lantern_walkers lists a watch only at night, staffed and fuelled, with the very route
+## the sim lights; by day, unstaffed or with no charcoal it is empty.
+func test_lantern_walkers_model_by_day_unstaffed_unfuelled_and_lit() -> void:
+	var s := _new_settlement()
+	var hs := s.map.hearth_spot
+	var watch := _put(s, "night_watch", Vector2i(hs.x + 4, hs.y - 1))
+	watch.input_buffer.add("charcoal", 2.0)
+	_keep_citizens(s, 4)
+	_step_to(s, 12)
+	assert_eq(NightRenderModel.lantern_walkers(s), [], "nobody walks by day")
+	_step_to(s, 21)
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var walkers := NightRenderModel.lantern_walkers(s)
+	assert_eq(walkers.size(), 1, "one lit watch, one lantern walker")
+	assert_eq(walkers[0]["id"], watch.id)
+	assert_eq(walkers[0]["route"], ws.patrol_route(s, watch), "the route is the one the sim lights")
+	# No charcoal: the watch stays in.
+	var dry := _new_settlement()
+	var dhs := dry.map.hearth_spot
+	_put(dry, "night_watch", Vector2i(dhs.x + 4, dhs.y - 1))
+	_keep_citizens(dry, 4)
+	_step_to(dry, 21)
+	assert_eq(NightRenderModel.lantern_walkers(dry), [], "no fuel, no lantern")
+	# No worker: the charcoal is kept, nobody walks.
+	var alone := _new_settlement()
+	var ahs := alone.map.hearth_spot
+	var alone_watch := _put(alone, "night_watch", Vector2i(ahs.x + 4, ahs.y - 1))
+	alone_watch.input_buffer.add("charcoal", 2.0)
+	_keep_citizens(alone, 0)
+	_step_to(alone, 21)
+	assert_eq(NightRenderModel.lantern_walkers(alone), [], "no staff, no lantern")
