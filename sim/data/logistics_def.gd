@@ -74,3 +74,6 @@ extends Resource
 ## (ticket 40c). Entering the other layer costs this instead of 1 / tile speed.
 @export var lift_ride_seconds: float = 3.0
 @export var dock_ride_seconds: float = 6.0
+## Gloom (ticket 149, spec N8): in a Dimming night, gloom creeps from the forest this many tiles an hour over unlit,
+## non-water land. Lit tiles push it back and dawn clears it.
+@export var gloom_spread_per_hour: int = 1

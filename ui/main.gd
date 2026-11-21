@@ -65,6 +65,8 @@ var trains: TrainView
 var airships: AirshipView
 ## The night render (ticket 135): light pools, lit windows and kiln embers, in MapView.fx under the map tint.
 var night: NightView
+## The gloom overlay (ticket 149): dark stepped tiles under the night light, in MapView.fx.
+var gloom: GloomView
 ## The gain popup (ticket 137): "+N" with the good's icon over a producer or a cleared tile.
 var gain_popups: GainPopupView
 var overlay: OverlayView
@@ -435,6 +437,11 @@ func _build_world(s: Settlement) -> void:
 	night.name = "NightView"
 	view.fx.add_child(night)
 	night.setup(s)
+	gloom = GloomView.new()
+	gloom.name = "GloomView"
+	gloom.z_index = 4  # under the additive light pools (NightView, 5)
+	view.fx.add_child(gloom)
+	gloom.setup(s)
 	gain_popups = GainPopupView.new()
 	gain_popups.name = "GainPopupView"
 	view.fx.add_child(gain_popups)

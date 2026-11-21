@@ -74,6 +74,11 @@ var _last_max_speed: float = -1.0
 var _structure_version: int = -1
 var _solid := PackedByteArray()  # per tile: 1 when the A* grid has it solid
 var _cache: Dictionary = {}  # int key -> Array[Vector2i] (empty array = no path)
+## Gloom (ticket 149): tiles to avoid, at GLOOM_WEIGHT times their usual cost. A detour wins when it is short enough;
+## a tile is never blocked by gloom. _gloom_applied is the subset whose weight the grid currently carries.
+const GLOOM_WEIGHT := 6.0
+var _gloom: Dictionary = {}
+var _gloom_applied: Dictionary = {}
 ## Sky layer grid (same size as the ground's, indexed by local sky tile), built with the ground grid. Only walked over
 ## when an island exists; until then every cell stays solid and nothing is rewritten.
 var _sky_grid: AStarGrid2D
@@ -427,6 +432,45 @@ func min_walk_seconds(from: Vector2i, to: Vector2i) -> float:
 	return float(absi(from.x - to.x) + absi(from.y - to.y)) / _max_speed
 
 
+## Live gloom set (ticket 149), owned by GloomSystem: it mutates the dictionary and calls this after every change, so
+## a reference is enough. Paths take a gloom tile at GLOOM_WEIGHT times its usual cost, so a walker goes around when
+## the detour is short; gloom never blocks a tile.
+func set_gloom_tiles(tiles: Dictionary) -> void:
+	_gloom = tiles
+	if _grid == null:
+		_refresh_grid()  # builds the grid and applies _gloom at the end
+		return
+	_apply_gloom_weights()
+	_cache.clear()  # cached paths were planned without these weights
+
+
+## Puts GLOOM_WEIGHT on every open gloom tile the grid has not weighted yet and restores the plain weight of open
+## tiles that left gloom. Solid tiles (forest, buildings) need no weight: nothing walks there anyway.
+func _apply_gloom_weights() -> void:
+	if _grid == null:
+		return
+	for t: Vector2i in _gloom:
+		if _gloom_applied.has(t) or not MapState.in_bounds(t.x, t.y):
+			continue
+		var i := MapState.idx(t.x, t.y)
+		if _solid[i] == 1 or _speeds[i] <= 0.0:
+			continue
+		_gloom_applied[t] = true
+		_grid.set_point_weight_scale(t, _max_speed / _speeds[i] * GLOOM_WEIGHT)
+	if _gloom_applied.is_empty():
+		return
+	for t: Vector2i in _gloom_applied.keys():
+		if _gloom.has(t):
+			continue
+		_gloom_applied.erase(t)
+		if not MapState.in_bounds(t.x, t.y):
+			continue
+		var i := MapState.idx(t.x, t.y)
+		if _solid[i] == 1 or _speeds[i] <= 0.0:
+			continue
+		_grid.set_point_weight_scale(t, _max_speed / _speeds[i])
+
+
 ## Cached path from one global tile to another, start and end included, [] when unreachable. Start and end are
 ## walkable even when they are building doors. Crosses layers only through a lift or dock link (see class comment).
 func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
@@ -718,6 +762,8 @@ func _refresh_grid() -> void:
 	_structure_version = _s.structure_version
 	_s.terrain_dirty.clear()
 	_refresh_sky(first)
+	_gloom_applied.clear()  # a rebuild reset every cell's weight: put the gloom weights back (ticket 149)
+	_apply_gloom_weights()
 	if first and _from_save:
 		_from_save = false  # saved walkers already sit on the saved layout; keep their paths as they were
 		return
