@@ -41,6 +41,7 @@ storage_mode = "none"
 storage_cap = 0
 placement_rule = "on_rock"
 placement_radius = 0
+gain_popup = true
 recipe = SubResource("Recipe")
 upgradable = true
 tiers = Array[ExtResource("3")]([SubResource("Tier2"), SubResource("Tier3")])

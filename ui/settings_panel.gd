@@ -13,6 +13,7 @@ var _scale_buttons: Dictionary = {}
 var _fullscreen_box: CheckBox
 var _hints_box: CheckBox
 var _day_night_box: CheckBox
+var _gain_popups_box: CheckBox
 var _mute_box: CheckBox
 var _updates_box: CheckBox
 var _sliders: Dictionary = {}
@@ -41,6 +42,8 @@ func setup(s: GameSettings) -> void:
 	_hints_box.name = "HintsToggle"
 	_day_night_box = _check("Day and night", s.day_night, set_day_night)
 	_day_night_box.name = "DayNightToggle"
+	_gain_popups_box = _check("Gain popups", s.gain_popups, set_gain_popups)
+	_gain_popups_box.name = "GainPopupsToggle"
 	var reset := _button(self, "Reset tutorial and hints", 16)
 	reset.name = "ResetTutorial"
 	reset.pressed.connect(reset_tutorial)
@@ -80,6 +83,11 @@ func set_hints_enabled(on: bool) -> void:
 
 func set_day_night(on: bool) -> void:
 	settings.day_night = on
+	_commit()
+
+
+func set_gain_popups(on: bool) -> void:
+	settings.gain_popups = on
 	_commit()
 
 

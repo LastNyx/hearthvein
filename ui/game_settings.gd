@@ -16,6 +16,8 @@ var ui_scale: float = 1.0
 var hints_enabled: bool = true
 ## The map darkens at night (ticket 107); off keeps the map at the Dimming colour only.
 var day_night: bool = true
+## The "+N" gain popups over producers and cleared tiles (ticket 137); on by default.
+var gain_popups: bool = true
 var tutorial_first_run_done: bool = false
 var seen_hints: Array[String] = []
 var volume_master: float = 0.8
@@ -39,6 +41,7 @@ func to_dict() -> Dictionary:
 	return {
 		"fullscreen": fullscreen, "ui_scale": ui_scale, "hints_enabled": hints_enabled,
 		"day_night": day_night,
+		"gain_popups": gain_popups,
 		"tutorial_first_run_done": tutorial_first_run_done, "seen_hints": seen_hints.duplicate(),
 		"volume_master": volume_master, "volume_effects": volume_effects, "volume_ambience": volume_ambience,
 		"mute_in_background": mute_in_background,
@@ -58,6 +61,7 @@ func load_file() -> void:
 	fullscreen = _bool(cf, "fullscreen", fullscreen)
 	hints_enabled = _bool(cf, "hints_enabled", hints_enabled)
 	day_night = _bool(cf, "day_night", day_night)
+	gain_popups = _bool(cf, "gain_popups", gain_popups)
 	tutorial_first_run_done = _bool(cf, "tutorial_first_run_done", tutorial_first_run_done)
 	mute_in_background = _bool(cf, "mute_in_background", mute_in_background)
 	objectives_collapsed = _bool(cf, "objectives_collapsed", objectives_collapsed)
