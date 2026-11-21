@@ -26,7 +26,8 @@ func setup(s: Settlement, m: HudModel) -> void:
 	model = m
 	z_index = 15
 	for kind in ["blight_changed", "building_connection_changed", "building_placed", "building_demolished",
-			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started", "clear_marks_changed", "plant_marks_changed"]:
+			"road_changed", "building_completed", "channel_changed", "fouled_changed", "day_started", "clear_marks_changed",
+			"plant_marks_changed", "flood_started", "flood_ended"]:
 		s.events.subscribe(kind, func(_e: Dictionary) -> void: _dirty = true)
 
 
@@ -56,6 +57,7 @@ func _process(_d: float) -> void:
 func _draw() -> void:
 	if settlement == null:
 		return
+	_draw_flood()
 	if model.overlay_on("blight"):
 		var map := settlement.map
 		for y in MapState.HEIGHT:
@@ -162,6 +164,26 @@ func _draw_coverage() -> void:
 
 
 ## Water overlay extras: Well-type supply range (blue-teal tint over the union of areas, outline each, check / cross on
+## Spring flood water and the silt it leaves (ticket 154): flooded tiles get a deep blue tint, silted ones a rich soil
+## green. Drawn whatever the overlays are, so a flood is visible in play.
+func _draw_flood() -> void:
+	var fs := settlement.get_system(FloodSystem) as FloodSystem
+	if fs == null:
+		return
+	for i in fs.flooded.size():
+		if fs.flooded[i] == 0:
+			continue
+		var x := i % MapState.WIDTH
+		var y := i / MapState.WIDTH
+		draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.16, 0.42, 0.9, 0.45))
+	for i in fs.silt.size():
+		if fs.silt[i] == 0:
+			continue
+		var x := i % MapState.WIDTH
+		var y := i / MapState.WIDTH
+		draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), Color(0.38, 0.62, 0.22, 0.18))
+
+
 ## homes that need water) and every fouled river tile (sickly green tint with an outline).
 func _draw_water_extras() -> void:
 	var col := Color(0.3, 0.85, 0.95)

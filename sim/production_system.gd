@@ -292,6 +292,9 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	if IslandSystem.is_still_building(s, b):
 		_set_halt(s, b, "island_still")
 		return
+	if FloodSystem.flooded_at(s, b):
+		_set_halt(s, b, FloodSystem.HALT)  # spring flood water on the footprint (ticket 154)
+		return
 	if GloomSystem.building_in_gloom(s, b):
 		_set_halt(s, b, "gloom")  # a Dimming night's gloom stops the building until it is lit (ticket 149)
 		return

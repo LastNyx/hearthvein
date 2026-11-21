@@ -221,6 +221,9 @@ const GOLD := "gold"
 @export var wet_radius: int = 0
 ## True when the building may not stand on a blighted tile (design.md section 12: Park, Shrine, Orchard).
 @export var blocked_by_blight: bool = false
+## Levee (spec N10, ticket 154): a finished one holds the spring flood off the tiles behind it (FloodSystem). Placed
+## like a road along the bank: 1x1, on land touching the river (placement rule river_bank).
+@export var levee: bool = false
 ## Tiles around the footprint where blight cuts this building's output (the Greenhouse, 1 = its own tiles and the
 ## ring next to them) and the output factor then (blight_output_factor, like farm fertility counted half). A tier with
 ## TierDef.ignores_blight (Greenhouse III) is not cut. 0 = blight does not touch its output.

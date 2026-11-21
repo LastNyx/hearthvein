@@ -79,6 +79,10 @@ var _cache: Dictionary = {}  # int key -> Array[Vector2i] (empty array = no path
 ## a tile is never blocked by gloom. _gloom_applied is the subset whose weight the grid currently carries.
 var _gloom: Dictionary = {}
 var _gloom_applied: Dictionary = {}
+## Spring flood water (ticket 154): ground tiles under water, owned by FloodSystem. They are made solid while the flood
+## runs, so walkers avoid them; _flood_applied is the subset the grid currently has solid.
+var _flood: Dictionary = {}
+var _flood_applied: Dictionary = {}
 ## Sky layer grid (same size as the ground's, indexed by local sky tile), built with the ground grid. Only walked over
 ## when an island exists; until then every cell stays solid and nothing is rewritten.
 var _sky_grid: AStarGrid2D
@@ -466,6 +470,47 @@ func _apply_gloom_weights() -> void:
 		_grid.set_point_weight_scale(t, _max_speed / _speeds[i])
 
 
+## Live flood set (ticket 154), owned by FloodSystem: tiles under spring flood water are impassable while the flood
+## runs, so walkers plan around them. Re-applied after a grid rebuild like the gloom weights.
+func set_flood_tiles(tiles: Dictionary) -> void:
+	_flood = tiles
+	if _grid == null:
+		return  # the first _refresh_grid builds the grid and applies the flood at the end
+	_apply_flood()
+	_cache.clear()
+	_replan_all()
+
+
+## Makes every open flooded tile solid the grid has not blocked yet, and opens the tiles that left the flood again.
+func _apply_flood() -> void:
+	if _grid == null:
+		return
+	for t: Vector2i in _flood:
+		if _flood_applied.has(t) or not MapState.in_bounds(t.x, t.y):
+			continue
+		var i := MapState.idx(t.x, t.y)
+		if _solid[i] == 1 or _speeds[i] <= 0.0:
+			continue
+		_flood_applied[t] = true
+		_grid.set_point_solid(t, true)
+	if _flood_applied.is_empty():
+		return
+	for t: Vector2i in _flood_applied.keys():
+		if _flood.has(t):
+			continue
+		_flood_applied.erase(t)
+		if not MapState.in_bounds(t.x, t.y):
+			continue
+		var i := MapState.idx(t.x, t.y)
+		if _solid[i] == 1 or _speeds[i] <= 0.0:
+			continue
+		_grid.set_point_solid(t, false)
+		if _gloom_applied.has(t):
+			_grid.set_point_weight_scale(t, _max_speed / _speeds[i] * _s.registry.logistics.gloom_path_weight)
+		else:
+			_grid.set_point_weight_scale(t, _max_speed / _speeds[i])
+
+
 ## Cached path from one global tile to another, start and end included, [] when unreachable. Start and end are
 ## walkable even when they are building doors. Crosses layers only through a lift or dock link (see class comment).
 func find_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
@@ -759,6 +804,8 @@ func _refresh_grid() -> void:
 	_refresh_sky(first)
 	_gloom_applied.clear()  # a rebuild reset every cell's weight: put the gloom weights back (ticket 149)
 	_apply_gloom_weights()
+	_flood_applied.clear()  # a rebuild reset every cell's solid flag: put the flood water back (ticket 154)
+	_apply_flood()
 	if first and _from_save:
 		_from_save = false  # saved walkers already sit on the saved layout; keep their paths as they were
 		return

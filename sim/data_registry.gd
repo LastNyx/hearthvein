@@ -352,7 +352,9 @@ func _validate() -> void:
 			or water.channel_cost_stone < 0.0 or water.foul_spread_tiles_per_hour < 1 \
 			or water.foul_clear_hours < 0 \
 			or water.foul_dock_output_factor <= 0.0 or water.foul_dock_output_factor > 1.0 \
-			or water.foul_farm_output_factor <= 0.0 or water.foul_farm_output_factor > 1.0:
+			or water.foul_farm_output_factor <= 0.0 or water.foul_farm_output_factor > 1.0 \
+			or water.flood_radius < 0 or water.flood_days < 0 or water.flood_days > GameClock.DAYS_PER_SEASON - 3 \
+			or water.flood_silt_fertility < 0.0:
 		errors.append("water: invalid numbers")
 	if day_night == null:
 		if not goods.is_empty():
