@@ -38,6 +38,10 @@ extends Resource
 ## midnight (20 to 6). Night workers sleep at home the rest of the day.
 @export var night_shift_start: int = 20
 @export var night_shift_end: int = 6
+## Lamps (ticket 133, spec N2): a fuelled lamp lights its radius from lamp_light_start to lamp_light_end, wrapping
+## midnight (19 to 7). It burns its fuel once, at the dusk hour (lamp_light_start).
+@export var lamp_light_start: int = 19
+@export var lamp_light_end: int = 7
 ## Share of the cost (or of the goods already delivered to a site) given back on demolish.
 @export var demolish_refund: float = 0.0
 ## Output factor of a building that could not pay the day's Lumen upkeep (design.md sections 8, 14 and 16: x0.5).

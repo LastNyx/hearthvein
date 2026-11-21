@@ -4,6 +4,8 @@ extends Resource
 ## Cost amounts are whole numbers; fractions of the default rule are rounded up.
 
 @export var display_name: String = ""
+## Era this tier unlocks in, overriding TierRuleDef.eras (the Lamp: II Village, III Town, IV City). "" = the rule.
+@export var era: String = ""
 ## Output (or beds) multiplier relative to the base building. 0 = use the default rule (TierRuleDef).
 @export var multiplier: float = 0.0
 ## Extra worker slots compared with the base building. -1 = use the default rule (TierRuleDef).
@@ -22,3 +24,9 @@ extends Resource
 @export var art_id: String = ""
 ## good id -> int. Empty = use the default costs (TierRuleDef): fractions of the base wood + stone cost.
 @export var cost: Dictionary = {}
+## Lamp overrides (ticket 133): -1 / "" / -1.0 = use the BuildingDef's value.
+@export var lamp_radius: int = -1
+@export var lamp_fuel: String = ""
+@export var lamp_fuel_per_night: float = -1.0
+## True for the Grid Lamp: it takes its fuel from the Lumen grid, not from a hauler.
+@export var lamp_grid: bool = false

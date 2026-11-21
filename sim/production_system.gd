@@ -5,7 +5,7 @@ extends SimSystem
 ## 06:00-18:00 shift, so a worker standing at the door for the whole shift makes exactly the recipe amount and the
 ## walk to work costs a little. At night the workers at the door are the building's night slots (ticket 132); the
 ## hourly rate is the same, so a night hour makes its share of the recipe. A night-shift building only works while
-## it is lit: dark, it halts with "unlit" (Settlement.is_lit is a stub until ticket 133). Output goes to the
+## it is lit: dark, it halts with "unlit" (Settlement.is_lit, ticket 133). Output goes to the
 ## building's door buffer (cap from LogisticsDef); a full buffer stops production and sets Building.halt =
 ## "door_full" (events production_halted / production_resumed).
 ## Recipes with inputs eat from the input buffer that haulers fill; an empty one halts with "no_input".

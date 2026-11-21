@@ -186,4 +186,6 @@ func test_lumen_pump_produces_lumen_when_connected() -> void:
 	s.step_days(4)
 	assert_gt(prod.produced_total - before, 0.0, "the pump made Lumen")
 	assert_gt(s.totals().get("lumen", 0.0) + pump.door_buffer.amount_of("lumen"), 0.0)
-	assert_true(pump.halt == "" or pump.halt == "door_full", "waiting for haulers, not idle: %s" % pump.halt)
+	# "unlit" is the night of an unfuelled pump (ticket 133): its day crew still made the Lumen above.
+	assert_true(pump.halt == "" or pump.halt == "door_full" or pump.halt == "unlit",
+			"waiting for haulers, not idle: %s" % pump.halt)

@@ -69,6 +69,7 @@ func test_mason_recipe_runs_end_to_end_through_haulers() -> void:
 	s.hearth.inventory.add("stone", 400.0)  # clamped to the Hearth's 150
 	s.hearth.inventory.add("food", 200.0)  # no starving workers skewing the rate
 	var mason := _put("mason", 4)
+	_put("lamp", 6)  # ticket 133: the night slot works only inside a fuelled lamp's light (haulers bring its wood)
 	s.step_days(3)  # the crew walks to work and haulers fill the two-day input buffer
 	assert_gt(mason.input_buffer.amount_of("stone"), 10.0, "stone was hauled to the Mason")
 	var before_m := s.hearth.inventory.amount_of("stone")

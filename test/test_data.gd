@@ -25,7 +25,7 @@ func test_real_data_loads_clean() -> void:
 	assert_eq(reg.goods.size(), 16)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
-	assert_eq(reg.buildings.size(), 65)
+	assert_eq(reg.buildings.size(), 66)
 
 
 func test_broken_fixture_reports_errors() -> void:
@@ -66,7 +66,7 @@ func test_gate_landmark_required_once_its_era_has_buildings() -> void:
 # AC2: Camp buildings match design.md section 16.
 func test_camp_buildings_match_design() -> void:
 	_load_real()
-	assert_eq(reg.buildings_of_era("camp").size(), 8)
+	assert_eq(reg.buildings_of_era("camp").size(), 9, "the Lamp joined Camp in 1.1.11")
 	var hearth := reg.get_building("hearth")
 	assert_eq(hearth.size, Vector2i(2, 2))
 	assert_eq([hearth.hauler_slots, hearth.builder_slots, hearth.housing_beds], [2, 4, 8])

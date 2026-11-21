@@ -48,6 +48,16 @@ func _put(s: Settlement, id: String, dx: int) -> Building:
 	return s.buildings.get(bid)
 
 
+## A fuelled Brazier south of the road, `dx` tiles east of the Hearth: night slots open only inside a lamp's light.
+func _lamp(s: Settlement, dx: int) -> Building:
+	var hs := s.map.hearth_spot
+	var bid := s.place_building_instant("lamp", Vector2i(hs.x + dx, hs.y + 1))
+	assert_true(bid >= 0, "lamp placed")
+	var lamp: Building = s.buildings.get(bid)
+	lamp.input_buffer.add("wood", 3.0)
+	return lamp
+
+
 func _keep_citizens(s: Settlement, n: int) -> void:
 	while s.citizens.size() > n:
 		s.remove_citizen(s.citizens.keys().max())
@@ -68,13 +78,15 @@ func test_kiln_makes_charcoal_only_at_night() -> void:
 	var s := _new_settlement()
 	var kiln := _put(s, "charcoal_kiln", 4)
 	assert_true(kiln.def.night_only, "the Kiln is a night-only building")
+	_lamp(s, 5)  # lit from dusk (19:00); a dark night-only building would stay closed (spec N2, ticket 133)
 	_keep_citizens(s, 4)  # two Hearth day haulers, then the Kiln's two night slots
-	s.refresh_population()
+	s.step_hours(19)
+	assert_true(s.is_lit(kiln), "the Brazier lights the Kiln")
 	assert_eq(_staff(s, kiln, Citizen.JOB_WORK, false).size(), 0, "no day slots in a night-only building")
 	assert_eq(_staff(s, kiln, Citizen.JOB_WORK, true).size(), 2, "two night slots")
 	(kiln.input_buffer as Inventory).add("wood", 40.0)
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
-	s.step_hours(21)
+	s.step_hours(2)
 	assert_true(s.is_night(), "21:00 is the night shift")
 	assert_true(ws.is_at_work((_staff(s, kiln, Citizen.JOB_WORK, true)[0] as Citizen).id), "a night worker is at the door")
 	var made_total := (s.get_system(ProductionSystem) as ProductionSystem).produced_total
@@ -87,6 +99,17 @@ func test_kiln_makes_charcoal_only_at_night() -> void:
 	s.step_hours(12)  # 07:00 -> 19:00, the whole day
 	assert_almost_eq((s.get_system(ProductionSystem) as ProductionSystem).produced_total, at_day, 0.001,
 			"nothing by day")
+
+
+## Ticket 133: a night-only building with no lamp in reach stays dark and closed all night.
+func test_kiln_without_a_lamp_stays_closed() -> void:
+	var s := _new_settlement()
+	var kiln := _put(s, "charcoal_kiln", 4)
+	_keep_citizens(s, 4)
+	s.step_hours(21)
+	assert_false(s.is_lit(kiln), "no lamp, no light")
+	assert_eq(_staff(s, kiln, Citizen.JOB_WORK, true).size(), 0, "the night slots stay closed")
+	assert_eq(kiln.halt, "unlit", "the panel says Needs a lamp")
 
 
 ## Criterion 2: the Grove needs two forest tiles within two tiles (refused with the reason on open grass) and makes
@@ -106,10 +129,12 @@ func test_grove_needs_shade_and_makes_food_at_night() -> void:
 	s.set_terrain(Vector2i(origin.x - 1, origin.y + 1), "forest")  # two forest tiles within 2
 	assert_true(s.can_place("glowcap_grove", origin, true)["ok"], "two forest tiles within 2 tiles are shade")
 	var grove := _put(s, "glowcap_grove", 8)
+	_lamp(s, 9)
 	_keep_citizens(s, 4)
-	s.refresh_population()
+	s.step_hours(19)
+	assert_true(s.is_lit(grove), "the Brazier lights the Grove")
 	assert_eq(_staff(s, grove, Citizen.JOB_WORK, true).size(), 2, "two night slots")
-	s.step_hours(21)
+	s.step_hours(2)
 	var made_total := (s.get_system(ProductionSystem) as ProductionSystem).produced_total
 	s.step_hours(6)  # 21:00 -> 03:00
 	# 2 workers for 6 h of a 12 h work day at 5 food per worker: 2 * 6/12 * 5 = 5 food.

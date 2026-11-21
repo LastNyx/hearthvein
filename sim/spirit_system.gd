@@ -24,7 +24,7 @@ var low_days: int = 0
 var _days_since_leave: int = 0
 var _hooks: Dictionary = {}  # factor id -> Callable
 var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
-		"tax_office", "planet_grief"]
+		"tax_office", "planet_grief", "light"]
 
 
 func _init() -> void:
@@ -78,6 +78,22 @@ func factor_value(s: Settlement, id: String) -> float:
 				if not b.site and b.def.id == "tax_office":
 					return -sd.tax_office_penalty
 			return 0.0
+		"light":
+			# Lit houses at night (ticket 133): the share of finished homes inside a lit lamp's radius.
+			if not s.is_night():
+				return 0.0
+			var homes := 0
+			var lit := 0
+			for bid in s.buildings:
+				var hb: Building = s.buildings[bid]
+				if hb.site or hb.def.housing_beds <= 0:
+					continue
+				homes += 1
+				if s.is_lit(hb):
+					lit += 1
+			if homes == 0:
+				return 0.0
+			return minf(sd.light_bonus * float(lit) / float(homes), sd.light_bonus_max)
 	var fn: Callable = _hooks.get(id, Callable())
 	return float(fn.call(s)) if fn.is_valid() else 0.0
 

@@ -78,6 +78,12 @@ var upgrade_work: float = 0.0
 var upgrade_work_needed: float = 0.0
 ## Why production stopped: "" running, "door_full", "no_input", "no_forest", "dry", "blight".
 var halt: String = ""
+## Lamp only: true when its fuel was burnt at the last dusk, so it lights its radius tonight (ticket 133). Saved.
+var lit_tonight: bool = false:
+	set(v):
+		if v != lit_tonight:
+			lit_tonight = v
+			layout_rev += 1
 
 
 ## True while an in-place upgrade is in flight.
@@ -146,6 +152,30 @@ func effective_worker_slots(reg: DataRegistry) -> int:
 ## Beds now: base beds x the tier's output factor, rounded to a whole bed (Tent II = Hut, 3 beds).
 func effective_beds(reg: DataRegistry) -> int:
 	return roundi(float(def.housing_beds) * output_factor(reg))
+
+
+## Radius in tiles this lamp lights now (tier override, else the def's tier I value).
+func lamp_radius(reg: DataRegistry) -> int:
+	var td := tier_def(reg)
+	return td.lamp_radius if td != null and td.lamp_radius >= 0 else def.lamp_radius
+
+
+## Good this lamp burns tonight ("" for a building that is not a lamp).
+func lamp_fuel(reg: DataRegistry) -> String:
+	var td := tier_def(reg)
+	return td.lamp_fuel if td != null and td.lamp_fuel != "" else def.lamp_fuel
+
+
+## Units of fuel one night costs.
+func lamp_fuel_per_night(reg: DataRegistry) -> float:
+	var td := tier_def(reg)
+	return td.lamp_fuel_per_night if td != null and td.lamp_fuel_per_night >= 0.0 else def.lamp_fuel_per_night
+
+
+## True for the Grid Lamp: it draws its fuel from the grid, so no hauler carries it.
+func lamp_grid(reg: DataRegistry) -> bool:
+	var td := tier_def(reg)
+	return td.lamp_grid if td != null else def.lamp_grid
 
 
 ## Whole-good cost of reaching `at_tier`: the per-def TierDef cost when it has one, else the default rule.
@@ -235,6 +265,7 @@ func to_dict() -> Dictionary:
 		"upgrade_work": upgrade_work,
 		"upgrade_work_needed": upgrade_work_needed,
 		"halt": halt,
+		"lit_tonight": lit_tonight,
 	}
 
 
@@ -271,4 +302,5 @@ static func from_dict(d: Dictionary, registry: DataRegistry) -> Building:
 	b.upgrade_work = float(d.get("upgrade_work", 0.0))
 	b.upgrade_work_needed = float(d.get("upgrade_work_needed", 0.0))
 	b.halt = str(d["halt"])
+	b.lit_tonight = bool(d.get("lit_tonight", false))
 	return b

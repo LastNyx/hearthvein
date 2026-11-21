@@ -85,6 +85,26 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 				out[g] = maxf(float(out.get(g, 0.0)), each)
 	if def.upkeep_lumen > 0.0:
 		out["lumen"] = float(out.get("lumen", 0.0)) + def.upkeep_lumen * reg.logistics.input_buffer_days
+	# A lamp keeps a few nights of fuel like any other consumer (ticket 133). The def carries the tier I fuel; a
+	# higher tier's fuel comes from Building.lamp_fuel (need_for).
+	if def.lamp and def.lamp_fuel != "" and not def.lamp_grid and def.lamp_fuel_per_night > 0.0:
+		out[def.lamp_fuel] = float(out.get(def.lamp_fuel, 0.0)) + def.lamp_fuel_per_night \
+				* reg.logistics.input_buffer_days
+	return out
+
+
+## input_need for one building, with its current tier's lamp fuel (the def alone cannot tell tier I from tier IV).
+static func need_for(reg: DataRegistry, b: Building) -> Dictionary:
+	if b == null:
+		return {}
+	var out := input_need(reg, b.def)
+	if not b.def.lamp or reg.logistics == null:
+		return out
+	if b.def.lamp_fuel != "":
+		out.erase(b.def.lamp_fuel)  # the def's tier I fuel; the tier may burn another
+	var fuel := b.lamp_fuel(reg)
+	if fuel != "" and not b.lamp_grid(reg) and b.lamp_fuel_per_night(reg) > 0.0:
+		out[fuel] = float(out.get(fuel, 0.0)) + b.lamp_fuel_per_night(reg) * reg.logistics.input_buffer_days
 	return out
 
 
@@ -410,13 +430,17 @@ func _plan_door(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 
 
 ## Storage -> consumer input buffers. Sites and upgrade buffers are served first by _works, never here (a paused one
-## gets nothing).
+## gets nothing). Lamps come first (ticket 133): their fuel is small and time-critical (a dark night cannot be made up),
+## and a busy producer earlier in id order would otherwise keep every trip for itself.
 func _plan_inputs(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
-	for b in _blds:
-		if b.input_buffer != null and not b.site:
-			var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
-			if t != null:
-				return t
+	for lamps_only in [true, false]:
+		for b in _blds:
+			if b.def.lamp != lamps_only:
+				continue
+			if b.input_buffer != null and not b.site:
+				var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
+				if t != null:
+					return t
 	return null
 
 
@@ -427,6 +451,8 @@ var _def_need: Dictionary = {}  # BuildingDef -> input_need (a def's need never 
 func _need_cached(s: Settlement, b: Building) -> Dictionary:
 	if b.site:
 		return need_of(s.registry, b)
+	if b.def.lamp:
+		return need_for(s.registry, b)  # the fuel depends on the tier, so a lamp is never cached by def
 	var n = _def_need.get(b.def)
 	if n == null:
 		n = input_need(s.registry, b.def)

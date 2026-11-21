@@ -62,6 +62,9 @@ var completion_version: int = 0
 ## Bumps with grid_version for roads and buildings only (not terrain). WalkerSystem rewrites its whole A* grid when this
 ## moves and only the tiles in terrain_dirty when just terrain changed (ticket 55).
 var structure_version: int = 0
+## Bumped by LightingSystem whenever a lamp's lit state changes (dusk fuel burn, dawn). A cache key only (not saved):
+## JobSystem includes it so night slots open and close with the lamps (ticket 133, note from 132).
+var light_version: int = 0
 var terrain_dirty: Array[Vector2i] = []
 ## Bumped when a tile becomes forest (the only change that can bring a forest tile nearer to a woodcutter).
 var forest_gain_version: int = 0
@@ -156,6 +159,8 @@ func add_default_systems() -> void:
 	add_system(RailSystem.new())  # rail network cache (ticket 37); no hooks, queried by connections and 37b manifests
 	add_system(RailManifestSystem.new())  # daily train manifests between linked depots (ticket 37b), hourly arrivals
 	add_system(AirshipSystem.new())  # after the rail manifests (rail first): air freight between docks, survey flights (ticket 38)
+	add_system(LightingSystem.new())  # burns lamp fuel at dusk and answers Settlement.is_lit (ticket 133); before
+	# JobSystem, so its hourly refresh at dusk already sees the night's light (and so before WalkerSystem)
 	add_system(JobSystem.new())
 	add_system(WalkerSystem.new())
 	add_system(WaterSystem.new())  # before Production: the day's wet grid feeds the farm modifier
@@ -1086,9 +1091,27 @@ func is_night(hour: int = -1) -> bool:
 
 
 ## True when `b` counts as lit, so its night slots work (spec N2: a night-shift building works only inside a working
-## lamp's radius). Ticket 133 replaces this stub with the lamp coverage query; until then every building is lit.
-func is_lit(_b: Building) -> bool:
-	return true
+## lamp's radius). Any footprint tile inside a fuelled lamp's radius lights the building; at least one must be lit.
+## Returns true while no LightingSystem runs (plain terminals and unit fixtures), so night work needs no lamp there.
+func is_lit(b: Building) -> bool:
+	var ls := get_system(LightingSystem) as LightingSystem
+	return ls == null or ls.is_building_lit(self, b)
+
+
+## True when `tile` is inside a fuelled lamp's radius tonight (ticket 133). The answer comes from a per-night cache that
+## LightingSystem rebuilds on a build, a demolish or a change of any lamp's lit state. Always true with no LightingSystem.
+func is_tile_lit(tile: Vector2i) -> bool:
+	var ls := get_system(LightingSystem) as LightingSystem
+	return ls == null or ls.is_tile_lit(self, tile)
+
+
+## True during the lamp hours (LogisticsDef.lamp_light_start to lamp_light_end, 19 to 7 wrapping midnight).
+func is_lamp_hour(hour: int = -1) -> bool:
+	var h := clock.hour() if hour < 0 else hour
+	var lg := registry.logistics if registry != null else null
+	var start := lg.lamp_light_start if lg != null else 19
+	var end := lg.lamp_light_end if lg != null else 7
+	return h >= start or h < end
 
 
 ## Re-run housing and job assignment now (also runs every hour via JobSystem).
@@ -1175,17 +1198,18 @@ func set_building_priority(building_id: int, priority: String) -> bool:
 # ---------------------------------------------------------------- upgrade tiers (ticket 31)
 
 ## Why a building cannot start an in-place upgrade: {"ok": bool, "reason": String}, shaped like can_pave_road.
-## Reasons: unknown_building, site (still under construction), category (not housing/food/resources/lumen),
-## not_upgradable (the def carries no tiers), in_progress, max_tier, era_locked (tier II needs Town, tier III City;
-## the eras live in data/tiers/tiers.tres), needs_wet (the target tier only works on wet ground and the footprint
-## is not half wet, e.g. the Irrigated Farm).
+## Reasons: unknown_building, site (still under construction), category (not housing/food/resources/lumen; the Lamp is
+## exempt), not_upgradable (the def carries no tiers), in_progress, max_tier, era_locked (tier II needs Town, tier III
+## City from data/tiers/tiers.tres, or the TierDef's own era: the Lamp's II Village, III Town, IV City), needs_wet (the
+## target tier only works on wet ground and the footprint is not half wet, e.g. the Irrigated Farm).
 func can_upgrade(building_id: int) -> Dictionary:
 	var b: Building = buildings.get(building_id)
 	if b == null:
 		return {"ok": false, "reason": "unknown_building"}
 	if b.site:
 		return {"ok": false, "reason": "site"}
-	if not BuildingDef.UPGRADABLE_CATEGORIES.has(b.def.category):
+	# The Lamp is civic but upgrades by era (ticket 133): its def says so, so the category rule steps aside.
+	if not BuildingDef.UPGRADABLE_CATEGORIES.has(b.def.category) and not b.def.lamp:
 		return {"ok": false, "reason": "category"}
 	if not b.def.upgradable or b.def.tiers.is_empty():
 		return {"ok": false, "reason": "not_upgradable"}
@@ -1193,9 +1217,13 @@ func can_upgrade(building_id: int) -> Dictionary:
 		return {"ok": false, "reason": "in_progress"}
 	if b.tier >= 1 + b.def.tiers.size():
 		return {"ok": false, "reason": "max_tier"}
-	if not tier_unlocked(b.tier + 1):
-		return {"ok": false, "reason": "era_locked"}
 	var target := b.tier_def(registry, b.tier + 1)
+	# A TierDef may name its own era (the Lamp: II Village, III Town, IV City, ticket 133).
+	if target != null and target.era != "":
+		if not era_reached(target.era):
+			return {"ok": false, "reason": "era_locked"}
+	elif not tier_unlocked(b.tier + 1):
+		return {"ok": false, "reason": "era_locked"}
 	if target != null and target.needs_wet and not WaterSystem.footprint_wet(self, b):
 		return {"ok": false, "reason": "needs_wet"}
 	return {"ok": true, "reason": ""}
@@ -1207,10 +1235,13 @@ func tier_unlocked(tier: int) -> bool:
 	if rule == null:
 		return true
 	var req_id := rule.era_for(tier)
-	if req_id == "":
-		return true
+	return req_id == "" or era_reached(req_id)
+
+
+## True when `era` is the current era or an earlier one (a plain era id, e.g. a TierDef.era override).
+func era_reached(id: String) -> bool:
 	var cur := registry.get_era(era_id())
-	var req := registry.get_era(req_id)
+	var req := registry.get_era(id)
 	return cur == null or req == null or cur.order >= req.order
 
 
