@@ -73,8 +73,8 @@ func test_driver_speeds() -> void:
 		var d := SimDriver.new()
 		d.settlement = Settlement.new_game(1, reg)
 		d.set_speed(sp)
-		for i in 240:
-			d.advance(0.5)  # 120 real seconds, one day at 1x
+		for i in 480:
+			d.advance(0.25)  # 120 real seconds, one day at 1x (0.25 s is the longest frame the driver follows)
 		results[sp] = d.settlement.clock.total_hours
 		d.free()
 	assert_eq(results[0], 0)
@@ -90,11 +90,23 @@ func test_an_hour_is_five_seconds_at_1x() -> void:
 	var d := SimDriver.new()
 	d.settlement = Settlement.new_game(1, reg)
 	d.set_speed(1)
-	for i in 9:
-		d.advance(0.5)
+	for i in 18:
+		d.advance(0.25)
 	assert_eq(d.settlement.clock.total_hours, 0, "4.5 s is not yet an hour")
-	d.advance(0.5)
+	d.advance(0.25)
+	d.advance(0.25)
 	assert_eq(d.settlement.clock.total_hours, 1)
+	d.free()
+
+
+# 157: one long frame must not feed its whole length into the sim (death spiral at x3).
+func test_a_long_frame_advances_at_most_the_capped_game_time() -> void:
+	var d := SimDriver.new()
+	d.settlement = Settlement.new_game(1, reg)
+	d.set_speed(3)
+	d.advance(10.0)  # a 10 s hitch: uncapped this is 30 game seconds, 6 hours
+	var seconds := float(d.settlement.clock.total_hours) * GameClock.REAL_SECONDS_PER_HOUR + d.settlement._hour_acc
+	assert_almost_eq(seconds, SimDriver.MAX_FRAME_SECONDS * 3.0, 0.001, "0.25 s x speed 3 of game time")
 	d.free()
 
 

@@ -695,3 +695,53 @@ func test_big_town_walkers_all_move_within_three_frame_steps() -> void:
 		if not wk.path.is_empty() and [wk.tile, wk.progress, wk.path.size()] == before[id]:
 			still += 1
 	assert_eq(still, 0, "every walker that was on the road moved within %d steps" % WalkerSystem.BAND_COUNT)
+
+
+# ---------------------------------------------------------------- ticket 157: Clear marks
+## Marks up to `n` clearable tiles around the Hearth (made forest first), nearest first; returns how many got a mark.
+func _mark_clear_tiles(world: Settlement, n: int) -> int:
+	var hs := world.map.hearth_spot
+	var tiles: Array[Vector2i] = []
+	for y in range(maxi(1, hs.y - 40), mini(MapState.HEIGHT - 1, hs.y + 40)):
+		for x in range(maxi(1, hs.x - 60), mini(MapState.WIDTH - 1, hs.x + 60)):
+			tiles.append(Vector2i(x, y))
+	tiles.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - hs).length_squared() < (b - hs).length_squared())
+	var marked := 0
+	for t in tiles:
+		if marked >= n:
+			break
+		if world.occupancy[MapState.idx(t.x, t.y)] >= 0 or world.roads[MapState.idx(t.x, t.y)] != Settlement.ROAD_NONE:
+			continue
+		if world.map.terrain_id_at(t.x, t.y) == "water":
+			continue
+		world.set_terrain(t, "forest")
+		if world.mark_clear(t):
+			marked += 1
+	return marked
+
+
+## One game day (06:00 to 06:00) in frame-sized steps: [total ms, worst step ms].
+func _day_of_frames(world: Settlement) -> Array:
+	_to_hour(world, 6)
+	var worst := 0.0
+	var total := 0.0
+	for i in 150 * GameClock.HOURS_PER_DAY:
+		var t0 := Time.get_ticks_usec()
+		world.step_seconds(CHUNK)
+		var ms := (Time.get_ticks_usec() - t0) / 1000.0
+		total += ms
+		worst = maxf(worst, ms)
+	return [total, worst]
+
+
+func test_one_day_with_1000_clear_marks_stays_within_a_small_multiple_of_the_unmarked_day() -> void:
+	var base := _best_of(func() -> Array: return _day_of_frames(_world()), func(b: Array) -> bool: return b[0] < 3000.0, 2)
+	var marked_world := func() -> Array:
+		var w := _world()
+		assert_gte(_mark_clear_tiles(w, 1000), 1000, "the fixture marks 1,000 tiles")
+		return _day_of_frames(w)
+	var with_marks := _best_of(marked_world, func(b: Array) -> bool: return b[0] < 2.5 * base[0] + 300.0, 2)
+	print("PERF one day, 600 citizens: %.0f ms unmarked (worst step %.1f), %.0f ms with 1,000 clear marks (worst step %.1f)" % [
+			base[0], base[1], with_marks[0], with_marks[1]])
+	assert_lt(with_marks[0], 2.5 * base[0] + 300.0, "1,000 marks cost under 2.5 x the unmarked day (measured 1.9x; before the fix 3.5x and 280 ms steps)")
+	assert_lt(with_marks[1], 20.0, "no step above 20 ms with 1,000 marks")

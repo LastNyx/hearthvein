@@ -214,6 +214,73 @@ func test_marks_and_their_progress_survive_save_and_load() -> void:
 	assert_eq(loaded.clear_marked_tiles(), s.clear_marked_tiles())
 
 
+# ---------------------------------------------------------------- 157: many marks
+
+## Marks the grass tiles in a block east of the Hearth (made forest first), returns the tiles nearest first.
+func _mark_block(w: int, hgt: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for x in range(h.x + 3, h.x + 3 + w):
+		for y in range(h.y + 1, h.y + 1 + hgt):
+			var t := Vector2i(x, y)
+			s.set_terrain(t, "forest")
+			if s.mark_clear(t):
+				out.append(t)
+	return out
+
+
+func test_builders_take_the_nearest_marks_first() -> void:
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	var near := _tile(4, 1, "forest")
+	var mid := _tile(9, 1, "forest")
+	var far := _tile(14, 1, "forest")
+	for t in [far, mid, near]:  # marked far first: the order of marking does not matter
+		assert_true(s.mark_clear(t))
+	_to_six()
+	var order: Array[Vector2i] = []
+	var guard := 0
+	while order.size() < 3 and guard < 24 * 6:
+		s.step_hours(1)
+		guard += 1
+		for t in [near, mid, far]:
+			if not s.is_clear_marked(t) and not order.has(t):
+				order.append(t)
+	assert_eq(order, [near, mid, far], "cleared nearest first")
+
+
+func test_the_clear_job_list_is_cached_and_follows_marks_and_buildings() -> void:
+	var tiles := _mark_block(5, 4)
+	assert_eq(tiles.size(), 20)
+	var list := ConstructionSystem.clear_job_indices(s)
+	assert_eq(list.size(), 20)
+	assert_same(ConstructionSystem.clear_job_indices(s), list, "no change, same cached list")
+	var t: Vector2i = tiles[0]
+	assert_true(s.unmark_clear(t))
+	assert_eq(ConstructionSystem.clear_job_indices(s).size(), 19)
+	assert_false(ConstructionSystem.clear_job_indices(s).has(MapState.idx(t.x, t.y)))
+	assert_true(s.mark_clear(t))
+	var sorted := ConstructionSystem.clear_job_indices(s).duplicate()
+	sorted.sort()
+	assert_eq(ConstructionSystem.clear_job_indices(s), sorted, "index order after a re-mark")
+	var u: Vector2i = tiles[5]
+	s.set_terrain(u, "grass")  # no longer clearable: the list drops it without an unmark
+	assert_eq(ConstructionSystem.clear_job_indices(s).size(), 19)
+
+
+func test_300_marks_and_three_builders_do_not_start_an_astar_storm() -> void:
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	var tiles := _mark_block(25, 12)
+	assert_gte(tiles.size(), 250, "a big mark set")
+	_to_six()
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var before := ws.path_computations
+	s.step_hours(1)
+	var calls := ws.path_computations - before
+	print("CLEAR A* runs in one hour with %d marks: %d" % [tiles.size(), calls])
+	assert_lte(calls, 60, "A* runs on a shortlist per builder, not on every mark")
+
+
 # ---------------------------------------------------------------- UI
 
 func _game() -> Node:
