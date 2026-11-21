@@ -856,7 +856,7 @@ func test_house_shows_residents_and_their_roles() -> void:
 	_set_job(ids[1], wc, Citizen.JOB_WORK)
 	m.select(tent)
 	var lines: Array = m.selection()["lines"]
-	assert_true("Residents 2/2" in lines, str(lines))
+	assert_true("Residents 2/3" in lines, str(lines))
 	assert_true("1 hauler, 1 woodcutter" in lines, str(lines))
 	_set_job(ids[0], -1, Citizen.JOB_NONE)
 	_set_job(ids[1], -1, Citizen.JOB_NONE)

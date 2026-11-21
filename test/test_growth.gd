@@ -52,7 +52,7 @@ func test_surplus_fills_bar_and_spawns_citizen_only_with_free_bed() -> void:
 	s.step_days(1)
 	assert_eq(s.citizens.size(), 8, "no free bed, no citizen")
 	assert_almost_eq(g.bar, GrowthSystem.bar_size(reg, 8), 0.001, "bar full and waiting")
-	# A tent gives two beds: the full bar turns into one citizen the next day.
+	# A tent gives three beds: the full bar turns into one citizen the next day.
 	_tent(4)
 	s.step_days(1)
 	assert_eq(s.citizens.size(), 9)
@@ -164,9 +164,9 @@ func test_immigration_every_day_at_spirit_40_with_free_beds() -> void:
 	s.step_days(1)
 	assert_eq(s.citizens.size(), 9, "one newcomer on day 1")
 	s.step_days(1)
-	assert_eq(s.citizens.size(), 10, "and one more on day 2 (10 beds)")
+	assert_eq(s.citizens.size(), 10, "and one more on day 2")
 	s.step_days(2)
-	assert_eq(s.citizens.size(), 10, "no free bed left")
+	assert_eq(s.citizens.size(), 11, "11 beds (Hearth 8 + Tent 3): one more, then no free bed")
 
 
 func test_no_immigration_below_spirit_40() -> void:

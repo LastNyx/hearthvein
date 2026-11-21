@@ -111,7 +111,7 @@ func test_tier_two_and_three_effects() -> void:
 	assert_eq(_workers_on(forager), 4)
 
 
-# AC2: Tent II is the Hut and houses 3.
+# AC2: Tent II is the Hut and houses 4.
 func test_tent_ii_is_the_hut() -> void:
 	var tent := _strip_building("tent", 4)
 	var beds := s.beds_total()
@@ -119,12 +119,12 @@ func test_tent_ii_is_the_hut() -> void:
 	tent.tier = 2
 	s.refresh_population()
 	assert_eq(tent.display_name(reg), "Hut")
-	assert_eq(tent.effective_beds(reg), 3)
+	assert_eq(tent.effective_beds(reg), 4)
 	assert_eq(s.beds_total(), beds + 1, "the Hut houses one more")
 	tent.tier = 3
 	s.refresh_population()
 	assert_eq(tent.display_name(reg), "Lodge")
-	assert_eq(tent.effective_beds(reg), 4)
+	assert_eq(tent.effective_beds(reg), 5)
 
 
 # AC2: tier II needs Town.
@@ -151,6 +151,6 @@ func test_a_real_tent_upgrade_turns_it_into_a_hut() -> void:
 	assert_false(tent.upgrading(), "the works finished")
 	assert_eq(tent.tier, 2)
 	assert_eq(tent.display_name(reg), "Hut")
-	assert_eq(tent.effective_beds(reg), 3)
+	assert_eq(tent.effective_beds(reg), 4)
 	assert_eq(s.beds_total(), beds + 1)
 	assert_eq(s.events.log_of("building_upgraded").size(), 1)
