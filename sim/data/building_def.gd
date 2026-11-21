@@ -254,6 +254,11 @@ const GOLD := "gold"
 @export var tiers: Array[TierDef] = []
 
 
+## True when the building has night slots (worker or hauler) or works at night only: the moon badge on its cards.
+func works_at_night() -> bool:
+	return night_worker_slots > 0 or night_hauler_slots > 0 or night_only
+
+
 ## What placing this def costs: the first stage's cost for a staged building, else `cost`.
 func entry_cost() -> Dictionary:
 	return (stages[0].get("cost", {}) as Dictionary) if not stages.is_empty() else cost

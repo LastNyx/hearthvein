@@ -1656,7 +1656,7 @@ func detail_for(def_id: String) -> Dictionary:
 			"size": "%d x %d tiles" % [def.size.x, def.size.y], "inputs": inputs, "outputs": outputs, "extra": extra,
 			"unlock": "Needs %s era" % era_name if locked else "%s era (unlocked)" % era_name, "locked": locked,
 			"reason": layer_block_reason(def),
-			"night": def.night_worker_slots > 0 or def.night_hauler_slots > 0 or def.night_only}
+			"night": def.works_at_night()}
 
 
 func _flow_row(good: String, amount: float) -> Dictionary:
@@ -1701,7 +1701,7 @@ func build_bar() -> Array[Dictionary]:
 				"cost": goods_cost_text(s.cost_for(def.id, have)), "size": "%dx%d" % [def.size.x, def.size.y],
 				"reason": block, "enabled": block == "", "locked": false, "unlock": "", "costs": costs,
 				"short": costs.any(func(c: Dictionary) -> bool: return c["short"]),
-				"night": def.night_worker_slots > 0 or def.night_hauler_slots > 0 or def.night_only})
+				"night": def.works_at_night()})
 	# Ticket 116: the next era's buildings show locked (greyed, with the reason) next to the unlocked ones of their category.
 	for def in _next_era_defs():
 		if def.id != "hearth" and by_cat.has(def.category):
@@ -1709,7 +1709,7 @@ func build_bar() -> Array[Dictionary]:
 					"cost": goods_cost_text(def.entry_cost()), "size": "%dx%d" % [def.size.x, def.size.y],
 					"reason": unlock_text(def), "enabled": false, "locked": true, "unlock": unlock_text(def),
 					"costs": cost_rows(def, have), "short": false,
-					"night": def.night_worker_slots > 0 or def.night_hauler_slots > 0 or def.night_only})
+					"night": def.works_at_night()})
 	var out: Array[Dictionary] = []
 	for cat in CATEGORY_ORDER:
 		if cat == "roads":
