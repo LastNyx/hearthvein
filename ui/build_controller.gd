@@ -1,6 +1,6 @@
 class_name BuildController
 extends Node
-## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, Z clear (click-drag forest, stump and rock to mark them for builders; click again or X unmarks), Y plant (click-drag grass to mark it for Foresters; click again or X unmarks), U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
+## Build mode input: R road tool (click-drag; the Levee from the build menu drags the same way), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, Z clear (click-drag forest, stump and rock to mark them for builders; click again or X unmarks), Y plant (click-drag grass to mark it for Foresters; click again or X unmarks), U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
 ## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
 enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK, UPGRADE, CLEAR, PLANT }
@@ -62,7 +62,7 @@ func _refresh() -> void:
 	mode_changed.emit()
 	_hint.visible = mode != Mode.NONE
 	match mode:
-		Mode.BUILD: _hint.text = "Placing %s (right click cancels)" % def_id
+		Mode.BUILD: _hint.text = _build_hint()
 		Mode.ROAD: _hint.text = "Road: click-drag (right click cancels)"
 		Mode.CHANNEL: _hint.text = _channel_hint(_channel_cost())
 		Mode.PAVED: _hint.text = "Paved road (%s a tile): click-drag (right click cancels)" % _paved_cost()
@@ -248,7 +248,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_click(_tool_tile())
 			else:
 				_painting = false
-	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED or mode == Mode.TRACK or mode == Mode.CLEAR or mode == Mode.PLANT):
+	elif event is InputEventMouseMotion and _painting and (mode == Mode.ROAD or mode == Mode.CHANNEL or mode == Mode.PAVED or mode == Mode.TRACK or mode == Mode.CLEAR or mode == Mode.PLANT or _drags_build()):
 		_paint_to(_tool_tile())
 
 
@@ -258,6 +258,9 @@ func _click(t: Vector2i) -> void:
 			var def := settlement.registry.get_building(def_id)
 			if model == null or model.layer_block_reason(def) == "":
 				settlement.place_building(def_id, t, _place_layer(def))  # stays in build mode for repeated placement
+				if _drags_build():
+					_painting = true
+					_last_tile = t
 		Mode.ROAD:
 			_painting = true
 			_last_tile = t
@@ -346,6 +349,29 @@ func _plant_hint(t: Vector2i, pm: bool, c: Dictionary) -> String:
 	return "Plant: %s" % HudModel.plant_refusal_text(str(c["reason"]))
 
 
+## The hint for the building being placed: the Levee drags like a road, so it names its cost a tile.
+func _build_hint() -> String:
+	var def := settlement.registry.get_building(def_id)
+	if def == null or not def.levee:
+		return "Placing %s (right click cancels)" % def_id
+	var parts: Array[String] = []
+	var cost := def.entry_cost()
+	var ids: Array = cost.keys()
+	ids.sort()
+	for g in ids:
+		var gd := settlement.registry.get_good(g)
+		parts.append("%d %s" % [int(cost[g]), gd.display_name if gd != null else str(g)])
+	return "%s (%s a tile): click-drag (right click cancels)" % [def.display_name, ", ".join(parts)]
+
+
+## True while the building being placed is dragged out along a line, like a road (the Levee).
+func _drags_build() -> bool:
+	if mode != Mode.BUILD:
+		return false
+	var def := settlement.registry.get_building(def_id)
+	return def != null and def.levee
+
+
 func _channel_hint(cost: String) -> String:
 	var help := settlement.registry.water.channel_help() if settlement.registry.water != null else ""
 	return "Channel (%s a tile): click-drag (right click cancels)\n%s" % [cost, help]
@@ -364,7 +390,7 @@ func _paved_cost() -> String:
 	return HudModel.new(settlement).paved_cost_text()
 
 
-## Paint a gap-free line of dirt road (or channel, or paved road) from the last painted tile to t.
+## Paint a gap-free line of dirt road (or channel, paved road, levee) from the last painted tile to t.
 func _paint_to(t: Vector2i) -> void:
 	var cur := _last_tile
 	while cur != t:
@@ -383,6 +409,8 @@ func _paint_to(t: Vector2i) -> void:
 			settlement.mark_clear(cur)  # a drag only marks, so a pass over a marked tile keeps its mark
 		elif mode == Mode.PLANT:
 			settlement.mark_plant(cur)
+		elif mode == Mode.BUILD:
+			settlement.place_building(def_id, cur, _place_layer(settlement.registry.get_building(def_id)))
 		else:
 			settlement.place_road(cur, Settlement.ROAD_DIRT, _layer())
 	_last_tile = t

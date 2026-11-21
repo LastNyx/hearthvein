@@ -130,3 +130,215 @@ func test_save_load_mid_flood_and_same_seed_are_deterministic() -> void:
 	var fl := loaded.get_system(FloodSystem) as FloodSystem
 	assert_not_null(fl, "the loaded game has the FloodSystem")
 	assert_eq(fl.flooded_tiles(), running, "the flood is still running after the load")
+
+
+# ---------------------------------------------------------------- ticket 180: the gaps in 154's tests
+
+## Day numbers of every flood_forecast event the settlement emits.
+func _watch_forecasts(s: Settlement) -> Array[int]:
+	var days: Array[int] = []
+	s.events.subscribe("flood_forecast", func(_e: Dictionary) -> void: days.append(s.clock.total_days()))
+	return days
+
+
+## Steps to hour `h` of absolute day `day` (never backwards).
+func _step_to(s: Settlement, day: int, h: int = 0) -> void:
+	s.step_hours(day * GameClock.HOURS_PER_DAY + h - s.clock.total_hours)
+
+
+# The forecast fires on the day before the start day, once, and raises a notice that names the days; other days are quiet.
+func test_forecast_fires_the_day_before_once_and_raises_a_notice() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	_plot(s)
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	var model := HudModel.new(s)  # kept in a var: the notices live on it
+	var seen := _watch_forecasts(s)
+	var start := fs.flood_start_day(s, 1)
+	_step_to(s, start - 2, GameClock.HOURS_PER_DAY - 1)
+	assert_eq(seen.size(), 0, "no forecast before the day ahead of the start")
+	_step_to(s, start - 1, 1)
+	assert_eq(seen, [start - 1] as Array[int], "the forecast fires on the day before the start day")
+	var notes: Array[Dictionary] = []
+	for it in model.notifications.items:
+		if it["kind"] == "flood":
+			notes.append(it)
+	assert_eq(notes.size(), 1, "a flood notice is raised")
+	if notes.size() == 1:
+		assert_string_contains(notes[0]["text"], str(s.registry.water.flood_days), "the notice names the days")
+		assert_eq(model.notifications.recent(48).size(), 1, "and it is in the list the HUD shows")
+	_step_to(s, GameClock.DAYS_PER_YEAR)
+	assert_eq(seen.size(), 1, "exactly once in the year")
+
+
+# The flood runs from the first hour of the start day to the last hour of its last day; for several seeds and years the
+# start is in spring with a day of warning and the whole flood ends inside spring.
+func test_flood_day_boundaries_and_the_start_day_fits_spring() -> void:
+	var days := reg.water.flood_days
+	for seed_i: int in [1, 7, 42, 99, 1234]:
+		var s := Settlement.new_game(seed_i, reg)
+		var fs := s.get_system(FloodSystem) as FloodSystem
+		for year: int in [1, 2, 3]:
+			var base := (year - 1) * GameClock.DAYS_PER_YEAR
+			var start := fs.flood_start_day(s, year)
+			assert_gte(start - base, 1, "seed %d year %d: a day of warning inside the year" % [seed_i, year])
+			assert_lt(start + days - 1 - base, GameClock.DAYS_PER_SEASON, "seed %d year %d: floods end inside spring" % [seed_i, year])
+	var s := Settlement.new_game(SEED, reg)
+	_plot(s)
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	var start := fs.flood_start_day(s, 1)
+	_step_to(s, start - 1, GameClock.HOURS_PER_DAY - 1)
+	assert_false(fs.active, "not active the hour before the start day")
+	assert_eq(fs.flooded_tiles().size(), 0)
+	_step_to(s, start, 0)
+	assert_true(fs.active, "active at the start day")
+	assert_gt(fs.flooded_tiles().size(), 0)
+	_step_to(s, start + days - 1, GameClock.HOURS_PER_DAY - 1)
+	assert_true(fs.active, "still active the last hour of the last flood day")
+	_step_to(s, start + days, 0)
+	assert_false(fs.active, "drained on start + flood_days")
+	assert_eq(fs.flooded_tiles().size(), 0)
+
+
+# While flooded a walker's path around the water never crosses a flooded road tile; after the drain it is open again.
+func test_walkers_avoid_flooded_road_tiles_until_the_drain() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var p := _plot(s)
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var from := Vector2i(p.bx, p.bank_y)
+	var to := Vector2i(p.bx + 10, p.bank_y)
+	var wet := Vector2i(p.bx + 5, p.bank_y)
+	for x in range(p.bx, p.bx + 11):
+		s.place_road(Vector2i(x, p.bank_y))
+	s.step_seconds(0.01)  # binds the walker system to the settlement
+	var open := ws.find_path(from, to)
+	assert_true(open.has(wet), "dry: the road along the bank is the way")
+	var start := fs.flood_start_day(s, 1)
+	_step_to(s, start, 1)
+	assert_true(fs.is_flooded(wet), "the bank road floods")
+	for t in ws.find_path(from, to):
+		assert_false(fs.is_flooded(t), "a path never crosses flood water (%s)" % str(t))
+	_step_to(s, start + s.registry.water.flood_days, 1)
+	assert_false(fs.is_flooded(wet))
+	assert_true(ws.find_path(from, to).has(wet), "after the drain the road is open again")
+
+
+# The drained tiles carry the silt marker, the levee-protected ones do not, the next spring's flood clears the marker
+# and a second year floods again on its own day.
+func test_silt_marker_levee_protection_and_the_next_years_flood() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var p := _plot(s)
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	var days := s.registry.water.flood_days
+	var wet := Vector2i(p.bx + 2, p.bank_y)
+	var dry := Vector2i(p.bx + 5, p.back_y)  # behind the levee: only reachable through the bank tile under it
+	for x in range(p.bx + 4, p.bx + 7):
+		assert_true(s.place_building_instant("levee", Vector2i(x, p.bank_y)) >= 0)
+	var start := fs.flood_start_day(s, 1)
+	_step_to(s, start, 1)
+	assert_true(fs.is_flooded(wet))
+	assert_false(fs.is_silted(wet), "no silt marker while the water stands")
+	_step_to(s, start + days, 1)
+	assert_true(fs.is_silted(wet), "the flooded tile is marked silted")
+	assert_false(fs.is_silted(dry), "the tile behind the levee is not")
+	var start2 := fs.flood_start_day(s, 2)
+	assert_gt(start2, start + days, "year 2 has its own later day")
+	_step_to(s, start2 - 1, GameClock.HOURS_PER_DAY - 1)
+	assert_false(fs.active, "no flood before year 2's day")
+	assert_true(fs.is_silted(wet), "the marker stays until the next flood")
+	_step_to(s, start2, 1)
+	assert_true(fs.active, "year 2 floods on its own day")
+	assert_eq(fs.start_day, start2)
+	assert_false(fs.is_silted(wet), "the new flood clears the old marker")
+	_step_to(s, start2 + days, 1)
+	assert_true(fs.is_silted(wet), "and marks the drained tiles again")
+	assert_false(fs.is_silted(dry))
+
+
+# The silt marker and the drained state survive a save taken after the drain; a load mid-flood still drains on its day.
+func test_save_after_the_drain_and_mid_flood_load_drains_on_time() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var p := _plot(s)
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	var days := s.registry.water.flood_days
+	var wet := Vector2i(p.bx + 2, p.bank_y)
+	var start := fs.flood_start_day(s, 1)
+	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+	var path := SAVE_DIR.path_join(SAVE_FILE)
+	_step_to(s, start + 1, 1)
+	assert_eq(SaveGame.save(s, path), OK)
+	var mid := SaveGame.load(path, reg)
+	_step_to(s, start + days, 1)
+	assert_eq(SaveGame.save(s, path), OK)
+	var after := SaveGame.load(path, reg)
+	DirAccess.remove_absolute(path)
+	assert_not_null(mid)
+	assert_not_null(after)
+	if mid == null or after == null:
+		return
+	var fa := after.get_system(FloodSystem) as FloodSystem
+	assert_false(fa.active, "a save after the drain loads drained")
+	assert_eq(fa.flooded_tiles().size(), 0)
+	assert_true(fa.is_silted(wet), "the silt marker survives the load")
+	assert_eq(fa.start_day, start)
+	var fm := mid.get_system(FloodSystem) as FloodSystem
+	assert_true(fm.active and fm.is_flooded(wet), "the mid-flood save is still flooded")
+	_step_to(mid, start + days - 1, GameClock.HOURS_PER_DAY - 1)
+	assert_true(fm.active, "the loaded flood runs to its last day")
+	_step_to(mid, start + days, 1)
+	assert_false(fm.active, "and drains on start + flood_days")
+	assert_true(fm.is_silted(wet), "leaving silt")
+
+
+# The Levee needs a bank tile, costs stone 6 + cut stone 2, and a one-tile gap lets the water through to the tiles behind it.
+func test_levee_needs_a_bank_costs_and_a_gap_leaks() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var p := _plot(s)
+	var fs := s.get_system(FloodSystem) as FloodSystem
+	var away := Vector2i(p.bx + 5, p.by)  # two rows from the river
+	var refused := s.can_place("levee", away, true)
+	assert_false(refused["ok"], "a tile away from the river is refused")
+	assert_eq(refused["reason"], "needs_river_bank")
+	assert_true(s.can_place("levee", Vector2i(p.bx + 5, p.bank_y), true)["ok"], "a bank tile is fine")
+	var cost := s.registry.get_building("levee").entry_cost()
+	assert_eq(cost.size(), 2)
+	assert_eq(float(cost.get("stone", 0)), 6.0, "stone 6")
+	assert_eq(float(cost.get("cut_stone", 0)), 2.0, "cut stone 2")
+	var gap: int = p.bx + 5
+	for x in range(p.bx + 2, p.bx + 9):
+		if x != gap:
+			assert_true(s.place_building_instant("levee", Vector2i(x, p.bank_y)) >= 0)
+	_step_to(s, fs.flood_start_day(s, 1), 1)
+	assert_true(fs.is_flooded(Vector2i(gap, p.bank_y)), "the gap floods")
+	assert_true(fs.is_flooded(Vector2i(gap, p.back_y)), "the water reaches the tile behind the gap")
+	assert_false(fs.is_flooded(Vector2i(gap - 1, p.back_y)), "but not the tiles behind the levee")
+	assert_false(fs.is_flooded(Vector2i(gap + 1, p.back_y)))
+
+
+# The Levee is placed like a road: click-drag lays a gap-free line of sites along the bank, the hint shows the cost a tile.
+func test_levee_drags_like_a_road() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	s.era_override = "town"
+	var p := _plot(s)
+	var layer := CanvasLayer.new()
+	add_child_autofree(layer)
+	var ghost := GhostView.new()
+	layer.add_child(ghost)
+	var build := BuildController.new()
+	add_child_autofree(build)
+	build.setup(s, ghost, layer)
+	build.set_build("levee")
+	assert_string_contains(build.hint_text(), "click-drag")
+	assert_string_contains(build.hint_text(), "6 Stone")
+	assert_string_contains(build.hint_text(), "2 Cut stone")
+	build._click(Vector2i(p.bx + 3, p.bank_y))
+	build._paint_to(Vector2i(p.bx + 7, p.bank_y))
+	for x in range(p.bx + 3, p.bx + 8):
+		var b := s.building_at(Vector2i(x, p.bank_y))
+		assert_not_null(b, "a levee site at x %d" % x)
+		if b != null:
+			assert_eq(b.def.id, "levee")
+	build._painting = false
+	build.set_build("forager")
+	build._click(Vector2i(p.bx + 9, p.bank_y))
+	assert_false(build._painting, "other buildings still place one click at a time")
