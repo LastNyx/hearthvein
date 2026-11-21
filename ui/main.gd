@@ -455,7 +455,7 @@ func _build_world(s: Settlement) -> void:
 	_add(build)
 	build.setup(s, ghost, layer)
 	_add(layer)
-	hud_model = HudModel.new(s)
+	hud_model = HudModel.new(s, settings)
 	build.model = hud_model
 	overlay = OverlayView.new()
 	overlay.name = "OverlayView"

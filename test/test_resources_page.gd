@@ -221,3 +221,37 @@ func test_buying_a_region_is_used_gold() -> void:
 	var before := float(_ledger(s).today("gold")["used"])
 	assert_true(s.buy_region(region))
 	assert_almost_eq(float(_ledger(s).today("gold")["used"]), before + float(price), 0.001)
+
+
+## Ticket 125: a row's pin toggle puts that good on the HUD top-right cluster and saves it in the settings; a second
+## press unpins it.
+func test_pin_toggle_updates_the_pins() -> void:
+	var main: Node = await _game()
+	var hud: Hud = main.get_node("Hud")
+	var m: HudModel = main.hud_model
+	hud.resources_page.open()
+	assert_false(m.is_pinned("planks"))
+	var pin := hud.resources_page.pin_button("planks")
+	assert_not_null(pin, "every row has a pin toggle")
+	pin.pressed.emit()
+	assert_true(m.is_pinned("planks"))
+	assert_true(m.top_goods().has("planks"), "pinned good joins the top-right cluster")
+	assert_true(main.settings.pinned_goods.has("planks"), "the pin is saved in the user settings")
+	assert_eq(hud.resources_page.pin_button("planks").text, "Pinned")
+	hud.resources_page.pin_button("planks").pressed.emit()
+	assert_false(m.is_pinned("planks"))
+	assert_false(main.settings.pinned_goods.has("planks"))
+	assert_eq(hud.resources_page.pin_button("planks").text, "Pin")
+
+
+## Ticket 125: the clock row's help entry works from F1, and E still opens the Resources page.
+func test_f1_opens_help_and_e_opens_resources() -> void:
+	var main: Node = await _game()
+	var hud: Hud = main.get_node("Hud")
+	assert_false(main.help.is_open())
+	_key(hud, KEY_F1)
+	assert_true(main.help.is_open(), "F1 opens help")
+	main.help.close()
+	assert_false(hud.resources_page.visible)
+	_key(hud, KEY_E)
+	assert_true(hud.resources_page.visible, "E still opens the Resources page")
