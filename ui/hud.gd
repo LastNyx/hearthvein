@@ -1378,10 +1378,10 @@ func _style_cell(b: Button, cell: Dictionary, on: bool) -> void:
 	b.disabled = state == "empty"
 
 
-## A cell's text line: Tiny5 drawn at `size` itself, not the HUD's 2x body step (ticket 130c).
-func _cell_label(parent: Node, size: int, color: Color) -> Label:
-	var l := _label(parent, size, color)
-	l.add_theme_font_size_override("font_size", size)
+## A cell's text line: Tiny5 drawn at `font_size` itself, not the HUD's 2x body step (ticket 130c).
+func _cell_label(parent: Node, font_size: int, color: Color) -> Label:
+	var l := _label(parent, font_size, color)
+	l.add_theme_font_size_override("font_size", font_size)
 	return l
 
 
@@ -1389,9 +1389,9 @@ func _cell_label(parent: Node, size: int, color: Color) -> Label:
 ## tightened glyph spacing, so the whole name shows and the size never drops below CELL_NAME_MIN (ticket 130c).
 func _fit_cell_name(l: Label) -> void:
 	var width := CELL_SIZE.x - 2.0 * (CELL_BORDER + CELL_INSET)
-	for size in [CELL_NAME_SIZE, CELL_NAME_MIN]:
-		if _body_font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= width:
-			l.add_theme_font_size_override("font_size", size)
+	for name_size in [CELL_NAME_SIZE, CELL_NAME_MIN]:
+		if _body_font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x <= width:
+			l.add_theme_font_size_override("font_size", name_size)
 			return
 	l.add_theme_font_size_override("font_size", CELL_NAME_MIN)
 	var tight := _tight_name_font(1)
