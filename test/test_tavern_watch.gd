@@ -56,16 +56,6 @@ func _keep_citizens(s: Settlement, n: int) -> void:
 		s.remove_citizen(s.citizens.keys().max())
 
 
-## Citizens working `b`'s night shift.
-func _night_workers(s: Settlement, b: Building) -> int:
-	var n := 0
-	for cid in s.citizens:
-		var c: Citizen = s.citizens[cid]
-		if c.job_id == b.id and c.job_kind == Citizen.JOB_WORK and c.shift == Citizen.SHIFT_NIGHT:
-			n += 1
-	return n
-
-
 ## Criterion 1: the Tavern drinks 4 crops at night with its night workers and a lamp, and cheers only the homes in
 ## its radius that night. Without workers or light it drinks nothing and cheers nobody.
 func test_tavern_drinks_crops_at_night_and_cheers_homes_in_radius() -> void:
@@ -81,7 +71,7 @@ func test_tavern_drinks_crops_at_night_and_cheers_homes_in_radius() -> void:
 	assert_eq(sp.factor_value(s, "tavern"), 0.0, "no Spirit bonus by day")
 	_step_to(s, 19)  # dusk: the lamp burns its fuel
 	assert_true(s.is_lit(tavern), "the lamp lights the Tavern")
-	assert_eq(_night_workers(s, tavern), 2, "two night slots")
+	assert_eq(SpiritSystem.night_workers(s, tavern), 2, "two night slots")
 	_step_to(s, 21)  # crosses the 20:00 night shift start
 	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "the Tavern drank 4 crops for the night")
 	assert_almost_eq(sp.factor_value(s, "tavern"), 5.0, 0.001, "the Hearth inside 4 tiles is cheered")
@@ -97,7 +87,7 @@ func test_tavern_drinks_crops_at_night_and_cheers_homes_in_radius() -> void:
 	# With no workers, the next night drinks nothing and cheers nobody.
 	_keep_citizens(s, 0)
 	_step_to(s, 21)
-	assert_eq(_night_workers(s, tavern), 0, "no night workers")
+	assert_eq(SpiritSystem.night_workers(s, tavern), 0, "no night workers")
 	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "no workers, no drinks")
 	assert_eq(sp.factor_value(s, "tavern"), 0.0, "no workers, no Spirit bonus")
 	# An unlit Tavern also drinks nothing: the night slots stay closed without a lamp.

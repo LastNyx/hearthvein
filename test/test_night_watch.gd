@@ -56,16 +56,6 @@ func _keep_citizens(s: Settlement, n: int) -> void:
 		s.remove_citizen(s.citizens.keys().max())
 
 
-## Citizens working `b`'s night shift.
-func _night_workers(s: Settlement, b: Building) -> int:
-	var n := 0
-	for cid in s.citizens:
-		var c: Citizen = s.citizens[cid]
-		if c.job_id == b.id and c.job_kind == Citizen.JOB_WORK and c.shift == Citizen.SHIFT_NIGHT:
-			n += 1
-	return n
-
-
 ## Criterion 1: the patrol route is every road tile within 8 tiles of the building, the same on every call.
 func test_patrol_route_is_the_road_tiles_within_8_deterministic() -> void:
 	var s := _new_settlement()
@@ -95,7 +85,7 @@ func test_route_tiles_lit_radius_1_at_night_when_staffed_and_fuelled() -> void:
 	_step_to(s, 12)
 	assert_false(s.is_tile_lit(road), "nothing lit by day")
 	_step_to(s, 21)
-	assert_eq(_night_workers(s, watch), 1, "the watch is staffed")
+	assert_eq(SpiritSystem.night_workers(s, watch), 1, "the watch is staffed")
 	assert_almost_eq(watch.input_buffer.amount_of("charcoal"), 1.0, 0.001, "one charcoal burnt for the night")
 	assert_true(s.is_tile_lit(road), "a patrolled road tile is lit")
 	assert_true(s.is_tile_lit(Vector2i(hs.x + 4, hs.y + 1)), "radius 1: the tile beside the route is lit")
@@ -118,7 +108,7 @@ func test_route_tiles_lit_radius_1_at_night_when_staffed_and_fuelled() -> void:
 	alone_watch.input_buffer.add("charcoal", 2.0)
 	_keep_citizens(alone, 0)
 	_step_to(alone, 21)
-	assert_eq(_night_workers(alone, alone_watch), 0, "nobody works the watch")
+	assert_eq(SpiritSystem.night_workers(alone, alone_watch), 0, "nobody works the watch")
 	assert_almost_eq(alone_watch.input_buffer.amount_of("charcoal"), 2.0, 0.001, "nothing burnt")
 	assert_false(alone.is_tile_lit(Vector2i(ahs.x + 4, ahs.y)), "no staff, no light")
 
