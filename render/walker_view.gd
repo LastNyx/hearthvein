@@ -8,6 +8,8 @@ extends Node2D
 
 const STEP_SECONDS := 0.16  # per frame of the 4-beat cycle: step A, stand, step B, stand
 const CYCLE := [0, 2, 1, 2]
+const WORK_SECONDS := 0.3  # per frame of the work swing (frames 0 and 1 alternate), ticket 156
+const SPOTS_PER_WORK := 6  # a crew spreads over the first few stand spots (door side first)
 
 var settlement: Settlement
 var _system: WalkerSystem
@@ -18,6 +20,7 @@ var _bundles: Dictionary = {}
 var _facing: Dictionary = {}  # citizen id -> DIR_*
 var _time: float = 0.0
 var _construction: ConstructionSystem
+var _spots: Dictionary = {}  # work id -> {"v": grid_version, "spots": Array[Vector2i]} (stand tiles, best first)
 var _sky: SkyWalkers  # draws the walkers whose tile is on the sky layer, above the sky group (ticket 40d)
 
 
@@ -92,6 +95,104 @@ static func crew_offset(citizen_id: int) -> Vector2:
 	return Vector2(-15.0 + 10.0 * slot, 38.0 + 4.0 * ((citizen_id / 4) % 2))
 
 
+## Pose of a builder standing at its work, {} for anyone else (walking, or not on a crew, or on the sky layer):
+## "p" pixel position (a land tile beside the work plus a small per-id jitter), "dir" facing the work, "working" true
+## while the shift runs, "frame" the atlas frame (the swing alternates 0 and 1, a resting crew stands in frame 2),
+## "lean" pixels to add to "p" on the hit beat. A site with no free stand spot falls back to the door position.
+func crew_pose(w: Walker, time: float = _time) -> Dictionary:
+	if _construction == null or not w.path.is_empty() or MapState.layer_of(w.tile) != 0:
+		return {}
+	var id := w.citizen_id
+	var work: int = _construction.crews.get(id, -1)
+	var centre: Vector2  # of the work, in tiles
+	var base: Vector2  # fallback position, in pixels
+	if work >= 0:
+		if w.at_building != work or not settlement.buildings.has(work):
+			return {}
+		var r: Rect2i = (settlement.buildings[work] as Building).footprint()
+		centre = Vector2(r.position) + Vector2(r.size) * 0.5
+		base = (Vector2(w.tile) + Vector2(0.5, 0.5)) * ArtLibrary.TILE + crew_offset(id)
+	elif work <= -2:
+		var t := Vector2i((-2 - work) % MapState.WIDTH, (-2 - work) / MapState.WIDTH)
+		if w.at_building >= 0 or w.tile != t:
+			return {}
+		centre = Vector2(t) + Vector2(0.5, 0.5)
+		base = centre * ArtLibrary.TILE
+	else:
+		return {}
+	var spots := _stand_spots(work)
+	var p := base
+	if not spots.is_empty():
+		var spot: Vector2i = spots[id % mini(spots.size(), SPOTS_PER_WORK)]
+		p = (Vector2(spot) + Vector2(0.5, 0.5)) * ArtLibrary.TILE + Vector2(id * 7 % 11 - 5, id * 5 % 7 - 3)
+	var dir := ArtLibrary.facing_for(centre - p / ArtLibrary.TILE)
+	var working := _in_shift()
+	var frame := 2
+	var lean := Vector2.ZERO
+	if working:
+		var beat := int(time / WORK_SECONDS) + id % 2
+		frame = beat % 2
+		if frame == 1:  # the hit beat: lean one pixel toward the work
+			lean = [Vector2(0, 1), Vector2(0, -1), Vector2(-1, 0), Vector2(1, 0)][dir]
+	return {"p": p, "dir": dir, "working": working, "frame": frame, "lean": lean}
+
+
+func _in_shift() -> bool:
+	var lg := settlement.registry.logistics
+	if lg == null:
+		return false
+	var hr := settlement.clock.hour()
+	return hr >= lg.builder_shift_start and hr < lg.builder_shift_end
+
+
+## Ground tiles a builder can stand on beside work `work_id` (a site: the ring round its footprint, nearest the door
+## first; a clear job: the 4 neighbours then the diagonals, road side first). Walkable, not water, not a building.
+## Cached per work id until the grid changes (roads, buildings, terrain).
+func _stand_spots(work_id: int) -> Array:
+	var v := settlement.grid_version
+	var hit: Dictionary = _spots.get(work_id, {})
+	if hit.get("v", -1) == v:
+		return hit["spots"]
+	var cands: Array[Vector2i] = []
+	var skip := Rect2i()
+	if work_id >= 0:
+		var b: Building = settlement.buildings.get(work_id)
+		if b == null:
+			return []
+		skip = b.footprint()
+		var door := _system.door_tile(b)
+		var ring := skip.grow(1)
+		for y in range(ring.position.y, ring.end.y):
+			for x in range(ring.position.x, ring.end.x):
+				var t := Vector2i(x, y)
+				if not skip.has_point(t):
+					cands.append(t)
+		cands.sort_custom(func(a, c):
+			var da := absi(a.x - door.x) + absi(a.y - door.y)
+			var dc := absi(c.x - door.x) + absi(c.y - door.y)
+			return da < dc if da != dc else (a.y < c.y if a.y != c.y else a.x < c.x))
+	else:
+		var t0 := Vector2i((-2 - work_id) % MapState.WIDTH, (-2 - work_id) / MapState.WIDTH)
+		skip = Rect2i(t0, Vector2i.ONE)
+		for d in [Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 1), Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1)]:
+			cands.append(t0 + d)
+		var roadside: Array[Vector2i] = []
+		var rest: Array[Vector2i] = []
+		for t in cands:
+			if MapState.in_bounds(t.x, t.y) and settlement.road_at(t) != Settlement.ROAD_NONE:
+				roadside.append(t)
+			else:
+				rest.append(t)
+		cands = roadside + rest
+	var out: Array[Vector2i] = []
+	for t in cands:
+		if MapState.in_bounds(t.x, t.y) and not skip.has_point(t) and not settlement.is_water_tile(t) \
+				and settlement.building_at(t) == null and _system.tile_speed(t) > 0.0:
+			out.append(t)
+	_spots[work_id] = {"v": v, "spots": out}
+	return out
+
+
 ## Movement vector in tiles of a walker (zero when it has no path).
 static func move_vector(w: Walker) -> Vector2:
 	if w.path.is_empty() or _riding(w):
@@ -133,22 +234,30 @@ func _draw_layer(ci: CanvasItem, layer: int) -> void:
 	for id in _system.walkers:
 		var w: Walker = _system.walkers[id]
 		var moving := w.is_walking() and not _riding(w)
-		var at_door := false
-		if not moving and w.at_building >= 0:
+		var pose := {}
+		if not moving and _construction != null and _construction.crews.has(id):
+			pose = crew_pose(w)
+		if pose.is_empty() and not moving and w.at_building >= 0:
 			if _construction == null or not shown_at_door(w, _construction.crews):
 				continue
-			at_door = true
 		if MapState.layer_of(w.tile) != layer:
 			continue
 		var local_pos := _local_position(w, layer)
 		if not view.has_point(local_pos * tile):
 			continue
 		var dir: int = ArtLibrary.facing_for(move_vector(w), _facing.get(id, ArtLibrary.DIR_DOWN))
-		_facing[id] = dir
 		var p := (local_pos * tile).round()
-		if at_door:
+		var frame := -1  # -1: the walk cycle decides
+		if not pose.is_empty():
+			dir = pose["dir"]
+			p = (pose["p"] as Vector2).round()
+			frame = pose["frame"]
+			if pose["working"]:
+				p += pose["lean"]
+		elif w.at_building >= 0:  # a crew member whose stand tile is unknown: the old door position
 			p += crew_offset(id)
-		items.append([p, id, dir, moving])
+		_facing[id] = dir
+		items.append([p, id, dir, moving, frame])
 	items.sort_custom(func(a, b): return a[0].y < b[0].y)  # nearer walkers over farther ones
 	for it in items:
 		ci.draw_texture(_shadow, it[0] + sh_off)
@@ -157,7 +266,9 @@ func _draw_layer(ci: CanvasItem, layer: int) -> void:
 		var id: int = it[1]
 		var dir: int = it[2]
 		var frame := 2
-		if it[3]:
+		if it[4] >= 0:
+			frame = it[4]
+		elif it[3]:
 			var phase := int(_time / STEP_SECONDS) + ArtLibrary.tile_hash(map_seed, id, 31) % 4
 			frame = CYCLE[phase % 4]
 		var carrying := _hauling != null and _hauling.trips.has(id) and (_hauling.trips[id] as HaulingSystem.Trip).carried > 0.0
