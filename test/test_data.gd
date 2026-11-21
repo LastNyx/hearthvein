@@ -80,7 +80,7 @@ func test_camp_buildings_match_design() -> void:
 	assert_eq(roundi(tent.housing_beds * tent.tiers[1].multiplier), 5)
 	var forager := reg.get_building("forager")
 	assert_eq([forager.cost, forager.worker_slots], [{"wood": 10}, 2])
-	assert_eq(forager.recipe.outputs, {"food": 8.0})
+	assert_eq(forager.recipe.outputs, {"food": 4.0})
 	var wc := reg.get_building("woodcutter")
 	assert_eq([wc.cost, wc.worker_slots], [{"wood": 10}, 2])
 	assert_eq(wc.recipe.outputs, {"wood": 12})
@@ -133,7 +133,7 @@ func test_recipe_inputs_to_outputs() -> void:
 	assert_eq(r.outputs["planks"], 1)
 	_load_real()
 	assert_eq(reg.get_building("forager").recipe.inputs, {})
-	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 8.0})
+	assert_eq(reg.get_building("forager").recipe.outputs, {"food": 4.0})
 
 
 func test_terrain_and_goods_present() -> void:

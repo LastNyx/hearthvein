@@ -110,6 +110,11 @@ refined good are physical goods held in storehouses and moved by haulers.
 - Lumen leaks: raw Lumen in storage loses 3% a day (ticket 159; was 1%). Cells don't leak. When raw Lumen runs out, buildings and
   light draw on cells automatically (1 cell = 5 Lumen). This is what makes Dimming prep a choice: refine
   early and lose 1 in 6, or keep it raw and lose 3% a day.
+- Night shift (ticket 138): night slots run 20:00-06:00 and only inside a lamp's light. Lamps (radius, fuel a night): Brazier
+  3 (1 wood), Lantern Post 5 (2 charcoal), Lumen Lamp 7 (3 Lumen), Grid Lamp 9 (1 Lumen from the grid). The Night Watch's
+  walker lights radius 1 along its route (1 charcoal). Kiln: 2 charcoal per worker-day. Glowcap Grove: 3 food per night
+  worker. Beds: Hut 4/3, Lodge 5/3, Cottage tiers 5, 7, 9. Fair share: slots of one rank, priority and shift are filled one
+  each round-robin across the buildings, so the last built are not left empty; High priority beats Normal across categories.
 - Food types for variety: forage, fish, crops, greenhouse, meals (counts once), sky (Sky Garden), orchard.
 
 ## 8. Hauling and logistics (D39)

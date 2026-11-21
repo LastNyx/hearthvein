@@ -107,8 +107,8 @@ func _on_event(e: Dictionary) -> void:
 		"milestone":
 			raise("milestone:%s" % d["id"], "milestone", "Milestone: %s" % d["name"])
 		"season_started":
-			if d["season"] == "winter":
-				raise("winter:%d" % int(d["year"]), "season", "Lean winter: food x%s" % \
+			if d.get("season", "") == "winter":
+				raise("winter:%d" % int(d.get("year", 0)), "season", "Lean winter: food x%s" % \
 						str(s.registry.planet.winter_food_factor))
 		"building_demolished":
 			_clear_building(d["id"])

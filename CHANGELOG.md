@@ -4,7 +4,17 @@ All notable changes to Hearthvein. Newest first.
 
 ## Unreleased
 
+### Added
+- Night shift: buildings can have night workers who start at dusk (20:00) and work inside a lamp's light. Braziers, Lantern
+  Posts (charcoal, 2 a night), Lumen Lamps (3 Lumen a night) and Grid Lamps light the ground; the Charcoal Kiln, Glowcap
+  Grove (3 food per night worker), Tavern, Night Watch (a lantern walker) and Moonmoth Loft (silk, sold at the Market) use it.
+  Buildings that work at night carry a moon badge.
+
 ### Changed
+- The economy is tighter. Forager, Farm and Fishing Dock make 4 food per worker a day (was 6 to 8), and in winter they make
+  half ("Lean winter: food x0.5"). Lumen upkeep starts in the Village era: a staffed Farm, Fishing Dock, Forester, Quarry or
+  Sawmill costs 1 Lumen a day, paid from storage. Raw Lumen in storage leaks 3% a day (was 1%).
+- A full night at the Moonmoth Loft makes 1 silk.
 - New HUD layout. Top right: people, food, wood, stone, Lumen and gold with up to three pinned goods and a Goods button
   (E), and a clock row under it with pause, 1x 2x 3x and a "?" for help. Top left: an Objectives panel with the next era
   gate and the Dimming forecast, which you can collapse. Bottom left: a minimap (click to jump) with the Ground/Sky and

@@ -38,7 +38,7 @@ func test_tooltip_text_carries_the_numbers_from_data() -> void:
 	var t: String = f["text"]
 	assert_string_contains(t, "10 Wood")
 	assert_string_contains(t, "Workers 2")
-	assert_string_contains(t, "8 Food")
+	assert_string_contains(t, "4 Food")
 	var tap := m.tooltip_for("lumen_tap")["text"] as String
 	assert_string_contains(tap, "8 Lumen")
 	var saw := m.tooltip_for("sawmill")["text"] as String

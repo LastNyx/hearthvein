@@ -51,6 +51,9 @@ const LABOUR_ERA := 3
 const NEAR_READY := 0.0
 ## From City on, wood and stone producers are held while a landmark good is short and the raw stock is over this share of its cost.
 const REFINED_HOLD_CITY := 0.5
+## Raw stock under which the raw producers are never held for the refiners: the later Skyheart stages cost no wood or stone,
+## so the hold was 0 and every woodcutter was paused with wood 0 and planks short (the dead end of 131).
+const REFINED_HOLD_MIN := 100.0
 ## Stock above which a good stops being built for.
 const STOCK_CAP := {"wood": 1500.0, "stone": 1000.0, "planks": 700.0, "cut_stone": 700.0, "lumen_cells": 700.0, "tools": 500.0}
 ## Housing, best first.
@@ -337,6 +340,12 @@ func _init() -> void:
 						if s.map.is_region_owned(s.map.get_region(xx, yy)):
 							forest_owned += 1
 			print("    diag wood: forest tiles %d (owned %d) woodcutters %d foresters %d health %.1f" % [forest_n, forest_owned, _count("woodcutter"), _count("forester"), s.planet_health()])
+			var wc_state := {}
+			for wb: Building in s.buildings.values():
+				if not wb.site and wb.def.id == "woodcutter":
+					var key := "paused" if wb.paused else ("halt:" + wb.halt if wb.halt != "" else "ok")
+					wc_state[key] = int(wc_state.get(key, 0)) + 1
+			print("    diag woodcutters: ", wc_state, " stock %.1f refined_short %s gold_unstaffed %s lm %s active %s" % [float(_stock.get("wood", 0.0)), str(_refined_short("wood")), str(_gold_unstaffed()), _landmark_id(), str(_lm_active())])
 			var phs := s.get_system(PlanetHealthSystem) as PlanetHealthSystem
 			var bd := phs.daily_breakdown(s)
 			var cnt := {}
@@ -1212,6 +1221,7 @@ func _throttle(pop: int) -> void:
 		_gold_throttle()
 	else:
 		_gold_priority()
+	_cleaner_priority()
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
 		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
@@ -1272,6 +1282,16 @@ func _lumen_low() -> bool:
 	elif lumen > LUMEN_BACK:
 		_lumen_short = false
 	return _lumen_short
+
+
+## Cleansers and Purifiers rank last (civic): in a labour-short town they stood unstaffed while blight ate the planet
+## (131/138: planet health ~10 by year 14, forests dead, wood 0, the Skyheart never finished). A player sets them High.
+func _cleaner_priority() -> void:
+	for b: Building in s.buildings.values():
+		if b.site or b.paused or not CLEANERS.has(b.def.id):
+			continue
+		if b.priority != "high":
+			s.set_building_priority(b.id, "high")
 
 
 ## Before the Skyborne throttle: while the era gate still lacks gold, the Markets get High priority. Gold ranks last of the
@@ -1382,6 +1402,7 @@ func _refined_short(raw: String) -> bool:
 	var hold := raw_cost + 50.0
 	if s.registry.get_era(s.era_current).order >= CITY_ORDER:
 		hold = REFINED_HOLD_CITY * raw_cost  # the refiners are what the Nexus waits for: free their hands early (47g)
+	hold = maxf(hold, REFINED_HOLD_MIN)  # the Sawmill and Mason eat wood and stone: with the stock under this the raw producers must run (138)
 	if float(_stock.get(raw, 0.0)) < hold:
 		return false
 	var counts := (s.get_system(WalkerSystem) as WalkerSystem).work_counts()

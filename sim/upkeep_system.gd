@@ -48,9 +48,13 @@ func is_paid(building_id: int) -> bool:
 func on_day(s: Settlement) -> void:
 	if not is_on(s):
 		return
+	var staffed := MarketSystem.assigned_workers(s)
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
 		if b.site or b.paused or b.def.upkeep_lumen <= 0.0 or IslandSystem.is_still_building(s, b):
+			continue
+		if b.def.upkeep_from_storage and int(staffed.get(bid, 0)) <= 0:
+			_paid[bid] = true  # a Village workplace nobody works in costs nothing (ticket 159: staffed workplaces pay)
 			continue
 		_paid[bid] = _pay(s, b)
 

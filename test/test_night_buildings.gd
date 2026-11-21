@@ -137,8 +137,8 @@ func test_grove_needs_shade_and_makes_food_at_night() -> void:
 	s.step_hours(2)
 	var made_total := (s.get_system(ProductionSystem) as ProductionSystem).produced_total
 	s.step_hours(6)  # 21:00 -> 03:00
-	# 2 workers for 6 h of a 12 h work day at 5 food per worker: 2 * 6/12 * 5 = 5 food.
-	assert_almost_eq((s.get_system(ProductionSystem) as ProductionSystem).produced_total - made_total, 5.0, 0.02,
+	# 2 workers for 6 h of a 12 h work day at 3 food per worker (ticket 138): 2 * 6/12 * 3 = 3 food.
+	assert_almost_eq((s.get_system(ProductionSystem) as ProductionSystem).produced_total - made_total, 3.0, 0.02,
 			"the Grove made food at night")
 
 

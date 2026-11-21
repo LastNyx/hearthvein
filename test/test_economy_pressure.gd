@@ -21,16 +21,28 @@ func before_each() -> void:
 	s.systems.erase(s.get_system(GrowthSystem))
 
 
+## A cleared, road-connected strip east of the Hearth, so a building placed beside it gets its crew.
+func _strip(st: Settlement) -> void:
+	var h := st.map.hearth_spot
+	for x in range(h.x + 2, h.x + 16):
+		for y in range(h.y - 4, h.y + 5):
+			if st.map.terrain_id_at(x, y) == "forest":
+				st.set_terrain(Vector2i(x, y), "grass")
+		st.place_road(Vector2i(x, h.y))
+
+
 func _put(id: String) -> Building:
 	var hs := s.map.hearth_spot
+	var best := Vector2i(-1, -1)
+	var best_d := 1 << 30
 	for y in range(MapState.HEIGHT - 3):
 		for x in range(MapState.WIDTH - 3):
-			if s.can_place(id, Vector2i(x, y), true)["ok"]:
-				var bid := s.place_building_instant(id, Vector2i(x, y))
-				if bid >= 0:
-					return s.buildings[bid]
-	assert_true(false, "no spot for %s near %s" % [id, hs])
-	return null
+			var d := (Vector2i(x, y) - hs).length_squared()
+			if d < best_d and s.can_place(id, Vector2i(x, y), true)["ok"]:
+				best = Vector2i(x, y)
+				best_d = d
+	assert_true(best.x >= 0, "a spot for %s near %s" % [id, hs])
+	return s.buildings[s.place_building_instant(id, best)]
 
 
 ## Criterion 1: base output 4 per work day.
@@ -92,16 +104,35 @@ func test_village_workplaces_pay_1_lumen_and_camp_none() -> void:
 	assert_false(UpkeepSystem.is_on(camp), "and off in Camp")
 	s.systems.erase(s.get_system(HaulingSystem))
 	s.systems.erase(s.get_system(StorageSystem))  # no leak blurring the count
-	var farm := _put("farm")
+	_strip(s)
+	var farm: Building = s.buildings[s.place_building_instant("farm", Vector2i(s.map.hearth_spot.x + 4, s.map.hearth_spot.y - 2))]
 	assert_eq(HaulingSystem.input_need(reg, farm.def), {}, "nobody hauls the Village upkeep Lumen")
+	s.step_days(1)  # the crew is assigned
 	var before := float(s.totals().get("lumen", 0.0))
 	s.step_days(1)
 	var us := s.get_system(UpkeepSystem) as UpkeepSystem
 	assert_true(us.is_paid(farm.id), "paid out of storage")
 	assert_almost_eq(float(s.totals().get("lumen", 0.0)), before - 1.0, 0.001, "one day's Lumen left storage")
+	var before2 := float(s.totals().get("lumen", 0.0))
+	s.step_days(1)
+	assert_true(us.is_paid(farm.id))
 	s.hearth.inventory.remove("lumen", 1000.0)
 	s.step_days(1)
 	assert_false(us.is_paid(farm.id), "with no Lumen in storage the day goes unpaid")
+	assert_lt(before2, before, "Lumen kept leaving storage")
+	# Only a staffed workplace pays: with every citizen gone the farm costs nothing.
+	var idle := Settlement.new_game(SEED, reg)
+	idle.era_override = "village"
+	idle.systems.erase(idle.get_system(StorageSystem))
+	var hs := idle.map.hearth_spot
+	_strip(idle)
+	idle.place_building_instant("farm", Vector2i(hs.x + 4, hs.y - 2))
+	while idle.citizens.size() > 0:
+		idle.remove_citizen(idle.citizens.keys().max())
+	var stock := float(idle.totals().get("lumen", 0.0))
+	idle.step_days(1)
+	assert_almost_eq(float(idle.totals().get("lumen", 0.0)), stock, 0.001, "an unstaffed Village workplace pays nothing")
+	assert_true(hs.x >= 0)
 
 
 ## Criterion 4: the raw Lumen leak is 3% a day.
