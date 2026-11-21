@@ -93,6 +93,10 @@ static func input_need(reg: DataRegistry, def: BuildingDef) -> Dictionary:
 	if def.lamp and def.lamp_fuel != "" and not def.lamp_grid and def.lamp_fuel_per_night > 0.0:
 		out[def.lamp_fuel] = float(out.get(def.lamp_fuel, 0.0)) + def.lamp_fuel_per_night \
 				* reg.logistics.input_buffer_days
+	# The Night Watch's walker burns its lantern fuel at dusk, so haulers keep a few nights of it too (ticket 143).
+	if def.patrol_radius > 0 and def.patrol_fuel != "" and def.patrol_fuel_per_night > 0.0:
+		out[def.patrol_fuel] = float(out.get(def.patrol_fuel, 0.0)) + def.patrol_fuel_per_night \
+				* reg.logistics.input_buffer_days
 	return out
 
 

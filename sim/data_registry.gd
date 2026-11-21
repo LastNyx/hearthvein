@@ -496,6 +496,11 @@ func _validate_building(b: BuildingDef) -> void:
 			errors.append("%s: lamp_fuel '%s' is not a good" % [who, b.lamp_fuel])
 		if b.lamp_fuel_per_night <= 0.0:
 			errors.append("%s: lamp_fuel_per_night must be positive" % who)
+	if b.patrol_radius > 0:
+		if not goods.has(b.patrol_fuel):
+			errors.append("%s: patrol_fuel '%s' is not a good" % [who, b.patrol_fuel])
+		if b.patrol_fuel_per_night <= 0.0:
+			errors.append("%s: patrol_fuel_per_night must be positive" % who)
 	if b.fertility_output and b.recipe == null:
 		errors.append("%s: fertility_output without a recipe" % who)
 	if b.fertile_origin_bonus < 1.0:

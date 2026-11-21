@@ -1541,6 +1541,35 @@
    },
    "w": 63
   },
+  "night_watch": {
+   "base": [
+    25,
+    62
+   ],
+   "file": "buildings/night_watch.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/night_watch_fx.png",
+    "offset": [
+     4,
+     -65
+    ]
+   },
+   "generic": false,
+   "h": 63,
+   "shadow": {
+    "file": "buildings/night_watch_shadow.png",
+    "offset": [
+     -19,
+     -4
+    ]
+   },
+   "w": 50
+  },
   "observatory": {
    "base": [
     33,

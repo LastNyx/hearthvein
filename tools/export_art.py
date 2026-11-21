@@ -1381,6 +1381,16 @@ def lamp_sprite(kind):
     return M.Sprite(img, 1, 1, glows=[(gx, gy, r, col)], shadow=(0.9, 5))
 
 
+def night_watch_sprite():
+    """The Night Watch (ticket 143): the approved nightlife mockup art, a lantern on an iron arm, as a 1x1 sprite.
+
+    One warm halo on the lantern cage (the mockup's emissive pixels).
+    """
+    import mockups_nightlife as NL  # lazy: the nightlife mockups are heavy and only the night buildings need them
+    img, _, _ = NL.watch_art(True)
+    return M.Sprite(img, 1, 1, glows=[(40, 8, 12, (255, 200, 90))], shadow=(1.0, 6))
+
+
 def tavern_sprite():
     """The Tavern (ticket 139): the approved nightlife mockup art, warm windows and a hanging sign, as a 2x1 sprite.
 
@@ -1426,6 +1436,8 @@ SHEET = {
     "glowcap_grove": lambda: NightSprite(N.grove_art(False), N.grove_art(True), 2, 2, (1.0, 8), (120, 240, 200), 30),
     # ticket 139: the Tavern, composed in the nightlife mockups (warm windows, hanging sign, barrels)
     "tavern": tavern_sprite,
+    # ticket 143: the Night Watch, a lantern on a pole from the same nightlife mockups
+    "night_watch": night_watch_sprite,
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}

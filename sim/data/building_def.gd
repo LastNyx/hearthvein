@@ -54,6 +54,15 @@ const GOLD := "gold"
 @export var lamp_fuel_per_night: float = 0.0
 ## True for the Grid Lamp (tier IV): it draws its fuel from the Lumen grid and no hauler brings it.
 @export var lamp_grid: bool = false
+## Night Watch (ticket 143, spec N10): its night walker patrols the road tiles within patrol_radius tiles of the
+## footprint (Chebyshev from the footprint, the "within N tiles" measure coverage uses) in a loop. Those tiles count
+## as lit, radius 1, while the watch is staffed and fuelled, so a small night building on the route needs no lamp.
+## 0 = not a patrol building.
+@export var patrol_radius: int = 0
+## Good the walker's lantern burns each night (charcoal). Haulers bring it into the input buffer like lamp fuel;
+## the watch burns patrol_fuel_per_night of it at dusk, and with no worker or no fuel the route stays dark.
+@export var patrol_fuel: String = ""
+@export var patrol_fuel_per_night: float = 0.0
 ## Night-only building (ticket 134: Charcoal Kiln, Glowcap Grove): it exists for its night slots alone, so it opens no
 ## day work slots and ProductionSystem makes nothing by day even if a worker is somehow at its door.
 @export var night_only: bool = false

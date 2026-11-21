@@ -25,7 +25,7 @@ func test_real_data_loads_clean() -> void:
 	assert_eq(reg.goods.size(), 16)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
-	assert_eq(reg.buildings.size(), 67)
+	assert_eq(reg.buildings.size(), 68)
 
 
 func test_broken_fixture_reports_errors() -> void:

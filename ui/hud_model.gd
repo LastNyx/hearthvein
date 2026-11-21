@@ -806,7 +806,8 @@ func workforce() -> Dictionary:
 		row["night_filled"] = _kind_total(night_kinds, 2)
 		if row["night_slots"] == 0:
 			row["night_text"] = "-"
-		elif not _lamp_reaches(b, lamp_tiles):
+		elif b.def.patrol_radius <= 0 and not _lamp_reaches(b, lamp_tiles):
+			# A Night Watch (ticket 143) is its own light: its slot never waits for a lamp.
 			row["night_text"] = "Needs a lamp"
 		else:
 			row["night_text"] = _count_text(night_kinds)

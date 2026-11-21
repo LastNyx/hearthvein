@@ -52,6 +52,26 @@ static func windows(s: Settlement) -> Array[Dictionary]:
 	return out
 
 
+## One entry per Night Watch out tonight: {"id", "origin", "route"}. The route is the very patrol the sim lights
+## (WalkerSystem.patrol_route), which NightView draws as the walker's small lantern pool (ticket 143).
+static func lantern_walkers(s: Settlement) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if s == null or not s.is_lamp_hour():
+		return out
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	if ws == null:
+		return out
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.def.patrol_radius <= 0 or not b.lit_tonight:
+			continue
+		var route := ws.patrol_route(s, b)
+		if not route.is_empty():
+			out.append({"id": b.id, "origin": b.origin, "route": route})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["id"]) < int(b["id"]))
+	return out
+
+
 ## One entry per working ember building: {"id", "origin", "size"}. The Charcoal Kiln glows from its cracks at night.
 static func embers(s: Settlement) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
