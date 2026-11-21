@@ -69,8 +69,27 @@ var _obj_dimming: Label
 var _obj_light: Label
 var _notes_box: VBoxContainer
 var _notes_key := ""
+## The fixed bottom-centre panel (ticket 128): the selected building or, with nothing selected, the town summary.
 var _sel_panel: PanelContainer
+var _sel_content: VBoxContainer
 var _sel_title: Label
+var _sel_tier: Label
+var _sel_sub: Label
+var _sel_sprite: TextureRect
+var _sel_pic: PanelContainer
+var _sel_makes: Label
+var _sel_uses: Label
+var _sel_workers_title: Label
+var _sel_pips: HBoxContainer
+var _sel_workers_text: Label
+var _sel_in_bar: ProgressBar
+var _sel_in_text: Label
+var _sel_in_row: HBoxContainer
+var _sel_out_bar: ProgressBar
+var _sel_out_text: Label
+var _sel_out_row: HBoxContainer
+var _sel_workers_row: HBoxContainer
+var _sel_sprite_key := ""
 var _sel_body: VBoxContainer
 var _sel_body_key := ""
 var _sel_halt: Label
@@ -82,6 +101,15 @@ var _sel_up_btn: Button
 var _prio_buttons: Dictionary = {}
 var _sel_prio_title: Label
 var _prio_row: HBoxContainer
+var _town_panel: VBoxContainer
+var _town_name: Label
+var _town_sub: Label
+var _town_people: Label
+var _town_beds: Label
+var _town_idle: Label
+var _town_planet_trend: Label
+var _town_hint: Label
+var _planet_bar: ProgressBar
 var _cat_box: GridContainer
 var _region_map: RegionMap
 var _cat_buttons: Dictionary = {}
@@ -160,12 +188,11 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	mid.add_child(right)
 	_right_col = right
 	_build_objectives_panel(left)
-	_build_notes(center)
 	_float = Control.new()
 	_float.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_float)
 	_float.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_build_selection_panel(_float)
+	_build_notes(_float)
 	_region_map = RegionMap.new()
 	_float.add_child(_region_map)
 	_region_map.setup(self, model)
@@ -437,7 +464,7 @@ func _refresh_pins() -> void:
 
 
 ## Clock row (ticket 125, H5): dial, "Day N, HH:MM" over "Year N, Season", pause, 1x/2x/3x (current lit), "?" (F1).
-## Spirit and planet health keep their labels here until ticket 128 moves them to the town summary.
+## Spirit and planet health moved to the town summary of the bottom band (ticket 128).
 func _build_clock_panel(parent: Node) -> void:
 	clock_panel = _panel(parent)
 	clock_panel.name = "TopClock"
@@ -476,29 +503,7 @@ func _build_clock_panel(parent: Node) -> void:
 	_help_button.name = "HelpButton"
 	_help_button.tooltip_text = "Help (F1)"
 	_help_button.pressed.connect(func() -> void: help_requested.emit())
-	var extra := HBoxContainer.new()
-	extra.add_theme_constant_override("separation", 8)
-	v.add_child(extra)
-	var sp := HBoxContainer.new()
-	sp.add_theme_constant_override("separation", 6)
-	sp.mouse_filter = Control.MOUSE_FILTER_PASS
-	extra.add_child(sp)
-	_spirit_box = sp
-	_icon(sp, "spirit", 22)
-	_spirit_bar = ProgressBar.new()
-	_spirit_bar.custom_minimum_size = Vector2(100, 16)
-	_spirit_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_spirit_bar.show_percentage = false
-	_spirit_bar.max_value = 100.0
-	_spirit_bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
-	sp.add_child(_spirit_bar)
-	_spirit_label = _label(sp, 15)
-	var pl := HBoxContainer.new()
-	pl.add_theme_constant_override("separation", 6)
-	extra.add_child(pl)
-	_icon(pl, "planet", 22)
-	_planet_label = _label(pl, 15)
-	pl.tooltip_text = "Planet health and its change over the last year"
+	# Ticket 128 moved Spirit and planet health from this row to the town summary in the bottom band.
 
 
 ## An overlay key (V G T H L) toggles the same state as the minimap's buttons.
@@ -661,53 +666,271 @@ func _refresh_notes() -> void:
 			"milestone": col = GOLD
 		p.add_theme_stylebox_override("panel", _style(PANEL_BG, col, 6, 2))
 		_notes_box.add_child(p)
-		_label(p, 14, INK).text = it["text"]
+		var note := _label(p, 14, INK)
+		note.text = it["text"]
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.custom_minimum_size = Vector2(440, 0)
+	_place_notes()
+
+
+## Stacks the notices just above the bottom-centre panel, newest at the bottom (ticket 128).
+func _place_notes() -> void:
+	if _notes_box == null or _sel_panel == null or not is_inside_tree():
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var sz := _notes_box.get_combined_minimum_size()
+	_notes_box.size = sz
+	var panel := _sel_panel.get_global_rect()
+	var pos := Vector2(panel.get_center().x - sz.x * 0.5, panel.position.y - 6.0 - sz.y)
+	pos.x = clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0))
+	_notes_box.position = pos
 
 
 # ---------------------------------------------------------------- selected building
 
+## The fixed bottom-centre panel of spec H7 (mockups hud_town_day / hud_nothing_selected): a big sprite beside the
+## selected building's rows, or the town summary when nothing is selected. It never moves; the notes stack above it.
 func _build_selection_panel(parent: Node) -> void:
 	_sel_panel = _panel(parent)
-	_sel_panel.custom_minimum_size = Vector2(290, 0)
-	var v := VBoxContainer.new()
-	_sel_panel.add_child(v)
-	_sel_title = _label(v, 18, CYAN)
+	_sel_panel.name = "SelectionPanel"
+	_sel_panel.custom_minimum_size = Vector2(440, 0)
+	_sel_content = VBoxContainer.new()
+	_sel_content.add_theme_constant_override("separation", 2)
+	_sel_panel.add_child(_sel_content)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_sel_content.add_child(row)
+	_sel_pic = PanelContainer.new()
+	_sel_pic.custom_minimum_size = Vector2(120, 110)
+	_sel_pic.add_theme_stylebox_override("panel", _style(Color(0.16, 0.21, 0.14), Color(0, 0, 0, 0), 4, 0))
+	_sel_pic.clip_contents = true
+	_sel_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sel_pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_sel_pic)
+	_sel_sprite = TextureRect.new()
+	_sel_sprite.name = "SelectionSprite"
+	_sel_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_sel_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_sel_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sel_sprite.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_sel_sprite.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sel_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sel_pic.add_child(_sel_sprite)
+	var info := VBoxContainer.new()
+	info.add_theme_constant_override("separation", 2)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	info.add_child(head)
+	_sel_title = _label(head, 22, CYAN)
+	_sel_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var badge := PanelContainer.new()
+	badge.name = "TierBadge"
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.add_theme_stylebox_override("panel", _style(Color(0, 0, 0, 0), GOLD, 4, 1, 4))
+	head.add_child(badge)
+	_sel_tier = _label(badge, 13, GOLD)
+	_sel_sub = _label(info, 14, DIM)
+	var flow := HBoxContainer.new()
+	flow.add_theme_constant_override("separation", 12)
+	info.add_child(flow)
+	_sel_makes = _label(flow, 14, INK)
+	_sel_uses = _label(flow, 14, DIM)
+	_sel_workers_row = HBoxContainer.new()
+	_sel_workers_row.add_theme_constant_override("separation", 6)
+	info.add_child(_sel_workers_row)
+	_sel_workers_title = _label(_sel_workers_row, 14, DIM)
+	_sel_workers_title.text = "Workers"
+	_sel_pips = HBoxContainer.new()
+	_sel_pips.add_theme_constant_override("separation", 2)
+	_sel_pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sel_workers_row.add_child(_sel_pips)
+	_sel_workers_text = _label(_sel_workers_row, 14, INK)
+	_sel_in_row = _bar_row(info, "In")
+	_sel_in_bar = _sel_in_row.get_meta("bar")
+	_sel_in_text = _sel_in_row.get_meta("value")
+	_sel_out_row = _bar_row(info, "Out")
+	_sel_out_bar = _sel_out_row.get_meta("bar")
+	_sel_out_text = _sel_out_row.get_meta("value")
+	_sel_halt = _label(info, 14, PURPLE)
+	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sel_warn = _label(info, 14, RED)
 	_sel_body = VBoxContainer.new()
 	_sel_body.add_theme_constant_override("separation", 0)
-	v.add_child(_sel_body)
-	_sel_halt = _label(v, 14, PURPLE)
-	_sel_halt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sel_halt.custom_minimum_size = Vector2(270, 0)
-	_sel_warn = _label(v, 14, RED)
-	_sel_up_cost = HBoxContainer.new()
-	_sel_up_cost.add_theme_constant_override("separation", 3)
-	v.add_child(_sel_up_cost)
-	_sel_up_btn = _button(v, "Upgrade (U)", 13)
-	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
-	_sel_up_reason = _label(v, 14, DIM)
-	_sel_prio_title = _label(v, 14, DIM)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	v.add_child(row)
-	_prio_row = row
+	_sel_content.add_child(_sel_body)
+	_sel_prio_title = _label(_sel_content, 14, DIM)
+	var prow := HBoxContainer.new()
+	prow.add_theme_constant_override("separation", 4)
+	_sel_content.add_child(prow)
+	_prio_row = prow
 	for p in ["low", "normal", "high"]:
-		var b := _button(row, HudModel.PRIORITY_LABELS[p], 13)
+		var b := _button(prow, HudModel.PRIORITY_LABELS[p], 13)
 		b.pressed.connect(func() -> void: model.set_priority(p))
 		_prio_buttons[p] = b
-	var pause := _button(row, "Pause", 13)
+	var pause := _button(prow, "Pause", 13)
 	pause.pressed.connect(func() -> void: model.toggle_pause())
 	_prio_buttons["paused"] = pause
-	_sel_panel.visible = false
+	_sel_up_cost = HBoxContainer.new()
+	_sel_up_cost.add_theme_constant_override("separation", 3)
+	_sel_content.add_child(_sel_up_cost)
+	_sel_up_btn = _button(_sel_content, "Upgrade (U)", 13)
+	_sel_up_btn.pressed.connect(func() -> void: model.upgrade())
+	_sel_up_reason = _label(_sel_content, 14, DIM)
+	_build_town_summary()
+	_sel_panel.visible = true
+
+
+## One "In [bar] 22 / 40" row of the selection panel; the bar and value ride on the row's meta for refresh.
+func _bar_row(parent: Container, title: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	parent.add_child(row)
+	var l := _label(row, 12, DIM)
+	l.text = title
+	l.custom_minimum_size = Vector2(26, 0)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(120, 12)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.show_percentage = false
+	bar.max_value = 1.0
+	bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+	bar.add_theme_stylebox_override("fill", _style(GOLD, Color(0, 0, 0, 0), 2, 0))
+	row.add_child(bar)
+	var value := _label(row, 12, INK)
+	value.custom_minimum_size = Vector2(64, 0)
+	row.set_meta("bar", bar)
+	row.set_meta("value", value)
+	return row
+
+
+## The town summary half of the panel: name, era and date, the big population numbers, Spirit and planet health.
+func _build_town_summary() -> void:
+	_town_panel = VBoxContainer.new()
+	_town_panel.name = "TownSummary"
+	_town_panel.add_theme_constant_override("separation", 2)
+	_sel_panel.add_child(_town_panel)
+	_town_name = _label(_town_panel, 22, CYAN)
+	_town_name.name = "TownName"
+	_town_sub = _label(_town_panel, 14, DIM)
+	var nums := HBoxContainer.new()
+	nums.add_theme_constant_override("separation", 22)
+	_town_panel.add_child(nums)
+	_town_people = _number_block(nums, "pop", "People")
+	_town_beds = _number_block(nums, "pop", "Beds")
+	_town_idle = _number_block(nums, "pop", "Idle")
+	var meters := HBoxContainer.new()
+	meters.add_theme_constant_override("separation", 22)
+	_town_panel.add_child(meters)
+	_spirit_box = _meter_block(meters, "spirit", "Spirit")
+	_spirit_bar = _spirit_box.get_meta("bar")
+	_spirit_label = _spirit_box.get_meta("value")
+	_spirit_box.tooltip_text = ""  # filled from the model each refresh
+	_planet_bar = _meter_block(meters, "planet", "Planet").get_meta("bar")
+	var planet_block := _planet_bar.get_parent().get_parent()
+	_planet_label = planet_block.get_meta("value")
+	_town_planet_trend = _label(planet_block, 12, DIM)
+	planet_block.tooltip_text = "Planet health and its change over the last year"
+	_town_hint = _label(_town_panel, 12, DIM)
+	_town_hint.name = "TownHint"
+	_town_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_town_hint.custom_minimum_size = Vector2(340, 0)
+	_town_panel.visible = false
+
+
+## A big number with its caption under it ("62" over "People"), an icon on the left like the mockup.
+func _number_block(parent: Node, icon: String, caption: String) -> Label:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	parent.add_child(box)
+	_icon(box, icon, 26)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	box.add_child(col)
+	var n := _label(col, 22, INK)
+	var c := _label(col, 12, DIM)
+	c.text = caption
+	return n
+
+
+## An icon and label over a bar, with the value text on the right ("74 / 100"). The bar and value sit in the block's
+## meta so the town summary can refresh them.
+func _meter_block(parent: Node, icon: String, caption: String) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(box)
+	_icon(box, icon, 22)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 1)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(col)
+	var l := _label(col, 12, DIM)
+	l.text = caption
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(80, 12)
+	bar.show_percentage = false
+	bar.max_value = 100.0
+	bar.add_theme_stylebox_override("background", _style(Color(0.235, 0.196, 0.196), Color(0, 0, 0, 0.6), 2, 1))
+	col.add_child(bar)
+	var value := _label(box, 13, INK)
+	value.custom_minimum_size = Vector2(64, 0)
+	box.set_meta("bar", bar)
+	box.set_meta("value", value)
+	return box
 
 
 func _refresh_selection() -> void:
 	var sel := model.selection()
-	_sel_panel.visible = not sel.is_empty()
-	if sel.is_empty():
+	var has := not sel.is_empty()
+	_sel_content.visible = has
+	_town_panel.visible = not has
+	if not has:
+		_refresh_town()
 		return
-	_place_selection_panel()
+	var b := model.selected()
+	if b == null:
+		return
+	var art := b.tier_art_id(model.s.registry)
+	var entry: Variant = ArtLibrary.manifest()["buildings"].get(art if art != "" else str(b.def.id))
+	if entry == null:
+		entry = ArtLibrary.manifest()["buildings"].get(str(b.def.id))
+	var sprite_key := "%s:%d" % [b.def.id, b.tier]
+	if entry != null and sprite_key != _sel_sprite_key:
+		_sel_sprite_key = sprite_key
+		var tex_size := Vector2(float(entry["w"]), float(entry["h"]))
+		var scale := detail_scale(tex_size, Vector2(120, 110))
+		_sel_sprite.texture = ArtLibrary.texture(str(entry["file"]))
+		_sel_sprite.custom_minimum_size = tex_size * scale
 	_sel_title.text = sel["title"]
-	var body: Array = sel["lines"]
+	_sel_tier.text = sel["tier_text"]
+	_sel_sub.text = sel["subtitle"]
+	_sel_makes.text = "Makes %s" % sel["makes"] if sel["makes"] != "" else ""
+	_sel_makes.visible = sel["makes"] != ""
+	_sel_uses.text = sel["uses"]
+	_sel_uses.visible = sel["uses"] != ""
+	_sel_workers_row.visible = bool(sel["show_workers"])
+	_sel_workers_text.text = sel["workers_text"]
+	_fill_pips(int(sel["workers_filled"]), int(sel["workers_slots"]))
+	_sel_in_row.visible = sel["in_text"] != ""
+	if sel["in_text"] != "":
+		_sel_in_bar.max_value = maxf(0.001, float(sel["in_max"]))
+		_sel_in_bar.value = float(sel["in_value"])
+		_sel_in_text.text = sel["in_text"]
+	_sel_out_row.visible = sel["out_text"] != ""
+	if sel["out_text"] != "":
+		_sel_out_bar.max_value = maxf(0.001, float(sel["out_max"]))
+		_sel_out_bar.value = float(sel["out_value"])
+		_sel_out_text.text = sel["out_text"]
+	var status: String = sel["status"]
+	var status_text := status
+	if sel["halt"] != "":
+		status_text = sel["halt"] if sel["advice"] == "" else "%s\n%s" % [sel["halt"], sel["advice"]]
+	_sel_halt.text = status_text
+	_sel_halt.visible = status_text != ""
+	_sel_halt.add_theme_color_override("font_color", DONE if status == "Working" else PURPLE)
+	var body: Array = sel["extra"] if not sel["site"] else sel["lines"]
 	var body_key := "\n".join(body.map(func(l: String) -> String: return l))
 	if body_key != _sel_body_key:
 		_sel_body_key = body_key
@@ -716,8 +939,6 @@ func _refresh_selection() -> void:
 			c.queue_free()
 		for l: String in body:
 			_hud_line(_sel_body, l, INK, 14)
-	_sel_halt.text = sel["halt"] if sel["advice"] == "" else "%s\n%s" % [sel["halt"], sel["advice"]]
-	_sel_halt.visible = sel["halt"] != ""
 	_sel_prio_title.text = sel["priority_label"]
 	_sel_prio_title.visible = sel["show_priority"]
 	_prio_row.visible = sel["show_priority"]
@@ -740,23 +961,39 @@ func _refresh_selection() -> void:
 		_style_button(_prio_buttons[p], on)
 
 
-## Float the panel beside the selected building (right of it, left when there is no room), clamped to the screen.
-func _place_selection_panel() -> void:
-	var b := model.selected()
-	if b == null or camera == null:
-		return
-	var xf := camera.get_viewport().get_canvas_transform()
-	var tl: Vector2 = xf * (Vector2(b.origin) * ArtLibrary.TILE)
-	var br: Vector2 = xf * (Vector2(b.origin + b.def.size) * ArtLibrary.TILE)
-	var vp := camera.get_viewport().get_visible_rect().size
-	var sz := _sel_panel.get_combined_minimum_size()
-	_sel_panel.size = sz
-	var pos := Vector2(br.x + 14.0, tl.y - 20.0)
-	if pos.x + sz.x > vp.x - 6.0:
-		pos.x = tl.x - sz.x - 14.0
-	pos.x = clampf(pos.x, 6.0, maxf(6.0, vp.x - sz.x - 6.0))
-	pos.y = clampf(pos.y, 60.0, maxf(60.0, vp.y - sz.y - 70.0))
-	_sel_panel.position = pos
+## The day-shift worker pips: one filled square per worker, empty ones for the free slots. No night row yet (1.1.11).
+func _fill_pips(filled: int, slots: int) -> void:
+	for c in _sel_pips.get_children():
+		_sel_pips.remove_child(c)
+		c.queue_free()
+	for i in slots:
+		var p := Panel.new()
+		p.custom_minimum_size = Vector2(8, 12)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_theme_stylebox_override("panel", _style(DONE if i < filled else Color(0.25, 0.22, 0.2),
+				Color(0, 0, 0, 0), 2, 0, 0))
+		_sel_pips.add_child(p)
+
+
+## The town summary values when nothing is selected (ticket 128).
+func _refresh_town() -> void:
+	var t := model.town_summary()
+	_town_name.text = t["name"]
+	_town_sub.text = "%s era, %s" % [t["era"], t["date"]]
+	_town_people.text = str(t["people"])
+	_town_beds.text = str(t["beds"])
+	_town_idle.text = str(t["idle"])
+	_spirit_bar.value = float(t["spirit"])
+	var fill: Color = {"good": DONE, "ok": Color("d2a03c"), "bad": Color("d2503c")}[t["spirit_state"]]
+	_spirit_bar.add_theme_stylebox_override("fill", _style(fill, Color(0, 0, 0, 0), 2, 0))
+	_spirit_label.text = t["spirit_text"]
+	_spirit_box.tooltip_text = t["spirit_tooltip"]
+	_planet_bar.value = float(t["planet"])
+	_planet_bar.add_theme_stylebox_override("fill", _style(DONE if int(t["planet"]) >= 50 else RED,
+			Color(0, 0, 0, 0), 2, 0))
+	_planet_label.text = t["planet_text"]
+	_town_planet_trend.text = t["planet_trend"]
+	_town_hint.text = t["hint"]
 
 
 # ---------------------------------------------------------------- build bar
@@ -771,8 +1008,8 @@ const CARD_ROWS := 2
 const CARD_GAP := 6
 ## Category buttons use a slim style so all of them (12 with every era unlocked) share one row at 1280 px (ticket 122).
 const CAT_BUTTON_PAD := 6
-## The bottom band of hud-rts-spec H7: the minimap on the left, the category bar in the middle for now (tickets 128 and
-## 129 add the selection panel centre and the command grid right).
+## The bottom band of hud-rts-spec H7: the minimap on the left, the selection panel (or town summary) centred, and the
+## category bar on the right until ticket 129 swaps it for the command grid.
 const BAND_HEIGHT := 148.0
 
 
@@ -808,7 +1045,13 @@ func _build_bar(parent: Node) -> void:
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	band.add_child(mid)
-	var p := _panel(mid)
+	_build_selection_panel(mid)
+	var right := CenterContainer.new()
+	right.name = "BottomRight"
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	band.add_child(right)
+	var p := _panel(right)
 	_bar_panel = p
 	_cat_box = GridContainer.new()
 	_cat_box.add_theme_constant_override("h_separation", 4)
@@ -1096,14 +1339,6 @@ func refresh() -> void:
 	_pop_box.tooltip_text = pop["tooltip"]
 	_pop_label.add_theme_color_override("font_color", RED if pop["homeless"] > 0 else INK)
 	_growth_bar.value = pop["growth"]
-	var sp := model.spirit()
-	_spirit_bar.value = sp["value"]
-	var fill: Color = {"good": Color("78be5a"), "ok": Color("d2a03c"), "bad": Color("d2503c")}[sp["state"]]
-	_spirit_bar.add_theme_stylebox_override("fill", _style(fill, Color(0, 0, 0, 0), 2, 0))
-	_spirit_label.text = sp["text"]
-	_spirit_box.tooltip_text = sp["tooltip"]
-	_spirit_bar.tooltip_text = sp["tooltip"]
-	_planet_label.text = model.planet()["text"]
 	_refresh_objectives()
 	var hours_f := float(model.s.clock.hour())
 	if driver != null:
@@ -1149,8 +1384,7 @@ func _process(delta: float) -> void:
 	hover_tick(delta)
 	_pulse_t += delta
 	update_highlight(_pulse_t)
-	if _sel_panel.visible:
-		_place_selection_panel()
+	_place_notes()
 	if _region_map.visible:
 		_center_region_map()
 	if workforce_page.visible:

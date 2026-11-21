@@ -970,7 +970,16 @@ static func _ordinal(n: int) -> String:
 	return "%d%s" % [n, suffix]
 
 
+## Roman numerals for the tier badge (ticket 128): "Tier II".
+const TIER_ROMAN: Array[String] = ["", "I", "II", "III"]
+## The town summary's fixed strings (ticket 128): the settlement has no player-given name yet.
+const TOWN_NAME := "Hearthvein"
+const TOWN_HINT := "Click a building to see it here. Esc clears the selection."
+
 ## Panel data of the selected building or {} : title, lines (strings), halt text, priority, paused, site progress.
+## Ticket 128 adds the rows of the fixed bottom-centre panel: tier_text, subtitle ("Refining, village era"),
+## workers_text and pips, makes/uses per day, the In/Out buffer bars, the status line and "extra" (the old lines the
+## panel still shows under the rows: sites, residents, reservoir, Stored, Dimming, blight).
 func selection() -> Dictionary:
 	var b := selected()
 	if b == null:
@@ -1017,7 +1026,117 @@ func selection() -> Dictionary:
 			"progress": b.build_progress(), "show_priority": b.site or has_jobs(b),
 			"priority_label": "Build priority" if b.site else "Work priority"}
 	out.merge(upgrade_info(b))
+	out.merge(_panel_rows(b), true)
 	return out
+
+
+## The fixed panel's own rows (ticket 128). Sites keep the construction lines instead of makes/workers/buffers.
+func _panel_rows(b: Building) -> Dictionary:
+	var workers := b.effective_worker_slots(s.registry)
+	var era := s.registry.get_era(b.def.era)
+	var category := category_label(b.def.category)
+	var out := {
+		"tier_text": "Tier " + (TIER_ROMAN[b.tier] if b.tier >= 0 and b.tier < TIER_ROMAN.size() else str(b.tier)),
+		"subtitle": "%s, %s era" % [category, (era.display_name if era != null else b.def.era).to_lower()],
+		"show_workers": not b.site and workers > 0,
+		"workers_filled": mini(_filled(b, Citizen.JOB_WORK), workers) if not b.site else 0,
+		"workers_slots": workers if not b.site else 0,
+		"workers_text": "%d/%d" % [mini(_filled(b, Citizen.JOB_WORK), workers), workers] if not b.site else "",
+		"makes": "" if b.site else _per_day_text(b, b.def.recipe.outputs if b.def.recipe != null else {}, true),
+		"uses": "" if b.site else _per_day_text(b, b.def.recipe.inputs if b.def.recipe != null else {}, false),
+		"in_value": 0.0, "in_max": 0.0, "in_text": "",
+		"out_value": 0.0, "out_max": 0.0, "out_text": "",
+		"status": halt_text(b) if not b.site and halt_text(b) != "" else ("Working" if not b.site else ""),
+		"extra": [],
+	}
+	if b.site:
+		out["extra"] = (selection_lines(b) as Array).duplicate()
+		out["status"] = ""  # the site rows already say what it waits for
+		return out
+	if b.input_buffer != null:
+		var need := HaulingSystem.input_need(s.registry, b.def)
+		out.merge(_buffer_row("in", b.input_buffer, maxi(1, need.size())), true)
+	if b.door_buffer != null:
+		out.merge(_buffer_row("out", b.door_buffer, 1), true)
+	var extra: Array[String] = []
+	extra.append_array(resident_lines(b))
+	extra.append(reservoir_text(b))
+	extra.append(_goods_line("Stored", b.inventory))
+	extra.append(dimming_building_text(b))
+	var bl := _blight_near(b)
+	extra.append("Blight: %d tiles" % bl if bl > 0 else "")
+	out["extra"] = extra.filter(func(l: String) -> bool: return l != "")
+	return out
+
+
+## "6 planks / day" (outputs) or "uses 12 wood" (inputs): one worker's recipe times the building's worker slots and
+## tier output factor, the nominal daily flow the panel shows.
+func _per_day_text(b: Building, amounts: Dictionary, is_output: bool) -> String:
+	if amounts.is_empty():
+		return ""
+	var f := float(b.effective_worker_slots(s.registry)) * b.output_factor(s.registry)
+	var parts: Array[String] = []
+	for g in amounts:
+		parts.append("%s %s" % [num_text(float(amounts[g]) * f), _good_name(g).to_lower()])
+	var text := ", ".join(parts)
+	return "%s / day" % text if is_output else "uses %s" % text
+
+
+## One buffer bar: {prefix_value, prefix_max, prefix_text} with "22 / 40". `needed` is the good count of a per-good
+## buffer, so its capacity reads as the room for all of them.
+func _buffer_row(prefix: String, inv: Inventory, needed: int) -> Dictionary:
+	var cap := inv.cap if inv.mode == "total" else inv.cap * float(needed)
+	var amount := inv.total()
+	return {prefix + "_value": amount, prefix + "_max": cap,
+			prefix + "_text": "%s / %s" % [num_text(amount), num_text(cap)]}
+
+
+## The old text lines of a selected building (what the panel's extra rows and the site rows come from).
+func selection_lines(b: Building) -> Array:
+	var lines: Array[String] = []
+	if b.def.upgradable:
+		lines.append("Tier %d" % b.tier)
+	if b.upgrading():
+		lines.append("Upgrading to Tier %d: %d%%" % [b.upgrade_tier, roundi(b.upgrade_progress() * 100.0)])
+		lines.append(_goods_line("Delivered", b.upgrade_buffer))
+	if b.site:
+		if not b.def.stages.is_empty():
+			lines.append("Stage %d of %d: %s" % [b.stage + 1, b.def.stages.size(), skyheart_stage_name(b)])
+		lines.append("Under construction: %d%%" % roundi(b.build_progress() * 100.0))
+		lines.append(wait_text(b))
+		lines.append(_goods_line("Delivered", b.input_buffer))
+	else:
+		lines.append(jobs_text(b))
+		lines.append_array(resident_lines(b))
+		if b.def.reservoir_capacity > 0.0:
+			lines.append(reservoir_text(b))
+		lines.append(_goods_line("Input", b.input_buffer))
+		lines.append(_makes_line(b))
+		lines.append(_goods_line("Output", b.door_buffer, true))
+		if b.inventory != null:
+			lines.append(_goods_line("Stored", b.inventory))
+	var dim := dimming_building_text(b)
+	if dim != "":
+		lines.append(dim)
+	var bl := _blight_near(b)
+	if bl > 0:
+		lines.append("Blight: %d tiles" % bl)
+	return lines.filter(func(l: String) -> bool: return l != "")
+
+
+## The town summary the panel shows when nothing is selected (ticket 128): name, era and date, the big population
+## numbers, Spirit and planet health with their trend, and the hint line.
+func town_summary() -> Dictionary:
+	var pop := population()
+	var sp := spirit()
+	var pl := planet()
+	return {"name": TOWN_NAME, "era": era_name(), "date": date_text(),
+			"people": pop["pop"], "beds": pop["beds"], "idle": pop["idle"],
+			"spirit": roundi(sp["value"]), "spirit_state": sp["state"], "spirit_text": "%d / 100" % roundi(sp["value"]),
+			"spirit_tooltip": sp["tooltip"],
+			"planet": roundi(pl["value"]), "planet_text": "%d / 100" % roundi(pl["value"]),
+			"planet_trend": "%s%.1f / yr" % ["+" if pl["trend"] >= 0.0 else "-", absf(pl["trend"])],
+			"hint": TOWN_HINT}
 
 
 ## Name of the stage a staged building is on ("" for an ordinary one or a finished one).

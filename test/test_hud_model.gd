@@ -43,6 +43,15 @@ func _site_free_spot() -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## The first free spot for any def (ticket 128 needs a 2x1 Sawmill).
+func _free_spot(id: String, from: int) -> Vector2i:
+	for y in range(h.y - 8, h.y + 8):
+		for x in range(h.x + from, h.x + 24):
+			if s.can_place(id, Vector2i(x, y), true)["ok"]:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
 func test_resources_show_values_and_daily_deltas() -> void:
 	s.step_days(1)
 	s.hearth.inventory.add("wood", 7.0)
@@ -240,6 +249,55 @@ func test_selection_of_a_site_shows_progress() -> void:
 	var sel := m.selection()
 	assert_true(sel["site"])
 	assert_true((sel["lines"][0] as String).begins_with("Under construction"))
+
+
+## Ticket 128: the fixed bottom-centre panel reads the Sawmill's tier, workers, makes/uses per day and both buffers.
+func test_selection_rows_of_a_sawmill() -> void:
+	var id := s.place_building_instant("sawmill", _free_spot("sawmill", 4))
+	assert_true(id >= 0)
+	var b: Building = s.buildings[id]
+	b.input_buffer.add("wood", 22.0)
+	b.door_buffer.add("planks", 3.0)
+	m.select(id)
+	var sel := m.selection()
+	assert_eq(sel["title"], "Sawmill")
+	assert_eq(sel["tier_text"], "Tier I")
+	assert_eq(sel["subtitle"], "Refining, village era")
+	assert_eq(sel["workers_text"], "0/2")
+	assert_eq(sel["workers_slots"], 2)
+	assert_eq(sel["makes"], "6 planks / day")
+	assert_eq(sel["uses"], "uses 12 wood")
+	assert_eq(sel["in_text"], "22 / 24")
+	assert_eq(sel["out_text"], "3 / 40")
+
+
+## Ticket 128: a site keeps its progress and missing-goods rows; with nothing selected the model gives the town summary.
+func test_site_rows_and_the_town_summary() -> void:
+	var t := m.town_summary()
+	assert_eq(t["name"], "Hearthvein")
+	assert_eq(t["era"], "Camp")
+	assert_eq(t["date"], "Year 1, Spring")
+	assert_eq([t["people"], t["beds"], t["idle"]], [8, 8, 6], "8 people, 8 Hearth beds, 6 with Hearth jobs")
+	s.spirit_override = 74.0
+	s.planet_health_override = 81.0
+	t = m.town_summary()
+	assert_eq(t["spirit"], 74)
+	assert_eq(t["spirit_text"], "74 / 100")
+	assert_eq(t["planet"], 81)
+	assert_eq(t["planet_text"], "81 / 100")
+	assert_string_contains(t["planet_trend"], "/ yr")
+	assert_eq(t["hint"], "Click a building to see it here. Esc clears the selection.")
+	var id := s.place_building("storehouse", _site_free_spot())
+	assert_true(id >= 0)
+	m.select(id)
+	var sel := m.selection()
+	assert_true(sel["site"])
+	assert_false(sel["show_workers"])
+	assert_true(sel["makes"] == "" and sel["in_text"] == "", "a site shows progress instead of production rows")
+	assert_true((sel["lines"] as Array).any(func(l: String) -> bool: return l.begins_with("Under construction")))
+	assert_true((sel["lines"] as Array).any(func(l: String) -> bool: return l.begins_with("Waiting for materials")))
+	m.clear_selection()
+	assert_eq(m.selection(), {})
 
 
 func test_build_bar_lists_unlocked_by_category_and_next_era_locked() -> void:

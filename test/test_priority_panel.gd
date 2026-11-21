@@ -73,3 +73,60 @@ func test_top_bar_people_tooltip_and_halt_advice_show() -> void:
 	m.select(wc)
 	hud.refresh()
 	assert_string_contains(hud._sel_halt.text, "Output full: no hauler has picked it up\n")
+
+
+## Ticket 128: the priority and Pause buttons of the fixed selection panel still steer the selected building.
+func test_priority_and_pause_buttons_still_work() -> void:
+	var main: Node = await _game()
+	var hud: Hud = main.get_node("Hud")
+	var s: Settlement = main.settlement
+	var m: HudModel = main.hud_model
+	var wc := s.place_building_instant("woodcutter", _free_spot(s, "woodcutter", 4))
+	assert_true(wc >= 0)
+	m.select(wc)
+	hud.refresh()
+	(hud._prio_buttons["high"] as Button).pressed.emit()
+	assert_eq(m.selection()["priority"], "high")
+	(hud._prio_buttons["paused"] as Button).pressed.emit()
+	assert_true(m.selection()["paused"])
+	(hud._prio_buttons["low"] as Button).pressed.emit()
+	assert_false(m.selection()["paused"], "picking a priority unpauses")
+	assert_eq(m.selection()["priority"], "low")
+
+
+## Ticket 128: the notices stack above the fixed bottom-centre panel and overlap neither it, the minimap nor the grid
+## at 1280x720.
+func test_notices_anchor_above_the_panel_clear_of_map_and_grid() -> void:
+	var main: Node = await _game()
+	var hud: Hud = main.get_node("Hud")
+	var s: Settlement = main.settlement
+	var m: HudModel = main.hud_model
+	var old := get_window().size
+	get_window().size = Vector2i(1280, 720)
+	await wait_process_frames(3)
+	assert_eq(hud.get_viewport().get_visible_rect().size, Vector2(1280, 720))
+	var wc := s.place_building_instant("woodcutter", _free_spot(s, "woodcutter", 4))
+	assert_true(wc >= 0)
+	m.select(wc)
+	s.events.emit("production_halted", {"id": wc, "why": "door_full"})
+	hud.refresh()
+	await wait_process_frames(3)
+	var notes := hud._notes_box.get_global_rect()
+	var panel := hud._sel_panel.get_global_rect()
+	var mini := hud.minimap.get_global_rect()
+	var grid := hud._bar_panel.get_global_rect()
+	assert_true(notes.size.y > 0.0, "the notice is drawn")
+	assert_true(notes.end.y <= panel.position.y + 0.5, "notices sit above the panel: %s vs %s" % [notes, panel])
+	assert_false(notes.intersects(panel), "notices clear of the panel")
+	assert_false(notes.intersects(mini), "notices clear of the minimap")
+	assert_false(notes.intersects(grid), "notices clear of the grid")
+	assert_false(panel.intersects(mini), "the panel clears the minimap")
+	assert_false(panel.intersects(grid), "the panel clears the grid")
+	m.clear_selection()
+	hud.refresh()
+	await wait_process_frames(2)
+	assert_true(hud._town_panel.visible, "nothing selected shows the town summary")
+	assert_false(hud._sel_content.visible)
+	assert_eq(hud._town_name.text, "Hearthvein")
+	assert_eq(hud._town_people.text, "8")
+	get_window().size = old
