@@ -1877,6 +1877,28 @@
    },
    "w": 74
   },
+  "river_dock": {
+   "base": [
+    20,
+    46
+   ],
+   "file": "buildings/river_dock.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "generic": false,
+   "h": 47,
+   "shadow": {
+    "file": "buildings/river_dock_shadow.png",
+    "offset": [
+     -16,
+     -5
+    ]
+   },
+   "w": 41
+  },
   "rowhouse": {
    "base": [
     33,
@@ -3479,6 +3501,26 @@
     ]
    },
    "w": 35
+  },
+  "river_boat": {
+   "base": [
+    19,
+    18
+   ],
+   "file": "props/river_boat.png",
+   "footprint": [
+    1,
+    1
+   ],
+   "h": 19,
+   "shadow": {
+    "file": "props/river_boat_shadow.png",
+    "offset": [
+     -13,
+     -2
+    ]
+   },
+   "w": 39
   },
   "sapling_0": {
    "base": [

@@ -328,3 +328,162 @@ func test_the_worker_saving_comes_from_the_wheel_def() -> void:
 	wheel_def.drive_worker_saving = 5
 	assert_eq(ProductionSystem.worker_slots_for(s, shop), 1, "a big saving still leaves one")
 	wheel_def.drive_worker_saving = 1
+
+
+# ---------------------------------------------------------------- ticket 153: River Docks and boats
+
+## River tiles 4-adjacent to a tile.
+func _rivers_beside(s: Settlement, t: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for d in Placement.DIRS:
+		var n: Vector2i = t + d
+		if MapState.in_bounds(n.x, n.y) and s.map.is_river(n.x, n.y):
+			out.append(n)
+	return out
+
+
+## A free bank tile within `r` of `c`, nearest ring first (stable y then x): land with a river beside it.
+func _bank_near(s: Settlement, c: Vector2i, r: int) -> Vector2i:
+	for rad in range(0, r + 1):
+		for y in range(c.y - rad, c.y + rad + 1):
+			for x in range(c.x - rad, c.x + rad + 1):
+				if absi(x - c.x) != rad and absi(y - c.y) != rad:
+					continue
+				var t := Vector2i(x, y)
+				if MapState.in_bounds(t.x, t.y) and _free_land(s, t) and _bank(s, t):
+					return t
+	return Vector2i(-1, -1)
+
+
+## Steps along river water between two river tiles (4-neighbour BFS); -1 when the water does not join them.
+func _river_steps(s: Settlement, a: Vector2i, b: Vector2i) -> int:
+	var dist := {a: 0}
+	var q: Array[Vector2i] = [a]
+	var head := 0
+	while head < q.size():
+		var c: Vector2i = q[head]
+		head += 1
+		if c == b:
+			return int(dist[c])
+		for d in Placement.DIRS:
+			var n: Vector2i = c + d
+			if dist.has(n) or not MapState.in_bounds(n.x, n.y) or not s.map.is_river(n.x, n.y):
+				continue
+			dist[n] = int(dist[c]) + 1
+			q.append(n)
+	return -1
+
+
+## The shortest water distance between two bank tiles, over their river neighbours; -1 when they are not joined.
+func _water_between(s: Settlement, a: Vector2i, b: Vector2i) -> int:
+	var best := -1
+	for ra in _rivers_beside(s, a):
+		for rb in _rivers_beside(s, b):
+			var d := _river_steps(s, ra, rb)
+			if d >= 0 and (best < 0 or d < best):
+				best = d
+	return best
+
+
+## A land-only road route between two bank tiles: the tiles from a neighbour of `a` to a neighbour of `b`, or [].
+## The two dock tiles stay free.
+func _land_road(s: Settlement, a: Vector2i, b: Vector2i) -> Array[Vector2i]:
+	var parent := {}
+	var q: Array[Vector2i] = []
+	for d in Placement.DIRS:
+		var n: Vector2i = a + d
+		if n != b and _road_ok(s, n) and not parent.has(n):
+			parent[n] = n
+			q.append(n)
+	var head := 0
+	while head < q.size():
+		var c: Vector2i = q[head]
+		head += 1
+		if absi(c.x - b.x) + absi(c.y - b.y) == 1:
+			var out: Array[Vector2i] = []
+			var t := c
+			while parent[t] != t:
+				out.push_front(t)
+				t = parent[t]
+			out.push_front(t)
+			return out
+		for d in Placement.DIRS:
+			var n: Vector2i = c + d
+			if n == a or n == b or parent.has(n) or not _road_ok(s, n):
+				continue
+			parent[n] = c
+			q.append(n)
+	return []
+
+
+## Two free bank tiles on one river (a upstream, b downstream) with a land road between them no longer than the water
+## by much, so an upstream boat is slower than that road. {"a", "b", "road"} or {}.
+func _dock_layout(s: Settlement) -> Dictionary:
+	var path := s.map.river_path
+	for gap in [32, 24, 18, 14]:
+		var i := 0
+		while i + gap < path.size():
+			var a := _bank_near(s, path[i], 4)
+			var b := _bank_near(s, path[i + gap], 4)
+			i += 4
+			if a.x < 0 or b.x < 0:
+				continue
+			var water := _water_between(s, a, b)
+			if water <= 0:
+				continue
+			var road := _land_road(s, a, b)
+			if road.is_empty() or float(road.size()) > 1.2 * float(water):
+				continue
+			return {"a": a, "b": b, "road": road}
+	return {}
+
+
+## AC: two finished docks on the same river form a link (and the dock needs a bank).
+func test_two_docks_on_one_river_form_a_link() -> void:
+	var s := _new_settlement()
+	s.era_override = "town"
+	var lay := _dock_layout(s)
+	assert_false(lay.is_empty(), "seed %d has two bank tiles a land road joins" % SEED)
+	var a: Vector2i = lay["a"]
+	var b: Vector2i = lay["b"]
+	var off := _off_bank(s)
+	assert_true(off.x >= 0)
+	assert_eq(s.can_place("river_dock", off)["reason"], "needs_river_bank", "dry land only")
+	assert_true(s.can_place("river_dock", a)["ok"], "a bank tile takes the dock")
+	var da: Building = s.buildings[s.place_building_instant("river_dock", a)]
+	var db: Building = s.buildings[s.place_building_instant("river_dock", b)]
+	assert_not_null(da)
+	assert_not_null(db)
+	var link := HaulingSystem.river_link(s, da, db)
+	assert_true(link["ok"], "the two docks on one river are linked")
+	assert_gt((link["path"] as Array).size(), 1, "the boat route runs along the water")
+
+
+## AC: the downstream trip is faster than the road; upstream is slower than the road, so only the downstream leg is
+## chosen.
+func test_the_river_leg_is_faster_downstream_and_slower_upstream() -> void:
+	var s := _new_settlement()
+	s.era_override = "town"
+	var lay := _dock_layout(s)
+	assert_false(lay.is_empty(), "seed %d has two bank tiles a land road joins" % SEED)
+	var a: Vector2i = lay["a"]
+	var b: Vector2i = lay["b"]
+	var da: Building = s.buildings[s.place_building_instant("river_dock", a)]
+	var db: Building = s.buildings[s.place_building_instant("river_dock", b)]
+	assert_not_null(da)
+	assert_not_null(db)
+	_lay_road(s, lay["road"])
+	s.step_seconds(0.01)  # binds the walker system to the settlement (tests use its path queries directly)
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var road := ws.path_seconds(ws.find_path(ws.door_tile(da), ws.door_tile(db)))
+	assert_gt(road, 0.0, "a road joins the two docks")
+	var down := hs.journey(s, ws, da, db)
+	assert_true(down["river"], "downstream the boat is chosen")
+	assert_lt(float(down["seconds"]), road, "downstream beats the road")
+	var down_link := HaulingSystem.river_link(s, da, db)
+	var up_link := HaulingSystem.river_link(s, db, da)
+	assert_gt(float(up_link["seconds"]), float(down_link["seconds"]), "upstream is slower than downstream")
+	var up := hs.journey(s, ws, db, da)
+	assert_false(up["river"], "upstream is slower than the road, so the road is used")
+	assert_almost_eq(float(up["seconds"]), road, 0.001, "the road's time")

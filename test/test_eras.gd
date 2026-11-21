@@ -380,7 +380,7 @@ func test_every_town_building_can_be_built() -> void:
 		if d.era == "town":
 			town.append(d)
 	town.sort_custom(func(a: BuildingDef, b: BuildingDef) -> bool: return a.id < b.id)
-	assert_eq(town.size(), 14, "the Town set (Cleanser moved to Village in 1.1.4; Bakery, Moonmoth Loft and Night Market added in 1.1.10-1.1.12) of design section 16")
+	assert_eq(town.size(), 15, "the Town set (Cleanser moved to Village in 1.1.4; Bakery, Moonmoth Loft and Night Market added in 1.1.10-1.1.12; River Dock in 153) of design section 16")
 
 	for d in town:
 		var spot := _village_spot(s, d.id)

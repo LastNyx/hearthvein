@@ -135,6 +135,7 @@ const SKIP := {
 	"JobSystem._lc_works": "layout cache: sites and upgrading buildings, rebuilt lazily",
 	# HaulingSystem
 	"HaulingSystem._walk_cache": "door walking time cache, rebuilt on a grid change",
+	"HaulingSystem._journey_cache": "river-aware trip time cache, rebuilt on a grid change",
 	"ConstructionSystem._trip_cache": "yard -> site walking time cache, rebuilt on a grid change",
 	"ConstructionSystem._trip_version": "grid version of _trip_cache",
 	"ConstructionSystem.clear_rev": "cache key only, bumped on every mark change; the clear job cache rebuilds after load",
@@ -152,6 +153,7 @@ const SKIP := {
 	"HaulingSystem._blds": "building list cache (id order)",
 	"HaulingSystem._door_blds": "producer (door buffer) list cache",
 	"HaulingSystem._site_blds": "construction-site list cache",
+	"HaulingSystem._docks": "River Dock list cache",
 	"HaulingSystem._def_need": "per-def input need cache, rebuilt lazily",
 	# ProductionSystem
 	"ProductionSystem._forest_cache": "nearest forest tile cache, rebuilt",

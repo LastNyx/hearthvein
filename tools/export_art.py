@@ -1326,6 +1326,8 @@ PROPS = {
     "crystal_2": lambda: M.crystal_cluster(1063),
     # ticket 141: the night caravan's wagon, parked beside the Night Market (lit lantern post, no horse)
     "caravan_wagon": lambda: caravan_wagon_sprite(),
+    # ticket 153: the cargo boat that runs between two River Docks
+    "river_boat": lambda: river_boat_prop(),
     "mushrooms_0": lambda: M.mushrooms(1071, False), "mushrooms_1": lambda: M.mushrooms(1072, True),
     "stump_0": stump, "sapling_0": sapling,
     "lily_0": lambda: lily_pad(1, False), "lily_1": lambda: lily_pad(2, False), "lily_2": lambda: lily_pad(3, True),
@@ -1421,6 +1423,20 @@ def water_wheel_sprite():
     return M.Sprite(img, 1, 1, shadow=(1.0, 8))
 
 
+def river_dock_sprite():
+    """The River Dock (ticket 153): the river mockup's pier, a 1x1 building on the bank."""
+    import mockups_nightlife as NL
+    img, _, _ = NL.dock_art()
+    return M.Sprite(img, 1, 1, shadow=(1.0, 8))
+
+
+def river_boat_prop():
+    """The cargo boat that runs between two River Docks (ticket 153)."""
+    import mockups_nightlife as NL
+    img, _, _ = NL.boat_art(True)
+    return M.Sprite(img, 1, 1, shadow=(0.9, 2))
+
+
 SHEET = {
     "hearth": lambda: M.b_hearth(), "tent": lambda: M.b_tent(0), "woodcutter": lambda: M.b_woodcutter(1),
     "lumen_tap": lambda: M.b_lumen_mill(), "meeting_hall": lambda: M.b_meeting_hall(),
@@ -1466,6 +1482,8 @@ SHEET = {
     "night_watch": night_watch_sprite,
     # ticket 152: the Water Wheel from the river mockup (nl_river.png)
     "water_wheel": water_wheel_sprite,
+    # ticket 153: the River Dock from the same river mockup
+    "river_dock": river_dock_sprite,
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}
