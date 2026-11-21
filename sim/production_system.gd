@@ -3,8 +3,11 @@ extends SimSystem
 ## Production (design.md sections 8 and 21). A building with a recipe makes its recipe amounts per worker per
 ## work day. Only workers who are at work count (WalkerSystem.is_at_work), pro-rated over time: a work day is the
 ## 06:00-18:00 shift, so a worker standing at the door for the whole shift makes exactly the recipe amount and the
-## walk to work costs a little. Output goes to the building's door buffer (cap from LogisticsDef); a full buffer
-## stops production and sets Building.halt = "door_full" (events production_halted / production_resumed).
+## walk to work costs a little. At night the workers at the door are the building's night slots (ticket 132); the
+## hourly rate is the same, so a night hour makes its share of the recipe. A night-shift building only works while
+## it is lit: dark, it halts with "unlit" (Settlement.is_lit is a stub until ticket 133). Output goes to the
+## building's door buffer (cap from LogisticsDef); a full buffer stops production and sets Building.halt =
+## "door_full" (events production_halted / production_resumed).
 ## Recipes with inputs eat from the input buffer that haulers fill; an empty one halts with "no_input".
 ## A building with fells_forest (Woodcutter) turns the nearest forest tile in its radius into a stump per
 ## LogisticsDef.units_per_felled_tile produced; no forest left = halt "no_forest".
@@ -157,6 +160,9 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 		return
 	if b.def.min_planet_health > 0.0 and s.planet_health() < b.def.min_planet_health:
 		_set_halt(s, b, "planet_too_sick")
+		return
+	if b.def.night_worker_slots > 0 and s.is_night() and not s.is_lit(b):
+		_set_halt(s, b, "unlit")  # a dark night-shift building keeps its night slots closed (spec N2)
 		return
 	var dry := WaterSystem.dry_halt(s, b)
 	if dry != "":

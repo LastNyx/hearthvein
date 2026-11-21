@@ -77,8 +77,9 @@ func test_mason_recipe_runs_end_to_end_through_haulers() -> void:
 	var stone := s.hearth.inventory.amount_of("cut_stone") - before_s
 	var used := before_m - s.hearth.inventory.amount_of("stone")
 	assert_gt(stone, 0.0, "cut stone reached the Hearth's storage")
-	assert_between(stone / 5.0, 3.0, 4.4, "two workers x 2 cut stone a day, got %f" % (stone / 5.0))
-	assert_between(used / stone, 2.9, 3.1, "3 stone per cut stone")
+	# The two day workers make 4 a day; the Mason's night slot (ticket 132) adds about 2 x 10/12 over the night.
+	assert_between(stone / 5.0, 5.0, 6.3, "two workers x 2 cut stone a day plus the night slot, got %f" % (stone / 5.0))
+	assert_between(used / stone, 2.8, 3.15, "3 stone per cut stone")
 	assert_eq(mason.halt, "", "the Mason kept running")
 	assert_eq(s.totals().get("cut_stone", 0.0), s.hearth.inventory.amount_of("cut_stone"),
 			"cut stone is a real stored good")

@@ -297,6 +297,10 @@ func _validate() -> void:
 	elif logistics.island_width <= 0 or logistics.island_height <= 0 or logistics.island_max <= 0 \
 			or logistics.island_width > MapState.REGION_W or logistics.island_height > MapState.REGION_H:
 		errors.append("logistics: island size must fit a region and island_max must be positive")
+	elif logistics.night_shift_start < 0 or logistics.night_shift_start > 23 \
+			or logistics.night_shift_end < 0 or logistics.night_shift_end > 23 \
+			or logistics.night_shift_start == logistics.night_shift_end:
+		errors.append("logistics: night shift hours must be 0-23 and differ")
 	if growth == null:
 		if not goods.is_empty():
 			errors.append("missing growth definition")

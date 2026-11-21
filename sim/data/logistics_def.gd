@@ -34,6 +34,10 @@ extends Resource
 ## at its site until the work is done, so the long day is not eaten by the walk.
 @export var builder_shift_start: int = 6
 @export var builder_shift_end: int = 20
+## The night shift (ticket 132, spec N1): night slots work from night_shift_start to night_shift_end, wrapping
+## midnight (20 to 6). Night workers sleep at home the rest of the day.
+@export var night_shift_start: int = 20
+@export var night_shift_end: int = 6
 ## Share of the cost (or of the goods already delivered to a site) given back on demolish.
 @export var demolish_refund: float = 0.0
 ## Output factor of a building that could not pay the day's Lumen upkeep (design.md sections 8, 14 and 16: x0.5).

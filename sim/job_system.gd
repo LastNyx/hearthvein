@@ -125,8 +125,8 @@ static func _assign_homes(s: Settlement, c: JobSystem) -> void:
 				break
 
 
-## Slot entries {building, kind, slots} in fill order: category rank, priority, building id, then kind.
-## Each entry gets one int sort key (rank, priority, id, kind) so a plain int sort does the ordering.
+## Slot entries {building, kind, slots, night} in fill order: category rank, priority, day before night, building id,
+## then kind. Each entry gets one int sort key so a plain int sort does the ordering.
 static func _job_entries(s: Settlement) -> Array:
 	var by_key := {}
 	var haul_rank := category_rank(HAUL_CATEGORY)
@@ -134,21 +134,30 @@ static func _job_entries(s: Settlement) -> Array:
 	for bid in s.buildings:
 		var b: Building = s.buildings[bid]
 		var d := b.def
-		if d.worker_slots <= 0 and d.hauler_slots <= 0 and d.builder_slots <= 0 and b.tier <= 1:
+		if d.worker_slots <= 0 and d.hauler_slots <= 0 and d.builder_slots <= 0 and b.tier <= 1 \
+				and d.night_worker_slots <= 0 and d.night_hauler_slots <= 0:
 			continue  # no slot of any kind (a tier can add worker slots, tier I cannot)
 		if b.paused or not b.connected or b.site:
 			continue
 		var pr: int = _PRIORITY_RANK.get(b.priority, 1)
+		var lit := s.is_lit(b)  # a night slot stays closed while its building is dark (ticket 132, spec N2)
 		var slots := b.effective_worker_slots(s.registry)
+		var rank: int = _CATEGORY_RANK.get(b.def.category, CATEGORY_ORDER.size())
 		if slots > 0:
-			by_key[_order_key(_CATEGORY_RANK.get(b.def.category, CATEGORY_ORDER.size()), pr, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
-				"slots": slots}
+			by_key[_order_key(rank, pr, false, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
+				"slots": slots, "night": false}
+		if d.night_worker_slots > 0 and lit:
+			by_key[_order_key(rank, pr, true, bid, 2)] = {"building": b, "kind": Citizen.JOB_WORK,
+				"slots": d.night_worker_slots, "night": true}
 		if d.hauler_slots > 0:
-			by_key[_order_key(haul_rank, pr, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
-				"slots": d.hauler_slots}
+			by_key[_order_key(haul_rank, pr, false, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
+				"slots": d.hauler_slots, "night": false}
+		if d.night_hauler_slots > 0 and lit:
+			by_key[_order_key(haul_rank, pr, true, bid, 1)] = {"building": b, "kind": Citizen.JOB_HAUL,
+				"slots": d.night_hauler_slots, "night": true}
 		if d.builder_slots > 0:
-			by_key[_order_key(build_rank, pr, bid, 0)] = {"building": b, "kind": Citizen.JOB_BUILD,
-				"slots": d.builder_slots}
+			by_key[_order_key(build_rank, pr, false, bid, 0)] = {"building": b, "kind": Citizen.JOB_BUILD,
+				"slots": d.builder_slots, "night": false}
 	var keys: Array = by_key.keys()
 	keys.sort()
 	var entries: Array = []
@@ -157,9 +166,10 @@ static func _job_entries(s: Settlement) -> Array:
 	return entries
 
 
-## Sort key: rank, then priority, then building id, then kind code (build 0 < haul 1 < work 2, alphabetical).
-static func _order_key(rank: int, pr: int, bid: int, kind_code: int) -> int:
-	return (((rank * 4 + pr) << 24) + bid) * 4 + kind_code
+## Sort key: rank, then priority, then day before night (night slots fill after the day slots of the same rank),
+## then building id, then kind code (build 0 < haul 1 < work 2, alphabetical).
+static func _order_key(rank: int, pr: int, night: bool, bid: int, kind_code: int) -> int:
+	return ((((rank * 4 + pr) * 2 + (1 if night else 0)) << 24) + bid) * 4 + kind_code
 
 
 ## Builders are only wanted while sites are ready to build (full cost delivered, not paused): crew size per such
@@ -182,9 +192,10 @@ static func _cap_builders(s: Settlement, c: JobSystem, entries: Array) -> Array:
 	return out
 
 
-## Int key of a (building, job kind) slot; cheaper than a formatted string.
-static func _slot_key(building_id: int, kind: String) -> int:
-	return building_id * 4 + _KIND_CODE.get(kind, 0)
+## Int key of a (building, job kind, shift) slot; cheaper than a formatted string. A building's day and night slots
+## are different slots, so the night bit keeps them apart.
+static func _slot_key(building_id: int, kind: String, night: bool) -> int:
+	return building_id * 8 + _KIND_CODE.get(kind, 0) * 2 + (1 if night else 0)
 
 
 ## Slots are allotted in priority order until citizens run out. Citizens already in an allotted slot keep it
@@ -224,11 +235,11 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 		left -= n
 	var by_slot := {}
 	for e in entries:
-		by_slot[_slot_key(e["building"].id, e["kind"])] = e
+		by_slot[_slot_key(e["building"].id, e["kind"], e["night"])] = e
 	var idle: Array = []
 	for cid in _sorted_citizen_ids(s):
 		var c: Citizen = s.citizens[cid]
-		var e = by_slot.get(c.job_id * 4 + _KIND_CODE.get(c.job_kind, 0)) if c.job_id >= 0 else null
+		var e = by_slot.get(_slot_key(c.job_id, c.job_kind, c.shift == Citizen.SHIFT_NIGHT)) if c.job_id >= 0 else null
 		if e != null and e["want"] > 0:
 			e["want"] -= 1
 		else:
@@ -236,6 +247,7 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 				s.events.emit("citizen_job_changed", {"id": c.id, "job": -1})
 			c.job_id = -1
 			c.job_kind = Citizen.JOB_NONE
+			c.shift = Citizen.SHIFT_DAY
 			idle.append(c)
 	var i := 0
 	for e in entries:
@@ -245,4 +257,5 @@ static func _assign_jobs(s: Settlement, sys: JobSystem) -> void:
 			e["want"] -= 1
 			c.job_id = e["building"].id
 			c.job_kind = e["kind"]
+			c.shift = Citizen.SHIFT_NIGHT if e["night"] else Citizen.SHIFT_DAY
 			s.events.emit("citizen_job_changed", {"id": c.id, "job": c.job_id})

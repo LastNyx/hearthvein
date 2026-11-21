@@ -95,9 +95,9 @@ func test_haulers_pick_nearest_storehouse_with_room() -> void:
 func test_two_haulers_never_take_the_same_units() -> void:
 	var f := _put("forager", 4)
 	_put("storehouse", 6)
-	f.door_buffer.add("food", 5.0)
 	s.set_building_priority(f.id, "paused")  # no new production, only the 5 units
 	s.step_hours(6)
+	f.door_buffer.add("food", 5.0)  # after the night haulers' shift (ticket 132), so the day crew carries it
 	s.step_seconds(1.0)
 	var trips_now := 0
 	for i in 40:

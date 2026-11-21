@@ -19,6 +19,7 @@ size = Vector2i(2, 1)
 cost = {"wood": 18, "stone": 27, "planks": 10}
 worker_slots = 2
 hauler_slots = 0
+night_worker_slots = 1
 builder_slots = 0
 upkeep_lumen = 0.0
 housing_beds = 0

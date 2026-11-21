@@ -7,10 +7,10 @@ extends SimSystem
 ## that for haulers in its region, see RegionSystem.handcart_zones), and is a walk to the
 ## source door, a pickup, a walk to the destination door and a drop. "Nearest" is walking time between doors.
 ##
-## Hours: haulers only START trips between WalkerSystem.WORK_START_HOUR and WORK_END_HOUR (design.md is silent, so
-## they follow the work shift) and only from their job door. A trip in progress always finishes. Every hauler on a
-## trip is a controlled walker; it is released (and sent back to its job door) when no task is left or the
-## shift is over, after which the normal schedule takes over.
+## Hours: haulers only START trips during their own shift (the day shift, WORK_START_HOUR to WORK_END_HOUR, unless
+## they are night citizens, ticket 132, who work the night shift) and only from their job door. A trip in progress
+## always finishes. Every hauler on a trip is a controlled walker; it is released (and sent back to its job door)
+## when no task is left or the shift is over, after which the normal schedule takes over.
 ##
 ## Reservations: when a trip is planned the load is reserved at the source and the room at the destination, so two
 ## haulers never chase the same units. A trip is aborted (reservations freed, carried goods put back if possible,
@@ -136,21 +136,21 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	if ws == null or s.registry.logistics == null:
 		return
-	var in_shift := _in_shift(s)
 	for cid in trips.keys():
 		var t: Trip = trips[cid]
+		var in_shift := _in_shift_for(s, s.citizens.get(cid))
 		var guard := 0
 		while trips.has(cid) and guard < 8 and _advance(s, ws, t, in_shift):
 			guard += 1
 	_retry_left = maxf(0.0, _retry_left - seconds)
-	if not in_shift or _retry_left > 0.0:
+	if _retry_left > 0.0 or not (_in_shift(s) or s.is_night()):
 		return
 	var allowance := _plan_allowance(seconds)
 	for cid in s.citizen_ids_of_kind(Citizen.JOB_HAUL):
 		if allowance <= 0:
 			break
 		var c: Citizen = s.citizens.get(cid)
-		if c == null or c.job_kind != Citizen.JOB_HAUL or trips.has(cid):
+		if c == null or c.job_kind != Citizen.JOB_HAUL or trips.has(cid) or not _in_shift_for(s, c):
 			continue
 		var w := ws.walker_of(cid)
 		if w == null or w.controlled or not w.path.is_empty() or w.at_building != c.job_id:
@@ -165,7 +165,7 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 		trips[cid] = t
 		_start(s, ws, t)
 		var guard := 0
-		while trips.has(cid) and guard < 8 and _advance(s, ws, t, in_shift):
+		while trips.has(cid) and guard < 8 and _advance(s, ws, t, _in_shift_for(s, c)):
 			guard += 1
 
 
@@ -192,9 +192,18 @@ static func _plan_allowance(seconds: float) -> int:
 	return maxi(1, int(seconds * PLAN_PER_SECOND))
 
 
-func _in_shift(s: Settlement) -> bool:
+## True during the day shift's hours.
+static func _in_shift(s: Settlement) -> bool:
 	var h := s.clock.hour()
 	return h >= WalkerSystem.WORK_START_HOUR and h < WalkerSystem.WORK_END_HOUR
+
+
+## True while this hauler's own shift runs: a night hauler starts trips during the night shift (ticket 132), a day
+## hauler during the day shift.
+static func _in_shift_for(s: Settlement, c: Citizen) -> bool:
+	if c != null and c.shift == Citizen.SHIFT_NIGHT:
+		return s.is_night()
+	return _in_shift(s)
 
 
 # ---------------------------------------------------------------- planning
@@ -567,7 +576,7 @@ func _abort(s: Settlement, ws: WalkerSystem, t: Trip) -> void:
 	_reserve(_dst_kind(t), t.dst, t.good, -t.planned)
 	_refund(s, t)
 	trips.erase(t.citizen_id)
-	_release(s, ws, t.citizen_id, _in_shift(s))
+	_release(s, ws, t.citizen_id, _in_shift_for(s, s.citizens.get(t.citizen_id)))
 	s.events.emit("haul_aborted", {"hauler": t.citizen_id, "good": t.good})
 
 

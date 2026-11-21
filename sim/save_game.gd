@@ -7,7 +7,7 @@ extends RefCounted
 ## A file older than CURRENT_VERSION is upgraded by MIGRATIONS, one step per version and in order (see
 ## migrate_chain). A file from a newer build, or one that fails _validate, is refused: load returns null.
 
-const CURRENT_VERSION := 5
+const CURRENT_VERSION := 6
 
 ## Migration steps: source version -> Callable(state: Dictionary) -> Dictionary of the next version.
 ## The chain is run by version number, so the dictionary order does not matter. To add a version: write the step,
@@ -20,6 +20,7 @@ static var MIGRATIONS: Dictionary = {
 	2: migrate_v2_to_v3,
 	3: migrate_v3_to_v4,
 	4: migrate_v4_to_v5,
+	5: migrate_v5_to_v6,
 }
 
 ## Keys Settlement.from_dict reads from a state dictionary.
@@ -209,6 +210,21 @@ static func migrate_v4_to_v5(state: Variant) -> Variant:
 		push_error("SaveGame migration 4 -> 5: state is not a dictionary")
 		return null
 	return state
+
+
+## v5 -> v6 (ticket 132): citizens learned their shift (day or night). Before the night shift, everyone worked days, so
+## every citizen that has no shift saved works the day shift.
+static func migrate_v5_to_v6(state: Variant) -> Variant:
+	if typeof(state) != TYPE_DICTIONARY:
+		push_error("SaveGame migration 5 -> 6: state is not a dictionary")
+		return null
+	var d: Dictionary = state
+	for pair in d.get("citizens", []):
+		if typeof(pair) == TYPE_ARRAY and (pair as Array).size() == 2 and typeof(pair[1]) == TYPE_DICTIONARY:
+			var c: Dictionary = pair[1]
+			if not c.has("shift"):
+				c["shift"] = Citizen.SHIFT_DAY
+	return d
 
 
 ## Walks `v` in place. A Dictionary key "materials" splits into "wood" and "stone"; in an Array the string

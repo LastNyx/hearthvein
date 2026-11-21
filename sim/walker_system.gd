@@ -25,16 +25,19 @@ extends SimSystem
 ## Settlement.grid_version changes (any road or building change). Walkers in motion are re-planned then.
 ##
 ## Schedule (not a design number, so it lives here): citizens with a job walk to it at WORK_START_HOUR and
-## everybody goes home at WORK_END_HOUR. Homeless citizens stay at the Hearth. Walkers with `controlled` set
-## are skipped; ticket 10 haulers use walk_to_building / walk_to_tile and set it.
+## everybody goes home at WORK_END_HOUR. Night citizens (Citizen.SHIFT_NIGHT, ticket 132) walk in at the night
+## shift's start (LogisticsDef.night_shift_start) and home at its end, sleeping at home the rest of the day.
+## Homeless citizens stay at the Hearth. Walkers with `controlled` set are skipped; ticket 10 haulers use
+## walk_to_building / walk_to_tile and set it.
 ##
 ## Departures are staggered (ticket 55): at a schedule hour every walker that wants to be somewhere else gets a
 ## seeded offset in [0, DEPART_WINDOW) from the map seed and the citizen id, and leaves when the hour has run that
 ## far (same offset every day, so saves and tests stay reproducible). Without this, ~600 A* runs landed in one
 ## tick at 06:00 and 18:00. Spreading them over the hour is also what people do. To keep the work day as long as
-## before, the morning window is the hour BEFORE the shift (05:00-06:00, see _schedule_hour), so people arrive
-## about when the shift starts; going home spreads over 18:00-19:00. A per-call planning budget bounds the work of
-## a frame-sized step; a coarse step (step_hours) is not throttled, so nobody is stranded.
+## before, the window to work is the hour BEFORE the shift (05:00-06:00 and 19:00-20:00, see _at_shift), so people
+## arrive about when the shift starts; going home spreads over 18:00-19:00 (day) and 06:00-07:00 (night). A per-call
+## planning budget bounds the work of a frame-sized step; a coarse step (step_hours) is not throttled, so nobody is
+## stranded.
 ##
 ## "At work": is_at_work(citizen_id) is true only while the citizen stands at the door of their job building;
 ## a walking citizen is never at work. Production reads is_at_work / workers_at.
@@ -236,12 +239,12 @@ func on_hour(settlement: Settlement) -> void:
 	_queue.sort()
 
 
-## The hour the schedule is evaluated for. The last hour before the shift already uses the shift's hour: people set
-## off for work spread over 05:00-06:00 so they arrive about when the shift starts and the work day keeps its length
-## (a stagger after 06:00 would cut an average half hour off every work day). Going home spreads over 18:00-19:00.
+## The hour the schedule is evaluated for: the clock hour. The last hour before a shift already counts as the shift
+## hour inside _at_shift, so people set off for work spread over that hour and arrive about when the shift starts
+## (a stagger after the start would cut an average half hour off every work day). Going home spreads over the hour
+## after the end: 18:00-19:00 for the day shift, 06:00-07:00 for the night shift.
 func _schedule_hour() -> int:
-	var h := _s.clock.hour()
-	return WORK_START_HOUR if h == WORK_START_HOUR - 1 else h
+	return _s.clock.hour()
 
 
 ## Departure time of a citizen after a schedule hour, as an int bin (1/DEPART_BINS game seconds).
@@ -287,11 +290,28 @@ func _dispatch_departures(seconds: float) -> void:
 func _desired_building(c: Citizen, hour: int) -> int:
 	if c.job_kind == Citizen.JOB_BUILD and c.job_id >= 0 and _s.buildings.has(c.job_id):
 		return c.job_id  # builders sleep at their builders' yard, so its distance to the site is their walk (47e)
-	if c.job_id >= 0 and hour >= WORK_START_HOUR and hour < WORK_END_HOUR and _s.buildings.has(c.job_id):
+	if c.job_id >= 0 and _at_shift(c, hour) and _s.buildings.has(c.job_id):
 		return c.job_id
 	if c.home_id >= 0 and _s.buildings.has(c.home_id):
 		return c.home_id
 	return _s.hearth.id if _s.hearth != null else -1
+
+
+## True when this citizen's own shift is running at `hour` (ticket 132, spec N1: the same people work days or
+## nights). The hour just before a shift counts as the shift, so its walkers leave spread over that hour and arrive
+## about when the shift starts: 05:00-06:00 for the day shift, 19:00-20:00 for the night shift. Night workers are
+## home from 06:00 to 20:00 (asleep in the middle of it).
+func _at_shift(c: Citizen, hour: int) -> bool:
+	if c.shift == Citizen.SHIFT_NIGHT:
+		var lg := _s.registry.logistics if _s.registry != null else null
+		var start := lg.night_shift_start if lg != null else 20
+		var end := lg.night_shift_end if lg != null else 6
+		if hour == posmod(start - 1, 24):
+			hour = start
+		return hour >= start or hour < end
+	if hour == WORK_START_HOUR - 1:
+		hour = WORK_START_HOUR
+	return hour >= WORK_START_HOUR and hour < WORK_END_HOUR
 
 
 # ---------------------------------------------------------------- queries

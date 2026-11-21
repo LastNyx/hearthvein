@@ -113,7 +113,8 @@ func test_sawmill_consumes_hauled_wood_and_planks_reach_storage() -> void:
 	var planks := s.hearth.inventory.amount_of("planks") - before_p
 	var used := before_m - s.hearth.inventory.amount_of("wood")
 	assert_gt(planks, 0.0, "planks reached the Hearth's storage")
-	assert_between(planks / 5.0, 5.0, 6.4, "two workers x 3 planks a day")
+	# The two day workers make 6 a day; the Sawmill's night slot (ticket 132) adds about 3 x 10/12 over the night.
+	assert_between(planks / 5.0, 7.8, 9.2, "two workers x 3 planks a day plus the night slot")
 	assert_between(used / planks, 1.9, 2.1, "2 wood per plank")
 	assert_eq(saw.halt, "", "the Sawmill kept running")
 	assert_eq(s.totals().get("planks", 0.0), s.hearth.inventory.amount_of("planks"), "planks are a real stored good")

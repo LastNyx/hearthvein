@@ -216,6 +216,6 @@ func test_old_save_loads_with_tutorial_finished() -> void:
 	var lt := loaded.get_system(TutorialSystem) as TutorialSystem
 	assert_true(lt.is_finished())
 	assert_false(lt.is_active())
-	assert_eq(SaveGame.CURRENT_VERSION, 5)
+	assert_eq(SaveGame.CURRENT_VERSION, 6)
 	var v0 := SaveGame.load("res://test/fixtures/save_v0.dat", reg)
 	assert_true((v0.get_system(TutorialSystem) as TutorialSystem).is_finished(), "the oldest save too")

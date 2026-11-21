@@ -90,9 +90,9 @@ func test_hauler_plans_fifteen_unit_trips() -> void:
 	var f := _put("forager", 4)
 	_put("storehouse", 6)
 	_put("handcart_shed", 9)
-	f.door_buffer.add("food", 20.0)
 	s.set_building_priority(f.id, "paused")  # no new production, only the 20 units to carry
-	s.step_hours(6)  # the shift starts and a hauler takes the trip
+	s.step_hours(6)
+	f.door_buffer.add("food", 20.0)  # after the night haulers' shift (ticket 132), so the day crew takes it
 	var biggest := 0.0
 	for i in 120:
 		s.step_seconds(0.5)

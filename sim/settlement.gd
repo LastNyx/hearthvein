@@ -1075,6 +1075,22 @@ func planet_health() -> float:
 
 # ---------------------------------------------------------------- citizens and jobs
 
+## True while the night shift runs (LogisticsDef.night_shift_start to night_shift_end, wrapping midnight). `hour`
+## defaults to the clock's hour. Night slots, their walkers and their production all read this one answer.
+func is_night(hour: int = -1) -> bool:
+	var h := clock.hour() if hour < 0 else hour
+	var lg := registry.logistics if registry != null else null
+	var start := lg.night_shift_start if lg != null else 20
+	var end := lg.night_shift_end if lg != null else 6
+	return h >= start or h < end
+
+
+## True when `b` counts as lit, so its night slots work (spec N2: a night-shift building works only inside a working
+## lamp's radius). Ticket 133 replaces this stub with the lamp coverage query; until then every building is lit.
+func is_lit(_b: Building) -> bool:
+	return true
+
+
 ## Re-run housing and job assignment now (also runs every hour via JobSystem).
 func refresh_population() -> void:
 	JobSystem.refresh(self)

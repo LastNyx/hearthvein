@@ -38,6 +38,12 @@ const GOLD := "gold"
 @export var worker_slots: int = 0
 @export var hauler_slots: int = 0
 @export var builder_slots: int = 0
+## Night shift (ticket 132, spec N1): worker slots worked from LogisticsDef.night_shift_start to night_shift_end by
+## their own people (Citizen.shift), filled after the day slots of the same rank. 0 = no night shift. A night slot
+## only works while the building is lit (Settlement.is_lit).
+@export var night_worker_slots: int = 0
+## Night hauler slots, staffed by night citizens (Storehouse: half its hauler_slots rounded down). 0 = none.
+@export var night_hauler_slots: int = 0
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
 @export var housing_beds: int = 0
