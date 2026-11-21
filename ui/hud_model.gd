@@ -332,6 +332,29 @@ func date_text() -> String:
 	return "Year %d, %s" % [s.clock.year(), s.clock.season_name().capitalize()]
 
 
+## " - Full moon" while tonight is the full-moon night (ticket 145), else "". Appended to the clock row's season line.
+func moon_tag() -> String:
+	var dn := s.registry.day_night
+	if dn == null or not s.is_night() or not Moon.is_full(s.moon_days(), dn):
+		return ""
+	return " - Full moon"
+
+
+## Tooltip of the clock dial: the sun and moon hours plus tonight's phase and what it does.
+func moon_tooltip() -> String:
+	var dn := s.registry.day_night
+	var base := "The sun is up 05-21, the moon 21-05"
+	if dn == null:
+		return base
+	var days := s.moon_days()
+	var eff := ""
+	if Moon.is_full(days, dn):
+		eff = ": lamps +%d radius, Spirit +%d" % [dn.moon_full_lamp_bonus, int(dn.moon_full_spirit)]
+	elif Moon.is_new(days, dn):
+		eff = ": darker night, Glowcap +%d%%" % roundi((dn.moon_new_glowcap - 1.0) * 100.0)
+	return "%s\nTonight: %s%s" % [base, Moon.phase_name(days, dn), eff]
+
+
 ## Lines of the era panel: era title, the next-era gate, the Dimming line, the date.
 func era_panel() -> Dictionary:
 	var gate := s.era_gate()
@@ -877,7 +900,7 @@ func _lamp_tiles() -> Dictionary:
 		var o: Building = s.buildings[id]
 		if o.site or not o.def.lamp:
 			continue
-		var r := o.lamp_radius(s.registry)
+		var r := s.lamp_radius(o)
 		for lt in o.tiles():
 			for y in range(lt.y - r, lt.y + r + 1):
 				for x in range(lt.x - r, lt.x + r + 1):

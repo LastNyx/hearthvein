@@ -352,6 +352,11 @@ func _validate() -> void:
 			or day_night.day_start <= day_night.dawn_start or day_night.dusk_start < day_night.day_start \
 			or day_night.night_start <= day_night.dusk_start or day_night.night_start > GameClock.HOURS_PER_DAY:
 		errors.append("day and night: hours must satisfy dawn < day <= dusk < night <= 24")
+	if day_night != null and (day_night.moon_cycle_days < 2 or day_night.moon_new_day < 1 \
+			or day_night.moon_new_day > day_night.moon_cycle_days or day_night.moon_full_day < 1 \
+			or day_night.moon_full_day > day_night.moon_cycle_days or day_night.moon_full_lamp_bonus < 0 \
+			or day_night.moon_new_glowcap <= 0.0):
+		errors.append("day and night: invalid moon numbers")
 	if regions == null:
 		if not goods.is_empty():
 			errors.append("missing regions definition")

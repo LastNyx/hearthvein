@@ -22,17 +22,48 @@ const RADIUS := 4.0
 const STARS: Array[Vector2] = [Vector2(0.18, 0.2), Vector2(0.42, 0.12), Vector2(0.7, 0.28), Vector2(0.86, 0.12),
 		Vector2(0.28, 0.44), Vector2(0.6, 0.5)]
 
+const MOON_DARK := Color("2c3558")
+## Pixel moon disc: radius in pixels (a 9x9 grid).
+const MOON_PX := 4
+
 var hours_f: float = 0.0
 var def: DayNightDef
+## Tonight's moon as a 0-based day count (Settlement.moon_days()); -1 draws the old plain crescent-free moon.
+var moon_days: int = -1
 
 
-## Hud calls this every refresh with the hour of day plus the fraction inside it.
-func set_time(h: float, d: DayNightDef) -> void:
-	if is_equal_approx(h, hours_f) and d == def:
+## Hud calls this every refresh with the hour of day plus the fraction inside it and tonight's moon day.
+func set_time(h: float, d: DayNightDef, moon: int = -1) -> void:
+	if is_equal_approx(h, hours_f) and d == def and moon == moon_days:
 		return
 	hours_f = h
 	def = d
+	moon_days = moon
 	queue_redraw()
+
+
+## The dial's moon for a day count: {"phase" 0..cycle-1 from new, "name", "lit" 0..1, "waxing", "full", "new"}.
+static func moon_model(total_days: int, d: DayNightDef) -> Dictionary:
+	if d == null:
+		return {"phase": 0, "name": "", "lit": 1.0, "waxing": true, "full": false, "new": false}
+	return {"phase": Moon.phase(total_days, d), "name": Moon.phase_name(total_days, d),
+			"lit": Moon.lit_fraction(total_days, d), "waxing": Moon.is_waxing(total_days, d),
+			"full": Moon.is_full(total_days, d), "new": Moon.is_new(total_days, d)}
+
+
+## Whether pixel (px, py), each -MOON_PX..MOON_PX from the moon's centre, is inside the disc and, if so, on the lit side
+## for phase index `phase` of `cycle` (0 = new, cycle/2 = full; lit on the right while waxing, on the left after).
+static func moon_pixel(px: int, py: int, phase: int, cycle: int) -> int:
+	var r := float(MOON_PX) + 0.5
+	var xn := float(px) / r
+	var yn := float(py) / r
+	if xn * xn + yn * yn > 1.0:
+		return -1  # outside the disc
+	var w := sqrt(maxf(1.0 - yn * yn, 0.0))
+	var k := cos(TAU * float(phase) / float(maxi(cycle, 1)))
+	var waxing := phase * 2 < cycle
+	var lit := xn > k * w if waxing else xn < -k * w
+	return 1 if lit else 0
 
 
 # ---------------------------------------------------------------- helpers (static so tests can read them headless)
@@ -102,8 +133,17 @@ func _draw() -> void:
 	draw_rect(Rect2(0.0, horizon, size.x, 2.0), GROUND_EDGE)
 	var pos := arc_pos(arc_progress(hours_f, def), size)
 	if def != null and is_night(hours_f, def):
-		draw_circle(pos, RADIUS, MOON)
-		draw_circle(pos + Vector2(1.8, -1.2), RADIUS - 0.5, sky)  # the crescent bite
+		if moon_days < 0:
+			draw_circle(pos, RADIUS, MOON)
+			draw_circle(pos + Vector2(1.8, -1.2), RADIUS - 0.5, sky)  # the crescent bite
+		else:
+			var ph := Moon.phase(moon_days, def)
+			var origin := pos.round()
+			for py in range(-MOON_PX, MOON_PX + 1):
+				for px in range(-MOON_PX, MOON_PX + 1):
+					var v := moon_pixel(px, py, ph, def.moon_cycle_days)
+					if v >= 0:
+						draw_rect(Rect2(origin + Vector2(px, py), Vector2.ONE), MOON if v == 1 else MOON_DARK)
 	else:
 		draw_circle(pos, RADIUS + 2.0, Color(SUN, 0.28))
 		draw_circle(pos, RADIUS, SUN)

@@ -5,6 +5,12 @@
 [resource]
 script = ExtResource("1")
 night_color = Color(0.5, 0.55, 0.78, 1)
+moon_cycle_days = 8
+moon_new_day = 1
+moon_full_day = 5
+moon_full_lamp_bonus = 1
+moon_full_spirit = 2.0
+moon_new_glowcap = 1.25
 dusk_start = 19
 night_start = 21
 dawn_start = 5

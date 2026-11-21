@@ -27,7 +27,7 @@ var low_days: int = 0
 var _days_since_leave: int = 0
 var _hooks: Dictionary = {}  # factor id -> Callable
 var _order: Array[String] = ["food_types", "coverage", "hunger", "homeless", "blight", "water", "darkness",
-		"tax_office", "planet_grief", "light", "tavern"]
+		"tax_office", "planet_grief", "light", "tavern", "moon"]
 ## Tavern building ids that drank their night_inputs at this night's start, low to high (ticket 139). Runtime state,
 ## saved so a load in the middle of a night keeps the Taverns' cheer.
 var _serving: Array[int] = []
@@ -104,6 +104,12 @@ func factor_value(s: Settlement, id: String) -> float:
 			if homes == 0:
 				return 0.0
 			return minf(sd.light_bonus * float(lit) / float(homes), sd.light_bonus_max)
+		"moon":
+			# Full moon (ticket 145): a flat bonus on the night (the lamp hours) of the full moon.
+			var dn := s.registry.day_night
+			if dn == null or not s.is_night():
+				return 0.0
+			return Moon.spirit_bonus(s.moon_days(), dn)
 		"tavern":
 			# Taverns at night (ticket 139): the share of finished homes inside the spirit_radius of a Tavern that
 			# drank its night_inputs and is staffed and lit (the same footprint measure as Shrine coverage).

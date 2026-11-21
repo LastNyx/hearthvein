@@ -117,7 +117,7 @@ func lit_tiles_near(s: Settlement, b: Building, radius: int) -> int:
 
 ## Rebuilds the lit-tile set when the layout or the light state moved.
 func _ensure(s: Settlement) -> Dictionary:
-	var key := [s.structure_version, s.completion_version, s.buildings.size(), s.light_version]
+	var key := [s.structure_version, s.completion_version, s.buildings.size(), s.light_version, s.lamp_radius_bonus()]
 	if key == _key:
 		return _lit
 	_key = key
@@ -137,7 +137,7 @@ func _ensure(s: Settlement) -> Dictionary:
 			continue
 		if not b.def.lamp:
 			continue
-		var r := b.lamp_radius(s.registry)
+		var r := s.lamp_radius(b)
 		if r <= 0:
 			continue
 		for t in b.tiles():

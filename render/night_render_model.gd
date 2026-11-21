@@ -26,7 +26,7 @@ static func pools(s: Settlement) -> Array[Dictionary]:
 		var b: Building = s.buildings[bid]
 		if b.site or not b.def.lamp or not s.is_lit(b):
 			continue
-		var r := b.lamp_radius(s.registry)
+		var r := s.lamp_radius(b)
 		if r <= 0:
 			continue
 		out.append({"id": b.id, "origin": b.origin, "size": b.def.size, "radius": r})

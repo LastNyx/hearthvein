@@ -199,6 +199,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(SpiritSystem.work_modifier)
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
+	prod.modifiers.append(Moon.output_modifier)
 	prod.modifiers.append(ProductionSystem.winter_modifier)
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
 	prod.modifiers.append(UpkeepSystem.output_modifier)
@@ -1104,6 +1105,27 @@ func is_lit(b: Building) -> bool:
 func is_tile_lit(tile: Vector2i) -> bool:
 	var ls := get_system(LightingSystem) as LightingSystem
 	return ls == null or ls.is_tile_lit(self, tile)
+
+
+## The 0-based day count of tonight's moon (ticket 145): the clock's day, but the small hours before the lamps go out
+## (LogisticsDef.lamp_light_end) still belong to the night that began the evening before.
+func moon_days() -> int:
+	var lg := registry.logistics if registry != null else null
+	var end := lg.lamp_light_end if lg != null else 7
+	return clock.total_days() - (1 if clock.hour() < end else 0)
+
+
+## Lamp radius of `b` tonight: its own radius plus the full moon's bonus (ticket 145).
+func lamp_radius(b: Building) -> int:
+	var r := b.lamp_radius(registry)
+	var dn := registry.day_night if registry != null else null
+	return r + Moon.lamp_bonus(moon_days(), dn) if dn != null and r > 0 else r
+
+
+## Tiles the moon adds to every lamp tonight (cache key for the lit-tile set).
+func lamp_radius_bonus() -> int:
+	var dn := registry.day_night if registry != null else null
+	return Moon.lamp_bonus(moon_days(), dn) if dn != null else 0
 
 
 ## True during the lamp hours (LogisticsDef.lamp_light_start to lamp_light_end, 19 to 7 wrapping midnight).

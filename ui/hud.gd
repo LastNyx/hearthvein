@@ -1603,9 +1603,10 @@ func refresh() -> void:
 	var hours_f := float(model.s.clock.hour())
 	if driver != null:
 		hours_f += driver.hour_fraction()
-	_row_dial.set_time(hours_f, model.s.registry.day_night)
+	_row_dial.set_time(hours_f, model.s.registry.day_night, model.s.moon_days())
+	_row_dial.tooltip_text = model.moon_tooltip()
 	_clock_date.text = driver.status_text() if driver != null else HudModel.clock_bar_text(model.s.clock.day(), hours_f)
-	_clock_season.text = model.date_text()
+	_clock_season.text = model.date_text() + model.moon_tag()
 	_refresh_clock_buttons()
 	_refresh_pins()
 	var active: bool = model.dimming_state() == "active"
