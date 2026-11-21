@@ -28,7 +28,8 @@ func _init(settlement: Settlement) -> void:
 	s = settlement
 	for kind in ["dimming_forecast", "dimming_ended", "production_halted", "production_resumed", "building_demolished",
 			"era_changed", "island_still", "island_resumed", "skyheart_stage", "skyheart_finished",
-			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone", "season_started", "caravan_arrived", "caravan_left"]:
+			"great_dimming_forecast", "great_dimming_started", "great_dimming_ended", "milestone", "season_started", "caravan_arrived", "caravan_left",
+			"vein_surge_started", "vein_surge_ended"]:
 		s.events.subscribe(kind, _on_event)
 
 
@@ -82,6 +83,11 @@ func _on_event(e: Dictionary) -> void:
 			clear("great_dimming:started")
 		"dimming_ended":
 			clear("dimming:%d" % d["start_day"])
+		"vein_surge_started":
+			raise("vein_surge", "dimming", "Vein surge: Lumen +%d%% for %d days" % [
+					roundi((float(d["factor"]) - 1.0) * 100.0), int(d["days"])])
+		"vein_surge_ended":
+			clear("vein_surge")
 		"production_halted":
 			var why: String = d["why"]
 			if REASON_TEXT.has(why):

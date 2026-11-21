@@ -67,6 +67,8 @@ var airships: AirshipView
 var night: NightView
 ## The gloom overlay (ticket 149): dark stepped tiles under the night light, in MapView.fx.
 var gloom: GloomView
+## Vein surge sparkles (ticket 150): pixel crosses over the Lumen vein tiles after a Dimming.
+var vein_surge: VeinSurgeView
 ## The gain popup (ticket 137): "+N" with the good's icon over a producer or a cleared tile.
 var gain_popups: GainPopupView
 var overlay: OverlayView
@@ -442,6 +444,11 @@ func _build_world(s: Settlement) -> void:
 	gloom.z_index = 4  # under the additive light pools (NightView, 5)
 	view.fx.add_child(gloom)
 	gloom.setup(s)
+	vein_surge = VeinSurgeView.new()
+	vein_surge.name = "VeinSurgeView"
+	vein_surge.z_index = 3  # over the ground, under the gloom (4) and the light pools (5)
+	view.fx.add_child(vein_surge)
+	vein_surge.setup(s, s.map)
 	gain_popups = GainPopupView.new()
 	gain_popups.name = "GainPopupView"
 	view.fx.add_child(gain_popups)

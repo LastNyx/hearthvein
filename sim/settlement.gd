@@ -174,7 +174,9 @@ func add_default_systems() -> void:
 	add_system(SkyheartSystem.new())  # stage gold and the finished Skyheart's reservoir fill (ticket 45); after the grid
 	add_system(GreatDimmingSystem.new())  # the Skyheart's Great Dimming (ticket 45b); before the regular Dimming, which yields to it
 	add_system(CampaignSystem.new())  # win and loss outcome (ticket 45c): hourly population check, Great Dimming result
-	add_system(DimmingSystem.new())  # before Growth: darkness blocks the day's growth
+	var dimming := DimmingSystem.new()  # before Growth: darkness blocks the day's growth
+	add_system(dimming)
+	events.subscribe("great_dimming_ended", dimming.on_great_dimming_ended.bind(self))  # the vein surge (ticket 150)
 	var ms := MilestoneSystem.new()  # milestones (ticket 46b): daily state checks and the event kinds; after Dimming so a day's darkness is seen
 	add_system(ms)
 	for kind in ["dimming_ended", "skyheart_finished", "campaign_won"]:
@@ -201,6 +203,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(SpiritSystem.work_modifier)
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
+	prod.modifiers.append(DimmingSystem.vein_surge_modifier)
 	prod.modifiers.append(Moon.output_modifier)
 	prod.modifiers.append(ProductionSystem.winter_modifier)
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
