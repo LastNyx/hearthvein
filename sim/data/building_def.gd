@@ -270,6 +270,12 @@ const GOLD := "gold"
 ## 0 = no reservoir. SkyheartSystem owns the charge.
 @export var reservoir_capacity: float = 0.0
 @export var reservoir_fill_per_hour: float = 0.0
+## Nightly yield (ticket 151, spec N8): goods added to the door buffer once, at the night shift's start, while the
+## building is finished, unpaused and has a night worker. Not a recipe, so the amount does not scale with the crew or
+## the night's length. Empty = none. The Observatory catches starlight.
+@export var night_yield: Dictionary = {}
+## True when night_yield happens only during a Dimming (the Observatory's starlight).
+@export var night_yield_dimming: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

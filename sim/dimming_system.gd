@@ -12,7 +12,8 @@ extends SimSystem
 ## or PlanetDef.dimming_vein_factor when the def leaves it 0; others x BuildingDef.dimming_factor), and each day every
 ## citizen needs light_per_citizen Lumen from storage in
 ## the region of their home (the Hearth's when homeless): raw Lumen first, then Lumen cells (lumen_per_cell Lumen
-## each). Any citizen short = darkness for that day: Spirit hook "darkness" (PlanetDef.darkness_spirit) and
+## each), then starlight (ticket 151, starlight_lumen each). Any citizen short = darkness for that day: Spirit hook
+## "darkness" (PlanetDef.darkness_spirit) and
 ## GrowthSystem blocks growth and immigration (DimmingSystem.is_dark). Darkness clears when the Dimming ends.
 ##
 ## The Great Dimming (GreatDimmingSystem) replaces it: while that is on, the regular one ends, none starts or is
@@ -236,6 +237,7 @@ func _light(s: Settlement) -> void:
 	var need_total := 0.0
 	var lumen := 0.0
 	var cells := 0.0
+	var star := 0.0
 	for r in need_by_region:
 		var need: float = need_by_region[r]
 		need_total += need
@@ -260,6 +262,15 @@ func _light(s: Settlement) -> void:
 			need -= took * pd.lumen_per_cell
 			cells += took
 			ResourceLedgerSystem.record_used(s, "lumen_cells", took, "light")
+		# Starlight caught by an Observatory (ticket 151) covers a short light need at starlight_lumen a unit.
+		if pd.starlight_lumen > 0.0:
+			for b in stores:
+				if need <= Inventory.EPS:
+					break
+				var took := b.inventory.remove("starlight", need / pd.starlight_lumen)
+				need -= took * pd.starlight_lumen
+				star += took * pd.starlight_lumen
+				ResourceLedgerSystem.record_used(s, "starlight", took, "light")
 		if need > Inventory.EPS:
 			short += need
 	var reservoir := 0.0
@@ -268,8 +279,8 @@ func _light(s: Settlement) -> void:
 		if sky != null:
 			reservoir = sky.take(s, short)
 			short -= reservoir
-	last_light = {"need": need_total, "drawn_lumen": lumen, "drawn_cells": cells, "drawn_reservoir": reservoir,
-			"short": short}
+	last_light = {"need": need_total, "drawn_lumen": lumen, "drawn_cells": cells, "drawn_starlight": star,
+			"drawn_reservoir": reservoir, "short": short}
 	var dark := short > Inventory.EPS
 	if dark != _dark:
 		_dark = dark

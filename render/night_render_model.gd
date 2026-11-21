@@ -89,6 +89,19 @@ static func embers(s: Settlement) -> Array[Dictionary]:
 	return out
 
 
+## One entry per river tile while the river glows (ticket 151, spec N10): in a Dimming's night the river tiles count as
+## lit radius 1 and the renderer speckles them faint cyan-white. Empty by day and outside a Dimming.
+static func river_specks(s: Settlement) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if s == null or not s.is_lamp_hour() or not DimmingSystem.is_active(s):
+		return out
+	for y in MapState.HEIGHT:
+		for x in MapState.WIDTH:
+			if s.map.is_river(x, y):
+				out.append(Vector2i(x, y))
+	return out
+
+
 ## Workers standing at their building's door right now (WalkerSystem.work_counts), empty without a walker system.
 static func _work_counts(s: Settlement) -> Dictionary:
 	var ws := s.get_system(WalkerSystem) as WalkerSystem

@@ -45,3 +45,10 @@ extends Resource
 @export var winter_food_factor: float = 0.5
 ## Spirit target change while dark (negative).
 @export var darkness_spirit: float = -20.0
+## Glow river (spec N10, ticket 151): during a Dimming the river tiles count as lit radius 1 at night. A Glowcap Grove
+## whose footprint lies within glow_river_radius tiles (Euclidean, the placement_radius measure) of a river tile makes
+## glow_river_grove_factor of its output.
+@export var glow_river_radius: int = 2
+@export var glow_river_grove_factor: float = 1.25
+## Starlight (ticket 151): Lumen one starlight covers when the day's light draw runs short, after raw Lumen and cells.
+@export var starlight_lumen: float = 5.0
