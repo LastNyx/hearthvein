@@ -21,7 +21,12 @@ extends SimSystem
 
 ## Tiles a lit lamp reaches, as Vector2i -> true. Runtime cache only.
 var _lit: Dictionary = {}
-var _key: Array = []
+## The cache key as plain fields, so a tile-at-a-time query (GloomSystem's spread) does not build an Array per call.
+var _key_structure: int = -1
+var _key_completion: int = -1
+var _key_count: int = -1
+var _key_light: int = -1
+var _key_radius: int = -1
 
 
 func on_hour(s: Settlement) -> void:
@@ -100,6 +105,12 @@ func is_tile_lit(s: Settlement, tile: Vector2i) -> bool:
 	return s.is_lamp_hour() and _ensure(s).has(tile)
 
 
+## The whole lit-tile set right now (empty outside the lamp hours), for a bulk query such as GloomSystem's spread.
+## Read-only: callers must not change it.
+func lit_tiles(s: Settlement) -> Dictionary:
+	return _ensure(s) if s.is_lamp_hour() else {}
+
+
 ## Lit tiles within `radius` (Chebyshev) of the building's footprint, its own tiles counting (ticket 144: the
 ## Moonmoth Loft needs at least three lit tiles within two). 0 outside the lamp hours.
 func lit_tiles_near(s: Settlement, b: Building, radius: int) -> int:
@@ -118,10 +129,15 @@ func lit_tiles_near(s: Settlement, b: Building, radius: int) -> int:
 
 ## Rebuilds the lit-tile set when the layout or the light state moved.
 func _ensure(s: Settlement) -> Dictionary:
-	var key := [s.structure_version, s.completion_version, s.buildings.size(), s.light_version, s.lamp_radius_bonus()]
-	if key == _key:
+	var radius := s.lamp_radius_bonus()
+	if s.structure_version == _key_structure and s.completion_version == _key_completion \
+			and s.buildings.size() == _key_count and s.light_version == _key_light and radius == _key_radius:
 		return _lit
-	_key = key
+	_key_structure = s.structure_version
+	_key_completion = s.completion_version
+	_key_count = s.buildings.size()
+	_key_light = s.light_version
+	_key_radius = radius
 	_lit.clear()
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var ids: Array = s.buildings.keys()

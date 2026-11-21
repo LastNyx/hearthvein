@@ -1046,6 +1046,7 @@ func halt_text(b: Building) -> String:
 		"no_input": return "Halted: waiting for input"
 		"no_forest": return "Halted: no forest in range"
 		"island_still": return "Halted: the island is still"
+		"gloom": return "Stopped: in gloom - light it"
 		"planet_too_sick": return "Halted: planet health below %d%%" % int(b.def.min_planet_health)
 		"dry": return "Halted: no water in reach"
 		"too_far": return "Halted: too far from a builders' yard"
