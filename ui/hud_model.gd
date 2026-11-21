@@ -15,7 +15,7 @@ const GRID_GROUPS := {"roads": ["roads"], "housing": ["housing"], "food": ["food
 ## Top-level cells, in reading order: id, label, key, icon.
 const GRID_TOP := [
 		["roads", "Roads", "R", "stone"], ["housing", "Housing", "N", "pop"],
-		["food", "Food", "F", "food"], ["water", "Water", "W", ""], ["lumen", "Lumen", "I", "lumen"],
+		["food", "Food", "F", "food"], ["water", "Water", "W", "water"], ["lumen", "Lumen", "I", "lumen"],
 		["logistics", "Logistics", "K", "planks"], ["resources", "Resources", "S", "wood"],
 		["refining", "Refining", "D", "tools"], ["civic", "Civic", "A", "spirit"],
 		["landmark", "Landmark", "O", "obelisk"],
