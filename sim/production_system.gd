@@ -167,6 +167,11 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	if b.def.night_worker_slots > 0 and s.is_night() and not s.is_lit(b):
 		_set_halt(s, b, "unlit")  # a dark night-shift building keeps its night slots closed (spec N2)
 		return
+	if b.def.min_lit_tiles > 0 and s.is_night():  # moths come to light: enough lit tiles within reach (ticket 144)
+		var lighting := s.get_system(LightingSystem) as LightingSystem
+		if lighting != null and lighting.lit_tiles_near(s, b, b.def.lit_tile_radius) < b.def.min_lit_tiles:
+			_set_halt(s, b, "needs_light")
+			return
 	var dry := WaterSystem.dry_halt(s, b)
 	if dry != "":
 		_set_halt(s, b, dry)

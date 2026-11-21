@@ -57,6 +57,11 @@ const GOLD := "gold"
 ## Night-only building (ticket 134: Charcoal Kiln, Glowcap Grove): it exists for its night slots alone, so it opens no
 ## day work slots and ProductionSystem makes nothing by day even if a worker is somehow at its door.
 @export var night_only: bool = false
+## Moths come to light (ticket 144, Moonmoth Loft): at night the building only works while at least `min_lit_tiles`
+## lit tiles lie within `lit_tile_radius` tiles (Chebyshev) of its footprint; below that it halts with "needs_light".
+## 0 = no such rule.
+@export var min_lit_tiles: int = 0
+@export var lit_tile_radius: int = 0
 ## Lumen per day.
 @export var upkeep_lumen: float = 0.0
 @export var housing_beds: int = 0
@@ -138,6 +143,9 @@ const GOLD := "gold"
 ## Tiles a home must be within (Chebyshev, footprint to footprint) for the Market's food variety to serve it.
 ## 0 = no reach (only Market uses it). design.md gives no number; ticket 23 chose 12.
 @export var market_reach: int = 0
+## True for a market that buys the goods a GoodDef puts a sale_price on (Market, ticket 144): each day it sells the
+## stock above the good's sale_keep for gold while it has an assigned worker.
+@export var sells_goods: bool = false
 ## True when a finished, staffed building counts as one more food type for the variety bonus although it never
 ## holds food (design.md section 16 City: the Grand Bazaar "counts as a food type"). MarketSystem reads it.
 @export var counts_as_food_type: bool = false

@@ -10,6 +10,10 @@ extends SimSystem
 ## offices pay 0.4 per citizen. Gold goes to the global counter Settlement.gold, never into an inventory.
 ## The day's earnings are scaled by UpkeepSystem.output_modifier (x0.5 while the building's Lumen upkeep is unpaid).
 ##
+## Luxury goods: a finished, unpaused Market with at least one assigned worker (BuildingDef.sells_goods) also sells
+## the stock of every good a GoodDef puts a sale_price on, down to the good's sale_keep. The sold units leave storage
+## (all or nothing, `spend_good`) and pay sale_price gold each; the day's take is scaled like the Market's own income.
+##
 ## Reach: a home inside a finished Market's reach can get every food type in storage, so its citizens count the full
 ## variety; a home with no Market in reach counts at most one type and can never earn a variety bonus on its own.
 ## The inside/outside flags are cached per home and rebuilt only when roads or buildings change (structure_version),
@@ -43,6 +47,32 @@ func on_day(s: Settlement) -> void:
 		var paid := made * UpkeepSystem.output_modifier(s, b)
 		s.gold += paid
 		ResourceLedgerSystem.record_made(s, BuildingDef.GOLD, paid, b.def.id)
+	_sell_surplus(s, assigned)
+
+
+## Each market sells the priced goods' stock above their keep level. Stock is read once per good and reduced as the
+## markets sell, so a second market never sells the same units again. Gold is not a stored good, so the take is
+## applied through the same Lumen-upkeep factor as a gold rate.
+func _sell_surplus(s: Settlement, assigned: Dictionary) -> void:
+	var totals := s.totals()
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if b.site or b.paused or not b.def.sells_goods or int(assigned.get(bid, 0)) <= 0:
+			continue
+		var factor := UpkeepSystem.output_modifier(s, b)
+		for gid in s.registry.goods:
+			var gd := s.registry.get_good(gid)
+			if gd == null or gd.sale_price <= 0.0:
+				continue
+			var stock := float(totals.get(gid, 0.0))
+			var units := stock - gd.sale_keep
+			if units <= Inventory.EPS or not s.spend_good(gid, units):
+				continue
+			var paid := units * gd.sale_price * factor
+			s.gold += paid
+			totals[gid] = stock - units
+			ResourceLedgerSystem.record_used(s, gid, units, "market", b.def.id)
+			ResourceLedgerSystem.record_made(s, BuildingDef.GOLD, paid, b.def.id)
 
 
 ## Building id -> number of citizens the JobSystem assigned to it as workers (assigned JOB_WORK, whether or not they

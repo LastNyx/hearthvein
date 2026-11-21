@@ -79,6 +79,22 @@ func is_tile_lit(s: Settlement, tile: Vector2i) -> bool:
 	return s.is_lamp_hour() and _ensure(s).has(tile)
 
 
+## Lit tiles within `radius` (Chebyshev) of the building's footprint, its own tiles counting (ticket 144: the
+## Moonmoth Loft needs at least three lit tiles within two). 0 outside the lamp hours.
+func lit_tiles_near(s: Settlement, b: Building, radius: int) -> int:
+	if radius <= 0 or not s.is_lamp_hour():
+		return 0
+	var lit := _ensure(s)
+	var seen := {}
+	for t in b.tiles():
+		for y in range(t.y - radius, t.y + radius + 1):
+			for x in range(t.x - radius, t.x + radius + 1):
+				var p := Vector2i(x, y)
+				if lit.has(p):
+					seen[p] = true
+	return seen.size()
+
+
 ## Rebuilds the lit-tile set when the layout or the light state moved.
 func _ensure(s: Settlement) -> Dictionary:
 	var key := [s.structure_version, s.completion_version, s.buildings.size(), s.light_version]

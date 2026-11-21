@@ -914,6 +914,7 @@ _ICON_KEY = {
     "C": P["lumen"], "A": P["lumen_l"], "B": P["lumen_d"],
     "Y": P["brass"], "X": P["brass_l"], "Z": _BR_D,
     "S": P["skin"], "F": P["skin_d"], "N": hexc("4a7a9a"), "M": hexc("356080"), "Q": P["hair"], "P": hexc("c0702e"),
+    "I": hexc("d6c8f0"), "J": hexc("aa96d2"), "K": hexc("6e6096"),  # silk (ticket 144)
 }
 _ICON_V2 = {
     "wood": [  # a log with growth rings on the cut end, two bark ticks
@@ -942,6 +943,20 @@ _ICON_V2 = {
         "hjjjihhjjiih",
         "hjjhhhjjjih.",
         ".hhhh.hhhhh.",
+        "............",
+    ],
+    "silk": [  # a wound skein of pale violet thread (ticket 144)
+        "....JJJJ....",
+        "...JIIIIJ...",
+        "..JIJKKJIJ..",
+        "..JIK..KIJ..",
+        "..JIK..KIJ..",
+        "..JIJ..JIJ..",
+        "..JIK..KIJ..",
+        "..JIJ..JIJ..",
+        "..JIJKKJIJ..",
+        "...JIIIIJ...",
+        "....JJJJ....",
         "............",
     ],
     "stone": [  # a rough grey block with chipped corners
