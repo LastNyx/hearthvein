@@ -1,7 +1,7 @@
 class_name Hud
 extends CanvasLayer
 ## The in-game HUD (design.md section 20, docs/mockups/scene_village.png): top bar with resources, pop/beds, Spirit and
-## planet health; objectives panel; selected-building panel; bottom band with the minimap and the category bar; notices.
+## planet health; objectives panel; selected-building panel; bottom band with the minimap and the command grid; notices.
 ## Thin: every number and string comes from HudModel, every command goes through HudModel or BuildController.
 
 const FONT_PATH := "res://assets/ui/PixelifySans.ttf"  # headings; OFL 1.1, see PixelifySans-OFL.txt
@@ -43,7 +43,6 @@ var _row_dial: ClockDial
 var _pause_button: Button
 var _speed_buttons: Array[Button] = []
 var _help_button: Button
-var _bar_panel: PanelContainer
 var _pop_label: Label
 var _pop_box: HBoxContainer
 var _growth_bar: ProgressBar
@@ -110,15 +109,15 @@ var _town_idle: Label
 var _town_planet_trend: Label
 var _town_hint: Label
 var _planet_bar: ProgressBar
-var _cat_box: GridContainer
 var _region_map: RegionMap
-var _cat_buttons: Dictionary = {}
-var _fly_panel: PanelContainer
-var _fly_box: HBoxContainer
-var _fly_title: Label
-var _fly_hint: Label
-var _fly_key := ""
-var _open_cat := ""
+## The command grid (ticket 129, hud-rts-spec H2-H4): 5x3 cells at the bottom-right, top level or a category pane.
+var _cmd_panel: PanelContainer
+var _cmd_title: Label
+var _cmd_grid: GridContainer
+var _cmd_cells: Array[Button] = []
+var _grid_page := ""
+var _grid_key := ""
+var _grid_focus_id := ""
 var workforce_page: WorkforcePage
 var resources_page: ResourcesPage
 var tutorial_panel: TutorialPanel
@@ -212,9 +211,11 @@ func setup(m: HudModel, b: BuildController, cam: Camera2D, d: SimDriver) -> void
 	tutorial_panel = TutorialPanel.new()
 	right.add_child(tutorial_panel)
 	tutorial_panel.setup(self, model.s, _float)
-	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void: _rebuild_categories())
+	model.s.events.subscribe("era_changed", func(_e: Dictionary) -> void:
+		_grid_key = ""
+		refresh())
 	model.layer_changed.connect(func(_l: int) -> void:
-		_show_flyout()
+		_grid_key = ""
 		refresh())
 	refresh()
 
@@ -996,40 +997,17 @@ func _refresh_town() -> void:
 	_town_hint.text = t["hint"]
 
 
-# ---------------------------------------------------------------- build bar
+# ---------------------------------------------------------------- command grid (ticket 129)
 
-## Left edge of the flyout: clear of the tools tab, so the cards never cover it.
-const FLY_INDENT := 118.0
-## Build cards (ticket 116): size, cards per row and rows shown before the flyout scrolls (fits 1280x720 with the
-## detail panel on the right).
-const CARD_SIZE := Vector2(146, 200)
-const CARD_COLUMNS := 5
-const CARD_ROWS := 2
-const CARD_GAP := 6
-## Category buttons use a slim style so all of them (12 with every era unlocked) share one row at 1280 px (ticket 122).
-const CAT_BUTTON_PAD := 6
 ## The bottom band of hud-rts-spec H7: the minimap on the left, the selection panel (or town summary) centred, and the
-## category bar on the right until ticket 129 swaps it for the command grid.
+## command grid on the right.
 const BAND_HEIGHT := 148.0
+const CELL_SIZE := Vector2(80, 36)
+const CELL_GAP := 3
+const GRID_COLUMNS := 5
 
 
 func _build_bar(parent: Node) -> void:
-	# Ticket 125: the flyout floats above the bottom bar instead of taking a row in the layout; with the taller
-	# top-right cluster it would otherwise push the bar below 720 when open.
-	_fly_panel = _panel(_float)
-	var fly_col := VBoxContainer.new()
-	fly_col.add_theme_constant_override("separation", 4)
-	_fly_panel.add_child(fly_col)
-	var fly_head := HBoxContainer.new()
-	fly_col.add_child(fly_head)
-	_fly_title = _label(fly_head, 18, GOLD)
-	_fly_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_fly_hint = _label(fly_head, 12, DIM)
-	_fly_hint.text = "Hover a card for details"
-	_fly_box = HBoxContainer.new()
-	_fly_box.add_theme_constant_override("separation", 6)
-	fly_col.add_child(_fly_box)
-	_fly_panel.visible = false
 	var band := HBoxContainer.new()
 	band.name = "BottomBand"
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1051,157 +1029,90 @@ func _build_bar(parent: Node) -> void:
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	band.add_child(right)
-	var p := _panel(right)
-	_bar_panel = p
-	_cat_box = GridContainer.new()
-	_cat_box.add_theme_constant_override("h_separation", 4)
-	_cat_box.add_theme_constant_override("v_separation", 4)
-	p.add_child(_cat_box)
-	_rebuild_categories()
+	_build_command_grid(right)
 
 
-func _rebuild_categories() -> void:
-	for c in _cat_box.get_children():
-		c.queue_free()
-	_cat_buttons.clear()
-	var cats := model.build_bar()
-	# Ticket 122: every category stays on one row at 1280 px; the buttons shrink (slim padding, no fixed width)
-	# instead of wrapping into a second row.
-	_cat_box.columns = maxi(cats.size(), 1)
-	for cat in cats:
-		var b := _button(_cat_box, cat["label"], 16)
-		b.custom_minimum_size = Vector2(0, 34)
-		_style_button(b, false, CAT_BUTTON_PAD)
-		b.pressed.connect(open_category.bind(cat["id"]))
-		_cat_buttons[cat["id"]] = b
-	_show_flyout()
+func _build_command_grid(parent: Node) -> void:
+	_cmd_panel = PanelContainer.new()
+	_cmd_panel.name = "CommandGrid"
+	var sb := _style(PANEL_BG, PANEL_EDGE, 6, 2, 10)
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	_cmd_panel.add_theme_stylebox_override("panel", sb)
+	parent.add_child(_cmd_panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	_cmd_panel.add_child(v)
+	_cmd_title = _label(v, 14, GOLD)
+	_cmd_title.name = "GridTitle"
+	_cmd_grid = GridContainer.new()
+	_cmd_grid.name = "GridCells"
+	_cmd_grid.columns = GRID_COLUMNS
+	_cmd_grid.add_theme_constant_override("h_separation", CELL_GAP)
+	_cmd_grid.add_theme_constant_override("v_separation", CELL_GAP)
+	v.add_child(_cmd_grid)
+	_rebuild_command_grid()
 
 
-func open_category(id: String) -> void:
-	_open_cat = "" if _open_cat == id else id
-	_show_flyout()
-
-
-func _show_flyout() -> void:
-	for c in _fly_box.get_children():
-		_fly_box.remove_child(c)
-		c.queue_free()
-	for id in _cat_buttons:
-		_style_button(_cat_buttons[id], id == _open_cat, CAT_BUTTON_PAD)
-	_fly_panel.visible = false
-	_fly_key = ""
-	for cat in model.build_bar():
-		if cat["id"] != _open_cat:
-			continue
-		_fly_panel.visible = true
-		_fly_title.text = cat["label"]
-		_fly_hint.visible = cat["id"] != "roads"
-		_fly_key = _flyout_key(cat)
-		var entries: Array = cat["entries"]
-		var card_count := entries.filter(func(e: Dictionary) -> bool: return e["kind"] == "building").size()
-		var grid: GridContainer = null
-		if card_count > 0:
-			var cols := mini(card_count, CARD_COLUMNS)
-			var rows := ceili(float(card_count) / CARD_COLUMNS)
-			var shown := mini(rows, CARD_ROWS)
-			var scroll := ScrollContainer.new()
-			scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-			scroll.custom_minimum_size = Vector2(cols * CARD_SIZE.x + (cols - 1) * CARD_GAP + (14 if rows > CARD_ROWS else 0),
-					shown * CARD_SIZE.y + (shown - 1) * CARD_GAP)
-			_fly_box.add_child(scroll)
-			grid = GridContainer.new()
-			grid.columns = cols
-			grid.add_theme_constant_override("h_separation", CARD_GAP)
-			grid.add_theme_constant_override("v_separation", CARD_GAP)
-			scroll.add_child(grid)
-		for e: Dictionary in entries:
-			var b: Button
-			if e["kind"] == "building":
-				b = _card(grid, e)
-			else:
-				var text: String = e["label"]
-				if e["cost"] != "":
-					text += "  %s(%s)" % [e["size"] + " " if e["size"] != "" else "", e["cost"]]
-				b = _button(_fly_box, text, 14)
-				b.name = "Tool_" + str(e["id"])
-				b.tooltip_text = str(e.get("tip", ""))
-			b.pressed.connect(_pick.bind(e["kind"], e["id"]))
-			b.set_meta("kind", e["kind"])
-			b.set_meta("tool_id", e["id"])
-			if e["kind"] == "building":
-				b.name = "Build_" + str(e["id"])
-				b.set_meta("def_id", e["id"])
-				b.set_meta("reason", str(e.get("reason", "")))
-				b.mouse_entered.connect(func() -> void: _tip_btn = b)
-				b.mouse_exited.connect(func() -> void:
-					if _tip_btn == b:
-						_tip_btn = null)
-			if e.get("enabled", true) == false:
-				b.disabled = true
-				if not e.get("locked", false):
-					b.modulate = Color(1, 1, 1, 0.5)
-	_refresh_active_tool()
-	_place_flyout()
-
-
-## Sits the flyout above the category bar, its bottom edge just clear of it (ticket 125).
-func _place_flyout() -> void:
-	if _fly_panel == null or not _fly_panel.visible:
+## Rebuilds the cells for the current page when what they show changes (page, era, stock). The HUD refresh calls this
+## every tick.
+func _refresh_command_grid() -> void:
+	var key := _command_grid_key()
+	if key == _grid_key:
 		return
-	var vp := get_viewport().get_visible_rect().size
-	var sz := _fly_panel.get_combined_minimum_size()
-	_fly_panel.size = sz
-	var bar_top := vp.y - 6.0
-	if _cat_box != null and _cat_box.get_parent() is Control:
-		bar_top = (_cat_box.get_parent() as Control).get_global_rect().position.y
-	_fly_panel.position = Vector2(FLY_INDENT, maxf(6.0, bar_top - 6.0 - sz.y))
+	_grid_key = key
+	_rebuild_command_grid()
 
 
-## What decides how the cards look (state per entry): the flyout is rebuilt when this changes.
-func _flyout_key(cat: Dictionary) -> String:
-	var parts: Array[String] = []
-	for e: Dictionary in cat["entries"]:
-		parts.append("%s:%s:%s:%s" % [e["id"], e.get("locked", false), e.get("short", false), e.get("enabled", true)])
+func _command_grid_key() -> String:
+	var parts: Array[String] = [model.s.era_id(), _grid_page]
+	for c: Dictionary in model.grid(_grid_page):
+		parts.append("%s:%s:%s" % [c["id"], c["state"], c["label"]])
 	return "|".join(parts)
 
 
-## Rebuilds the open flyout when a card changes state (stock now covers a cost, or no longer does).
-func _refresh_flyout_cards() -> void:
-	if _open_cat == "" or not _fly_panel.visible:
-		return
-	for cat in model.build_bar():
-		if cat["id"] == _open_cat:
-			if _flyout_key(cat) != _fly_key:
-				_show_flyout()
-			return
+func _rebuild_command_grid() -> void:
+	for c in _cmd_grid.get_children():
+		_cmd_grid.remove_child(c)
+		c.queue_free()
+	_cmd_cells.clear()
+	var cells := model.grid(_grid_page)
+	_cmd_title.text = model.grid_title(_grid_page)
+	for i in cells.size():
+		_cmd_cells.append(_grid_cell_button(cells[i], i))
+	_refresh_active_tool()
 
 
-## One build card (a Button, so pressing, disabling and the tutorial pulse work as before): sprite, name, the cost of
-## each good as icon + number (the short number red), a lock and the unlock reason when the era is not reached.
-func _card(parent: Node, e: Dictionary) -> Button:
+## One cell: building art or category icon, its name, and its key (the pane's positional letter, or Esc/More).
+func _grid_cell_button(cell: Dictionary, index: int) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = CARD_SIZE
+	b.custom_minimum_size = CELL_SIZE
 	b.clip_contents = true
-	parent.add_child(b)
-	var locked: bool = e.get("locked", false)
-	b.set_meta("card", "locked" if locked else ("short" if e.get("short", false) else "ok"))
-	_style_card(b, false)
+	b.name = "Cell_" + (str(cell["id"]) if str(cell["id"]) != "" else "empty%d" % index)
+	b.set_meta("cell_id", str(cell["id"]))
+	b.set_meta("cell_state", str(cell["state"]))
+	_style_cell(b, cell, false)
+	_cmd_grid.add_child(b)
+	b.pressed.connect(_activate_cell.bind(index))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right", "top", "bottom"]:
-		m.add_theme_constant_override("margin_" + side, 6)
+		m.add_theme_constant_override("margin_" + side, 2)
 	b.add_child(m)
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var v := VBoxContainer.new()
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 2)
-	m.add_child(v)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 5)
+	m.add_child(h)
 	var pic := Control.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pic.custom_minimum_size = Vector2(0, 84)
-	v.add_child(pic)
-	var entry: Variant = ArtLibrary.manifest()["buildings"].get(str(e["id"]))
+	pic.custom_minimum_size = Vector2(22, 22)
+	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(pic)
+	var id := str(cell["id"])
+	var entry: Variant = ArtLibrary.manifest()["buildings"].get(id)
+	var locked := str(cell["state"]) == "locked"
 	if entry != null:
 		var t := TextureRect.new()
 		t.texture = ArtLibrary.texture(entry["file"])
@@ -1212,65 +1123,145 @@ func _card(parent: Node, e: Dictionary) -> Button:
 		t.modulate = Color(0.45, 0.45, 0.45, 1) if locked else Color.WHITE
 		pic.add_child(t)
 		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	else:
+		var icon := str(cell.get("icon", ""))
+		if icon != "":
+			var ir := _icon(pic, icon, 20)
+			ir.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if locked:
 		var lock := LockGlyph.new()
 		lock.name = "Lock"
 		pic.add_child(lock)
 		lock.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	var title := _label(v, 16, DIM if locked else INK)
-	title.name = "CardName"
-	title.text = e["label"]
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.clip_text = true
-	if locked:
-		var why := _label(v, 12, GOLD)
-		why.name = "UnlockReason"
-		why.text = e["unlock"]
-		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		why.clip_text = true
-	var grid := GridContainer.new()
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 0)
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(grid)
-	for c: Dictionary in e["costs"]:
-		var row := HBoxContainer.new()
-		row.name = "Cost_" + str(c["good"])
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_theme_constant_override("separation", 3)
-		grid.add_child(row)
-		if c["icon"] != "":
-			var ic := _icon(row, c["icon"], 20)
-			ic.name = "Icon"
-			ic.modulate = Color(0.6, 0.6, 0.6, 1) if locked else Color.WHITE
-		var num := _label(row, 14, RED if c["short"] and not locked else (DIM if locked else INK))
-		num.name = "Num"
-		num.text = str(c["need"])
-		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(col)
+	var nm := _label(col, 12, DIM if locked else INK)
+	nm.name = "CellName"
+	nm.text = str(cell["label"])
+	nm.clip_text = true
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", 4)
+	col.add_child(foot)
+	var key := _label(foot, 11, DIM)
+	key.name = "CellKey"
+	key.text = str(cell["key"])
+	# Unaffordable: the short cost in red (the hover card lists every cost with its have N).
+	if str(cell["state"]) == "unaffordable":
+		var def := model.s.registry.get_building(id)
+		if def != null:
+			for c: Dictionary in model.cost_rows(def):
+				if bool(c["short"]):
+					var cost := _label(foot, 11, RED)
+					cost.name = "CellCost"
+					cost.text = str(c["need"])
+					break
+	if entry != null:
+		b.set_meta("def_id", id)
+		b.mouse_entered.connect(func() -> void:
+			_grid_focus_id = ""
+			_tip_btn = b)
+		b.mouse_exited.connect(func() -> void:
+			if _tip_btn == b:
+				_tip_btn = null)
+	b.tooltip_text = str(cell["reason"])
 	return b
 
 
-## Card look by state (the meta "card"): plain, red when something is short, grey when locked; gold edge while it is the
-## tool in use.
-func _style_card(b: Button, on: bool) -> void:
-	var state: String = b.get_meta("card", "ok")
+## Cell look by state: red edge when unaffordable, grey and dim when locked, nearly blank when empty; gold edge when
+## it is the active tool.
+func _style_cell(b: Button, cell: Dictionary, on: bool) -> void:
+	var state := str(cell["state"])
 	var bg := Color(0.11, 0.094, 0.086)
 	var edge := PANEL_EDGE
 	var hover := Color(0.17, 0.145, 0.125)
-	if state == "short":
-		bg = Color(0.37, 0.09, 0.08)
-		edge = RED
-		hover = Color(0.45, 0.11, 0.09)
-	elif state == "locked":
-		bg = Color(0.09, 0.09, 0.09)
-		edge = Color(0.22, 0.22, 0.22)
-		hover = bg
-	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 5, 2))
-	b.add_theme_stylebox_override("hover", _style(hover, GOLD if state != "locked" else edge, 5, 2))
-	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 5, 2))
-	b.add_theme_stylebox_override("disabled", _style(bg, edge, 5, 2))
+	match state:
+		"unaffordable":
+			bg = Color(0.37, 0.09, 0.08)
+			edge = RED
+			hover = Color(0.45, 0.11, 0.09)
+		"locked":
+			bg = Color(0.09, 0.09, 0.09)
+			edge = Color(0.22, 0.22, 0.22)
+			hover = bg
+		"empty":
+			bg = Color(0.075, 0.07, 0.065)
+			edge = Color(0.16, 0.15, 0.14)
+			hover = bg
+	var pad := 3
+	b.add_theme_stylebox_override("normal", _style(bg, GOLD if on else edge, 4, 2, pad))
+	b.add_theme_stylebox_override("hover", _style(hover, GOLD if on or state != "locked" else edge, 4, 2, pad))
+	b.add_theme_stylebox_override("pressed", _style(hover, GOLD, 4, 2, pad))
+	b.add_theme_stylebox_override("disabled", _style(bg, edge, 4, 2, pad))
+	b.disabled = state == "empty"
+
+
+## Presses cell `index` on the current page: opens a category, pages on, goes back, picks a building or tool, or runs a
+## top-level action. Locked cells only open their hover card; empty cells do nothing.
+func _activate_cell(index: int) -> void:
+	var cells := model.grid(_grid_page)
+	if index < 0 or index >= cells.size():
+		return
+	var c: Dictionary = cells[index]
+	var id := str(c["id"])
+	var state := str(c["state"])
+	if state == "empty":
+		return
+	_grid_focus_id = id if state == "locked" or model.s.registry.get_building(id) != null else ""
+	match id:
+		"back":
+			_set_grid_page("")
+			return
+		"more":
+			var bits := _grid_page.split(":")
+			_set_grid_page("%s:%d" % [bits[0], int(bits[1]) + 1 if bits.size() > 1 else 2])
+			return
+		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
+		"upgrade": build.set_mode(BuildController.Mode.UPGRADE)
+		"clear": build.set_mode(BuildController.Mode.CLEAR)
+		"plant": build.set_mode(BuildController.Mode.PLANT)
+		"region": toggle_region_map()
+		_:
+			if state == "locked":
+				return
+			if _grid_page == "":
+				if HudModel.is_grid_category(id):
+					_open_grid_page(id)
+			else:
+				_pick(id)
+	refresh()
+
+
+func _open_grid_page(page: String) -> void:
+	_grid_focus_id = ""
+	_grid_page = page
+	_grid_key = ""
+	_refresh_command_grid()
+	refresh()
+
+
+## Opens a category pane, or closes it when it is already open (tests and the tutorial call this).
+func open_category(id: String) -> void:
+	_set_grid_page("" if _grid_page == id else id)
+
+
+func _set_grid_page(page: String) -> void:
+	_open_grid_page(page)
+
+
+## The cell button carrying `id` on the current page, or null.
+func _cell_button(id: String) -> Button:
+	for b in _cmd_cells:
+		if str(b.get_meta("cell_id", "")) == id:
+			return b
+	return null
+
+
+## Builds `def_id` (the pane cell with that id), or null: the tutorial highlight finds it this way.
+func build_button(def_id: String) -> Button:
+	return _cell_button(def_id)
 
 
 ## A small padlock for a locked card.
@@ -1292,39 +1283,45 @@ const TOOL_MODES := {"road": BuildController.Mode.ROAD, "channel": BuildControll
 		"paved": BuildController.Mode.PAVED, "track": BuildController.Mode.TRACK, "demolish": BuildController.Mode.DEMOLISH}
 
 
-## Lights the tool in use: the flyout entry being placed (building or road/channel/paved/track/demolish) and the
-## Demolish / Upgrade buttons of the tools tab. Off again when the mode ends.
+## Lights the cell of the building being placed or the active road tool, and the tools tab's buttons.
 func _refresh_active_tool() -> void:
 	if build == null:
 		return
-	if _fly_box != null:
-		for c: Node in _fly_box.find_children("*", "Button", true, false):
-			if c.has_meta("kind") and not c.is_queued_for_deletion():
-				var id := str(c.get_meta("tool_id"))
-				var on: bool = (build.mode == BuildController.Mode.BUILD and c.get_meta("kind") == "building" and id == build.def_id) \
-						or (c.get_meta("kind") != "building" and TOOL_MODES.get(id, -1) == build.mode)
-				if c.has_meta("card"):
-					_style_card(c as Button, on)
-				else:
-					_style_button(c as Button, on)
+	for b in _cmd_cells:
+		if not is_instance_valid(b):
+			continue
+		var id := str(b.get_meta("cell_id", ""))
+		_style_cell(b, {"state": b.get_meta("cell_state", "ok")}, _cell_active(id))
 	if tools_tab != null:
 		tools_tab.refresh()
 
 
-## The flyout button that builds `def_id` (the open category's), or null. Buttons are named "Build_<def id>" and carry
-## the meta "def_id", so a tutorial highlight (ticket 83) can find them.
-func build_button(def_id: String) -> Button:
-	return _fly_box.find_child("Build_" + def_id, true, false) as Button
+## Whether the cell `id` is the tool in use: an action cell for its mode at the top level, a building or road tool in a
+## pane.
+func _cell_active(id: String) -> bool:
+	if _grid_page == "":
+		match id:
+			"demolish": return build.mode == BuildController.Mode.DEMOLISH
+			"upgrade": return build.mode == BuildController.Mode.UPGRADE
+			"clear": return build.mode == BuildController.Mode.CLEAR
+			"plant": return build.mode == BuildController.Mode.PLANT
+			"roads": return build.mode == BuildController.Mode.ROAD
+		return false
+	if build.mode == BuildController.Mode.BUILD and id == build.def_id:
+		return true
+	return TOOL_MODES.get(id, -1) == build.mode
 
 
-func _pick(kind: String, id: String) -> void:
-	match kind:
-		"building": build.set_build(id)
+## Picks the pane cell with `id`: a building def starts placing it, a road tool sets its mode.
+func _pick(id: String) -> void:
+	if model.s.registry.get_building(id) != null:
+		build.set_build(id)
+		return
+	match id:
 		"road": build.set_mode(BuildController.Mode.ROAD)
 		"channel": build.set_mode(BuildController.Mode.CHANNEL)
 		"paved": build.set_mode(BuildController.Mode.PAVED)
 		"track": build.set_mode(BuildController.Mode.TRACK)
-		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
 
 
 # ---------------------------------------------------------------- refresh and input
@@ -1353,7 +1350,7 @@ func refresh() -> void:
 	model.sync_layer()
 	minimap.refresh_toggles()
 	tools_tab.refresh()
-	_refresh_flyout_cards()
+	_refresh_command_grid()
 	_refresh_selection()
 	_refresh_notes()
 	_region_map.refresh()
@@ -1391,16 +1388,15 @@ func _process(delta: float) -> void:
 		workforce_page.position = ((get_viewport().get_visible_rect().size - workforce_page.size) / 2.0).floor()
 	if resources_page.visible:
 		resources_page.position = ((get_viewport().get_visible_rect().size - resources_page.size) / 2.0).floor()
-	_place_flyout()
 	_acc += delta
 	if _acc >= 0.2:
 		_acc = 0.0
 		refresh()
 
 
-## True when Esc would still cancel something (build tool, selection, open build flyout): then it is not the menu's.
+## True when Esc would still cancel something (build tool, selection, open pane): then it is not the menu's.
 func has_cancelable() -> bool:
-	return _region_map.visible or workforce_page.visible or resources_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _open_cat != ""
+	return _region_map.visible or workforce_page.visible or resources_page.visible or (build != null and build.mode != BuildController.Mode.NONE) or model.selected_id >= 0 or _grid_page != ""
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1410,13 +1406,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		model.clear_selection()  # right click (not a drag) deselects; with a build tool active it cancels that instead
 		refresh()
 	if event is InputEventKey and event.pressed and not event.echo:
-		match (event as InputEventKey).keycode:
+		var kc := (event as InputEventKey).keycode
+		# Modal keys (ticket 129): with a pane open its positional letters pick cells and override the global keys,
+		# and Esc goes back to the top level (a second Esc is today's Esc).
+		if _grid_page != "":
+			var at := _grid_key_index(kc)
+			if at >= 0:
+				_activate_cell(at)
+				get_viewport().set_input_as_handled()
+				return
+			if kc == KEY_ESCAPE:
+				_set_grid_page("")
+				get_viewport().set_input_as_handled()
+				return
+		match kc:
 			KEY_V: _on_overlay("blight")
 			KEY_G: _on_overlay("roads")
 			KEY_T: _on_overlay("water")
 			KEY_H: _on_overlay("coverage")
 			KEY_L: _on_overlay("grid")
-			KEY_M: _region_map.toggle()
+			KEY_M: toggle_region_map()
 			KEY_Q: workforce_page.toggle()
 			KEY_E: resources_page.toggle()
 			KEY_F1: help_requested.emit()
@@ -1425,16 +1434,38 @@ func _unhandled_input(event: InputEvent) -> void:
 					model.toggle_layer()
 					refresh()
 					get_viewport().set_input_as_handled()
+			# The command grid's own keys. R picks the road tool and opens the Roads pane; C P J stay with
+			# BuildController as the global road-type keys.
+			KEY_R:
+				_pick("road")
+				_open_grid_page("roads")
+				get_viewport().set_input_as_handled()
+			KEY_N: _open_grid_page("housing")
+			KEY_F: _open_grid_page("food")
+			KEY_W: _open_grid_page("water")
+			KEY_I: _open_grid_page("lumen")
+			KEY_K: _open_grid_page("logistics")
+			KEY_S: _open_grid_page("resources")
+			KEY_D: _open_grid_page("refining")
+			KEY_A: _open_grid_page("civic")
+			KEY_O: _open_grid_page("landmark")
+			KEY_X:
+				build.set_mode(BuildController.Mode.DEMOLISH)
+				get_viewport().set_input_as_handled()
 			KEY_U:
-				pass  # BuildController: upgrade mode
-			KEY_B: open_category("housing" if _open_cat == "" else _open_cat)
+				build.set_mode(BuildController.Mode.UPGRADE)
+				get_viewport().set_input_as_handled()
+			KEY_Z:
+				build.set_mode(BuildController.Mode.CLEAR)
+				get_viewport().set_input_as_handled()
+			KEY_Y:
+				build.set_mode(BuildController.Mode.PLANT)
+				get_viewport().set_input_as_handled()
 			KEY_ESCAPE:
 				_region_map.close()
 				workforce_page.close()
 				resources_page.close()
 				model.clear_selection()
-				_open_cat = ""
-				_show_flyout()
 				refresh()
 	elif event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if build != null and build.mode == BuildController.Mode.NONE and camera != null:
@@ -1443,11 +1474,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			refresh()
 
 
+## The cell of the open pane that key `kc` picks (its positional letter, B for More), -1 when it picks none.
+func _grid_key_index(kc: Key) -> int:
+	var name := OS.get_keycode_string(kc)
+	if name == "" or name == "Escape":
+		return -1
+	var cells := model.grid(_grid_page)
+	for i in cells.size():
+		if str(cells[i]["key"]) == name:
+			return i
+	return -1
+
+
 # ---------------------------------------------------------------- tutorial highlight (ticket 83)
 
-## The button the current tutorial goal points at, or null: the goal's build button when its category flyout is open,
-## else that category's button; the Roads category / road tool for the road goal; the minimap's overlay button for an
-## overlay goal. Null when the tutorial is not active.
+## The button the current tutorial goal points at, or null: the goal's cell when its category pane is open, else that
+## category's top-level cell; the Roads cell / road tool for the road goal; the minimap's overlay button for an overlay
+## goal. Null when the tutorial is not active.
 func highlight_button() -> Button:
 	var g := (model.s.get_system(TutorialSystem) as TutorialSystem).current_goal()
 	if g == null or g.highlight == "":
@@ -1459,16 +1502,18 @@ func highlight_button() -> Button:
 	var entry := ""
 	if g.highlight == "road":
 		cat = "roads"
-		entry = "Tool_road"
+		entry = "road"
 	else:
 		var def := model.s.registry.get_building(g.highlight)
 		if def == null:
 			return null
-		cat = def.category
-		entry = "Build_" + g.highlight
-	if _open_cat == cat:
-		return _fly_box.find_child(entry, true, false) as Button
-	return _cat_buttons.get(cat) as Button
+		cat = HudModel.grid_group(def.category)
+		entry = def.id
+	if _grid_page == cat:
+		return _cell_button(entry)
+	if _grid_page == "":
+		return _cell_button(cat)
+	return null
 
 
 ## Pulses the highlighted button (self_modulate, so a disabled button's fade is kept) and clears the previous one.
@@ -1534,14 +1579,14 @@ func _set_detail(def_id: String) -> void:
 	_place_detail()
 
 
-## Bottom right, just above the build bar, clear of the flyout's cards.
+## Bottom right, just above the command grid.
 func _place_detail() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var sz := _detail.get_combined_minimum_size()
 	_detail.size = sz
 	var bottom := vp.y - 6.0
-	if _cat_box != null and _cat_box.get_parent() is Control:
-		bottom = (_cat_box.get_parent() as Control).get_global_rect().position.y - 6.0
+	if _cmd_panel != null and is_instance_valid(_cmd_panel):
+		bottom = _cmd_panel.get_global_rect().position.y - 6.0
 	_detail.position = Vector2(maxf(6.0, vp.x - sz.x - 6.0), maxf(56.0, bottom - sz.y))
 
 
@@ -1697,8 +1742,13 @@ func hover_tick(delta: float, tile: Vector2i = NO_TILE) -> void:
 	var data := {}
 	if _tip_btn != null and not is_instance_valid(_tip_btn):
 		_tip_btn = null
-	# A hovered build card opens the detail panel at once (ticket 117) instead of the small tooltip.
-	_set_detail(str(_tip_btn.get_meta("def_id")) if _tip_btn != null and _tip_btn.is_visible_in_tree() else "")
+	# A hovered or keyboard-picked grid cell opens the detail panel at once (tickets 117, 129) instead of the tooltip.
+	var detail_id := ""
+	if _tip_btn != null and _tip_btn.is_visible_in_tree():
+		detail_id = str(_tip_btn.get_meta("def_id"))
+	elif _grid_focus_id != "":
+		detail_id = _grid_focus_id
+	_set_detail(detail_id)
 	if _detail.visible:
 		if _tip_panel.visible or _tip_key != "":
 			_hide_tip()

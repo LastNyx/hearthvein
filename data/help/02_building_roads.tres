@@ -7,7 +7,7 @@ script = ExtResource("1")
 id = "building_roads"
 order = 2
 title = "Building and roads"
-body = "Open a category on the bottom bar (or press B), pick a building and click the map to place it. It starts as a building site: haulers bring what it costs, then builders build it. Builders take a few days.
+body = "Open a category on the command grid (bottom-right), pick a building and click the map to place it. It starts as a building site: haulers bring what it costs, then builders build it. Builders take a few days.
 
 The Hearth gives {building.hearth.builder_slots} builder jobs. Each Builder's Yard adds {building.builders_yard.builder_slots} more.
 

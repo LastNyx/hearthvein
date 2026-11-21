@@ -983,14 +983,13 @@ func test_top_right_cluster_is_compact_and_clear_of_other_panels() -> void:
 		assert_false(l.text.begins_with("Era: "), "the old era panel is gone")
 		objectives_title = objectives_title or l.text == "Objectives"
 	assert_true(objectives_title, "the objectives panel is drawn")
-	var others: Array[Control] = [hud._bar_panel, hud._fly_panel,
-			hud.tools_tab.get_node("ToolsPanel") as Control]
+	var others: Array[Control] = [hud._cmd_panel, hud.tools_tab.get_node("ToolsPanel") as Control]
 	for other in others:
 		if other == null or not other.visible:
 			continue
 		assert_false(goods.intersects(other.get_global_rect()), "no overlap with %s" % other.name)
 		assert_false(clock.intersects(other.get_global_rect()), "no overlap with %s" % other.name)
-	assert_lte(hud._fly_panel.get_global_rect().end.y, 720.0, "the open flyout still fits inside 720")
+	assert_lte(hud._cmd_panel.get_global_rect().end.y, 720.0, "the command grid fits inside 720")
 	get_window().size = old
 	DirAccess.remove_absolute(cfg)
 	DirAccess.remove_absolute(dir)

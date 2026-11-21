@@ -1,6 +1,6 @@
 class_name BuildController
 extends Node
-## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, K clear (click-drag forest, stump and rock to mark them for builders; click again or X unmarks), N plant (click-drag grass to mark it for Foresters; click again or X unmarks), U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
+## Build mode input: R road tool (click-drag), C irrigation channel (click-drag, Village era on), P paved road (click-drag, Town era on, upgrades dirt), J rail track (click-drag, Conflux era on), X demolish, Z clear (click-drag forest, stump and rock to mark them for builders; click again or X unmarks), Y plant (click-drag grass to mark it for Foresters; click again or X unmarks), U upgrade (click buildings, stays on), right click / Esc cancel, left click places.
 ## The menus live in the HUD (ui/hud.gd), which calls set_build / set_mode. Writes to the sim only through Settlement commands.
 
 enum Mode { NONE, BUILD, ROAD, DEMOLISH, CHANNEL, PAVED, TRACK, UPGRADE, CLEAR, PLANT }
@@ -172,8 +172,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				if settlement.track_unlocked():
 					set_mode(Mode.TRACK)
 			KEY_X: set_mode(Mode.DEMOLISH)
-			KEY_K: set_mode(Mode.CLEAR)
-			KEY_N: set_mode(Mode.PLANT)
+			KEY_Z: set_mode(Mode.CLEAR)
+			KEY_Y: set_mode(Mode.PLANT)
 			KEY_U: set_mode(Mode.UPGRADE)
 			KEY_ESCAPE: cancel()
 	elif event is InputEventMouseButton and mode != Mode.NONE:

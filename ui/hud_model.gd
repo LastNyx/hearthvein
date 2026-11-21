@@ -7,6 +7,24 @@ extends RefCounted
 const OVERLAYS: Array[String] = ["blight", "roads", "water", "coverage", "grid"]
 const CATEGORY_ORDER: Array[String] = ["roads", "housing", "food", "resources", "lumen", "refining", "gold",
 		"water", "logistics", "civic", "sky", "landmark"]
+## Command grid (ticket 129, hud-rts-spec H2-H4): 5x3 cells at the bottom-right. A grid category gathers the building
+## categories listed here (Gold buildings under Civic, Sky buildings under Logistics; BuildingDef.category unchanged).
+const GRID_GROUPS := {"roads": ["roads"], "housing": ["housing"], "food": ["food"], "water": ["water"],
+		"lumen": ["lumen"], "logistics": ["logistics", "sky"], "resources": ["resources"],
+		"refining": ["refining"], "civic": ["civic", "gold"], "landmark": ["landmark"]}
+## Top-level cells, in reading order: id, label, key, icon.
+const GRID_TOP := [
+		["roads", "Roads", "R", "stone"], ["housing", "Housing", "N", "pop"],
+		["food", "Food", "F", "food"], ["water", "Water", "W", ""], ["lumen", "Lumen", "I", "lumen"],
+		["logistics", "Logistics", "K", "planks"], ["resources", "Resources", "S", "wood"],
+		["refining", "Refining", "D", "tools"], ["civic", "Civic", "A", "spirit"],
+		["landmark", "Landmark", "O", "moon"],
+		["demolish", "Demolish", "X", "cut_stone"], ["upgrade", "Upgrade", "U", "gold"],
+		["clear", "Clear", "Z", "wood"], ["plant", "Plant", "Y", "wood"], ["region", "Region", "M", "planet"]]
+## Positional keys of a category pane, cell 0 first; the last cell (index 14) is More (B) or Back (Esc).
+const GRID_KEYS: Array[String] = ["Q", "W", "E", "R", "T", "A", "S", "D", "F", "G", "Z", "X", "C", "V"]
+## Building cells a pane page holds before its last cell turns into More.
+const GRID_PAGE := 14
 ## Top bar order (ticket 112, build_menu.png): food, wood, stone, planks, cut stone, tools, lumen, cells, gold; people
 ## follow in their own box.
 const RESOURCES: Array[String] = ["food", "wood", "stone", "planks", "cut_stone", "tools", "lumen", "cells", "gold"]
@@ -1609,6 +1627,130 @@ func build_bar() -> Array[Dictionary]:
 	for cat: String in rest:
 		out.append({"id": cat, "label": category_label(cat), "entries": by_cat[cat]})
 	return out
+
+
+# ---------------------------------------------------------------- command grid (ticket 129)
+
+## The 15 cells of the command grid. page is "" for the top level, a grid category id for its pane, and
+## "<category>:<n>" for page n of a pane that has more than GRID_PAGE entries. Each cell is
+## {id, label, key, icon, state: ok|locked|unaffordable|empty, reason}; the last cell is More (key B) or Back (key
+## Esc). An empty cell is a free grid slot or a category with nothing unlocked.
+func grid(page: String) -> Array[Dictionary]:
+	var bar := build_bar()
+	if page == "" or page == "top":
+		return _grid_top(bar)
+	var bits := page.split(":")
+	var cat := bits[0]
+	var no := maxi(1, int(bits[1])) if bits.size() > 1 else 1
+	return _grid_pane(cat, no, bar)
+
+
+## The pane title: "Build" at the top level, else the category's name.
+func grid_title(page: String) -> String:
+	if page == "" or page == "top":
+		return "Build"
+	return category_label(page.split(":")[0])
+
+
+## The grid category a building category is shown under (Gold under Civic, Sky under Logistics; others themselves).
+static func grid_group(category: String) -> String:
+	for g: String in GRID_GROUPS:
+		if (GRID_GROUPS[g] as Array).has(category):
+			return g
+	return category
+
+
+## Whether id names a top-level category cell (as opposed to an action cell).
+static func is_grid_category(id: String) -> bool:
+	return GRID_GROUPS.has(id)
+
+
+func _grid_top(bar: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for cell: Array in GRID_TOP:
+		var id := str(cell[0])
+		var st := _top_state(id, bar)
+		out.append({"id": id, "label": cell[1], "key": cell[2], "icon": cell[3],
+				"state": st["state"], "reason": st["reason"]})
+	return out
+
+
+## ok when the category has something to build, locked when all it has is locked, empty when it has nothing.
+func _top_state(id: String, bar: Array) -> Dictionary:
+	if not GRID_GROUPS.has(id):
+		return {"state": "ok", "reason": ""}
+	var entries := _pane_entries(id, bar)
+	if entries.is_empty():
+		return {"state": "empty", "reason": ""}
+	for e: Dictionary in entries:
+		if str(e["state"]) != "locked":
+			return {"state": "ok", "reason": ""}
+	return {"state": "locked", "reason": str(entries[0]["reason"])}
+
+
+func _grid_pane(cat: String, no: int, bar: Array) -> Array[Dictionary]:
+	var all := _pane_entries(cat, bar)
+	var start := (no - 1) * GRID_PAGE
+	var out: Array[Dictionary] = []
+	for i in range(start, start + GRID_PAGE):
+		if i < all.size():
+			var c: Dictionary = all[i].duplicate()
+			c["key"] = GRID_KEYS[out.size()]
+			out.append(c)
+		else:
+			out.append({"id": "", "label": "", "key": GRID_KEYS[out.size()], "icon": "", "state": "empty",
+					"reason": ""})
+	if start + GRID_PAGE < all.size():
+		out.append({"id": "more", "label": "More", "key": "B", "icon": "", "state": "ok", "reason": ""})
+	else:
+		out.append({"id": "back", "label": "Back", "key": "Esc", "icon": "", "state": "ok", "reason": ""})
+	return out
+
+
+## The category's cells, unlocked then next-era locked (ticket 116), in build_bar order. Roads keeps its road tools
+## (Demolish has its own top-level cell now).
+func _pane_entries(cat: String, bar: Array = []) -> Array[Dictionary]:
+	if bar.is_empty():
+		bar = build_bar()
+	var groups: Array = GRID_GROUPS.get(cat, [cat])
+	var out: Array[Dictionary] = []
+	for group: Dictionary in bar:
+		if not groups.has(group["id"]):
+			continue
+		for e: Dictionary in group["entries"]:
+			if cat == "roads" and str(e["kind"]) == "demolish":
+				continue
+			out.append(_grid_cell(e))
+	return out
+
+
+## One build_bar entry as a grid cell: an unlocked building is ok or unaffordable (some good short), a locked one
+## says why on hover, and a building blocked by the active layer counts as locked with its block reason.
+func _grid_cell(e: Dictionary) -> Dictionary:
+	var locked := bool(e.get("locked", false))
+	var state := "ok"
+	var reason := ""
+	if locked or not bool(e.get("enabled", true)):
+		state = "locked"
+		reason = str(e.get("unlock", "")) if locked else str(e.get("reason", ""))
+		if reason == "":
+			reason = str(e.get("reason", ""))
+	elif bool(e.get("short", false)):
+		state = "unaffordable"
+		reason = _short_reason(e.get("costs", []))
+	var label := str(e["label"])
+	if str(e["kind"]) != "building":
+		label = label.get_slice(" (", 0)  # the positional key replaces the old hotkey hint
+	return {"id": str(e["id"]), "label": label, "key": "", "icon": "", "state": state, "reason": reason}
+
+
+## "Not enough Wood, Stone" for the goods a cost is short of, "" when nothing is short.
+func _short_reason(costs: Array) -> String:
+	var names: Array[String] = []
+	for c: Dictionary in costs:
+		if bool(c.get("short", false)):
+			names.append(str(c.get("name", c.get("good", ""))))
+	return "Not enough %s" % ", ".join(names) if not names.is_empty() else ""
 
 
 ## What an Irrigation Channel does, from WaterDef ("" without it).
