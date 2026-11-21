@@ -983,6 +983,8 @@ func _refresh_selection() -> void:
 		for l: String in body:
 			_hud_line(_sel_body, l, INK, 14)
 	_sel_prio_title.text = "Priority"
+	_sel_prio_title.tooltip_text = sel["priority_label"]  # "Work priority" or "Build priority"
+	_sel_prio_title.mouse_filter = Control.MOUSE_FILTER_PASS
 	_sel_prio_title.visible = sel["show_priority"]
 	_prio_row.visible = sel["show_priority"]
 	_sel_warn.text = sel["warn"]
