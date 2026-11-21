@@ -170,6 +170,35 @@
    },
    "w": 66
   },
+  "bakery": {
+   "base": [
+    27,
+    56
+   ],
+   "file": "buildings/bakery.png",
+   "flat": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "fx": {
+    "file": "buildings/bakery_fx.png",
+    "offset": [
+     -5,
+     -66
+    ]
+   },
+   "generic": false,
+   "h": 57,
+   "shadow": {
+    "file": "buildings/bakery_shadow.png",
+    "offset": [
+     -19,
+     -3
+    ]
+   },
+   "w": 55
+  },
   "bell_tower": {
    "base": [
     20,
@@ -2427,6 +2456,7 @@
   "sky"
  ],
  "icons": {
+  "bread": "ui/icon_bread.png",
   "cells": "ui/icon_cells.png",
   "charcoal": "ui/icon_charcoal.png",
   "cut_stone": "ui/icon_cut_stone.png",

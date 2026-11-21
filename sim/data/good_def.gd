@@ -11,3 +11,6 @@ const KIND_REFINED := "refined"
 @export var kind: String = KIND_BASE
 ## Food variety type this good counts as, or "" when it is not a food type.
 @export var food_type: String = ""
+## Eating order among foods (ticket 140): a higher value is eaten first. Plain food itself and every other food
+## default to 0, where plain food goes before the other foods; bread is 1, so it is eaten before plain food.
+@export var food_priority: int = 0

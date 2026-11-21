@@ -44,19 +44,22 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_map = null  # set at the start of the next on_day
 
 
-## Food goods in eating order: "food" first, then every other good with a food_type, sorted by id.
-## (Ticket 23 may replace this with variety rules.)
+## Food goods in eating order: highest food_priority first (bread, ticket 140), then "food", then every other good
+## with a food_type, sorted by id.
 static func food_goods(reg: DataRegistry) -> Array[String]:
 	var out: Array[String] = []
-	var rest: Array[String] = []
 	for id in reg.goods:
 		var g: GoodDef = reg.goods[id]
-		if g.id == "food":
-			out.append("food")
-		elif g.food_type != "":
-			rest.append(g.id)
-	rest.sort()
-	out.append_array(rest)
+		if g.id == "food" or g.food_type != "":
+			out.append(g.id)
+	out.sort_custom(func(a: String, b: String) -> bool:
+		var pa: int = (reg.goods[a] as GoodDef).food_priority
+		var pb: int = (reg.goods[b] as GoodDef).food_priority
+		if pa != pb:
+			return pa > pb
+		if a == "food" or b == "food":
+			return a == "food"
+		return a < b)
 	return out
 
 

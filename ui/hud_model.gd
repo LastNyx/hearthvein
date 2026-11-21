@@ -25,9 +25,9 @@ const GRID_TOP := [
 const GRID_KEYS: Array[String] = ["Q", "W", "E", "R", "T", "A", "S", "D", "F", "G", "Z", "X", "C", "V"]
 ## Building cells a pane page holds before its last cell turns into More.
 const GRID_PAGE := 14
-## Top bar order (ticket 112, build_menu.png): food, wood, charcoal, stone, planks, cut stone, tools, lumen, cells,
-## gold; people follow in their own box.
-const RESOURCES: Array[String] = ["food", "wood", "charcoal", "stone", "planks", "cut_stone", "tools", "lumen",
+## Top bar order (ticket 112, build_menu.png): food, bread, wood, charcoal, stone, planks, cut stone, tools, lumen,
+## cells, gold; people follow in their own box.
+const RESOURCES: Array[String] = ["food", "bread", "wood", "charcoal", "stone", "planks", "cut_stone", "tools", "lumen",
 		"cells", "gold"]
 ## The fixed top-right entries (ticket 125, hud-rts-spec H5): people then the five core goods, before the pins.
 const CORE_TOP: Array[String] = ["people", "food", "wood", "stone", "lumen", "gold"]
@@ -137,7 +137,8 @@ func _stock() -> Dictionary:
 	var gs := s.get_system(GridSystem) as GridSystem
 	if gs != null:
 		lumen += gs.total_charge()  # battery charge is Lumen the player owns, even though it is not in storage
-	return {"food": food, "wood": float(t.get("wood", 0.0)), "charcoal": float(t.get("charcoal", 0.0)),
+	return {"food": food, "bread": float(t.get("bread", 0.0)), "wood": float(t.get("wood", 0.0)),
+			"charcoal": float(t.get("charcoal", 0.0)),
 			"stone": float(t.get("stone", 0.0)), "planks": float(t.get("planks", 0.0)),
 			"cut_stone": float(t.get("cut_stone", 0.0)), "tools": float(t.get("tools", 0.0)), "lumen": lumen,
 			"cells": float(t.get("lumen_cells", 0.0)), "gold": s.gold}

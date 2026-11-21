@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mockups as M  # noqa: E402
 import mockups_v1 as MV  # noqa: E402  (HUD icons)
 import mockups_night as N  # noqa: E402  (ticket 134 night buildings)
+import mockups_nightlife as NL  # noqa: E402  (ticket 140 bakery art and the bread icon)
 import sky_island_art as SI  # noqa: E402  (ticket 72 island slabs and kit)
 import generic_props as GP  # noqa: E402  (ticket 110 signature props and door signs)
 
@@ -1414,6 +1415,8 @@ SHEET = {
     # ticket 134: the night-only buildings from the night mockups (day base, lit frame from the glow)
     "charcoal_kiln": lambda: NightSprite(N.kiln_art(False), N.kiln_art(True), 2, 2, (1.0, 9), (255, 150, 60), 16),
     "glowcap_grove": lambda: NightSprite(N.grove_art(False), N.grove_art(True), 2, 2, (1.0, 8), (120, 240, 200), 30),
+    # ticket 140: the Bakery (night life mockup nl_build_cards_2.png), day look plus the oven glow after dark
+    "bakery": lambda: NightSprite(NL.bakery_art(False), NL.bakery_art(True), 1, 1, (0.9, 5), (255, 150, 60), 14),
 }
 # Flat footprints (lawn, plaza): drawn on the ground layer under every y-sorted object, never occluded by neighbours.
 FLAT = {"park"}
@@ -1548,9 +1551,9 @@ def export_icons(manifest):
     Ticket 112: the goods, people and lumen cells use the approved 1.1.6 set (MV.icon_v2, D12); Spirit, the moon and
     the planet keep the older drawings, which have no 1.1.6 version.
     """
-    v2 = {"food": "food", "wood": "wood", "charcoal": "charcoal", "stone": "stone", "planks": "planks",
-          "cut_stone": "cut_stone", "tools": "tools", "lumen": "lumen", "cells": "cells", "gold": "gold",
-          "pop": "people"}
+    v2 = {"food": "food", "bread": "bread", "wood": "wood", "charcoal": "charcoal", "stone": "stone",
+          "planks": "planks", "cut_stone": "cut_stone", "tools": "tools", "lumen": "lumen", "cells": "cells",
+          "gold": "gold", "pop": "people"}
     for k, art in v2.items():
         save(MV.icon_v2(art), OUT / "ui" / f"icon_{k}.png")
     names = ["spirit", "moon"]
