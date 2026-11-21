@@ -1,7 +1,7 @@
 extends GutTest
 ## Ticket 34b: tier III costs, effects and the Lodge (design.md section 10). Tier III opens in the City and costs
 ## tools 20% + Lumen cells 10% + cut stone 25% of the base wood + stone cost (data/tiers/tiers.tres, per-def overrides
-## in the TierDef); output or beds x2 of base and +2 worker slots. Tent III is the Lodge (4 beds). Lumen extractor
+## in the TierDef); +2 worker slots. Tent III is the Lodge (5 beds). Lumen extractor
 ## tiers raise output but never the blight radius or rate.
 
 const SEED := 42
@@ -103,9 +103,9 @@ func test_tent_iii_is_the_lodge() -> void:
 	tent.tier = 3
 	s.refresh_population()
 	assert_eq(tent.display_name(reg), "Lodge")
-	assert_eq(tent.effective_beds(reg), 4)
+	assert_eq(tent.effective_beds(reg), 5)
 	assert_eq(s.beds_total(), beds + 2, "a Lodge houses two more than a Tent")
-	assert_eq(reg.get_building("tent").housing_beds, 2, "the base is still 2 beds")
+	assert_eq(reg.get_building("tent").housing_beds, 3, "the base is 3 beds")
 
 
 # AC2: extractor tiers raise output, never the blight radius or period (every upgradable vein extractor).

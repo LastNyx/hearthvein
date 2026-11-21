@@ -65,12 +65,12 @@ func test_cottage_houses_four() -> void:
 	assert_eq(def.era, "village")
 	assert_eq(def.size, Vector2i(1, 1))
 	assert_eq(def.cost, {"wood": 10, "stone": 5})
-	assert_eq(def.housing_beds, 4)
+	assert_eq(def.housing_beds, 5)
 	var before := s.beds_total()
 	var o := _free_spot("cottage")
 	assert_true(o.x >= 0, "a free tile for the Cottage")
 	assert_gt(s.place_building_instant("cottage", o), -1)
-	assert_eq(s.beds_total(), before + 4)
+	assert_eq(s.beds_total(), before + 5)
 
 
 func test_cottage_and_farm_are_locked_in_camp() -> void:

@@ -123,15 +123,15 @@ func test_scripted_run_completes_all_ten_goals_in_order() -> void:
 	while s.citizens.size() < 12:
 		s.add_citizen()
 	assert_eq(_current_id(), ids[8])
-	# the forecast arrives with too little Lumen for 12 citizens over the whole Dimming
+	# the forecast arrives with too little Lumen for the citizens over the whole Dimming
 	_to_day(AUTUMN)
 	s.step_hours(1)
 	assert_eq(s.events.log_of("dimming_forecast").size(), 1)
 	assert_eq(_current_id(), ids[8], "forecast seen but the stock is short")
 	var need := t.stock_targets(s)
 	assert_eq(need["length"], 2)
-	assert_almost_eq(float(need["lumen_target"]), 12.0 * 0.5 * 2.0, 0.001)
-	assert_almost_eq(float(need["food_target"]), 12.0 * 1.0 * 2.0, 0.001)
+	assert_almost_eq(float(need["lumen_target"]), float(s.citizens.size()) * 0.5 * 2.0, 0.001)
+	assert_almost_eq(float(need["food_target"]), float(s.citizens.size()) * 1.0 * 2.0, 0.001)
 	assert_true(bool(need["ready"]))
 	assert_false(bool(need["enough"]))
 	s.hearth.inventory.add("lumen", 30.0)

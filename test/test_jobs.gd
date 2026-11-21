@@ -115,7 +115,7 @@ func test_priority_high_beats_normal_and_paused_gets_none() -> void:
 	var b := _put(s, "forager", true)
 	_keep_citizens(s, 2)
 	s.refresh_population()
-	assert_eq(_workers(s, a), 2, "equal priority: lower id first")
+	assert_eq([_workers(s, a), _workers(s, b)], [1, 1], "equal priority: the two share the two citizens")
 	assert_true(s.set_building_priority(b.id, "high"))
 	assert_eq(_workers(s, b), 2)
 	assert_eq(_workers(s, a), 0)
