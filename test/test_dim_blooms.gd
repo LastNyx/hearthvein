@@ -263,3 +263,36 @@ func test_observatory_catches_starlight_and_it_covers_light() -> void:
 	assert_almost_eq(float(ll["short"]), 0.0, 0.001, "nothing short")
 	assert_false(DimmingSystem.is_dark(s), "the town is not dark")
 	assert_almost_eq(s.hearth.inventory.amount_of("starlight"), 0.2, 0.01, "0.8 starlight spent for 4 Lumen")
+
+
+# ---------------------------------------------------------------- ticket 176: the numbers live in data
+
+## The lit river band follows PlanetDef.glow_river_light_radius (2 reaches the tile two away that radius 1 leaves dark).
+func test_the_lit_river_band_follows_the_light_radius_in_data() -> void:
+	var s := _new_settlement()
+	var pair := _radius_pair(s)
+	assert_false(pair.is_empty())
+	var two: Vector2i = pair[1]
+	_dimming(s)
+	_set_day(s, 20, 22)
+	assert_false(s.is_tile_lit(two), "radius 1: two tiles away is dark")
+	reg.planet.glow_river_light_radius = 2
+	var wide := _new_settlement()
+	_dimming(wide)
+	_set_day(wide, 20, 22)
+	var lit_wide := wide.is_tile_lit(two)
+	reg.planet.glow_river_light_radius = 1
+	assert_true(lit_wide, "radius 2: the band widens to two tiles")
+
+
+## The Grove's river bonus follows the def flag, not its id.
+func test_the_river_bonus_follows_the_def_flag() -> void:
+	var s := _new_settlement()
+	var wet := _place_grove(s, true)
+	assert_not_null(wet)
+	_dimming(s)
+	assert_almost_eq(ProductionSystem.glow_river_modifier(s, wet), 1.25, 0.0001)
+	wet.def.glow_river_boost = false
+	var off := ProductionSystem.glow_river_modifier(s, wet)
+	wet.def.glow_river_boost = true
+	assert_almost_eq(off, 1.0, 0.0001, "no flag, no river bonus")

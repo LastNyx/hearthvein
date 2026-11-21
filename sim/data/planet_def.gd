@@ -53,6 +53,8 @@ extends Resource
 ## whose footprint lies within glow_river_radius tiles (Euclidean, the placement_radius measure) of a river tile makes
 ## glow_river_grove_factor of its output.
 @export var glow_river_radius: int = 2
+## Radius (tiles, Euclidean) every river tile lights while the river glows (lit-tile shape of a lamp pool).
+@export var glow_river_light_radius: int = 1
 @export var glow_river_grove_factor: float = 1.25
 ## Starlight (ticket 151): Lumen one starlight covers when the day's light draw runs short, after raw Lumen and cells.
 @export var starlight_lumen: float = 5.0

@@ -84,3 +84,23 @@ func test_the_surge_timer_survives_a_save_and_load() -> void:
 	r.step_hours(DAY)  # day 3
 	assert_false(DimmingSystem.vein_surge(r), "the loaded timer still ends after two days")
 	assert_almost_eq(_mult(r, _bld("lumen_tap")), 1.0, 0.0001)
+
+
+## Ticket 176: the surge factor and length come from PlanetDef.
+func test_the_surge_factor_and_length_come_from_data() -> void:
+	reg.planet.vein_surge_factor = 2.0
+	reg.planet.vein_surge_days = 3
+	_dimming_ending_tomorrow()
+	s.step_hours(DAY)
+	var m_start := _mult(s, vein)
+	var len_start := DimmingSystem.vein_surge_days(s)
+	s.step_hours(DAY * 2)  # day 3: the third surge day
+	var third := DimmingSystem.vein_surge(s)
+	s.step_hours(DAY)  # day 4
+	var after := DimmingSystem.vein_surge(s)
+	reg.planet.vein_surge_factor = 1.5
+	reg.planet.vein_surge_days = 2
+	assert_almost_eq(m_start, 2.0, 0.0001, "the data factor")
+	assert_eq(len_start, 3)
+	assert_true(third, "a 3 day surge still runs on its third day")
+	assert_false(after, "and ends after it")

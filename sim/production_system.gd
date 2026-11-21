@@ -187,7 +187,7 @@ static func winter_modifier(s: Settlement, b: Building) -> float:
 ## glow_river_grove_factor of its output. Every other building, and every grove outside a Dimming, is 1.0.
 static func glow_river_modifier(s: Settlement, b: Building) -> float:
 	var pd := s.registry.planet
-	if pd == null or b.def.id != "glowcap_grove" or not DimmingSystem.is_active(s):
+	if pd == null or not b.def.glow_river_boost or not DimmingSystem.is_active(s):
 		return 1.0
 	var r := pd.glow_river_radius
 	if r <= 0:

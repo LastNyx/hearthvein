@@ -145,7 +145,7 @@ func _ensure(s: Settlement) -> Dictionary:
 	_key_dimming = dimming
 	_lit.clear()
 	if dimming:
-		_stamp_river(_lit, s)  # the glow river (ticket 151): its tiles count as lit radius 1 in a Dimming
+		_stamp_river(_lit, s)  # the glow river (ticket 151): its tiles count as lit in a Dimming
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var ids: Array = s.buildings.keys()
 	ids.sort()
@@ -169,13 +169,14 @@ func _ensure(s: Settlement) -> Dictionary:
 	return _lit
 
 
-## The glow river (spec N10, ticket 151): every river tile lights a radius of 1 while a Dimming is on. The
+## The glow river (spec N10, ticket 151): every river tile lights PlanetDef.glow_river_light_radius while a Dimming is on. The
 ## light-hours gate stays Settlement.is_lamp_hour, so this only lands at night.
 static func _stamp_river(out: Dictionary, s: Settlement) -> void:
+	var r := s.registry.planet.glow_river_light_radius if s.registry.planet != null else 1
 	for y in MapState.HEIGHT:
 		for x in MapState.WIDTH:
 			if s.map.is_river(x, y):
-				_stamp_disc(out, Vector2i(x, y), 1)
+				_stamp_disc(out, Vector2i(x, y), r)
 
 
 ## Adds every in-bounds tile within Euclidean radius `r` of `centre` to `out` (the lamp pool shape).

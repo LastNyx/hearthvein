@@ -280,6 +280,9 @@ const GOLD := "gold"
 @export var night_yield: Dictionary = {}
 ## True when night_yield happens only during a Dimming (the Observatory's starlight).
 @export var night_yield_dimming: bool = false
+## True when the building makes PlanetDef.glow_river_grove_factor more while it stands within
+## PlanetDef.glow_river_radius tiles of the river in a Dimming (the Glowcap Grove).
+@export var glow_river_boost: bool = false
 ## Null for buildings that produce nothing.
 @export var recipe: RecipeDef = null
 @export var upgradable: bool = false

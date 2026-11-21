@@ -299,6 +299,8 @@ func _validate() -> void:
 	elif logistics.island_width <= 0 or logistics.island_height <= 0 or logistics.island_max <= 0 \
 			or logistics.island_width > MapState.REGION_W or logistics.island_height > MapState.REGION_H:
 		errors.append("logistics: island size must fit a region and island_max must be positive")
+	elif logistics.river_downstream_factor <= 0.0 or logistics.river_upstream_factor <= 0.0:
+		errors.append("logistics: river_downstream_factor and river_upstream_factor must be above 0")
 	elif logistics.gloom_path_weight < 1.0:
 		errors.append("logistics: gloom_path_weight must be at least 1")
 	elif logistics.night_shift_start < 0 or logistics.night_shift_start > 23 \
@@ -324,8 +326,11 @@ func _validate() -> void:
 	elif planet.start < 0.0 or planet.start > 100.0 or planet.vein_divisor <= 0.0 or planet.dieback_divisor <= 0.0 \
 			or planet.trend_days <= 0 or not terrain.has(planet.dieback_terrain):
 		errors.append("planet: invalid numbers")
-	elif planet.glow_river_radius < 0 or planet.glow_river_grove_factor < 1.0 or planet.starlight_lumen <= 0.0:
-		errors.append("planet: invalid glow river or starlight numbers")
+	elif planet.glow_river_radius < 0 or planet.glow_river_light_radius < 0 or planet.glow_river_grove_factor < 1.0 \
+			or planet.starlight_lumen <= 0.0:
+		errors.append("planet: invalid glow river (glow_river_radius, glow_river_light_radius, grove factor) or starlight numbers")
+	elif planet.vein_surge_factor < 1.0 or planet.vein_surge_days < 1:
+		errors.append("planet: vein_surge_factor must be at least 1 and vein_surge_days at least 1")
 	if soil == null:
 		if not goods.is_empty():
 			errors.append("missing soil definition")

@@ -115,6 +115,7 @@ const SKIP := {
 	"LightingSystem._key_count": "lit-tile cache key, rebuilt",
 	"LightingSystem._key_light": "lit-tile cache key, rebuilt",
 	"LightingSystem._key_radius": "lit-tile cache key, rebuilt",
+	"LightingSystem._key_dimming": "lit-tile cache key, rebuilt",
 	# GloomSystem (tiles are saved; the front, the night and light markers and the version are rebuilt from them)
 	"GloomSystem._frontier": "deepest gloom ring, rebuilt from the saved tiles",
 	"GloomSystem._depth": "deepest gloom depth, rebuilt from the saved tiles",

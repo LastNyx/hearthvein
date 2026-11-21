@@ -188,6 +188,31 @@ func test_early_game_numbers() -> void:
 	assert_eq([reg.logistics.builder_crew, reg.logistics.small_town_pop], [2, 20])
 
 
+# Ticket 176: the vein surge, the river boat factors and the glow river light radius are checked at load.
+func test_wave_2_numbers_are_validated() -> void:
+	_load_real()
+	assert_eq([reg.planet.vein_surge_factor, reg.planet.vein_surge_days, reg.planet.glow_river_light_radius], [1.5, 2, 1])
+	assert_eq([reg.logistics.river_downstream_factor, reg.logistics.river_upstream_factor], [3.0, 0.75])
+	assert_true(reg.get_building("glowcap_grove").glow_river_boost, "the Grove is the glow river's building")
+	var cases := [
+		[reg.planet, "vein_surge_factor", 0.9, 1.5, "vein_surge_factor"],
+		[reg.planet, "vein_surge_days", 0, 2, "vein_surge_days"],
+		[reg.planet, "glow_river_light_radius", -1, 1, "glow_river_light_radius"],
+		[reg.logistics, "river_downstream_factor", 0.0, 3.0, "river_downstream_factor"],
+		[reg.logistics, "river_upstream_factor", -0.5, 0.75, "river_upstream_factor"],
+	]
+	for c in cases:
+		var res: Resource = c[0]
+		res.set(c[1], c[2])
+		reg.errors.clear()
+		reg._validate()
+		assert_true(_has_error(c[4]), "%s = %s is refused" % [c[1], c[2]])
+		res.set(c[1], c[3])
+	reg.errors.clear()
+	reg._validate()
+	assert_eq(reg.errors.size(), 0, "the real numbers pass")
+
+
 # Ticket 175: the Water Wheel's drive numbers and the gloom path weight are checked at load.
 func test_wheel_and_gloom_numbers_are_validated() -> void:
 	_load_real()
