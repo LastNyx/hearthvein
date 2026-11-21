@@ -17,12 +17,17 @@ const EMBER_STEPS := 3
 const LANTERN_SECONDS_PER_TILE := 0.35
 const LANTERN_RADIUS := 0.9
 const LANTERN_COLOR := Color(1.0, 0.9, 0.6)
+## Glow river (ticket 151): faint cyan-white specks on the river tiles in a Dimming's night. Two flat 1 px dots a tile,
+## their spots fixed by the tile so they never twinkle.
+const SPECK_COLOR := Color(0.75, 0.92, 1.0)
+const SPECK_ALPHA := 0.5
 
 var settlement: Settlement
 var _pools: Array[Dictionary] = []
 var _windows: Array[Dictionary] = []
 var _embers: Array[Dictionary] = []
 var _lanterns: Array[Dictionary] = []
+var _specks: Array[Vector2i] = []
 var _since_refresh := 0.0
 ## Settlement.light_version at the last refresh: a lamp lighting or going dark refreshes at once, not on the timer.
 var _light_seen := -1
@@ -56,6 +61,7 @@ func refresh() -> void:
 	_windows = NightRenderModel.windows(settlement) if settlement != null else []
 	_embers = NightRenderModel.embers(settlement) if settlement != null else []
 	_lanterns = NightRenderModel.lantern_walkers(settlement) if settlement != null else []
+	_specks = NightRenderModel.river_specks(settlement) if settlement != null else []
 	queue_redraw()
 
 
@@ -88,6 +94,8 @@ func _draw() -> void:
 		_draw_embers(e)
 	for e in _lanterns:
 		_draw_lantern(e)
+	for t in _specks:
+		_draw_speck(t)
 
 
 ## The Night Watch walker's small lantern pool: the walker advances one route tile every LANTERN_SECONDS_PER_TILE and
@@ -109,6 +117,17 @@ func _draw_lantern(e: Dictionary) -> void:
 		var k := 1.0 - float(step) / float(NightRenderModel.POOL_STEPS)
 		draw_circle(centre, radius * k, col)
 	draw_circle(centre, 2.0, LANTERN_COLOR)
+
+
+## The glow river's two faint specks on a river tile.
+func _draw_speck(tile: Vector2i) -> void:
+	var col := SPECK_COLOR
+	col.a = SPECK_ALPHA
+	var base := Vector2(tile) * TILE
+	var ox := float((tile.x * 37 + tile.y * 17) % 11)
+	var oy := float((tile.x * 13 + tile.y * 29) % 11)
+	draw_rect(Rect2(base + Vector2(3.0 + ox, 4.0 + oy), Vector2(1, 1)), col)
+	draw_rect(Rect2(base + Vector2(11.0 - ox, 13.0 - oy), Vector2(1, 1)), col)
 
 
 ## The warm window pixels of the building's sprite, drawn over it at full strength: a lit window overlay.

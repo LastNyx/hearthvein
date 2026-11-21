@@ -324,6 +324,8 @@ func _validate() -> void:
 	elif planet.start < 0.0 or planet.start > 100.0 or planet.vein_divisor <= 0.0 or planet.dieback_divisor <= 0.0 \
 			or planet.trend_days <= 0 or not terrain.has(planet.dieback_terrain):
 		errors.append("planet: invalid numbers")
+	elif planet.glow_river_radius < 0 or planet.glow_river_grove_factor < 1.0 or planet.starlight_lumen <= 0.0:
+		errors.append("planet: invalid glow river or starlight numbers")
 	if soil == null:
 		if not goods.is_empty():
 			errors.append("missing soil definition")
@@ -488,6 +490,7 @@ func _validate_building(b: BuildingDef) -> void:
 		errors.append("%s: size must be at least 1x1" % who)
 	_check_amounts(b.cost, who + " cost", true)
 	_check_amounts(b.night_inputs, who + " night input", false)
+	_check_amounts(b.night_yield, who + " night yield", false)
 	if b.recipe != null:
 		_check_amounts(b.recipe.inputs, who + " recipe input", false)
 		_check_amounts(b.recipe.outputs, who + " recipe output", false)

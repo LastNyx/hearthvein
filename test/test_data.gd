@@ -22,7 +22,7 @@ func _has_error(fragment: String) -> bool:
 # AC1: registry loads all data and fails loudly on a missing reference.
 func test_real_data_loads_clean() -> void:
 	_load_real()
-	assert_eq(reg.goods.size(), 18)
+	assert_eq(reg.goods.size(), 19)
 	assert_eq(reg.terrain.size(), 8)
 	assert_eq(reg.eras.size(), 7)
 	assert_eq(reg.buildings.size(), 72)

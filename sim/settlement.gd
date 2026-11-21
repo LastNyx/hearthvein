@@ -204,6 +204,7 @@ func add_default_systems() -> void:
 	prod.modifiers.append(PlanetHealthSystem.vein_modifier)
 	prod.modifiers.append(DimmingSystem.output_modifier)
 	prod.modifiers.append(DimmingSystem.vein_surge_modifier)
+	prod.modifiers.append(ProductionSystem.glow_river_modifier)
 	prod.modifiers.append(Moon.output_modifier)
 	prod.modifiers.append(ProductionSystem.winter_modifier)
 	prod.modifiers.append(RegionSystem.rich_vein_modifier)
@@ -816,7 +817,7 @@ func _init_buffers(b: Building) -> void:
 	var def := b.def
 	if def.storage_mode != "none":
 		b.inventory = Inventory.new(def.storage_mode, float(def.storage_cap))
-	if def.recipe != null and registry.logistics != null:
+	if (def.recipe != null or not def.night_yield.is_empty()) and registry.logistics != null:
 		b.door_buffer = Inventory.new("total", registry.logistics.door_buffer_cap)
 	# A consumer keeps recipe inputs and its Lumen upkeep; a building with upkeep alone (no recipe inputs) still
 	# needs a buffer for the haulers to fill.

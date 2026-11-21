@@ -29,3 +29,6 @@ light_per_citizen = 0.5
 lumen_per_cell = 5.0
 winter_food_factor = 0.5
 darkness_spirit = -20.0
+glow_river_radius = 2
+glow_river_grove_factor = 1.25
+starlight_lumen = 5.0

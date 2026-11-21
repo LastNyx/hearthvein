@@ -98,6 +98,8 @@ func on_seconds(s: Settlement, seconds: float) -> void:
 
 
 func on_hour(s: Settlement) -> void:
+	if s.clock.hour() == s.night_window().x:
+		_night_yield(s)
 	if _acc.size() == SLICES and _ticks_since_full < SLICES:
 		_run(s, 0, SLICES)
 
@@ -141,9 +143,30 @@ func _producers(s: Settlement) -> Array[Building]:
 		ids.sort()
 		for bid in ids:
 			var b: Building = s.buildings[bid]
-			if b.door_buffer != null:
+			if b.door_buffer != null and b.def.recipe != null:
 				_producer_list.append(b)
 	return _producer_list
+
+
+## Nightly yield (BuildingDef.night_yield, ticket 151): at the night shift's start every finished, unpaused building
+## with a night worker adds its night's goods to its door buffer once. The Observatory catches 1 starlight a night in
+## a Dimming; the yield needs no lamp of its own (it watches the sky) but the night slot itself still opens only lit.
+func _night_yield(s: Settlement) -> void:
+	var ids: Array = s.buildings.keys()
+	ids.sort()
+	for bid in ids:
+		var b: Building = s.buildings[bid]
+		if b.site or b.paused or b.def.night_yield.is_empty() or b.door_buffer == null:
+			continue
+		if b.def.night_yield_dimming and not DimmingSystem.is_active(s):
+			continue
+		if SpiritSystem.night_workers(s, b) <= 0 or IslandSystem.is_still_building(s, b):
+			continue
+		for g in b.def.night_yield:
+			var put := b.door_buffer.add(g, float(b.def.night_yield[g]))
+			if put > Inventory.EPS:
+				ResourceLedgerSystem.record_made(s, g, put, b.def.id)
+				produced_total += put
 
 
 ## Upgrade tier output factor (design.md section 10): tier II x1.5, tier III x2 of base, from the tier data.
@@ -157,6 +180,25 @@ static func winter_modifier(s: Settlement, b: Building) -> float:
 	if not b.def.lean_winter or s.clock.season_name() != "winter" or s.registry.planet == null:
 		return 1.0
 	return s.registry.planet.winter_food_factor
+
+
+## Glow river (spec N10, ticket 151): in a Dimming the river tiles glow. A Glowcap Grove whose footprint stands within
+## PlanetDef.glow_river_radius tiles (Euclidean, the placement_radius measure) of a river tile makes
+## glow_river_grove_factor of its output. Every other building, and every grove outside a Dimming, is 1.0.
+static func glow_river_modifier(s: Settlement, b: Building) -> float:
+	var pd := s.registry.planet
+	if pd == null or b.def.id != "glowcap_grove" or not DimmingSystem.is_active(s):
+		return 1.0
+	var r := pd.glow_river_radius
+	if r <= 0:
+		return 1.0
+	for t in b.tiles():
+		for y in range(t.y - r, t.y + r + 1):
+			for x in range(t.x - r, t.x + r + 1):
+				if MapState.in_bounds(x, y) and (x - t.x) * (x - t.x) + (y - t.y) * (y - t.y) <= r * r \
+						and s.map.is_river(x, y):
+					return pd.glow_river_grove_factor
+	return 1.0
 
 
 ## Multiplier of every modifier for one building.

@@ -27,6 +27,8 @@ var _key_completion: int = -1
 var _key_count: int = -1
 var _key_light: int = -1
 var _key_radius: int = -1
+## Whether the glow river (ticket 151) was on for the cached set: in a Dimming its tiles light radius 1.
+var _key_dimming: bool = false
 
 
 func on_hour(s: Settlement) -> void:
@@ -130,15 +132,20 @@ func lit_tiles_near(s: Settlement, b: Building, radius: int) -> int:
 ## Rebuilds the lit-tile set when the layout or the light state moved.
 func _ensure(s: Settlement) -> Dictionary:
 	var radius := s.lamp_radius_bonus()
+	var dimming := DimmingSystem.is_active(s)
 	if s.structure_version == _key_structure and s.completion_version == _key_completion \
-			and s.buildings.size() == _key_count and s.light_version == _key_light and radius == _key_radius:
+			and s.buildings.size() == _key_count and s.light_version == _key_light and radius == _key_radius \
+			and dimming == _key_dimming:
 		return _lit
 	_key_structure = s.structure_version
 	_key_completion = s.completion_version
 	_key_count = s.buildings.size()
 	_key_light = s.light_version
 	_key_radius = radius
+	_key_dimming = dimming
 	_lit.clear()
+	if dimming:
+		_stamp_river(_lit, s)  # the glow river (ticket 151): its tiles count as lit radius 1 in a Dimming
 	var ws := s.get_system(WalkerSystem) as WalkerSystem
 	var ids: Array = s.buildings.keys()
 	ids.sort()
@@ -160,6 +167,15 @@ func _ensure(s: Settlement) -> Dictionary:
 		for t in b.tiles():
 			_stamp_disc(_lit, t, r)
 	return _lit
+
+
+## The glow river (spec N10, ticket 151): every river tile lights a radius of 1 while a Dimming is on. The
+## light-hours gate stays Settlement.is_lamp_hour, so this only lands at night.
+static func _stamp_river(out: Dictionary, s: Settlement) -> void:
+	for y in MapState.HEIGHT:
+		for x in MapState.WIDTH:
+			if s.map.is_river(x, y):
+				_stamp_disc(out, Vector2i(x, y), 1)
 
 
 ## Adds every in-bounds tile within Euclidean radius `r` of `centre` to `out` (the lamp pool shape).
