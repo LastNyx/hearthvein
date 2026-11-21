@@ -742,7 +742,7 @@ func _filled(b: Building, kind: String, shift: String = "") -> int:
 ## "Workers 1/2, Haulers 1/2, Builders 3/4": filled/slots of every job kind a finished building has ("" when none).
 func jobs_text(b: Building) -> String:
 	var parts: Array[String] = []
-	var w := b.effective_worker_slots(s.registry)
+	var w := ProductionSystem.worker_slots_for(s, b)
 	if w > 0:
 		parts.append("Workers %d/%d" % [_filled(b, Citizen.JOB_WORK), w])
 	if b.def.hauler_slots > 0:
@@ -754,7 +754,7 @@ func jobs_text(b: Building) -> String:
 
 ## Whether a finished building has a job of any kind (the work priority and Pause buttons only mean something then).
 func has_jobs(b: Building) -> bool:
-	return b.effective_worker_slots(s.registry) > 0 or b.def.hauler_slots > 0 or b.def.builder_slots > 0
+	return ProductionSystem.worker_slots_for(s, b) > 0 or b.def.hauler_slots > 0 or b.def.builder_slots > 0
 
 
 ## The Workforce page (Q): {"header": {workers, idle, haulers, builders}, "groups": [{id, label, rows}]}. One pass over
@@ -824,7 +824,7 @@ func workforce() -> Dictionary:
 			Citizen.JOB_WORK: int(day.get(Citizen.JOB_WORK, 0)) + int(night.get(Citizen.JOB_WORK, 0)),
 			Citizen.JOB_HAUL: int(day.get(Citizen.JOB_HAUL, 0)) + int(night.get(Citizen.JOB_HAUL, 0)),
 			Citizen.JOB_BUILD: int(day.get(Citizen.JOB_BUILD, 0)) + int(night.get(Citizen.JOB_BUILD, 0))}
-		var w := b.effective_worker_slots(s.registry)
+		var w := ProductionSystem.worker_slots_for(s, b)
 		var kinds := [["workers", w, mini(f[Citizen.JOB_WORK], w)],
 				["haulers", b.def.hauler_slots, mini(f[Citizen.JOB_HAUL], b.def.hauler_slots)],
 				["builders", b.def.builder_slots, mini(f[Citizen.JOB_BUILD], b.def.builder_slots)]]
@@ -845,8 +845,9 @@ func workforce() -> Dictionary:
 		var day_kinds := [["workers", day_w, mini(int(day.get(Citizen.JOB_WORK, 0)), day_w)],
 				["haulers", b.def.hauler_slots, mini(int(day.get(Citizen.JOB_HAUL, 0)), b.def.hauler_slots)],
 				["builders", b.def.builder_slots, mini(int(day.get(Citizen.JOB_BUILD, 0)), b.def.builder_slots)]]
-		var night_kinds := [["workers", b.def.night_worker_slots,
-				mini(int(night.get(Citizen.JOB_WORK, 0)), b.def.night_worker_slots)],
+		var night_w := ProductionSystem.night_slots_for(s, b)
+		var night_kinds := [["workers", night_w,
+				mini(int(night.get(Citizen.JOB_WORK, 0)), night_w)],
 				["haulers", b.def.night_hauler_slots, mini(int(night.get(Citizen.JOB_HAUL, 0)), b.def.night_hauler_slots)]]
 		row["day_slots"] = _kind_total(day_kinds, 1)
 		row["day_filled"] = _kind_total(day_kinds, 2)
@@ -855,8 +856,9 @@ func workforce() -> Dictionary:
 		row["night_filled"] = _kind_total(night_kinds, 2)
 		if row["night_slots"] == 0:
 			row["night_text"] = "-"
-		elif b.def.patrol_radius <= 0 and not _lamp_reaches(b, lamp_tiles):
-			# A Night Watch (ticket 143) is its own light: its slot never waits for a lamp.
+		elif b.def.patrol_radius <= 0 and not ProductionSystem.wheel_active(s, b) and not _lamp_reaches(b, lamp_tiles):
+			# A Night Watch (ticket 143) is its own light, and a Water Wheel (ticket 152) drives its workshop's
+			# night shift: neither slot waits for a lamp.
 			row["night_text"] = "Needs a lamp"
 		else:
 			row["night_text"] = _count_text(night_kinds)
@@ -1211,8 +1213,8 @@ func buy_caravan() -> bool:
 
 ## The fixed panel's own rows (ticket 128). Sites keep the construction lines instead of makes/workers/buffers.
 func _panel_rows(b: Building) -> Dictionary:
-	var workers := b.effective_worker_slots(s.registry)
-	var night_slots: int = b.def.night_worker_slots
+	var workers := ProductionSystem.worker_slots_for(s, b)
+	var night_slots := ProductionSystem.night_slots_for(s, b)
 	var day_filled := mini(_filled(b, Citizen.JOB_WORK, Citizen.SHIFT_DAY), workers) if not b.site else 0
 	var night_filled := mini(_filled(b, Citizen.JOB_WORK, Citizen.SHIFT_NIGHT), night_slots) if not b.site else 0
 	var era := s.registry.get_era(b.def.era)
@@ -1245,6 +1247,10 @@ func _panel_rows(b: Building) -> Dictionary:
 	if b.door_buffer != null:
 		out.merge(_buffer_row("out", b.door_buffer, 1), true)
 	var extra: Array[String] = []
+	if ProductionSystem.wheel_driving(s, b) != null:
+		# Water Wheel (ticket 152): the selected driven workshop says what drives it.
+		extra.append("Water Wheel: -1 worker, runs at night" if ProductionSystem.wheel_active(s, b) \
+				else "Water Wheel: fouled water, half speed")
 	extra.append_array(resident_lines(b))
 	extra.append(reservoir_text(b))
 	extra.append(_goods_line("Stored", b.inventory))
@@ -1260,7 +1266,7 @@ func _panel_rows(b: Building) -> Dictionary:
 func _per_day_text(b: Building, amounts: Dictionary, is_output: bool) -> String:
 	if amounts.is_empty():
 		return ""
-	var f := float(b.effective_worker_slots(s.registry)) * b.output_factor(s.registry)
+	var f := float(ProductionSystem.worker_slots_for(s, b)) * b.output_factor(s.registry)
 	var parts: Array[String] = []
 	for g in amounts:
 		parts.append("%s %s" % [num_text(float(amounts[g]) * f), _good_name(g).to_lower()])

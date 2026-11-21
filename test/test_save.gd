@@ -127,6 +127,7 @@ const SKIP := {
 	"JobSystem._buildings": "hourly refresh shortcut, a cache of the building count",
 	"JobSystem._grid": "hourly refresh shortcut, a cache of the structure version",
 	"JobSystem._light": "hourly refresh shortcut, a cache of Settlement.light_version",
+	"JobSystem._foul": "hourly refresh shortcut, a cache of MapState.foul_version",
 	"JobSystem._lc_key": "layout cache key (building count, versions, Building.layout_rev), rebuilt lazily",
 	"JobSystem._lc_free": "layout cache: beds per finished housing building, rebuilt lazily",
 	"JobSystem._lc_order": "layout cache: ids of _lc_free, rebuilt lazily",
@@ -160,6 +161,8 @@ const SKIP := {
 	"ProductionSystem._producers_count": "producer list cache version",
 	"ProductionSystem._producers_completion": "producer list cache version (completion_version)",
 	"ProductionSystem._first_out": "recipe -> first output id cache, rebuilt",
+	"ProductionSystem._drive_key": "Water Wheel drive cache key, rebuilt lazily",
+	"ProductionSystem._drive_from": "Water Wheel drive map, rebuilt lazily",
 	# GrowthSystem
 	"GrowthSystem._map": "back-reference to the map, set at the start of on_day",
 	# MarketSystem

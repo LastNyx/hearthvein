@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BuildingDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://sim/data/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "water_wheel"
+description = "Turns the river to drive the sawmill, mason or bakery beside it: one worker fewer, and it runs at night."
+display_name = "Water Wheel"
+era = "village"
+category = "water"
+size = Vector2i(1, 1)
+cost = {"wood": 12, "stone": 8}
+worker_slots = 0
+hauler_slots = 0
+night_worker_slots = 0
+builder_slots = 0
+upkeep_lumen = 0.0
+housing_beds = 0
+storage_mode = "none"
+storage_cap = 0
+placement_rule = "river_bank"
+placement_radius = 0
+drives_workshop = true
+upgradable = false

@@ -46,6 +46,10 @@ var _producers_version: int = -1
 var _producers_count: int = -1
 var _producers_completion: int = -1
 var _first_out: Dictionary = {}  # recipe -> first output good id
+## Water Wheel drives (ticket 152): driven building id -> wheel id, rebuilt when the layout moves.
+const WHEEL_SPEED_FACTOR := 0.5
+var _drive_key: Array = []
+var _drive_from: Dictionary = {}
 
 
 ## Per-group collected time, the rotation cursor and the counters (ticket 19). Without the times a save in the
@@ -76,6 +80,8 @@ func load_state(d: Dictionary, _settlement: Settlement) -> void:
 	_producers_count = -1
 	_producers_completion = -1
 	_first_out.clear()
+	_drive_key.clear()
+	_drive_from.clear()
 
 
 func on_seconds(s: Settlement, seconds: float) -> void:
@@ -162,6 +168,79 @@ func multiplier(s: Settlement, b: Building) -> float:
 	return m
 
 
+# ---------------------------------------------------------------- Water Wheel (ticket 152)
+
+## Rebuilds the drive map: each finished, unpaused Water Wheel drives the one 4-adjacent water-driven workshop with
+## the lowest id that no lower-id wheel already drives, so the answer is deterministic and no workshop is driven
+## twice. Keyed per layout change like the other caches.
+func _ensure_drive(s: Settlement) -> void:
+	var key := [s.structure_version, s.completion_version, Building.layout_rev, s.buildings.size()]
+	if key == _drive_key:
+		return
+	_drive_key = key
+	_drive_from = {}
+	var ids: Array = s.buildings.keys()
+	ids.sort()
+	for wid in ids:
+		var w: Building = s.buildings[wid]
+		if not w.def.drives_workshop or w.site or w.paused:
+			continue
+		for bid in ids:
+			var b: Building = s.buildings[bid]
+			if b.def.water_driven and not b.site and not _drive_from.has(b.id) and footprints_touch(w, b):
+				_drive_from[b.id] = w.id
+				break
+
+
+## The Water Wheel driving `b` (ticket 152), or null when `b` is not a water-driven workshop or no wheel touches it.
+static func wheel_driving(s: Settlement, b: Building) -> Building:
+	if s == null or b == null or not b.def.water_driven:
+		return null
+	var ps := s.get_system(ProductionSystem) as ProductionSystem
+	if ps == null:
+		return null
+	ps._ensure_drive(s)
+	var wid: int = ps._drive_from.get(b.id, -1)
+	return s.buildings.get(wid) if wid >= 0 else null
+
+
+## True when `b` is driven and the wheel's water is clean: one worker fewer per shift and a night shift without a lamp.
+static func wheel_active(s: Settlement, b: Building) -> bool:
+	var w := wheel_driving(s, b)
+	return w != null and not FoulingSystem.wheel_on_foul_water(s, w)
+
+
+## Day worker slots of `b` after the wheel's saving (never below 1 when the def has any slots).
+static func worker_slots_for(s: Settlement, b: Building) -> int:
+	var n := b.effective_worker_slots(s.registry)
+	return maxi(1, n - 1) if n > 0 and wheel_active(s, b) else n
+
+
+## Night worker slots of `b` after the wheel's saving (never below 1 when the def has any slots).
+static func night_slots_for(s: Settlement, b: Building) -> int:
+	var n := b.def.night_worker_slots
+	return maxi(1, n - 1) if n > 0 and wheel_active(s, b) else n
+
+
+## Production modifier: a driven workshop whose wheel stands on fouled water runs at WHEEL_SPEED_FACTOR instead of
+## getting the worker saving; clean water and every other building are 1.0.
+static func wheel_speed_modifier(s: Settlement, b: Building) -> float:
+	var w := wheel_driving(s, b)
+	if w != null and FoulingSystem.wheel_on_foul_water(s, w):
+		return WHEEL_SPEED_FACTOR
+	return 1.0
+
+
+## True when two footprints share a tile edge (4-adjacent, not diagonal).
+static func footprints_touch(a: Building, b: Building) -> bool:
+	var ra := a.footprint()
+	var rb := b.footprint()
+	var rows_overlap := ra.position.y < rb.end.y and rb.position.y < ra.end.y
+	var cols_overlap := ra.position.x < rb.end.x and rb.position.x < ra.end.x
+	return (rows_overlap and (ra.end.x == rb.position.x or rb.end.x == ra.position.x)) \
+			or (cols_overlap and (ra.end.y == rb.position.y or rb.end.y == ra.position.y))
+
+
 func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> void:
 	if IslandSystem.is_still_building(s, b):
 		_set_halt(s, b, "island_still")
@@ -175,7 +254,7 @@ func _produce(s: Settlement, b: Building, workers: int, shift_part: float) -> vo
 	if b.def.night_only and not s.is_night():
 		_set_halt(s, b, "")  # a night-only building makes nothing by day (ticket 134)
 		return
-	if b.def.night_worker_slots > 0 and s.is_night() and not s.is_lit(b):
+	if b.def.night_worker_slots > 0 and s.is_night() and not s.is_lit(b) and not wheel_active(s, b):
 		_set_halt(s, b, "unlit")  # a dark night-shift building keeps its night slots closed (spec N2)
 		return
 	if b.def.min_lit_tiles > 0 and s.is_night():  # moths come to light: enough lit tiles within reach (ticket 144)

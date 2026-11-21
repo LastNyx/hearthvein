@@ -17,8 +17,10 @@ const UPGRADABLE_CATEGORIES: Array[String] = ["housing", "food", "resources", "l
 ##  (min_fertility is a separate rule on top of any of these.)
 ##  on_river: at least one footprint tile is a river tile (Clearwater Works); river water tiles may be built on for this
 ##  rule only, the other footprint tiles must be ordinary buildable land.
+##  river_bank: the tile must stand on land with a river tile 4-adjacent to it (Water Wheel, ticket 152).
 const PLACEMENT_RULES: Array[String] = [
 	"any", "on_vein", "shore", "on_rock", "wet", "on_wet", "near_forage", "near_forest", "on_river", "shade",
+	"river_bank",
 ]
 ## Which layer a def may be placed on (ticket 40): "ground" (default), "island" (sky layer only) or "either".
 const LAYER_RULES: Array[String] = ["ground", "island", "either"]
@@ -197,6 +199,12 @@ const GOLD := "gold"
 ## served: Well 8, Water Tower 16, Cloud Cistern 10 (design.md sections 9, 16-17). 0 = provides no drinking water.
 ## CoverageSystem owns the water query; it is kept apart from coverage_radius so wells never count as Shrine coverage.
 @export var water_radius: int = 0
+## Water Wheel (ticket 152, spec N10): a finished, unpaused one drives the one 4-adjacent water-driven workshop (below):
+## that workshop needs one worker fewer per shift (min 1) and its night shift works without a lamp. On fouled water
+## the drive gives no worker saving and the driven workshop runs at half speed instead.
+@export var drives_workshop: bool = false
+## True for a workshop a Water Wheel can drive: the Sawmill, Mason and Bakery.
+@export var water_driven: bool = false
 ## True for a producer that only works with water at hand (Hydroponic Hall, ticket 39c): a wet tile under any tile of the
 ## footprint, or a finished drinking-water source (water_radius) within reach. Otherwise it halts with "dry". The farm's
 ## needs_wet tier is separate and stays on WaterSystem.footprint_wet.
