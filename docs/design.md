@@ -75,8 +75,9 @@ and the campaign win needs planet health >= 50% at the very end.
 
 ## 6. Jobs, walking and building
 - Production buildings have worker slots, filled from idle citizens by priority:
-  food > water > Lumen > hauling > wood and stone > refined goods > gold > civic. The player can set one building's
-  priority (low/normal/high) or pause it; never assigns a person.
+  food > water > Lumen > hauling > building > healers (Cleanser, Purifier Tower, Vein Mender, Clearwater Works, Rewilding
+  Grove, Verdant Spring) > wood and stone > gold > refined goods > civic (169). High beats Normal beats Low across every
+  rank. The player can set one building's priority (low/normal/high) or pause it; never assigns a person.
 - Workers walk home -> job; output counts only while at work, so distance matters.
 - Walking speed (tiles/s): grass 1.0, dirt road 1.5, paved road 2.0. Handcart haulers on paved road 2.5.
 - A building with no road connection to the Hearth (or, from Conflux, to a Rail Depot in its region) gets no
@@ -107,7 +108,7 @@ refined good are physical goods held in storehouses and moved by haulers.
 
 - Storage: Hearth holds 150 of each good. Storehouse (2x1) holds 400 units in total, any mix; the player can
   set a storehouse to accept only some goods.
-- Lumen leaks: raw Lumen in storage loses 3% a day (ticket 159; was 1%). Cells don't leak. When raw Lumen runs out, buildings and
+- Lumen leaks: raw Lumen in storage loses 3% a day (ticket 159; was 1%), counted on the first 500 of the settlement's stock only (ticket 169). Cells don't leak. When raw Lumen runs out, buildings and
   light draw on cells automatically (1 cell = 5 Lumen). This is what makes Dimming prep a choice: refine
   early and lose 1 in 6, or keep it raw and lose 3% a day.
 - Night shift (ticket 138): night slots run 20:00-06:00 and only inside a lamp's light. Lamps (radius, fuel a night): Brazier

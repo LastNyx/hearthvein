@@ -6,14 +6,18 @@ extends SimSystem
 
 ## Job priority order, highest first. Single mapping table from BuildingDef.category to a rank.
 ## "logistics" is the design's "hauling"; "refining" is "refined goods". There is no gold-producing category yet,
-## when one is added put it in at its place between refining and civic. Categories not listed (housing, sky,
+## gold ranks before refining (169). Categories not listed (housing, sky,
 ## landmark) rank last.
 ## "build" (design.md section 6 gives no rank, ticket 11 decided): builder slots rank right after hauling and before
 ## resources, because a site only starts once haulers have delivered, and building is what makes everything below
 ## it possible. Builder slots only open while sites are ready to build (see _cap_builders).
 const CATEGORY_ORDER: Array[String] = [
-	"food", "water", "lumen", "logistics", "build", "resources", "refining", "gold", "civic",
+	"food", "water", "lumen", "logistics", "build", "healing", "resources", "gold", "refining", "civic",
 ]
+## "healing" is a job rank only, never a BuildingDef.category (the build menu tabs stay): a civic building with workers
+## that heals the planet (Cleanser, Purifier Tower, Vein Mender, Clearwater Works, Rewilding Grove, Verdant Spring) ranks
+## right after build and before resources, so blight is not left to grow while the town is short of hands (ticket 169).
+const HEAL_CATEGORY := "healing"
 ## Builder slots (def.builder_slots) always rank as the building tier, whatever the building's own category.
 const BUILD_CATEGORY := "build"
 ## Hauler slots (def.hauler_slots) always rank as the hauling tier, whatever the building's own category.
@@ -43,14 +47,21 @@ func on_hour(settlement: Settlement) -> void:
 
 
 ## Same ranks as CATEGORY_ORDER / PRIORITY_ORDER as dictionary lookups (the refresh runs per building).
-const _CATEGORY_RANK := {"food": 0, "water": 1, "lumen": 2, "logistics": 3, "build": 4, "resources": 5, "refining": 6,
-	"gold": 7, "civic": 8}
+const _CATEGORY_RANK := {"food": 0, "water": 1, "lumen": 2, "logistics": 3, "build": 4, "healing": 5, "resources": 6,
+	"gold": 7, "refining": 8, "civic": 9}
 ## Shift of a slot entry. Night slots fill after the day slots of the same rank (ticket 132 fills them); each
 ## (rank, priority, shift) is a fair-share group.
 const SHIFT_DAY := 0
 const SHIFT_NIGHT := 1
 const _KIND_CODE := {Citizen.JOB_WORK: 1, Citizen.JOB_HAUL: 2, Citizen.JOB_BUILD: 3}
 const _PRIORITY_RANK := {"high": 0, "normal": 1, "low": 2}
+
+
+## Job rank of a building: its category's, except a healer ranks as "healing".
+static func def_rank(d: BuildingDef) -> int:
+	if d.category == "civic" and d.worker_slots > 0 and d.health_per_day > 0.0:
+		return _CATEGORY_RANK[HEAL_CATEGORY]
+	return _CATEGORY_RANK.get(d.category, CATEGORY_ORDER.size())
 
 
 static func category_rank(category: String) -> int:
@@ -152,7 +163,7 @@ static func _job_entries(s: Settlement) -> Array:
 		# The Night Watch (ticket 143) is itself the light: its walker leaves without a lamp to stand in.
 		var night_open := lit or d.patrol_radius > 0
 		var slots := b.effective_worker_slots(s.registry)
-		var rank: int = _CATEGORY_RANK.get(b.def.category, CATEGORY_ORDER.size())
+		var rank := def_rank(d)
 		if slots > 0 and not d.night_only:
 			_add_entry(by_key, b, Citizen.JOB_WORK, slots, rank, pr, 2, SHIFT_DAY)
 		if d.night_worker_slots > 0 and night_open:
@@ -182,7 +193,7 @@ static func _add_entry(by_key: Dictionary, b: Building, kind: String, slots: int
 ## Fair-share group: one (priority bucket, rank, shift); High beats Normal beats Low across every category (ticket 158). Shift sorts day before night, so night slots come after the day
 ## slots of the same rank and each group is shared the same way.
 static func _group_key(rank: int, pr: int, shift: int) -> int:
-	return (pr * 16 + rank) * 2 + shift  # rank < 16 (CATEGORY_ORDER has 9 plus the unlisted rank)
+	return (pr * 16 + rank) * 2 + shift  # rank < 16 (CATEGORY_ORDER has 10 plus the unlisted rank)
 
 
 ## Sort key: group, then building id, then kind code.

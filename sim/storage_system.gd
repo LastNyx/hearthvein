@@ -5,17 +5,26 @@ extends SimSystem
 const LEAK_GOOD := "lumen"
 ## Share of the raw Lumen stock lost a day (3%, ticket 159; was 1%).
 const LEAK_PER_DAY := 0.03
+## The leak only counts the first LEAK_CAP raw Lumen of the whole settlement's stock (ticket 169): a big reserve for the
+## Dimming no longer drains away, and a small stock leaks 3% as before. Shared over the storages by their share.
+const LEAK_CAP := 500.0
 const CELL_GOOD := "lumen_cells"
 
 
 func on_day(settlement: Settlement) -> void:
+	var total := 0.0
+	for id in settlement.buildings:
+		var b: Building = settlement.buildings[id]
+		if b.inventory != null:
+			total += b.inventory.amount_of(LEAK_GOOD)
+	var rate := LEAK_PER_DAY * minf(1.0, LEAK_CAP / total) if total > 0.0 else 0.0
 	for id in settlement.buildings:
 		var b: Building = settlement.buildings[id]
 		if b.inventory == null:
 			continue
 		var have := b.inventory.amount_of(LEAK_GOOD)
 		if have > 0.0:
-			b.inventory.remove(LEAK_GOOD, have * LEAK_PER_DAY)
+			b.inventory.remove(LEAK_GOOD, have * rate)
 
 
 ## Auto-spend of Lumen cells (design.md section 7: "when raw Lumen runs out, buildings and light draw on cells

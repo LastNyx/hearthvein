@@ -141,3 +141,15 @@ func test_lumen_leak_is_three_percent() -> void:
 	var before := s.hearth.inventory.amount_of("lumen")
 	(s.get_system(StorageSystem) as StorageSystem).on_day(s)
 	assert_almost_eq(s.hearth.inventory.amount_of("lumen"), before * 0.97, 0.0001)
+
+
+## Ticket 169: only the first 500 raw Lumen of the whole stock leaks, so a big reserve loses at most 15 a day.
+func test_lumen_leak_is_capped() -> void:
+	_strip(s)
+	s.hearth.inventory.add("lumen", 2000.0)
+	_put("storehouse").inventory.add("lumen", 400.0)
+	_put("storehouse").inventory.add("lumen", 400.0)
+	var before: float = s.totals().get("lumen", 0.0)
+	assert_gt(before, 900.0, "a reserve well over the cap")
+	(s.get_system(StorageSystem) as StorageSystem).on_day(s)
+	assert_almost_eq(before - float(s.totals().get("lumen", 0.0)), 15.0, 0.0001)

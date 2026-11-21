@@ -289,6 +289,8 @@ func _init() -> void:
 					ldoor += b.door_buffer.amount_of("lumen")
 					lwork += int(wc.get(b.id, 0))
 			print("     lumen producers %d staffed %d door_full %d door lumen %d stock %d" % [ln, lwork, lfull, int(ldoor), int(_stock.get("lumen", 0.0))])
+			var lly := (s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem)
+			print("     lumen ledger: made %d used %s health %.1f" % [int(lly.yesterday("lumen")["made"]), str(lly.used_breakdown("lumen")), s.planet_health()])
 			print("     labour wanted %d pop %d food %d" % [_wanted_slots(), s.citizens.size(), int(_stock.get("food", 0.0))])
 			print("     slots/filled by category ", slots, fill, " hauler slots ", _hauler_slots(), " pop ", s.citizens.size())
 			print("     doorfood %.0f; spirit %.0f haulers %d other %d bar %.1f/%.1f | %s" % [doorfood, s.spirit(), haul, buildn, gr.bar, gr.bar_size_now(s), " ".join(rows)])
@@ -1219,9 +1221,6 @@ func _act() -> void:
 func _throttle(pop: int) -> void:
 	if s.registry.get_era(s.era_current).order >= GOLD_THROTTLE_ORDER:
 		_gold_throttle()
-	else:
-		_gold_priority()
-	_cleaner_priority()
 	for good in THROTTLE:
 		var high: float = float(THROTTLE[good][0]) * float(pop) + float(THROTTLE[good][1])
 		if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER:
@@ -1282,30 +1281,6 @@ func _lumen_low() -> bool:
 	elif lumen > LUMEN_BACK:
 		_lumen_short = false
 	return _lumen_short
-
-
-## Cleansers and Purifiers rank last (civic): in a labour-short town they stood unstaffed while blight ate the planet
-## (131/138: planet health ~10 by year 14, forests dead, wood 0, the Skyheart never finished). A player sets them High.
-func _cleaner_priority() -> void:
-	for b: Building in s.buildings.values():
-		if b.site or b.paused or not CLEANERS.has(b.def.id):
-			continue
-		if b.priority != "high":
-			s.set_building_priority(b.id, "high")
-
-
-## Before the Skyborne throttle: while the era gate still lacks gold, the Markets get High priority. Gold ranks last of the
-## categories, and with food halved (159) every hand went to the fields and the Markets stood empty (gold was the wall).
-func _gold_priority() -> void:
-	var g := s.era_gate()
-	var fed := _food_all() >= 3.0 * float(s.citizens.size())  # High beats Normal across categories: never above the food
-	var short: bool = g["next"] != "" and s.gold < float(g.get("gold_need", 0)) and fed
-	for b: Building in s.buildings.values():
-		if b.site or not PRODUCERS["gold"].has(b.def.id) or b.paused:
-			continue
-		var want := "high" if short else "normal"
-		if b.priority != want:
-			s.set_building_priority(b.id, want)
 
 
 func _gold_throttle() -> void:
