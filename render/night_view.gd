@@ -12,6 +12,9 @@ const REFRESH_SECONDS := 0.5
 ## Ember pixels of a working kiln: three flat warm dots low in the sprite.
 const EMBER_COLOR := Color(1.0, 0.55, 0.2)
 const EMBER_STEPS := 3
+## Star pixels on the Observatory's sprite at night (ticket 142): a few flat 2 px dots high in the sprite.
+const STAR_COLOR := Color(0.85, 0.95, 1.0)
+const STAR_SPOTS := [Vector2(0.25, 0.2), Vector2(0.55, 0.12), Vector2(0.78, 0.26), Vector2(0.42, 0.32)]
 ## The Night Watch walker (ticket 143): a small pool, walked forward along its route and back at this pace, with a
 ## warm lantern dot at its centre.
 const LANTERN_SECONDS_PER_TILE := 0.35
@@ -26,6 +29,7 @@ var settlement: Settlement
 var _pools: Array[Dictionary] = []
 var _windows: Array[Dictionary] = []
 var _embers: Array[Dictionary] = []
+var _stars: Array[Dictionary] = []
 var _lanterns: Array[Dictionary] = []
 var _specks: Array[Vector2i] = []
 var _since_refresh := 0.0
@@ -60,6 +64,7 @@ func refresh() -> void:
 	_pools = NightRenderModel.pools(settlement) if settlement != null else []
 	_windows = NightRenderModel.windows(settlement) if settlement != null else []
 	_embers = NightRenderModel.embers(settlement) if settlement != null else []
+	_stars = NightRenderModel.stars(settlement) if settlement != null else []
 	_lanterns = NightRenderModel.lantern_walkers(settlement) if settlement != null else []
 	_specks = NightRenderModel.river_specks(settlement) if settlement != null else []
 	queue_redraw()
@@ -92,6 +97,8 @@ func _draw() -> void:
 		_draw_windows(w)
 	for e in _embers:
 		_draw_embers(e)
+	for e in _stars:
+		_draw_stars(e)
 	for e in _lanterns:
 		_draw_lantern(e)
 	for t in _specks:
@@ -148,6 +155,16 @@ func _draw_embers(e: Dictionary) -> void:
 	for i in EMBER_STEPS:
 		var p := Vector2(r.position.x + r.size.x * (0.4 + 0.12 * i), r.position.y + r.size.y * (0.82 - 0.04 * i))
 		draw_rect(Rect2(p, Vector2(2, 2)), EMBER_COLOR)
+
+
+## Four flat star pixels high in the Observatory's sprite.
+func _draw_stars(e: Dictionary) -> void:
+	var art := _art_id(e)
+	if art == "":
+		return
+	var r := ArtLibrary.sprite_rect(art, e["origin"], e["size"])
+	for spot: Vector2 in STAR_SPOTS:
+		draw_rect(Rect2(r.position + r.size * spot, Vector2(2, 2)), STAR_COLOR)
 
 
 ## The building's tier art where the manifest has it, else its base sprite (as PlacementView draws it).

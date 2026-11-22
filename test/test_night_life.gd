@@ -151,3 +151,87 @@ func _row(m: HudModel, id: String) -> Dictionary:
 		if r["id"] == id:
 			return r
 	return {}
+
+
+# ---------------------------------------------------------------- ticket 142: Observatory at City, star charts
+
+## A settlement with one staffed Airship Dock and a finished Observatory, jobs set by hand. Returns the Observatory.
+## `crew` night workers go to the Observatory (the full crew is its two night slots).
+func _survey_town(crew: int) -> Array:
+	var s := Settlement.new_game(SEED, reg)
+	s.systems.erase(s.get_system(GrowthSystem))
+	s.systems.erase(s.get_system(JobSystem))
+	s.era_override = "conflux"
+	for r in MapState.REGION_COUNT:
+		s.map.set_region_owned(r, true)
+	var hs := s.map.hearth_spot
+	for x in range(hs.x + 3, hs.x + 20):
+		for y in range(hs.y - 6, hs.y + 6):
+			s.set_terrain(Vector2i(x, y), "grass")
+	var dock := s.place_building_instant("airship_dock", Vector2i(hs.x + 4, hs.y + 1))
+	var obs := s.place_building_instant("observatory", Vector2i(hs.x + 10, hs.y - 4))
+	assert_true(dock >= 0 and obs >= 0, "dock and Observatory placed")
+	while s.citizens.size() < 5:
+		s.add_citizen()
+	var ids: Array = s.citizens.keys()
+	ids.sort()
+	for cid in ids:
+		var c: Citizen = s.citizens[cid]
+		c.job_id = -1
+		c.job_kind = Citizen.JOB_NONE
+	var dock_worker: Citizen = s.citizens[ids[0]]
+	dock_worker.job_id = dock
+	dock_worker.job_kind = Citizen.JOB_WORK
+	for i in crew:
+		var c: Citizen = s.citizens[ids[1 + i]]
+		c.job_id = obs
+		c.job_kind = Citizen.JOB_WORK
+		c.shift = Citizen.SHIFT_NIGHT
+	return [s, s.buildings[obs]]
+
+
+## A locked region with a reward that is neither the Hearth's nor the one the dock stands in.
+func _locked_reward_region(s: Settlement) -> int:
+	for r in MapState.REGION_COUNT:
+		if s.map.get_region_reward(r) != "" and r != s.map.start_region:
+			s.map.set_region_owned(r, false)
+			return r
+	return -1
+
+
+## Criterion 1: the Observatory unlocks at City (not before), and its Dimming early warning still works.
+func test_observatory_unlocks_at_city_and_still_warns() -> void:
+	assert_eq(reg.get_building("observatory").era, "city")
+	var t: Array = _survey_town(1)
+	var s: Settlement = t[0]
+	var hs := s.map.hearth_spot
+	s.era_override = "town"
+	assert_false(s.can_place("observatory", Vector2i(hs.x + 14, hs.y - 4))["ok"], "locked in Town")
+	s.era_override = "city"
+	assert_true(s.can_place("observatory", Vector2i(hs.x + 14, hs.y - 4))["ok"], "open at City")
+	assert_eq(DimmingSystem.forecast_lead(s), 2, "a staffed Observatory warns two seasons ahead")
+	var bare := Settlement.new_game(SEED, reg)
+	assert_eq(DimmingSystem.forecast_lead(bare), reg.planet.dimming_forecast_seasons, "no Observatory, the default lead")
+
+
+## Criterion 2: a survey flight lands sooner (25%, data) while an Observatory has its full night crew, at the normal
+## time without one.
+func test_survey_is_faster_with_a_full_night_crew_and_normal_without() -> void:
+	var days := reg.regions.survey_days
+	assert_almost_eq(reg.get_building("observatory").survey_speed_bonus, 0.25, 0.0001, "25% faster, from data")
+	var results := {}
+	for crew in [0, 1, 2]:
+		var t: Array = _survey_town(crew)
+		var s: Settlement = t[0]
+		var air := s.get_system(AirshipSystem) as AirshipSystem
+		var r := _locked_reward_region(s)
+		assert_gte(r, 0, "a locked region with a reward")
+		assert_true(air.start_survey(s, r), "the staffed dock flies it")
+		var hours := 0
+		while not air.is_revealed(s, r) and hours < days * 24 + 5:
+			s.step_hours(1)
+			hours += 1
+		results[crew] = hours
+	assert_eq(results[0], days * 24, "no crew: the normal time")
+	assert_eq(results[1], days * 24, "half a crew does not count")
+	assert_eq(results[2], ceili(days * 24 / 1.25), "a full crew: 25% faster")

@@ -283,6 +283,9 @@ const GOLD := "gold"
 @export var night_yield: Dictionary = {}
 ## True when night_yield happens only during a Dimming (the Observatory's starlight).
 @export var night_yield_dimming: bool = false
+## Star charts (ticket 142): airship survey flights advance this much faster (0.25 = 25%) while this finished,
+## unpaused building has its full night crew and is out of the gloom. The Observatory. 0 = no effect.
+@export var survey_speed_bonus: float = 0.0
 ## True when the building makes PlanetDef.glow_river_grove_factor more while it stands within
 ## PlanetDef.glow_river_radius tiles of the river in a Dimming (the Glowcap Grove).
 @export var glow_river_boost: bool = false

@@ -99,6 +99,20 @@ static func embers(s: Settlement) -> Array[Dictionary]:
 	return out
 
 
+## One entry per finished Observatory (any building with survey_speed_bonus) while the lamp hours run: {"id", "origin",
+## "size"}. NightView draws star pixels on its sprite (ticket 142); render only, nothing here changes the sim.
+static func stars(s: Settlement) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if s == null or not s.is_lamp_hour():
+		return out
+	for bid in s.buildings:
+		var b: Building = s.buildings[bid]
+		if not b.site and b.def.survey_speed_bonus > 0.0:
+			out.append({"id": b.id, "origin": b.origin, "size": b.def.size})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["id"]) < int(b["id"]))
+	return out
+
+
 ## One entry per river tile while the river glows (ticket 151, spec N10): in a Dimming's night the river tiles count as
 ## lit radius 1 and the renderer speckles them faint cyan-white. Empty by day and outside a Dimming.
 static func river_specks(s: Settlement) -> Array[Vector2i]:

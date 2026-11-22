@@ -105,7 +105,34 @@ func _dock_pos(s: Settlement, id: int, fallback: Vector2 = Vector2.ZERO) -> Vect
 
 func on_hour(s: Settlement) -> void:
 	_land_ships(s, func(_from: int, _to: int) -> bool: return true)  # no track to break
+	_chart_surveys(s)
 	_finish_surveys(s)
+
+
+## Star charts (ticket 142): an hour with a fully crewed Observatory counts as 1 + its bonus hours of flight, so every
+## flight out comes due that much sooner. The due hour is saved, so nothing else needs to be stored.
+func _chart_surveys(s: Settlement) -> void:
+	var bonus := survey_speed_bonus(s)
+	if bonus <= 0.0:
+		return
+	for sv: Dictionary in _surveys:
+		sv["done"] = float(sv["done"]) - bonus
+
+
+## The best BuildingDef.survey_speed_bonus among finished, unpaused buildings (not on a still island, not in gloom)
+## that have every night slot staffed; 0 when none does.
+static func survey_speed_bonus(s: Settlement) -> float:
+	var best := 0.0
+	for id in s.buildings:
+		var b: Building = s.buildings[id]
+		if b.def.survey_speed_bonus <= best or b.site or b.paused or IslandSystem.is_still_building(s, b):
+			continue
+		if GloomSystem.building_in_gloom(s, b):
+			continue
+		var slots := ProductionSystem.night_slots_for(s, b)
+		if slots > 0 and SpiritSystem.night_workers(s, b) >= slots:
+			best = b.def.survey_speed_bonus
+	return best
 
 
 func _finish_surveys(s: Settlement) -> void:

@@ -162,3 +162,17 @@ func test_pool_is_drawn_smaller_than_the_lamp_radius_and_stays_orange() -> void:
 	assert_eq(NightRenderModel.POOL_DRAW_FACTOR, 0.7, "the pool is drawn 30% smaller than the sim radius")
 	assert_almost_eq(NightRenderModel.drawn_radius(3), 2.1, 0.0001, "a Brazier (radius 3) draws 2.1 tiles")
 	assert_gte(NightRenderModel.POOL_COLOR.r - NightRenderModel.POOL_COLOR.g, 0.15, "red clearly above green")
+
+
+## Ticket 142: a finished Observatory lists star pixels at night (render only), nothing by day or for other buildings.
+func test_observatory_shows_stars_at_night_only() -> void:
+	var s := _new_settlement()
+	s.era_override = "city"
+	var obs := _put(s, "observatory", 6)
+	_put(s, "cottage", 12)
+	_step_to(s, 12)
+	assert_eq(NightRenderModel.stars(s), [] as Array[Dictionary], "no stars by day")
+	_step_to(s, 22)
+	var stars := NightRenderModel.stars(s)
+	assert_eq(stars.size(), 1, "one Observatory, no cottage")
+	assert_eq(int(stars[0]["id"]), obs.id)

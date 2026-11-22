@@ -368,6 +368,7 @@ Workers = slots. Upkeep = Lumen per day (Village on, ticket 159; Camp pays none)
 | Park | 2x2 | 16W 24St 10G | - | 0 | Spirit coverage r5, blight-proof; planet +0.005 |
 | Toolsmith | 2x1 | 32W 48St 30G 20S | 2 | 1 | 1 P + 1 C -> 1 T, 1.5/worker/day |
 | Lumen Nexus* | 3x3 | 160W 240St 200G 300L 80S 40T 30C | - | 0 | Conflux gate; first grid node (r12) |
+| Observatory | 2x2 | 48W 72St 80G 30S 10T | 1 | 1 | Dimming forecast two seasons ahead; Spirit coverage r8; 2 night workers make 1 starlight a night in a Dimming; with its night crew staffed, airship surveys fly 25% faster |
 
 ## 17. Buildings, Conflux to Ascendant (D45, D54)
 Design intent: Conflux makes the settlement one connected machine (grid, rail, airships). Skyborne adds clean
@@ -405,7 +406,6 @@ the ground layer when viewing ground.
 | Sky Garden | 3x2, island | 84W 36St 40G 30P 10T | 3 | 1 | +3.5 food, own food type; needs wet |
 | Aether Collector | 2x2, island | 60W 90St 60G 30S 20T | 3 | 0 | +6 L from the air; no blight, no planet drain; Dimming x0.5 |
 | Skyforge | 2x2, island | 56W 84St 60G 40S | 3 | 2 | 1 P + 1 C -> 1 T at 3/worker/day |
-| Observatory | 2x2 | 48W 72St 80G 30S 10T | 1 | 1 | Dimming forecast two seasons ahead; Spirit coverage r8; 2 night workers make 1 starlight a night in a Dimming |
 | Dawn Beacon* | 2x2 | 320W 480St 800G 600L 150S 120T 100C | - | 0 | Ascendant gate; light need 0.5 -> 0.35 per citizen |
 
 ### Ascendant: planet healing and the finale

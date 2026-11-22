@@ -138,7 +138,7 @@ func test_every_skyborne_building_can_be_built() -> void:
 	for d: BuildingDef in reg.buildings.values():
 		if d.era == "skyborne":
 			sky.append(d)
-	assert_eq(sky.size(), 9, "anchor, lift, spire, cistern, garden, collector, forge, observatory, beacon")
+	assert_eq(sky.size(), 8, "anchor, lift, spire, cistern, garden, collector, forge, beacon (the Observatory is City, ticket 142)")
 	var hud := HudModel.new(s)
 	var bar_ids := {}
 	for cat in hud.build_bar():
