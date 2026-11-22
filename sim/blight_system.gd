@@ -4,7 +4,7 @@ extends SimSystem
 ## tile keeps its ground and art. Every finished building with blight_radius > 0 (any extractor def) blights, each
 ## blight_period_days days, the nearest non-blighted tile within its radius (distance from the closest footprint tile,
 ## ties: lower y then lower x). Water tiles and the extractor's own footprint are never chosen. Removing the extractor
-## stops the spread (its counter goes with it); existing blight stays. Sites do nothing.
+## stops the spread (its counter goes with it), and so does pausing it (the counter waits); existing blight stays. Sites do nothing.
 ##
 ## Hooks for later tickets: `blockers` is a list of Callables (settlement, tile) -> bool; a tile for which any returns
 ## true cannot be blighted (Purifier Tower r4, Park footprint: tickets 30, 33). Cleaning (tickets 30, 33, 43) calls
@@ -46,6 +46,8 @@ func on_day(s: Settlement) -> void:
 		if b.site or b.layer != Building.LAYER_GROUND or b.def.blight_radius <= 0 or b.def.blight_period_days <= 0:
 			continue  # sky buildings never blight: blight is a ground-map state (ticket 40)
 		live[bid] = true
+		if b.paused:
+			continue  # a paused extractor spreads nothing (its counter waits, ticket 187)
 		var d: int = _days.get(bid, 0) + 1
 		if d >= b.def.blight_period_days:
 			d = 0

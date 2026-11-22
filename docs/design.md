@@ -228,7 +228,8 @@ Below 20 for 5 days in a row: one citizen leaves every 2 days.
 
 ## 12. Blight
 - Each Lumen extractor has a blight radius and period. Each period the nearest non-blighted tile in the radius
-  turns blighted.
+  turns blighted. A paused extractor spreads no blight while it is paused (existing blight stays); demolishing
+  it also stops the spread.
 
 | Extractor | Radius | Every |
 |---|---|---|
@@ -405,7 +406,7 @@ the ground layer when viewing ground.
 | Skyspire | 2x2 | 112W 48St 60G 40P 40S 20T | - | 2 | houses 40; island or ground; needs water |
 | Cloud Cistern | 2x1, island | 24W 36St 20G 20S | - | 0 | drinking water r10 on its island, wets r3 |
 | Sky Garden | 3x2, island | 84W 36St 40G 30P 10T | 3 | 1 | +3.5 food, own food type; needs wet |
-| Aether Collector | 2x2, island | 60W 90St 60G 30S 20T | 3 | 0 | +6 L from the air; no blight, no planet drain; Dimming x0.5 |
+| Aether Collector | 2x2, island | 60W 90St 60G 30S 10T | 3 | 0 | +10 L from the air; no blight, no planet drain; Dimming x0.5 |
 | Skyforge | 2x2, island | 56W 84St 60G 40S | 3 | 2 | 1 P + 1 C -> 1 T at 3/worker/day |
 | Dawn Beacon* | 2x2 | 320W 480St 800G 600L 150S 120T 100C | - | 0 | Ascendant gate; light need 0.5 -> 0.35 per citizen |
 

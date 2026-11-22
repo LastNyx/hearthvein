@@ -120,18 +120,22 @@ const HAULER_SHARE_MAX := 0.3
 ## Regions over 100 gold are bought only while this share of the next gate's gold is left over.
 const REGION_KEEP := 0.6
 ## From Skyborne the bot lifts an island over the Nexus region and fills it with Aether Collectors: clean Lumen, no blight, no
-## planet drain (186). One collector slot makes half a pump slot (6 against 12 Lumen a day) and counts as that in the Lumen share.
+## planet drain (186). One collector slot makes 5/6 of a pump slot (10 against 12 Lumen a day) and counts as that in the Lumen share.
 const SKY_ERA := 6
 const AETHER_MAX := 12
 const SKY_LIFTS := 2
-## One Aether Collector per this many citizens, at most AETHER_MAX (a collector is 3 workers and 18 Lumen a day).
+## Lumen a day of one collector worker and of one vein pump worker (data recipes), for the pause rule (187).
+const AETHER_PER_WORKER := 10.0
+const PUMP_PER_WORKER := 12.0
+## One Aether Collector per this many citizens, at most AETHER_MAX (a collector is 3 workers and 30 Lumen a day).
 const AETHER_POP := 30
-## Toolsmith share while the island still lacks collectors (each takes 20 tools, a lift 10).
+## Toolsmith share while the island still lacks collectors (each takes 10 tools, a lift 10).
 const SKY_TOOLS_SHARE := 0.05
 
 var s: Settlement
 var _offsets: Array[Vector2i] = []
 var _bad_tiles := {}  # tiles where a building was taken back (see _place)
+var _aether_paused := {}  # vein pump ids paused because the Aether Collectors cover their output (187)
 var _cooldown := {}  # id -> day until which placement is not retried
 var _blocked_today: bool = false
 var _stock := {}
@@ -917,8 +921,10 @@ func _slots_for(good: String) -> int:
 	var hr := s.map.get_region(s.hearth.origin.x, s.hearth.origin.y)
 	for b: Building in s.buildings.values():
 		if good == "lumen" and b.def.id == "aether_collector":
-			n += b.def.worker_slots / 2  # a collector slot makes half a pump slot
+			n += roundi(float(b.def.worker_slots) * AETHER_PER_WORKER / PUMP_PER_WORKER)  # a collector slot makes 5/6 of a pump slot
 			continue
+		if good == "lumen" and _aether_paused.has(b.id):
+			continue  # a paused pump makes nothing; the collectors stand in for it
 		if ids.has(b.def.id):
 			if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER and s.map.get_region(b.origin.x, b.origin.y) != hr:
 				continue  # a far region's fields do not feed the Hearth's homes (171)
@@ -1351,6 +1357,8 @@ func _throttle(pop: int) -> void:
 				elif float(row[0]) < r_high * 0.6 and b.paused:
 					s.set_building_priority(b.id, "normal")
 				continue
+			if _aether_paused.has(b.id):
+				continue  # a pump the Aether Collectors cover stays paused (187)
 			if stock > high and not b.paused:
 				s.set_building_priority(b.id, "paused")
 			elif stock < high * 0.6 and b.paused:
@@ -1944,8 +1952,8 @@ func _sky_text() -> String:
 				on_g += 1
 			else:
 				off_g += 1
-	return "anchor %s; islands %s lifts %d pylons %d; aether built %d sites %d staffed %d on grid %d halts %s door lumen %d; grids %d supply %d, upkeep buildings on grid %d off %d" % [
-		an, still, _count("sky_lift"), _count("lumen_pylon"), built, sites, staffed, ongrid, halts, int(door), gids.size(), int(grid_sup), on_g, off_g]
+	return "anchor %s; islands %s lifts %d pylons %d; aether built %d sites %d staffed %d on grid %d halts %s door lumen %d; grids %d supply %d, upkeep buildings on grid %d off %d; pumps paused %d of %d" % [
+		an, still, _count("sky_lift"), _count("lumen_pylon"), built, sites, staffed, ongrid, halts, int(door), gids.size(), int(grid_sup), on_g, off_g, _aether_paused.size(), _count("lumen_pump")]
 
 
 ## True while the sky works are not done: an anchor stands but the island has fewer collectors than wanted.
@@ -2045,6 +2053,7 @@ func _sky_life() -> void:
 func _aether_life() -> void:
 	if not _sky_ready():
 		return
+	_pause_pumps()
 	var have := 0
 	var open := 0
 	for b: Building in s.buildings.values():
@@ -2066,6 +2075,37 @@ func _aether_life() -> void:
 		s.set_building_priority(nb.id, "high")
 		have += 1
 		open += 1
+
+
+## Pauses vein pumps, newest first, while the staffed Aether Collectors make at least what the paused ones would; a paused pump
+## spreads no blight (187). Taken back oldest-paused last when the collectors lose hands.
+func _pause_pumps() -> void:
+	var staff := {}
+	for c: Citizen in s.citizens.values():
+		if c.job_kind == Citizen.JOB_WORK:
+			staff[c.job_id] = int(staff.get(c.job_id, 0)) + 1
+	var aether := 0.0
+	var pumps: Array[Building] = []
+	for b: Building in s.buildings.values():
+		if b.def.id == "aether_collector" and not b.site and not b.paused:
+			aether += AETHER_PER_WORKER * float(staff.get(b.id, 0))
+		elif b.def.id == "lumen_pump" and not b.site and (not b.paused or _aether_paused.has(b.id)):
+			pumps.append(b)
+	pumps.sort_custom(func(x: Building, y: Building) -> bool: return x.id > y.id)
+	var covered := 0.0
+	for b in pumps:
+		var out := PUMP_PER_WORKER * float(b.def.worker_slots)
+		if covered + out <= aether:
+			covered += out
+			if not b.paused:
+				s.set_building_priority(b.id, "paused")
+			_aether_paused[b.id] = true
+		elif _aether_paused.has(b.id):
+			_aether_paused.erase(b.id)
+			s.set_building_priority(b.id, "normal")
+	for id in _aether_paused.keys():
+		if not s.buildings.has(id):
+			_aether_paused.erase(id)
 
 
 ## The ground tile under the island nearest a finished grid node (the Nexus), so the island's Pylon links to the town's grid.
