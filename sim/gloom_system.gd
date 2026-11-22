@@ -61,8 +61,8 @@ static func is_gloom(s: Settlement, tile: Vector2i) -> bool:
 ## True when any of `b`'s footprint tiles is gloom: the building stops.
 static func building_in_gloom(s: Settlement, b: Building) -> bool:
 	var g := s.get_system(GloomSystem) as GloomSystem
-	if g == null or g.tiles.is_empty() or b == null:
-		return false
+	if g == null or g.tiles.is_empty() or b == null or b.layer == Building.LAYER_SKY:
+		return false  # gloom creeps over the ground; an island building stands above it (ticket 186)
 	for t in b.tiles():
 		if g.tiles.has(t):
 			return true

@@ -283,6 +283,7 @@ Effects of low health:
   river) and a tile that gets lit is cleared; all gloom is gone at dawn. A building with any footprint tile in gloom stops
   ("Stopped: in gloom - light it"); walkers take gloom at 6x path cost, so they detour when the way round is short. No
   combat, no damage. Lamps are the answer: keep the night buildings and the paths you need inside a lamp's light.
+  Gloom is a ground state: buildings on an island stand above it and keep working (ticket 186).
 - Vein surge (ticket 150): when a Dimming ends (the Great Dimming too) Lumen producers on veins make x1.5 for 2 days
   (PlanetDef.vein_surge_factor/days). The Dimming's forecast says so; the objectives show "Vein surge: day 1 of 2".
 - Dim blooms (ticket 151): the Glowcap Grove makes x2 during a Dimming (stacking with the new moon's +25%), and a Grove

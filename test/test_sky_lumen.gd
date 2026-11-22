@@ -112,3 +112,13 @@ func test_dimming_halves_output() -> void:
 	assert_true(DimmingSystem.is_active(s))
 	assert_eq(DimmingSystem.output_modifier(s, b), 0.5)
 	assert_almost_eq(prod.multiplier(s, b), normal * 0.5, 0.0001, "x0.5 of normal")
+
+
+# Ticket 186: the gloom is a ground state; an island building above it keeps working (sky Lumen sits above the dark).
+func test_gloom_below_does_not_stop_an_island_building() -> void:
+	var b := _collector()
+	var g := s.get_system(GloomSystem) as GloomSystem
+	g.tiles[b.origin] = 0
+	g.tiles[s.hearth.origin] = 0
+	assert_false(GloomSystem.building_in_gloom(s, b), "the collector over a gloom tile is not stopped")
+	assert_true(GloomSystem.building_in_gloom(s, s.hearth), "a ground building on a gloom tile still is")
