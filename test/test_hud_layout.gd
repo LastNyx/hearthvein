@@ -180,7 +180,7 @@ func test_every_grid_page_fits_cells_and_labels() -> void:
 		if HudModel.is_grid_category(str(c[0])):
 			pages.append(str(c[0]))
 	for page in pages:
-		hud._set_grid_page(page)
+		hud._open_grid_page(page)
 		await wait_process_frames(2)
 		var tag := "page '%s'" % page
 		_check_layout(hud, tag)
@@ -313,7 +313,7 @@ func test_no_grid_label_truncated_for_any_building() -> void:
 		for no in range(1, 4):
 			if no > 1:
 				p = "%s:%d" % [page, no]
-			hud._set_grid_page(p)
+			hud._open_grid_page(p)
 			await wait_process_frames(2)
 			for b in hud._cmd_cells:
 				var nm := b.find_child("CellName", true, false) as Label
@@ -367,7 +367,7 @@ func test_every_grid_cell_child_lies_inside_its_cell() -> void:
 	var hud: Hud = main.get_node("Hud")
 	var costs := 0
 	for p in _grid_pages(hud):
-		hud._set_grid_page(p)
+		hud._open_grid_page(p)
 		await wait_process_frames(2)
 		for b in hud._cmd_cells:
 			var cell := b.get_global_rect()
@@ -397,7 +397,7 @@ func test_band_and_grid_stay_within_148_px_at_1280x720() -> void:
 	var grid_h := 0.0
 	var band_h := 0.0
 	for p in _grid_pages(hud):
-		hud._set_grid_page(p)
+		hud._open_grid_page(p)
 		await wait_process_frames(2)
 		band_h = maxf(band_h, band.size.y)
 		if hud._cmd_panel.size.y > grid_h:
@@ -414,7 +414,7 @@ func test_grid_names_are_readable_and_locks_clear_of_the_name() -> void:
 	var hud: Hud = main.get_node("Hud")
 	var locks := 0
 	for p in _grid_pages(hud):
-		hud._set_grid_page(p)
+		hud._open_grid_page(p)
 		await wait_process_frames(2)
 		for b in hud._cmd_cells:
 			var nm := b.find_child("CellName", true, false) as Label

@@ -106,7 +106,7 @@ func test_road_tools_are_cells_and_the_crowded_panes_fit_the_grid() -> void:
 	await wait_process_frames(2)
 	assert_true(hud._cell_button("road") is Button)
 	for cat in ["housing", "food", "water", "lumen", "logistics", "resources", "refining", "civic", "landmark"]:
-		hud.open_category(cat) if hud._grid_page == "" else hud._set_grid_page(cat)
+		hud.open_category(cat) if hud._grid_page == "" else hud._open_grid_page(cat)
 		await wait_process_frames(2)
 		assert_lte(hud._cmd_cells.size(), Hud.GRID_COLUMNS * 3, "%s fits the 5x3 grid" % cat)
 		assert_lte(hud._cmd_panel.get_global_rect().size.y, Hud.BAND_HEIGHT, "%s keeps the grid inside the band" % cat)

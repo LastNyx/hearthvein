@@ -470,12 +470,12 @@ func test_every_city_building_can_be_built() -> void:
 		assert_gt(s.place_building_instant("storehouse", st_spot), -1)
 	for i in 24:
 		s.add_citizen()  # eight storehouses open 24 hauler slots, which rank above the builders: enough hands for both
-	_stock(s, "wood", 430.0)  # the City set costs 419 wood and 561 stone
-	_stock(s, "stone", 570.0)
+	_stock(s, "wood", 478.0)  # the City set costs 467 wood and 633 stone (the Observatory joined it in 142)
+	_stock(s, "stone", 642.0)
 	_stock(s, "planks", 60.0)
 	_stock(s, "lumen", 1200.0)  # the whole cost plus the upkeep of the finished buildings while the sites go up
-	_stock(s, "cut_stone", 175.0)
-	_stock(s, "tools", 40.0)
+	_stock(s, "cut_stone", 205.0)
+	_stock(s, "tools", 50.0)
 	_stock(s, "lumen_cells", 30.0)
 	_stock(s, "food", 800.0)  # keeps the builders from leaving over the months of work
 
@@ -489,7 +489,7 @@ func test_every_city_building_can_be_built() -> void:
 		if (a.placement_rule == "on_vein") != (b.placement_rule == "on_vein"):
 			return a.placement_rule == "on_vein"
 		return a.id < b.id)
-	assert_eq(city.size(), 7, "the City set of design section 16")
+	assert_eq(city.size(), 8, "the City set of design section 16")
 
 	for d in city:
 		var spot := _village_spot(s, d.id)
