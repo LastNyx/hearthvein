@@ -586,7 +586,7 @@ func _win_objectives() -> Array[Dictionary]:
 	return rows
 
 
-## One line for the collapsed panel: "Objectives: City 2/3, Dimming in 2 days".
+## One line for the collapsed panel: "Objectives: City 2/3, Dimming in 2 days - lasts 3".
 func objectives_collapsed_text() -> String:
 	var rows := objectives()
 	var done := 0
@@ -598,43 +598,24 @@ func objectives_collapsed_text() -> String:
 	if gate["next"] != "":
 		var nxt := s.registry.get_era(gate["next"])
 		label = nxt.display_name if nxt != null else str(gate["next"])
-	return "Objectives: %s %d/%d, %s" % [label, done, rows.size(), dimming_summary()]
+	return "Objectives: %s %d/%d, %s" % [label, done, rows.size(), dimming_text()]
 
 
-## The short Dimming phrase the collapsed line carries: "Dimming in 2 days", "Dimming day 1 of 3", "No Dimming
-## expected".
-func dimming_summary() -> String:
-	var d := s.get_system(DimmingSystem) as DimmingSystem
-	if d == null:
-		return "No Dimming expected"
-	var st := d.status(s)
-	var label := "Great Dimming" if st.get("great", false) else "Dimming"
-	match st["state"]:
-		"forecast":
-			var n: int = st["days_until"]
-			return "%s %s" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n)]
-		"active":
-			return "%s day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])]
-	return "No Dimming expected"
-
-
-## The Dimming lines of the objectives panel: a forecast gives "Dimming in N days, lasts M" and "Nights run 16-09.
-## Lumen output halves. Stock: N days."; an active Dimming gives "Dimming: day N of M" then "Nights run 16-09." plus
-## the light-short warning when it is short. Empty outside both. The numbers are the ones the old era panel gathered.
+## The Dimming lines of the objectives panel, built from dimming_text and dimming_stock_text: a forecast gives
+## "Dimming in N days - lasts M" and "Nights run 18-07. Lumen output halves. Stock before it: ~12 Lumen for 3 days
+## and food"; an active Dimming gives "DIMMING - day N of M (dark)" (or the GREAT DIMMING wording) then "Nights run
+## 18-07." plus the light-short warning when it is short. Empty outside both.
 func objectives_dimming_lines() -> Array[String]:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
 	if d == null:
 		return []
 	var st := d.status(s)
-	var label := "Great Dimming" if st.get("great", false) else "Dimming"
 	var lines: Array[String] = []
 	if st["state"] == "forecast":
-		var n: int = st["days_until"]
-		lines.append("%s %s, lasts %d" % [label, "today" if n <= 0 else ("tomorrow" if n == 1 else "in %d days" % n),
-				int(st["length"])])
-		lines.append("%s Lumen output halves. Stock: %d days." % [dimming_nights_text(), dimming_stock_days()])
+		lines.append(dimming_text())
+		lines.append("%s Lumen output halves. %s" % [dimming_nights_text(), dimming_stock_text()])
 	elif st["state"] == "active":
-		lines.append("%s: day %d of %d" % [label, int(st["length"]) - int(st["days_left"]) + 1, int(st["length"])])
+		lines.append(dimming_text())
 		var second := dimming_nights_text()
 		var short := dimming_short_text()
 		if short != "":
@@ -643,18 +624,6 @@ func objectives_dimming_lines() -> Array[String]:
 	if DimmingSystem.vein_surge(s):
 		lines.append("Vein surge: day %d of %d" % [DimmingSystem.vein_surge_day(s), DimmingSystem.vein_surge_days(s)])
 	return lines
-
-
-## Days the Lumen stock covers the settlement's light need, the "about N days" the old panel showed: floor((Lumen +
-## cells x lumen_per_cell) / need).
-func dimming_stock_days() -> int:
-	var need := DimmingSystem.light_need(s)
-	if need <= 0.0:
-		return 0
-	var t := s.totals()
-	var lumen := floori(float(t.get("lumen", 0.0)))
-	var cells := floori(float(t.get("lumen_cells", 0.0)))
-	return floori((float(lumen) + float(cells) * s.registry.planet.lumen_per_cell) / need)
 
 
 ## True when the objectives panel is collapsed (the one-line form); stored in the user settings.
