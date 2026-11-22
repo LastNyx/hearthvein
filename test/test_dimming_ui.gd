@@ -110,9 +110,31 @@ func test_forecast_stock_line() -> void:
 	_forecast(2, 3)
 	# 4 Lumen a day for the 3 days: ~12. 60 food / 8 a day = 7.5 days, enough for the 2-day wait and the Dimming.
 	assert_eq(m.dimming_light_text(), "", "no light line before the Dimming starts")
-	assert_eq(m.dimming_stock_text(), "Stock before it: ~12 Lumen for 3 days")
+	# The start stock is 10 Lumen: 2 of the 3 days at 4 a day.
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~12 Lumen for 3 days (Lumen + cells last 2 of 3 days)")
 	s.hearth.inventory.remove("food", 50.0)  # 10 food = 1.25 days, short of the 5 living days
-	assert_eq(m.dimming_stock_text(), "Stock before it: ~12 Lumen for 3 days and food")
+	assert_eq(m.dimming_stock_text(),
+			"Stock before it: ~12 Lumen for 3 days (Lumen + cells last 2 of 3 days) and food")
+
+
+func test_forecast_stock_line_says_all_days_when_cells_cover_it() -> void:
+	_forecast(2, 3)
+	s.hearth.inventory.add("lumen_cells", 1.0)  # 10 Lumen + 1 cell x 5 = 15, over the 12 needed
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~12 Lumen for 3 days (Lumen + cells last all 3 days)")
+
+
+func test_forecast_stock_line_counts_dimming_supply_and_upkeep() -> void:
+	_forecast(2, 8)
+	s.hearth.inventory.add("food", 100.0)  # keep the food part out of this line
+	# 4 Lumen a day for 8 days = 32; 10 Lumen lasts 2 days.
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~32 Lumen for 8 days (Lumen + cells last 2 of 8 days)")
+	var tap := _fake("lumen_tap")  # 8 Lumen a worker, x0.25 in a Dimming = 2 a day for one worker
+	var c: Citizen = s.citizens[s.citizens.keys()[0]]
+	c.job_kind = Citizen.JOB_WORK
+	c.job_id = tap.id
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~32 Lumen for 8 days (Lumen + cells last 5 of 8 days)")
+	var shop := _fake("toolsmith")  # 1 Lumen upkeep a day: 4 + 1 - 2 = 3 a day, 10 Lumen = 3 days
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~32 Lumen for 8 days (Lumen + cells last 3 of 8 days)")
 
 
 # ---------------------------------------------------------------- selected building and tooltip

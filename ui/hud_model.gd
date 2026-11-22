@@ -459,7 +459,9 @@ func dimming_output_text() -> String:
 	return "Output: " + ", ".join(parts)
 
 
-## "Stock before it: ~12 Lumen for 3 days" for a forecast Dimming (plus " and food" when the food stock, at the daily
+## "Stock before it: ~12 Lumen for 3 days (Lumen + cells last 2 of 3 days)" for a forecast Dimming: the days are the
+## current Lumen + cells x lumen_per_cell against light_need plus Lumen upkeep less the Dimming supply, "last all 3
+## days" when that covers it (plus " and food" when the food stock, at the daily
 ## eating rate, would not last the wait and the Dimming), "" otherwise.
 func dimming_stock_text() -> String:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
@@ -471,11 +473,15 @@ func dimming_stock_text() -> String:
 	var length := int(st["length"])
 	var target := DimmingSystem.light_need(s) * float(length)
 	var line := "Stock before it: ~%s Lumen for %d days" % [num_text(target), length]
+	var t := s.totals()
+	var stock := float(t.get("lumen", 0.0)) + float(t.get("lumen_cells", 0.0)) * s.registry.planet.lumen_per_cell
+	var drain := target / float(maxi(1, length)) + DimmingSystem.lumen_upkeep(s) - DimmingSystem.dimming_supply(s)
+	var days := length if drain <= 0.0 else mini(length, floori(stock / drain))
+	line += " (Lumen + cells last %s)" % ("all %d days" % length if days >= length else "%d of %d days" % [days, length])
 	var eat := float(s.citizens.size()) * s.registry.growth.food_per_citizen
 	if eat <= 0.0:
 		eat = 1.0
 	var food := 0.0
-	var t := s.totals()
 	for g in GrowthSystem.food_goods(s.registry):
 		food += float(t.get(g, 0.0))
 	if food / eat < float(int(st["days_until"]) + length):

@@ -292,6 +292,31 @@ static func light_need(s: Settlement) -> float:
 	return light_per_citizen(s) * float(s.citizens.size())
 
 
+## Lumen a day the finished, unpaused buildings with Lumen upkeep ask for (nominal, no grid discount).
+static func lumen_upkeep(s: Settlement) -> float:
+	var total := 0.0
+	for b: Building in s.buildings.values():
+		if not b.site and not b.paused and b.def.upkeep_lumen > 0.0 and not IslandSystem.is_still_building(s, b):
+			total += b.def.upkeep_lumen
+	return total
+
+
+## Estimated Lumen a day the staffed Lumen buildings make in a Dimming (assigned workers x recipe x tier x the
+## Dimming factor of the def: a vein extractor's dimming_vein_factor or the planet's, any other def's dimming_factor).
+static func dimming_supply(s: Settlement) -> float:
+	var staffed := MarketSystem.assigned_workers(s)
+	var total := 0.0
+	for b: Building in s.buildings.values():
+		if b.site or b.paused or b.def.recipe == null or not b.def.recipe.outputs.has("lumen"):
+			continue
+		var workers := mini(int(staffed.get(b.id, 0)), ProductionSystem.worker_slots_for(s, b))
+		var f := b.def.dimming_factor
+		if b.def.vein_extractor:
+			f = b.def.dimming_vein_factor if b.def.dimming_vein_factor > 0.0 else s.registry.planet.dimming_vein_factor
+		total += float(b.def.recipe.outputs["lumen"]) * float(workers) * b.output_factor(s.registry) * f
+	return total
+
+
 func _light(s: Settlement) -> void:
 	var pd := s.registry.planet
 	var need_by_region := {}
