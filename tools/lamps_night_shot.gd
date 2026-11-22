@@ -23,9 +23,11 @@ func _report_samples(main: Node, s: Settlement, out: String) -> void:
 		if not b.def.lamp:
 			continue
 		var c := (Vector2(b.origin) + Vector2(0.5, 0.5)) * ArtLibrary.TILE
-		var spots := {"inner": c + Vector2(0, 0.7 * ArtLibrary.TILE), "open 4 north 2 east": c + Vector2(2, -4) * ArtLibrary.TILE}
+		var spots := {"inner": c + Vector2(0, 0.55 * ArtLibrary.TILE), "open 4 north 2 east": c + Vector2(2, -4) * ArtLibrary.TILE}
 		for k in spots:
 			var p := Vector2i(xf * Vector2(spots[k]))
+			var px := on.get_pixelv(p)
+			print("R-G ", snappedf(px.r - px.g, 0.001), " (pool on)")
 			print("sample tier ", b.tier, " ", k, " px ", p, " pool on ", on.get_pixelv(p).to_html(false), " off ", off.get_pixelv(p).to_html(false),
 					" rgb255 on ", on.get_pixelv(p) * 255.0, " off ", off.get_pixelv(p) * 255.0)
 

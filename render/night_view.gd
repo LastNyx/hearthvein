@@ -81,7 +81,7 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	for p in _pools:
 		var centre := (Vector2(p["origin"]) + Vector2(p["size"]) * 0.5) * TILE
-		var radius := float(p["radius"]) * TILE
+		var radius := NightRenderModel.drawn_radius(float(p["radius"])) * TILE
 		for step in NightRenderModel.POOL_STEPS:
 			# Widest and palest first: three flat discs make three visible steps, not a soft gradient.
 			var col := NightRenderModel.POOL_COLOR
@@ -113,7 +113,7 @@ func _draw_lantern(e: Dictionary) -> void:
 	var radius := LANTERN_RADIUS * TILE
 	for step in NightRenderModel.POOL_STEPS:
 		var col := NightRenderModel.POOL_COLOR
-		col.a = NightRenderModel.POOL_ALPHA * float(step + 1) * 2.0
+		col.a = NightRenderModel.LANTERN_ALPHA * float(step + 1)
 		var k := 1.0 - float(step) / float(NightRenderModel.POOL_STEPS)
 		draw_circle(centre, radius * k, col)
 	draw_circle(centre, 2.0, LANTERN_COLOR)

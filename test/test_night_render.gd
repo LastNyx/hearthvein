@@ -154,3 +154,11 @@ func test_a_newly_lit_lamp_shows_its_pool_on_the_next_frame() -> void:
 	_step_to(s, 19)
 	v._process(0.01)  # far less than REFRESH_SECONDS
 	assert_eq(v.pool_count(), 1, "the lit lamp's pool is drawn on the next frame")
+
+
+## Ticket 183: the pool is drawn at a named fraction of the lamp's sim radius (render only), and its colour stays warm
+## orange (red clearly above green) so it does not read yellow-green over grass.
+func test_pool_is_drawn_smaller_than_the_lamp_radius_and_stays_orange() -> void:
+	assert_eq(NightRenderModel.POOL_DRAW_FACTOR, 0.7, "the pool is drawn 30% smaller than the sim radius")
+	assert_almost_eq(NightRenderModel.drawn_radius(3), 2.1, 0.0001, "a Brazier (radius 3) draws 2.1 tiles")
+	assert_gte(NightRenderModel.POOL_COLOR.r - NightRenderModel.POOL_COLOR.g, 0.15, "red clearly above green")

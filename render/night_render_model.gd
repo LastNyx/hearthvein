@@ -11,10 +11,20 @@ extends RefCounted
 const POOL_STEPS := 3
 ## Warm light of the pools and the windows. The light is added to the tinted ground (ticket 170), so a low alpha
 ## keeps the night map readable while the three steps still read warm.
-const POOL_COLOR := Color(1.0, 0.6, 0.25)
-const POOL_ALPHA := 0.05
+## Ticket 183: little green in it, so over green grass the sum stays orange (R well above G), not yellow-green.
+const POOL_COLOR := Color(1.0, 0.18, 0.0)
+const POOL_ALPHA := 0.12
+## Alpha of the Night Watch's lantern steps (ticket 143), kept at the strength it had before the pool colour changed.
+const LANTERN_ALPHA := 0.1
+## Ticket 183: a pool is drawn at this fraction of the lamp's sim radius (render only; lamp_radius and coverage stay).
+const POOL_DRAW_FACTOR := 0.7
 ## Buildings whose working sprite shows glowing embers at night (ticket 135: the kiln).
 const EMBER_BUILDINGS := ["charcoal_kiln"]
+
+
+## The radius in tiles a pool is drawn at for a lamp whose sim radius is `sim_radius`.
+static func drawn_radius(sim_radius: float) -> float:
+	return sim_radius * POOL_DRAW_FACTOR
 
 
 ## One entry per lit lamp: {"id", "origin", "size", "radius"}. Empty by day and for lamps with no fuel.
