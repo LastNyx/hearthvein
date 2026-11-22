@@ -111,6 +111,9 @@ refined good are physical goods held in storehouses and moved by haulers.
 - Lumen leaks: raw Lumen in storage loses 3% a day (ticket 159; was 1%), counted on the first 500 of the settlement's stock only (ticket 169). Cells don't leak. When raw Lumen runs out, buildings and
   light draw on cells automatically (1 cell = 5 Lumen). This is what makes Dimming prep a choice: refine
   early and lose 1 in 6, or keep it raw and lose 3% a day.
+- Hauling order (ticket 171): sites and upgrades first, then door pickups and input refills take turns; in a refill a High
+  priority building comes before the rest, then the oldest. An upgrade's or a site's last delivery may be under 1 unit. A
+  consumer no road reaches never hides a good's stock from the others. No number changed.
 - Night shift (ticket 138): night slots run 20:00-06:00 and only inside a lamp's light. Lamps (radius, fuel a night): Brazier
   3 (1 wood), Lantern Post 5 (2 charcoal), Lumen Lamp 7 (3 Lumen), Grid Lamp 9 (1 Lumen from the grid). The Night Watch's
   walker lights radius 1 along its route (1 charcoal). Kiln: 2 charcoal per worker-day. Glowcap Grove: 3 food per night

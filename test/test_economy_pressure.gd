@@ -153,3 +153,74 @@ func test_lumen_leak_is_capped() -> void:
 	assert_gt(before, 900.0, "a reserve well over the cap")
 	(s.get_system(StorageSystem) as StorageSystem).on_day(s)
 	assert_almost_eq(before - float(s.totals().get("lumen", 0.0)), 15.0, 0.0001)
+
+
+## Ticket 171: a site no road reaches wants stone but no storehouse can serve it; that must not hide the stored stone from
+## the Mason beside the road (the plan once cached "no stone source" per good and every Mason stood empty for years).
+func test_unreachable_site_does_not_starve_a_masons_stone() -> void:
+	_strip(s)
+	var store := _put("storehouse")
+	store.inventory.add("stone", 80.0)
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var h := s.map.hearth_spot
+	for x in range(h.x + 7, h.x + 13):
+		for y in range(h.y + 7, h.y + 13):
+			var ring := x == h.x + 7 or x == h.x + 12 or y == h.y + 7 or y == h.y + 12
+			s.set_terrain(Vector2i(x, y), "water" if ring else "grass")  # a grass islet in a ring of water: nobody can walk there
+	var site_id := s.place_building("builders_yard", Vector2i(h.x + 8, h.y + 9))
+	assert_true(site_id >= 0, "a Builders Yard site off every road")
+	var mason := _put("mason")
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_not_null(t, "a trip is planned")
+	if t != null:
+		assert_eq(t.good, "stone")
+		assert_eq(t.dst, mason.id, "the stone goes to the Mason")
+
+
+## Ticket 171: a refill goes to a High priority building before an older one, so the newest buildings' Lumen upkeep is
+## not left for last when every older building asks for a refill too.
+func test_high_priority_consumer_is_refilled_first() -> void:
+	_strip(s)
+	var store := _put("storehouse")
+	store.inventory.add("stone", 80.0)
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	var older := _put("mason")
+	var newer := _put("mason")
+	assert_lt(older.id, newer.id)
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_not_null(t)
+	if t != null:
+		assert_eq(t.dst, older.id, "normal priority: the older Mason first")
+	s.set_building_priority(newer.id, "high")
+	t = hs._plan(s, ws, -1)
+	assert_not_null(t)
+	if t != null:
+		assert_eq(t.dst, newer.id, "High priority: the newer Mason first")
+
+
+## Ticket 171: an upgrade that is a fraction short of a good (0.4 of a cut stone) still gets that last delivery; with the
+## floor at min_pickup the upgrade, and the home it raises, stood open for years and held back every other upgrade.
+func test_upgrade_last_delivery_may_be_below_min_pickup() -> void:
+	_strip(s)
+	var store := _put("storehouse")
+	store.inventory.add("cut_stone", 50.0)
+	store.inventory.add("planks", 50.0)
+	var home := _put("tent")
+	s.era_override = "town"
+	assert_true(s.upgrade(home.id), "the tent upgrade started")
+	var cost := home.upgrade_cost
+	assert_true(cost.has("cut_stone"), "a tent upgrade costs cut stone")
+	for g in cost:
+		home.upgrade_buffer.add(g, float(cost[g]) - (0.4 if g == "cut_stone" else 0.0))
+	var hs := s.get_system(HaulingSystem) as HaulingSystem
+	var ws := s.get_system(WalkerSystem) as WalkerSystem
+	s.step_hours(1)
+	var t: HaulingSystem.Trip = hs._plan(s, ws, -1)
+	assert_not_null(t, "a trip for the last 0.4 units")
+	if t != null:
+		assert_eq(t.dst, home.id)
+		assert_almost_eq(t.planned, 0.4, 0.001)

@@ -634,16 +634,19 @@ func _plan_door(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 
 ## Storage -> consumer input buffers. Sites and upgrade buffers are served first by _works, never here (a paused one
 ## gets nothing). Lamps come first (ticket 133): their fuel is small and time-critical (a dark night cannot be made up),
-## and a busy producer earlier in id order would otherwise keep every trip for itself.
+## and a busy producer earlier in id order would otherwise keep every trip for itself. Within a kind, High priority
+## buildings come before the rest, then lowest id: with every older building asking for a refill the newest (the
+## Cleansers' Lumen upkeep) were never reached (171).
 func _plan_inputs(s: Settlement, ws: WalkerSystem, load_cap: float) -> Trip:
 	for lamps_only in [true, false]:
-		for b in _blds:
-			if b.def.lamp != lamps_only:
-				continue
-			if b.input_buffer != null and not b.site:
-				var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
-				if t != null:
-					return t
+		for high_first in [true, false]:  # a building the player raised to High priority is refilled before the rest (171)
+			for b in _blds:
+				if b.def.lamp != lamps_only or (b.priority == "high") != high_first:
+					continue
+				if b.input_buffer != null and not b.site:
+					var t := _plan_for_need(s, ws, b, b.input_buffer, _need_cached(s, b), false, load_cap)
+					if t != null:
+						return t
 	return null
 
 
@@ -676,8 +679,8 @@ func _plan_for_need(s: Settlement, ws: WalkerSystem, b: Building, buf: Inventory
 		if on_grid and g == "lumen":
 			continue  # the grid feeds this building's Lumen directly
 		var deficit: float = float(need[g]) - buf.amount_of(g) - _res(kind, b.id, g)
-		# A site's last delivery may be smaller than min_pickup.
-		var floor_amt := minf(lg.min_pickup, deficit) if b.site else lg.min_pickup
+		# A site's or an upgrade's last delivery may be smaller than min_pickup (an upgrade 0.17 short never finished, 171).
+		var floor_amt := minf(lg.min_pickup, deficit) if (b.site or upgrade) else lg.min_pickup
 		if deficit < floor_amt - Inventory.EPS or deficit <= Inventory.EPS:
 			continue
 		var src := _nearest_source(s, ws, b, g, floor_amt)
@@ -694,15 +697,17 @@ func _nearest_source(s: Settlement, ws: WalkerSystem, consumer: Building, good: 
 		return null  # as _room_fail: a smaller amount found no source with stock in this plan
 	var best: Building = null
 	var best_t := INF
+	var stocked := false
 	for b in _storages:
 		if b.inventory.amount_of(good) - _res("s", b.id, good) < min_amount - Inventory.EPS:
 			continue
+		stocked = true
 		var t := _walk(s, ws, b, consumer)
 		if t < best_t:
 			best = b
 			best_t = t
-	if best == null:
-		_src_fail[good] = minf(_src_fail.get(good, INF), min_amount)
+	if best == null and not stocked:
+		_src_fail[good] = minf(_src_fail.get(good, INF), min_amount)  # only "no stock anywhere" holds for every consumer; an unreachable one must not hide the stock from the rest (171)
 	return best
 
 
