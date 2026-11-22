@@ -501,7 +501,6 @@ func _build_clock_panel(parent: Node) -> void:
 	_help_button.name = "HelpButton"
 	_help_button.tooltip_text = "Help (F1)"
 	_help_button.pressed.connect(func() -> void: help_requested.emit())
-	# Ticket 128 moved Spirit and planet health from this row to the town summary in the bottom band.
 
 
 ## An overlay key (V G T H L) toggles the same state as the minimap's buttons.
@@ -1455,11 +1454,11 @@ func _activate_cell(index: int) -> void:
 	_grid_focus_id = id if state == "locked" or model.s.registry.get_building(id) != null else ""
 	match id:
 		"back":
-			_set_grid_page("")
+			_open_grid_page("")
 			return
 		"more":
 			var bits := _grid_page.split(":")
-			_set_grid_page("%s:%d" % [bits[0], int(bits[1]) + 1 if bits.size() > 1 else 2])
+			_open_grid_page("%s:%d" % [bits[0], int(bits[1]) + 1 if bits.size() > 1 else 2])
 			return
 		"demolish": build.set_mode(BuildController.Mode.DEMOLISH)
 		"upgrade": build.set_mode(BuildController.Mode.UPGRADE)
@@ -1481,17 +1480,12 @@ func _open_grid_page(page: String) -> void:
 	_grid_focus_id = ""
 	_grid_page = page
 	_grid_key = ""
-	_refresh_command_grid()
 	refresh()
 
 
 ## Opens a category pane, or closes it when it is already open (tests and the tutorial call this).
 func open_category(id: String) -> void:
-	_set_grid_page("" if _grid_page == id else id)
-
-
-func _set_grid_page(page: String) -> void:
-	_open_grid_page(page)
+	_open_grid_page("" if _grid_page == id else id)
 
 
 ## The cell button carrying `id` on the current page, or null.
@@ -1717,7 +1711,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 			if kc == KEY_ESCAPE:
-				_set_grid_page("")
+				_open_grid_page("")
 				get_viewport().set_input_as_handled()
 				return
 		for id in OVERLAY_KEYS:
