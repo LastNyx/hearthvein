@@ -165,10 +165,10 @@ func test_objectives_dimming_lines_and_final_era_win_rows() -> void:
 	d._active = false
 	var lines := m.objectives_dimming_lines()
 	assert_eq(lines[0], "Dimming in 2 days - lasts 3")
-	assert_eq(lines[1], "Nights run 18-07. Lumen output halves. Stock before it: ~12 Lumen for 3 days")
+	assert_eq(lines[1], "Nights run 18-07. Lumen output halves. Stock before it: ~12 Lumen for 3 days (Lumen + cells last 2 of 3 days)")
 	s.hearth.inventory.remove("food", 50.0)  # 10 food at 8 a day does not last the 2-day wait and the Dimming
 	assert_eq(m.objectives_dimming_lines()[1],
-			"Nights run 18-07. Lumen output halves. Stock before it: ~12 Lumen for 3 days and food",
+			"Nights run 18-07. Lumen output halves. Stock before it: ~12 Lumen for 3 days (Lumen + cells last 2 of 3 days) and food",
 			"the forecast row carries the food shortfall")
 	d._start_day = s.clock.total_days()
 	d._length = 3
