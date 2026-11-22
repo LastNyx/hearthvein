@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## 1.1.10 - TODO date (not released yet)
+## 1.1.10 - 2026-11-22
 
 ### Added
 - Night shift: buildings can have night workers who start at dusk (20:00) and work inside a lamp's light. Braziers, Lantern
