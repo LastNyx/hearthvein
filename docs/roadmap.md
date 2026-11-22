@@ -25,6 +25,14 @@
 - Found a second settlement; settlements share goods along Lumen lines on a region map.
 - The Great Dimming becomes a region-wide campaign finale.
 
+## Extended mode - Interstellar (proposed 2026-11-22, not decided)
+- A separate mode after classic: travel to other planets for resources (like ONI's rocket and asteroid play).
+- Classic stays as it is: Ascendant and the Skyheart finale, winnable with Skyborne-level tech. Nothing of this mode
+  is built or stubbed in classic.
+- Seeds already in classic: the Observatory (star charts), Lumen cells (portable energy).
+- Planned only after Ben finishes playing classic mode; order against v2/v3 not set.
+- Open (grill later): do v2 Neighbours and v3 Region extend classic, or get re-grilled together with this mode?
+
 ## Later (unordered, not committed)
 - Map size options.
 - Mod support (buildings are already data files, see design.md section 15).

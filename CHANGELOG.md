@@ -40,6 +40,18 @@ All notable changes to Hearthvein. Newest first.
 - Clear is now Z and Plant is Y (K and N pick Logistics and Housing). The build menu key B is gone: the grid is always open.
 - The old tools column on the left is gone: speed is in the clock row, tools are in the grid, Help is F1 or the "?" button.
 - The tooltip of a building on the map no longer draws over the Resources, Workforce or Region pages.
+- The Observatory comes in the City era (was Skyborne). With its night crew at work, airship surveys finish 25% faster.
+- Lamp light is a warmer orange that no longer turns yellow-green over grass, and the glow is drawn a little smaller (the
+  lit area is the same).
+- The Dimming forecast says how long your Lumen and Lumen cells will last, e.g. "Lumen + cells last 5 of 8 days".
+- A paused Lumen Tap or Pump no longer spreads blight.
+- Aether Collector: 10 tools (was 20) and 10 Lumen per worker (was 6).
+
+### Fixed
+- Haulers now refill High-priority buildings first, so healers in a big town get their Lumen.
+- A building no road reaches no longer hides a good from every other building (Masons could stop making cut stone).
+- A home upgrade short by less than one unit of a good now gets its last delivery instead of waiting for ever.
+- Buildings on sky islands keep working in a Dimming night; gloom only creeps over the ground.
 
 ## 1.1.9 - 2026-11-21
 
