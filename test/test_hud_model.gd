@@ -121,12 +121,9 @@ func test_population_beds_and_spirit_planet_numbers() -> void:
 	assert_string_contains(m.planet()["text"], "/yr")
 
 
-func test_era_panel_gate_and_dimming_forecast_text() -> void:
-	var ep := m.era_panel()
-	assert_eq(ep["title"], "Era: Camp")
-	assert_string_contains(ep["gate"], "Next:")
-	assert_string_contains(ep["gate"], "pop")
-	assert_eq(ep["date"], "Year 1, Spring")
+func test_era_name_date_and_dimming_forecast_text() -> void:
+	assert_eq(m.era_name(), "Camp")
+	assert_eq(m.date_text(), "Year 1, Spring")
 	var d: DimmingSystem = s.get_system(DimmingSystem)
 	var guard := 0
 	while d.status(s)["state"] == "none" and guard < 120:

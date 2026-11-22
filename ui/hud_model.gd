@@ -370,22 +370,6 @@ func moon_tooltip() -> String:
 	return "%s\nTonight: %s%s" % [base, Moon.phase_name(days, dn), eff]
 
 
-## Lines of the era panel: era title, the next-era gate, the Dimming line, the date.
-func era_panel() -> Dictionary:
-	var gate := s.era_gate()
-	var gate_text := "Final era"
-	if gate["next"] != "":
-		var nxt := s.registry.get_era(gate["next"])
-		var lm := s.registry.get_building(gate["landmark"])
-		gate_text = "Next: %s  pop %d/%d  gold %d/%d  %s %s" % [nxt.display_name, gate["pop"], gate["pop_need"],
-				floori(gate["gold"]), gate["gold_need"], lm.display_name if lm != null else str(gate["landmark"]),
-				"built" if gate["landmark_built"] else "not built"]
-	return {"title": "Era: %s" % era_name(), "gate": gate_text, "dimming": dimming_text(),
-			"dimming_state": dimming_state(), "light": dimming_light_text(), "light_short": dimming_short_text(),
-			"output": dimming_output_text(), "stock": dimming_stock_text(),
-			"date": date_text()}
-
-
 func dimming_state() -> String:
 	var d := s.get_system(DimmingSystem) as DimmingSystem
 	return d.status(s)["state"] if d != null else "none"

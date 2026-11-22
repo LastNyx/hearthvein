@@ -174,7 +174,7 @@ func test_swap_rebinds_hud_and_notifications_to_the_new_settlement() -> void:
 		if r["id"] == "gold":
 			gold = r["value"]
 	assert_eq(gold, 123, "HUD model reads the new settlement's gold")
-	assert_string_contains(main.hud_model.era_panel()["title"], reg.get_era(loaded.era_id()).display_name)
+	assert_eq(main.hud_model.era_name(), reg.get_era(loaded.era_id()).display_name)
 	# the map renders the loaded settlement's buildings
 	for id in loaded.buildings:
 		assert_true(main.placement._nodes.has(id), "building %d drawn" % id)

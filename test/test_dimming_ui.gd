@@ -1,5 +1,5 @@
 extends GutTest
-## Ticket 108: the Dimming's numbers in the era panel, the forecast stock line, and "x0.5 Dimming" on a selected
+## Ticket 108: the Dimming's numbers in the HUD text helpers, the forecast stock line, and "x0.5 Dimming" on a selected
 ## building and its map tooltip.
 
 const SEED := 42
@@ -48,72 +48,71 @@ func _fake(def_id: String) -> Building:
 	return b
 
 
-# ---------------------------------------------------------------- era panel: light
+# ---------------------------------------------------------------- Dimming text: light
 
 func test_light_line_has_need_stock_and_days() -> void:
-	assert_eq(m.era_panel()["light"], "", "no light line outside a Dimming")
+	assert_eq(m.dimming_light_text(), "", "no light line outside a Dimming")
 	_dimming(4)
 	# 8 citizens x 0.5 Lumen = 4 a day; the start stock is 10 Lumen and no cells: 2 days, short of the 4 left.
-	var ep := m.era_panel()
-	assert_eq(ep["light"], "Light: needs 4 Lumen/day, have 10 Lumen + 0 cells (about 2 days)")
-	assert_eq(ep["light_short"], "", "stock that ran out yesterday is not a shortfall today")
+	assert_eq(m.dimming_light_text(), "Light: needs 4 Lumen/day, have 10 Lumen + 0 cells (about 2 days)")
+	assert_eq(m.dimming_short_text(), "", "stock that ran out yesterday is not a shortfall today")
 	s.hearth.inventory.add("lumen", 20.0)
-	assert_eq(m.era_panel()["light"], "Light: needs 4 Lumen/day, have 30 Lumen + 0 cells (enough)")
+	assert_eq(m.dimming_light_text(), "Light: needs 4 Lumen/day, have 30 Lumen + 0 cells (enough)")
 
 
 func test_light_line_counts_lumen_cells_at_the_data_rate() -> void:
 	_dimming(4)
 	s.hearth.inventory.remove("lumen", 10.0)
 	s.hearth.inventory.add("lumen_cells", 3.0)  # 3 x 5 Lumen = 15, still short of the 16 needed for 4 days
-	assert_eq(m.era_panel()["light"], "Light: needs 4 Lumen/day, have 0 Lumen + 3 cells (about 3 days)")
-	assert_eq(m.era_panel()["light_short"], "")
+	assert_eq(m.dimming_light_text(), "Light: needs 4 Lumen/day, have 0 Lumen + 3 cells (about 3 days)")
+	assert_eq(m.dimming_short_text(), "")
 
 
-# ---------------------------------------------------------------- era panel: short
+# ---------------------------------------------------------------- Dimming text: short
 
 func test_light_short_warning() -> void:
 	_dimming(4)
-	assert_eq(m.era_panel()["light_short"], "", "a Dimming alone is not a shortfall")
+	assert_eq(m.dimming_short_text(), "", "a Dimming alone is not a shortfall")
 	d.last_light = {"need": 32.0, "drawn_lumen": 3.0, "drawn_cells": 0.0, "short": 1.0}
-	assert_eq(m.era_panel()["light_short"], "Light short: Spirit falls")
+	assert_eq(m.dimming_short_text(), "Light short: Spirit falls")
 	d.last_light = {"need": 32.0, "drawn_lumen": 32.0, "drawn_cells": 0.0, "short": 0.0}
-	assert_eq(m.era_panel()["light_short"], "")
+	assert_eq(m.dimming_short_text(), "")
 	d._dark = true
-	assert_eq(m.era_panel()["light_short"], "Light short: Spirit falls")
+	assert_eq(m.dimming_short_text(), "Light short: Spirit falls")
 
 
-# ---------------------------------------------------------------- era panel: output
+# ---------------------------------------------------------------- Dimming text: output
 
 func test_output_line_lists_affected_buildings_and_caps_at_four() -> void:
-	assert_eq(m.era_panel()["output"], "", "no output line outside a Dimming")
+	assert_eq(m.dimming_output_text(), "", "no output line outside a Dimming")
 	_dimming(4)
 	_fake("farm")
 	_fake("forager")
 	_fake("woodcutter")  # unaffected: not listed
 	_fake("lumen_tap")
-	assert_eq(m.era_panel()["output"], "Output: Farm x0.5, Forager x0.5, Lumen Tap x0.25")
+	assert_eq(m.dimming_output_text(), "Output: Farm x0.5, Forager x0.5, Lumen Tap x0.25")
 	_fake("aether_collector")
 	_fake("bloom_orchard")
-	assert_eq(m.era_panel()["output"],
+	assert_eq(m.dimming_output_text(),
 			"Output: Aether Collector x0.5, Bloom Orchard x0.75, Farm x0.5, Forager x0.5, +1 more")
 
 
 func test_output_line_skips_sites() -> void:
 	_dimming(4)
 	_fake("farm").site = true
-	assert_eq(m.era_panel()["output"], "", "a farm under construction makes nothing yet")
+	assert_eq(m.dimming_output_text(), "", "a farm under construction makes nothing yet")
 
 
-# ---------------------------------------------------------------- era panel: forecast stock
+# ---------------------------------------------------------------- Dimming text: forecast stock
 
 func test_forecast_stock_line() -> void:
-	assert_eq(m.era_panel()["stock"], "", "no stock line without a forecast")
+	assert_eq(m.dimming_stock_text(), "", "no stock line without a forecast")
 	_forecast(2, 3)
 	# 4 Lumen a day for the 3 days: ~12. 60 food / 8 a day = 7.5 days, enough for the 2-day wait and the Dimming.
-	assert_eq(m.era_panel()["light"], "", "no light line before the Dimming starts")
-	assert_eq(m.era_panel()["stock"], "Stock before it: ~12 Lumen for 3 days")
+	assert_eq(m.dimming_light_text(), "", "no light line before the Dimming starts")
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~12 Lumen for 3 days")
 	s.hearth.inventory.remove("food", 50.0)  # 10 food = 1.25 days, short of the 5 living days
-	assert_eq(m.era_panel()["stock"], "Stock before it: ~12 Lumen for 3 days and food")
+	assert_eq(m.dimming_stock_text(), "Stock before it: ~12 Lumen for 3 days and food")
 
 
 # ---------------------------------------------------------------- selected building and tooltip
