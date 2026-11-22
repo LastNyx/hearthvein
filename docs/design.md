@@ -159,6 +159,20 @@ refined good are physical goods held in storehouses and moved by haulers.
   Cloud Cistern on islands). Missing = Spirit penalty for those homes. Tents and Cottages never need wells.
 - A Well must sit on a wet tile.
 
+### River: Water Wheel, River Docks, spring floods (tickets 152-154)
+- Water Wheel (Village, 12W 8St, no workers): placed on a bank tile next to the river. It drives the one 4-adjacent
+  Sawmill, Mason or Bakery: that building needs 1 worker fewer per shift (never below 1) and its night shift does not need
+  a lamp. On a fouled river tile the saving is lost and the building runs at x0.5 instead.
+- River Dock (Town, 18W 14P 25G, 1 worker, upkeep 1 Lumen): placed on a bank tile. Two docks on the same river are a link
+  that haulers may use for one leg of a trip: downstream at 3x a dirt road's speed, upstream at 0.75x (the map's river flow
+  gives the direction). A boat sails between the docks. A trip takes the river only when it is faster than the roads.
+- Spring flood: each spring, on a day picked from the map seed and the year (never before the third day of spring, so there is always
+  one day of warning), ground within 2 steps of the river floods for 1 day (WaterDef.flood_days/flood_radius). Rock,
+  skystone and sky buildings stay dry. A building on a flooded tile stops ("Flooded"), walkers wade round it. When the water
+  drains each tile gets +10 fertility (the silt, marked until the next spring). A forecast notice comes the day before.
+- Levee (Town, 6 stone + 2 cut stone a tile): placed like a road along the bank. The flood cannot pass a finished levee, so
+  the land behind a continuous stretch stays dry.
+
 ### Fouling
 - A river tile next to a blighted tile becomes fouled; fouling flows downstream 1 tile per hour until it meets
   clean inflow or the map edge, and clears 2 days after the source blight is gone.
@@ -258,6 +272,21 @@ Effects of low health:
   Hydroponic Hall, Sky Garden unaffected), Fishing unaffected. Buildings without their Lumen upkeep run at x0.5.
 - Light (D43): each citizen needs 0.5 Lumen/day (Dawn Beacon: 0.35). Short = darkness: Spirit -20 target,
   no growth.
+- Long nights (ticket 148): a Dimming night runs 18:00-07:00 (data, DayNightDef.dimming_night_start/end) instead of
+  20:00-06:00. Night shifts, lamps, the map tint and the walker schedule all follow it, and the day shift shrinks to the
+  hours between (07:00-18:00). The clock row says "Dimming: night 18-07".
+- Gloom (ticket 149): in a Dimming night only, gloom starts on the forest-edge tiles and creeps 1 tile an hour (data,
+  LogisticsDef.gloom_spread_per_hour) over unlit land. It never enters a lit tile (lamps, a Night Watch route, the glow
+  river) and a tile that gets lit is cleared; all gloom is gone at dawn. A building with any footprint tile in gloom stops
+  ("Stopped: in gloom - light it"); walkers take gloom at 6x path cost, so they detour when the way round is short. No
+  combat, no damage. Lamps are the answer: keep the night buildings and the paths you need inside a lamp's light.
+- Vein surge (ticket 150): when a Dimming ends (the Great Dimming too) Lumen producers on veins make x1.5 for 2 days
+  (PlanetDef.vein_surge_factor/days). The Dimming's forecast says so; the objectives show "Vein surge: day 1 of 2".
+- Dim blooms (ticket 151): the Glowcap Grove makes x2 during a Dimming (stacking with the new moon's +25%), and a Grove
+  within 2 tiles of the river grows +25% faster there. The glow river: in a Dimming the river tiles count as lit (radius 1)
+  at night, so the banks stay free of gloom, and they shimmer cyan-white. Starlight: an Observatory with a night crew makes 1
+  starlight a night in a Dimming; when the day's light is still short after raw Lumen and cells, each starlight covers 5
+  Lumen (PlanetDef.starlight_lumen).
 - **Great Dimming:** starts one season after the Skyheart is finished; lasts 16 days (not scaled by health,
   D51); vein output x0.1, all farms x0.5, light 0.75/citizen, planet health -0.5/day. The Skyheart's
   reservoir (section 18) is what gets you through it.
@@ -305,6 +334,8 @@ Workers = slots. Upkeep = Lumen per day (Village on, ticket 159; Camp pays none)
 | Builder's Yard | 2x1 | 21W 9St | 4 build, 2 haul | - | more builders |
 | Irrigation Channel | tile | 1St | - | - | carries water |
 | Cleanser | 2x1 | 24W 36St 20G 10L | 2 | 2 | 1 blight tile/2d r5; planet +0.01; Village (96) |
+| Water Wheel | 1x1, bank | 12W 8St | - | 0 | drives an adjacent Sawmill, Mason or Bakery: 1 worker fewer, runs at night |
+| Glowcap Grove | 2x2, shade | 14W 10St 16P | 2 night | 0 | 3 food a night; x2 in a Dimming |
 | Bell Tower* | 1x1 | 48W 72St 20G 20L 20P | - | - | Town gate |
 
 ### Town
@@ -320,6 +351,8 @@ Workers = slots. Upkeep = Lumen per day (Village on, ticket 159; Camp pays none)
 | Refinery | 2x2 | 24W 36St 20G 15P | 2 | 0 | 6 L -> 1 C, 2/worker/day |
 | Kitchen | 1x1 | 12W 18St 10P | 2 | 0 | 2 food (two types) -> 3 meals, 4/worker/day |
 | Handcart Shed | 2x1 | 28W 12St 20P | - | 1 | haulers in region carry 15 |
+| River Dock | 1x1, bank | 18W 14P 25G | 1 | 1 | two docks link by boat: 3x road speed downstream, 0.75x upstream |
+| Levee | tile, bank | 6St 2S | - | 0 | holds back the spring flood; placed like road |
 | Lumen Spire* | 2x2 | 100W 150St 80G 120L 40P 40S | - | 0 | City gate |
 
 ### City
@@ -369,7 +402,7 @@ the ground layer when viewing ground.
 | Sky Garden | 3x2, island | 84W 36St 40G 30P 10T | 3 | 1 | +3.5 food, own food type; needs wet |
 | Aether Collector | 2x2, island | 60W 90St 60G 30S 20T | 3 | 0 | +6 L from the air; no blight, no planet drain; Dimming x0.5 |
 | Skyforge | 2x2, island | 56W 84St 60G 40S | 3 | 2 | 1 P + 1 C -> 1 T at 3/worker/day |
-| Observatory | 2x2 | 48W 72St 80G 30S 10T | 1 | 1 | Dimming forecast two seasons ahead; Spirit coverage r8 |
+| Observatory | 2x2 | 48W 72St 80G 30S 10T | 1 | 1 | Dimming forecast two seasons ahead; Spirit coverage r8; 2 night workers make 1 starlight a night in a Dimming |
 | Dawn Beacon* | 2x2 | 320W 480St 800G 600L 150S 120T 100C | - | 0 | Ascendant gate; light need 0.5 -> 0.35 per citizen |
 
 ### Ascendant: planet healing and the finale

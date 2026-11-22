@@ -2,7 +2,7 @@ extends GutTest
 ## Ticket 148: long nights in a Dimming (spec .scratch/v1/night-shift-spec.md N8).
 ##
 ## One source of truth for tonight's night window: normal shift 20-06 and lamps 19-07; in a Dimming the night runs
-## 16-09 for the shift, the lamps, the tint and the walker schedule, and the day shift shrinks to 09-16.
+## 18-07 for the shift, the lamps, the tint and the walker schedule, and the day shift shrinks to 07-18.
 
 const SEED := 42
 
@@ -73,7 +73,7 @@ func _hours(w: Vector2i) -> int:
 	return posmod(w.y - w.x, 24)
 
 
-## Criterion 1: the night window is 20-06 (shift) and 19-07 (lamps) normally, and 16-09 for both in a Dimming; the
+## Criterion 1: the night window is 20-06 (shift) and 19-07 (lamps) normally, and 18-07 for both in a Dimming; the
 ## shift, the lamps, the clock tag and the objectives line all read it.
 func test_night_window_normal_vs_dimming_and_shift_and_lamps_follow_it() -> void:
 	var m := HudModel.new(s)
@@ -89,31 +89,32 @@ func test_night_window_normal_vs_dimming_and_shift_and_lamps_follow_it() -> void
 	assert_eq(m.dimming_night_tag(), "", "no tag outside a Dimming")
 
 	_dimming(s)
-	assert_eq(s.night_window(), Vector2i(16, 9), "a Dimming night shift runs 16-09")
-	assert_eq(s.lamp_window(), Vector2i(16, 9), "the lamps follow the same long night")
-	assert_true(s.is_night(16), "the night shift opens at 16:00")
-	assert_false(s.is_night(15), "15:00 is still day")
-	assert_true(s.is_night(8), "08:00 is still night")
-	assert_false(s.is_night(9), "the long night ends at 09:00")
-	assert_true(s.is_lamp_hour(16), "the lamps light at 16:00")
-	assert_false(s.is_lamp_hour(15), "dark lamps before 16:00")
-	assert_false(s.is_lamp_hour(9), "the lamps are out at 09:00")
-	assert_eq(m.dimming_night_tag(), "Dimming: night 16-09", "the clock row carries the window")
-	assert_string_contains(m.objectives_dimming_lines()[1], "Nights run 16-09", "the objectives line names it")
+	assert_eq(s.night_window(), Vector2i(18, 7), "a Dimming night shift runs 18-07")
+	assert_eq(s.lamp_window(), Vector2i(18, 7), "the lamps follow the same long night")
+	assert_true(s.is_night(18), "the night shift opens at 18:00")
+	assert_false(s.is_night(17), "17:00 is still day")
+	assert_true(s.is_night(6), "06:00 is still night")
+	assert_false(s.is_night(7), "the long night ends at 07:00")
+	assert_true(s.is_lamp_hour(18), "the lamps light at 18:00")
+	assert_false(s.is_lamp_hour(17), "dark lamps before 18:00")
+	assert_true(s.is_lamp_hour(6), "the lamps are still lit at 06:00")
+	assert_false(s.is_lamp_hour(7), "the lamps are out at 07:00")
+	assert_eq(m.dimming_night_tag(), "Dimming: night 18-07", "the clock row carries the window")
+	assert_string_contains(m.objectives_dimming_lines()[1], "Nights run 18-07", "the objectives line names it")
 
-	# A fuelled lamp burns at the Dimming dusk (16) and is out at the Dimming dawn (9), not at 19/7.
+	# A fuelled lamp burns at the Dimming dusk (18), not at 19, and is out at the Dimming dawn (7).
 	s.hearth.inventory.remove("wood", 1000.0)  # no stock for the haulers to refuel the lamp from
 	var lamp := _put(s, "lamp", 5, 1)
 	lamp.input_buffer.add("wood", 2.0)
-	s.step_hours(16)  # 00:00 -> 16:00
-	assert_true(s.is_lit(lamp), "the lamp lit at 16:00")
+	s.step_hours(18)  # 00:00 -> 18:00
+	assert_true(s.is_lit(lamp), "the lamp lit at 18:00")
 	assert_almost_eq(lamp.input_buffer.amount_of("wood"), 1.0, 0.001, "one fuel burnt at the Dimming dusk")
-	s.step_hours(17)  # 16:00 -> 09:00 the next morning
-	assert_false(s.is_lit(lamp), "out at 09:00, like the long night")
+	s.step_hours(13)  # 18:00 -> 07:00 the next morning
+	assert_false(s.is_lit(lamp), "out at 07:00, like the long night")
 
 
-## Criterion 2: the day shift is the normal 06-18 (12 hours); in a Dimming it shrinks to 09-16 (7 hours), so a day
-## worker is home by 17:00 where a normal day still has them at work.
+## Criterion 2: the day shift is the normal 06-18 (12 hours); in a Dimming it shrinks to 07-18 (11 hours), so a day
+## worker is home by 19:00 where a normal day still has them at work.
 func test_day_production_hours_are_shorter_in_a_dimming() -> void:
 	assert_eq(s.day_window(), Vector2i(6, 18), "the normal day shift 06-18")
 	assert_eq(_hours(s.day_window()), 12, "12 day production hours")
@@ -129,8 +130,8 @@ func test_day_production_hours_are_shorter_in_a_dimming() -> void:
 
 	var s2 := _new_settlement()
 	_dimming(s2)
-	assert_eq(s2.day_window(), Vector2i(9, 16), "a Dimming day shrinks to 09-16")
-	assert_eq(_hours(s2.day_window()), 7, "7 day production hours, shorter than 12")
+	assert_eq(s2.day_window(), Vector2i(7, 18), "a Dimming day shrinks to 07-18")
+	assert_eq(_hours(s2.day_window()), 11, "11 day production hours, shorter than 12")
 	var mill2 := _put(s2, "sawmill", 4)
 	_keep_citizens(s2, 5)
 	mill2.input_buffer.add("wood", 20.0)
@@ -138,22 +139,22 @@ func test_day_production_hours_are_shorter_in_a_dimming() -> void:
 	var day2: Citizen = _staff(s2, mill2, Citizen.JOB_WORK, false)[0]
 	s2.step_hours(12)  # noon
 	assert_true(ws2.is_at_work(day2.id), "at work at noon in the Dimming")
-	s2.step_hours(5)  # 17:00
-	assert_false(ws2.is_at_work(day2.id), "home by 17:00: the Dimming day ended at 16:00")
+	s2.step_hours(7)  # 19:00
+	assert_false(ws2.is_at_work(day2.id), "home by 19:00: the Dimming day ended at 18:00")
 
 
-## Ticket 172: tonight's moon follows the lamp window's end (09:00 in a Dimming), not the normal 07:00.
+## Ticket 172: tonight's moon follows the lamp window's end (07:00 in a Dimming; the night shift's own end is 06:00).
 func test_moon_day_holds_until_the_dimming_night_ends() -> void:
 	s.clock.total_hours = 29 * 24 + 23  # evening of cycle day 6, so the next small hours are cycle day 6's night
 	_dimming(s)
 	var evening := s.moon_days()
-	s.clock.total_hours = 30 * 24 + 8
-	assert_eq(s.moon_days(), evening, "08:00 still belongs to last evening's night")
-	s.clock.total_hours = 30 * 24 + 9
-	assert_eq(s.moon_days(), evening + 1, "09:00 the moon moves on")
+	s.clock.total_hours = 30 * 24 + 6
+	assert_eq(s.moon_days(), evening, "06:00 still belongs to last evening's night")
+	s.clock.total_hours = 30 * 24 + 7
+	assert_eq(s.moon_days(), evening + 1, "07:00 the moon moves on")
 
 
-## Ticket 172: a full-moon lamp keeps its extra radius until the Dimming night ends at 09:00.
+## Ticket 172: a full-moon lamp keeps its extra radius until the Dimming night ends at 07:00.
 func test_full_moon_lamp_keeps_its_radius_until_the_dimming_dawn() -> void:
 	var lamp := _put(s, "lamp", 5, 1)
 	var base := lamp.lamp_radius(reg)
@@ -161,10 +162,10 @@ func test_full_moon_lamp_keeps_its_radius_until_the_dimming_dawn() -> void:
 	s.clock.total_hours = (full_day - 1) * 24 + 23
 	_dimming(s)
 	assert_eq(s.lamp_radius(lamp), base + 1, "full moon at 23:00")
-	s.clock.total_hours = full_day * 24 + 8
-	assert_eq(s.lamp_radius(lamp), base + 1, "still the full-moon night at 08:00")
-	s.clock.total_hours = full_day * 24 + 9
-	assert_eq(s.lamp_radius(lamp), base, "back to the lamp's own radius at 09:00")
+	s.clock.total_hours = full_day * 24 + 6
+	assert_eq(s.lamp_radius(lamp), base + 1, "still the full-moon night at 06:00")
+	s.clock.total_hours = full_day * 24 + 7
+	assert_eq(s.lamp_radius(lamp), base, "back to the lamp's own radius at 07:00")
 
 
 ## A lit Tavern with crops and a lamp, 4 citizens, the clock at `hour` of day 0 (a Dimming when `dimming`).
@@ -181,21 +182,21 @@ func _tavern_night(settlement: Settlement, hour: int, dimming: bool) -> Building
 	return tavern
 
 
-## Ticket 173: in a Dimming a lit Tavern with a night worker drinks at 16:00, not 20:00, and is still serving at 07:00.
+## Ticket 173: in a Dimming a lit Tavern with a night worker drinks at 18:00, not 20:00, and is still serving at 06:00.
 func test_tavern_drinks_at_the_dimming_dusk_and_serves_until_its_dawn() -> void:
-	var tavern := _tavern_night(s, 14, true)
+	var tavern := _tavern_night(s, 16, true)
 	var sp := s.get_system(SpiritSystem) as SpiritSystem
-	s.step_hours(1)  # 15:00
+	s.step_hours(1)  # 17:00
 	assert_eq(tavern.input_buffer.amount_of("crops"), 8.0, "nothing drunk by day")
-	s.step_hours(1)  # 16:00
+	s.step_hours(1)  # 18:00
 	assert_true(s.is_lit(tavern), "the lamp lit at the Dimming dusk")
-	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "drank at 16:00")
-	assert_gt(sp.factor_value(s, "tavern"), 0.0, "cheering from 16:00")
-	s.step_hours(15)  # 07:00 next morning
-	assert_eq(s.clock.hour(), 7)
-	assert_gt(sp.factor_value(s, "tavern"), 0.0, "still serving at 07:00")
+	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "drank at 18:00")
+	assert_gt(sp.factor_value(s, "tavern"), 0.0, "cheering from 18:00")
+	s.step_hours(12)  # 06:00 next morning
+	assert_eq(s.clock.hour(), 6)
+	assert_gt(sp.factor_value(s, "tavern"), 0.0, "still serving at 06:00")
 	assert_almost_eq(tavern.input_buffer.amount_of("crops"), 4.0, 0.001, "no second drink")
-	s.step_hours(2)  # 09:00
+	s.step_hours(1)  # 07:00
 	assert_eq(sp.factor_value(s, "tavern"), 0.0, "the long night is over")
 
 
@@ -213,10 +214,10 @@ func test_tavern_normal_night_is_still_20_to_06() -> void:
 	assert_eq(sp.save_state()["serving"].size(), 0, "the serving list clears at 06:00")
 
 
-## Ticket 174: the tint is the night colour from 16:00 to 09:00 in a Dimming and white from 09:00 to 16:00.
-func test_tint_in_a_dimming_is_dark_16_to_09() -> void:
+## Ticket 174: the tint is the night colour from 18:00 to 07:00 in a Dimming and white from 07:00 to 18:00.
+func test_tint_in_a_dimming_is_dark_18_to_07() -> void:
 	var nc := reg.day_night.night_color
-	for h in [16.0, 23.0, 0.0, 8.0]:
+	for h in [18.0, 23.0, 0.0, 6.0]:
 		assert_eq(DayNight.tint_for(h, reg.day_night, true), nc, "night colour at %s" % h)
-	for h in [9.0, 12.0, 15.0]:
+	for h in [7.0, 12.0, 17.0]:
 		assert_eq(DayNight.tint_for(h, reg.day_night, true), Color.WHITE, "white at %s" % h)

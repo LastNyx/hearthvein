@@ -2,7 +2,7 @@
 
 All notable changes to Hearthvein. Newest first.
 
-## Unreleased
+## 1.1.10 - TODO date (not released yet)
 
 ### Added
 - Night shift: buildings can have night workers who start at dusk (20:00) and work inside a lamp's light. Braziers, Lantern
@@ -15,6 +15,17 @@ All notable changes to Hearthvein. Newest first.
   moon the Glowcap Grove makes 25% more.
 - Night arrivals: with the Hearth lit at night, newcomers arrive after dark as well. A dark Hearth keeps them waiting.
 - Bakery: bakes crops and charcoal into bread, a better food.
+- Long nights: in a Dimming the night runs 18:00 to 07:00 (lamps, night shifts and the tint follow it) and the working day
+  shrinks to the hours between. The clock row and the objectives say so.
+- Gloom: in a Dimming night, gloom creeps out of the forest edge one tile an hour over land no lamp lights. A building in
+  gloom stops until you light it; people walk round it. It all clears at dawn.
+- Vein surge: when a Dimming ends, Lumen producers on veins make 50% more for 2 days.
+- Dim blooms: the Glowcap Grove makes twice as much in a Dimming (25% more again beside the river), the river glows and keeps
+  gloom off its banks, and an Observatory night crew catches starlight, which covers missing Lumen for light.
+- Water Wheel: on the river bank, beside a Sawmill, Mason or Bakery: one worker fewer, and it runs at night without a lamp.
+- River Dock: two docks on one river send boats between them for haulers, fast downstream and slow upstream.
+- Spring floods: each spring the low land within 2 tiles of the river floods for a day (a notice comes the day before).
+  Buildings in the water stop, and the silt left behind makes the soil more fertile. A Levee along the bank keeps it dry.
 
 ### Changed
 - The economy is tighter. Forager, Farm and Fishing Dock make 4 food per worker a day (was 6 to 8), and in winter they make

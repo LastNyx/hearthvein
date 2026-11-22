@@ -79,40 +79,40 @@ func test_gloom_spreads_from_the_forest_edge_stops_at_light_and_clears() -> void
 	var g := s.get_system(GloomSystem) as GloomSystem
 	var lit_shield := a + Vector2i(3, 2)  # the last tile inside the lamp's radius next to the forest
 
-	s.clock.total_hours = 15
+	s.clock.total_hours = 17
 	_dimming(s)
-	s.step_hours(1)  # 16: the Dimming dusk
+	s.step_hours(1)  # 18: the Dimming dusk
 	assert_true(GloomSystem.is_gloom(s, forest), "the forest tile is gloom at night")
-	assert_true(GloomSystem.is_gloom(s, a + Vector2i(5, 2)), "16: the first ring east is gloom")
-	assert_true(GloomSystem.is_gloom(s, a + Vector2i(4, 1)), "16: gloom spreads on every side")
+	assert_true(GloomSystem.is_gloom(s, a + Vector2i(5, 2)), "18: the first ring east is gloom")
+	assert_true(GloomSystem.is_gloom(s, a + Vector2i(4, 1)), "18: gloom spreads on every side")
 	assert_true(s.is_tile_lit(lit_shield), "the fuelled lamp lights the tile beside the forest")
 	assert_false(GloomSystem.is_gloom(s, lit_shield), "gloom never enters a lit tile")
 	assert_false(GloomSystem.is_gloom(s, water), "water is never gloom")
 
-	s.step_hours(1)  # 17
-	assert_true(GloomSystem.is_gloom(s, a + Vector2i(6, 2)), "17: one more tile")
-	assert_false(GloomSystem.is_gloom(s, water), "17: the front reaches the water tile and stops")
+	s.step_hours(1)  # 21
+	assert_true(GloomSystem.is_gloom(s, a + Vector2i(6, 2)), "19: one more tile")
+	assert_false(GloomSystem.is_gloom(s, water), "19: the front reaches the water tile and stops")
 
-	s.step_hours(1)  # 18
+	s.step_hours(1)  # 20
 	var front := a + Vector2i(7, 2)
-	assert_true(GloomSystem.is_gloom(s, front), "18: three tiles out")
+	assert_true(GloomSystem.is_gloom(s, front), "20: three tiles out")
 	assert_false(GloomSystem.is_gloom(s, lit_shield), "the lit tile is still clear")
 
 	# Lighting a tile that is already in gloom clears it (the lamp is made lit mid-night, as at dusk).
 	var late := _put(s, "lamp", front)
 	late.lit_tonight = true
 	s.light_version += 1
-	s.step_hours(1)  # 19
+	s.step_hours(1)  # 21
 	assert_true(s.is_tile_lit(front), "the new lamp lights the tile")
 	assert_false(GloomSystem.is_gloom(s, front), "lighting a tile clears its gloom")
 
-	# Dawn (09:00 in a Dimming) clears whatever is left, not two hours earlier.
-	s.step_hours(13)  # 19 -> 08
-	assert_eq(s.clock.hour(), 8)
-	assert_false(g.tiles.is_empty(), "the gloom is still there at 08:00")
+	# Dawn (07:00 in a Dimming) clears whatever is left, not an hour earlier.
+	s.step_hours(9)  # 21 -> 06
+	assert_eq(s.clock.hour(), 6)
+	assert_false(g.tiles.is_empty(), "the gloom is still there at 06:00")
 	s.step_hours(1)
-	assert_eq(s.clock.hour(), 9, "dawn")
-	assert_true(g.tiles.is_empty(), "all gloom clears at 09:00")
+	assert_eq(s.clock.hour(), 7, "dawn")
+	assert_true(g.tiles.is_empty(), "all gloom clears at 07:00")
 
 
 ## Criterion 2: a building with a footprint tile in gloom stops with the panel reason, and no Dimming means no gloom.

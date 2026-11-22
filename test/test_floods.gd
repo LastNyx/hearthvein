@@ -265,7 +265,7 @@ func test_save_after_the_drain_and_mid_flood_load_drains_on_time() -> void:
 	var start := fs.flood_start_day(s, 1)
 	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
 	var path := SAVE_DIR.path_join(SAVE_FILE)
-	_step_to(s, start + 1, 1)
+	_step_to(s, start, 1)  # the first flood day, whatever flood_days is
 	assert_eq(SaveGame.save(s, path), OK)
 	var mid := SaveGame.load(path, reg)
 	_step_to(s, start + days, 1)

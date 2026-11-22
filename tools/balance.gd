@@ -94,6 +94,14 @@ const SEARCH_RADIUS := 26
 const NIGHT_POP := 30
 const NIGHT_WOOD := 60.0
 const NIGHT_GOLD := 60.0
+## Stone and cut stone kept back (on top of the landmark's reserve) before a Levee tile is laid, and the most tiles laid.
+const LEVEE_STONE_KEEP := 150.0
+const LEVEE_CUT_KEEP := 40.0
+const LEVEES_MAX := 24
+## River works are only started while few sites are open: every open site holds housing back (see _act) and waits for goods.
+const RIVER_SITES_MAX := 2
+## Braziers set against gloom (a night building found stopped in gloom gets one beside it), at most this many in all.
+const GLOOM_LAMPS_MAX := 10
 const LM_RADIUS := 34
 const WOOD_KEEP := 330.0
 const WOOD_KEEP_ERA := 6
@@ -1776,6 +1784,7 @@ func _support(pop: int, reserve: Dictionary) -> void:
 					if _place(id, spot, 6) != null:
 						break
 	_night_life(pop, res)
+	_river_life(pop, res)
 	# regional storehouses
 	_regional_storehouses()
 	# healing in the last era
@@ -1786,6 +1795,97 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	# Lumen cells and tools matter for the big landmarks: keep one refinery and toolsmith early
 	if era >= 5 and _count("lumen_pylon") < 0:
 		pass
+
+
+## River life (ticket 155): a Water Wheel beside each Sawmill and Mason (one worker fewer, cheap), Levee tiles along the bank
+## beside buildings the flood would reach, one River Dock pair once the town is rich, and a Brazier beside a night
+## building that gloom stopped. One tile a day, only from a stock above the landmark's reserve and with few sites open.
+func _river_life(pop: int, res: Dictionary) -> void:
+	var era := s.registry.get_era(s.era_current).order
+	if era < 2 or _open_sites() > RIVER_SITES_MAX:
+		return
+	# Water Wheel: the first sawmill or mason with a free bank tile touching it
+	if _afford("water_wheel", res):
+		for b: Building in s.buildings.values():
+			if b.site or not b.def.water_driven or ProductionSystem.wheel_driving(s, b) != null:
+				continue
+			var r := b.footprint()
+			var done := false
+			for x in range(r.position.x - 1, r.end.x + 1):
+				for y in range(r.position.y - 1, r.end.y + 1):
+					var tile := Vector2i(x, y)
+					if r.has_point(tile) or not (x >= r.position.x and x < r.end.x or y >= r.position.y and y < r.end.y):
+						continue
+					if int(_bad_tiles.get(tile, -1)) > s.clock.total_days() or not s.can_place("water_wheel", tile)["ok"]:
+						continue
+					if s.place_building("water_wheel", tile) >= 0:
+						_refresh_stock()
+						done = true
+						break
+				if done:
+					break
+			if done:
+				break
+	if era < 3:
+		return
+	# Levee: bank tiles next to buildings that stand two steps from the river
+	var levees := _count("levee")
+	if levees < LEVEES_MAX:
+		var keep := res.duplicate()
+		keep["stone"] = float(res.get("stone", 0.0)) + LEVEE_STONE_KEEP
+		keep["cut_stone"] = float(res.get("cut_stone", 0.0)) + LEVEE_CUT_KEEP
+		if _afford("levee", keep):
+			var laid := 0
+			for tile in _levee_spots():
+				if laid >= 1 or not _afford("levee", keep):
+					break
+				if s.place_building("levee", tile) >= 0:
+					laid += 1
+					_refresh_stock()
+	# River Dock pair: a dock by the Hearth and one by the storehouse furthest from it
+	if era >= CITY_ORDER and _count("river_dock") == 0 and _jobs_free() >= 4 and s.gold > 3.0 * float(s.registry.get_building("river_dock").cost.get("gold", 0)) + NIGHT_GOLD:
+		var far := Vector2i(-1, -1)
+		var far_d := 0
+		for b: Building in s.buildings.values():
+			if b.def.id == "storehouse" and not b.site:
+				var d := (b.origin - s.hearth.origin).length_squared()
+				if d > far_d:
+					far_d = d
+					far = b.origin
+		if far.x >= 0 and far_d >= 24 * 24 and _afford("river_dock", res) and float(_stock.get("planks", 0.0)) >= 2.0 * float(s.registry.get_building("river_dock").cost.get("planks", 0)) + float(res.get("planks", 0.0)):
+			var a := _place("river_dock", _hearth_near(), 12)
+			if a != null:
+				if _place("river_dock", far, 8) == null:
+					s.demolish(a.id)
+	# gloom: a Brazier by a night building that is stopped in gloom
+	if DimmingSystem.is_active(s) and _count("lamp") < GLOOM_LAMPS_MAX and _afford("lamp", res):
+		for b: Building in s.buildings.values():
+			if not b.site and b.halt == "gloom" and (b.def.night_only or b.def.night_worker_slots > 0):
+				if _place_night("lamp", b.origin, 4) != null:
+					break
+
+
+## Free bank tiles (a Levee holds one) 4-adjacent to a tile in the flood's reach that a finished building stands on, nearest
+## the Hearth first. Buildings on the bank itself cannot be saved; the next ring can.
+func _levee_spots() -> Array[Vector2i]:
+	var zone := FloodSystem.flood_mask(s)
+	var out: Array[Vector2i] = []
+	var seen := {}
+	for b: Building in s.buildings.values():
+		if b.site or b.layer != Building.LAYER_GROUND or b.def.levee:
+			continue
+		for t in b.tiles():
+			if zone[MapState.idx(t.x, t.y)] == 0:
+				continue
+			for d in Placement.DIRS:
+				var n := t + d
+				if seen.has(n) or not MapState.in_bounds(n.x, n.y):
+					continue
+				seen[n] = true
+				if int(_bad_tiles.get(n, -1)) <= s.clock.total_days() and s.can_place("levee", n)["ok"]:
+					out.append(n)
+	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - s.hearth.origin).length_squared() < (b - s.hearth.origin).length_squared())
+	return out
 
 
 ## Night life (ticket 147). Night slots are filled after every day slot, so night buildings only use hands the day shift
