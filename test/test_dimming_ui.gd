@@ -137,6 +137,28 @@ func test_forecast_stock_line_counts_dimming_supply_and_upkeep() -> void:
 	assert_eq(m.dimming_stock_text(), "Stock before it: ~32 Lumen for 8 days (Lumen + cells last 3 of 8 days)")
 
 
+func test_forecast_supply_follows_the_lumen_really_made() -> void:
+	_forecast(2, 8)
+	s.hearth.inventory.add("food", 100.0)
+	var pump := _fake("lumen_pump")  # nominal 12 a worker, 3 workers = 36 a day; x0.25 in a Dimming = 9
+	for i in 3:
+		var c: Citizen = s.citizens[s.citizens.keys()[i]]
+		c.job_kind = Citizen.JOB_WORK
+		c.job_id = pump.id
+	for i in 4:
+		_fake("toolsmith")  # 1 Lumen upkeep each: 4 + 4 a day against the supply
+	var ledger := s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
+	assert_almost_eq(DimmingSystem.dimming_supply(s), 9.0, 0.01, "no day recorded: the nominal estimate")
+	assert_string_contains(m.dimming_stock_text(), "all 8 days")
+	ledger.note_made("lumen", 12.0, "lumen_pump")  # the day the pump really made 12 of its 36
+	ledger.on_day_started({}, s)
+	assert_almost_eq(DimmingSystem.dimming_supply(s), 3.0, 0.75, "12 made x0.25 Dimming = 3 a day, within 25%")
+	assert_string_contains(m.dimming_stock_text(), "last 2 of 8 days")  # 10 Lumen against 8 - 3 = 5 a day
+	ledger.on_day_started({}, s)  # a day with nothing made
+	assert_almost_eq(DimmingSystem.dimming_supply(s), 0.0, 0.01, "a halted town counts no supply")
+	assert_string_contains(m.dimming_stock_text(), "last 1 of 8 days")  # 10 Lumen against 8 a day
+
+
 # ---------------------------------------------------------------- selected building and tooltip
 
 func test_selected_building_and_tooltip_show_dimming_factor() -> void:

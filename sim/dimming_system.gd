@@ -302,7 +302,8 @@ static func lumen_upkeep(s: Settlement) -> float:
 
 
 ## Estimated Lumen a day the staffed Lumen buildings make in a Dimming (assigned workers x recipe x tier x the
-## Dimming factor of the def: a vein extractor's dimming_vein_factor or the planet's, any other def's dimming_factor).
+## Dimming factor of the def: a vein extractor's dimming_vein_factor or the planet's, any other def's dimming_factor),
+## scaled by the share of the nominal output the town really made yesterday (supply_realised, ticket 186).
 static func dimming_supply(s: Settlement) -> float:
 	var staffed := MarketSystem.assigned_workers(s)
 	var total := 0.0
@@ -314,7 +315,32 @@ static func dimming_supply(s: Settlement) -> float:
 		if b.def.vein_extractor:
 			f = b.def.dimming_vein_factor if b.def.dimming_vein_factor > 0.0 else s.registry.planet.dimming_vein_factor
 		total += float(b.def.recipe.outputs["lumen"]) * float(workers) * b.output_factor(s.registry) * f
+	return total * supply_realised(s)
+
+
+## Nominal Lumen a day of the staffed Lumen buildings outside a Dimming (assigned workers x recipe x tier).
+static func nominal_supply(s: Settlement) -> float:
+	var staffed := MarketSystem.assigned_workers(s)
+	var total := 0.0
+	for b: Building in s.buildings.values():
+		if b.site or b.paused or b.def.recipe == null or not b.def.recipe.outputs.has("lumen"):
+			continue
+		var workers := mini(int(staffed.get(b.id, 0)), ProductionSystem.worker_slots_for(s, b))
+		total += float(b.def.recipe.outputs["lumen"]) * float(workers) * b.output_factor(s.registry)
 	return total
+
+
+## Share (0..1) of the nominal Lumen output (nominal_supply) the town really made in the last full day: halted nights,
+## blighted veins, unpaid upkeep and full doors make the real output a fraction of the nominal one (184 saw 1/6 to 1/3).
+## 1 while no day is recorded yet or nothing is staffed.
+static func supply_realised(s: Settlement) -> float:
+	var ledger := s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem
+	if ledger == null or ledger.history("lumen").is_empty():
+		return 1.0
+	var nominal := nominal_supply(s)
+	if nominal <= Inventory.EPS:
+		return 1.0
+	return clampf(float(ledger.yesterday("lumen")["made"]) / nominal, 0.0, 1.0)
 
 
 func _light(s: Settlement) -> void:
