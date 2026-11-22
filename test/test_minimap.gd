@@ -194,3 +194,68 @@ func test_old_overlay_menu_button_is_gone() -> void:
 	_collect_buttons(main.get_node("Hud"), texts)
 	assert_false(texts.has("Overlays"), "no button labelled Overlays in the HUD")
 	assert_gt(texts.size(), 0)
+
+
+## A region that is not the Hearth's, and a tile of it with no building, for the image-only tests below.
+func _other_region_tile(s: Settlement) -> Vector2i:
+	var home := s.map.get_region(s.map.hearth_spot.x, s.map.hearth_spot.y)
+	for r in MapState.REGION_COUNT:
+		if r == home:
+			continue
+		var rect := MapState.region_rect(r)
+		return rect.position + Vector2i(2, 2)
+	return Vector2i(-1, -1)
+
+
+# ticket 160 (1): an unowned region's pixel is dimmer than the same terrain once the region is owned.
+func test_unowned_region_pixel_is_dimmed() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var t := _other_region_tile(s)
+	var r := s.map.get_region(t.x, t.y)
+	assert_false(s.map.is_region_owned(r), "a region the start does not own")
+	s.map.set_terrain_id(t.x, t.y, "grass")
+	var dim := Minimap.build_image(s).get_pixel(t.x, t.y)
+	s.map.set_region_owned(r, true)
+	var owned := Minimap.build_image(s).get_pixel(t.x, t.y)
+	assert_eq(owned, Color("6a9a48"), "owned grass keeps its colour")
+	var want := owned.darkened(Minimap.DIM)
+	assert_almost_eq(dim.r, want.r, 0.01, "unowned grass is the same colour darkened (8-bit image)")
+	assert_almost_eq(dim.g, want.g, 0.01)
+	assert_almost_eq(dim.b, want.b, 0.01)
+	assert_lt(dim.get_luminance(), owned.get_luminance(), "and so is dimmer")
+
+
+# ticket 160 (2): a road tile draws the road colour (dirt and paved).
+func test_road_tile_draws_the_road_colour() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var y := _empty_row(s)
+	assert_true(y >= 0, "a row with no buildings")
+	s.roads[MapState.idx(10, y)] = Settlement.ROAD_DIRT
+	s.roads[MapState.idx(11, y)] = Settlement.ROAD_PAVED
+	var img := Minimap.build_image(s)
+	assert_eq(img.get_pixel(10, y), Minimap.ROAD, "a dirt road")
+	assert_eq(img.get_pixel(11, y), Minimap.PAVED, "a paved road")
+	assert_ne(img.get_pixel(12, y), Minimap.ROAD, "its neighbour is plain ground")
+
+
+# ticket 160 (3): with the Sky layer the image shows the island terrain and its buildings, not the ground.
+func test_sky_layer_image_shows_island_and_its_buildings() -> void:
+	var s := Settlement.new_game(SEED, reg)
+	var hb: Building = s.hearth
+	var land := Vector2i(40, 40)
+	var spot := Vector2i(41, 40)
+	s.sky_map.set_terrain_id(land.x, land.y, MapState.SKY_STONE)
+	s.sky_map.set_terrain_id(spot.x, spot.y, MapState.SKY_STONE)
+	var b := Building.new()
+	b.id = 9001
+	b.def = reg.get_building("woodcutter")
+	b.origin = spot
+	b.layer = Building.LAYER_SKY
+	s.buildings[b.id] = b
+	var sky := Minimap.build_image(s, Building.LAYER_SKY)
+	assert_eq(sky.get_pixel(land.x, land.y), RegionMap.GROUND_COLORS["sky"], "island stone")
+	assert_eq(sky.get_pixel(spot.x, spot.y), Minimap.BUILDING, "the sky building's footprint")
+	assert_eq(sky.get_pixel(land.x + 5, land.y), Minimap.VOID, "empty air beyond the island")
+	assert_ne(sky.get_pixel(hb.origin.x, hb.origin.y), Minimap.BUILDING, "the ground Hearth is not on the Sky image")
+	var ground := Minimap.build_image(s)
+	assert_ne(ground.get_pixel(spot.x, spot.y), Minimap.BUILDING, "and the sky building is not on the ground image")
