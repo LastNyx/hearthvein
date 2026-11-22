@@ -74,6 +74,16 @@ func test_tap_blights_one_tile_per_6_days_within_r2_and_stops_when_removed() -> 
 	assert_eq(BlightSystem.count(s), 3, "removed: no more spread, old blight stays")
 
 
+func test_a_paused_tap_spreads_no_blight_until_resumed() -> void:
+	var tap: Building = s.buildings[_tap()]
+	tap.paused = true
+	s.step_days(12)
+	assert_eq(BlightSystem.count(s), 0, "paused: no blight")
+	tap.paused = false
+	s.step_days(6)
+	assert_eq(BlightSystem.count(s), 1, "resumed: spreads again")
+
+
 func test_blight_picks_nearest_first_and_event() -> void:
 	var id := _tap()
 	var tap: Building = s.buildings[id]

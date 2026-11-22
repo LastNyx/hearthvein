@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="Recipe"]
 script = ExtResource("2")
 inputs = {}
-outputs = {"lumen": 6.0}
+outputs = {"lumen": 10.0}
 
 [resource]
 script = ExtResource("1")
@@ -16,7 +16,7 @@ display_name = "Aether Collector"
 era = "skyborne"
 category = "lumen"
 size = Vector2i(2, 2)
-cost = {"wood": 60, "stone": 90, "gold": 60, "cut_stone": 30, "tools": 20}
+cost = {"wood": 60, "stone": 90, "gold": 60, "cut_stone": 30, "tools": 10}
 worker_slots = 3
 hauler_slots = 0
 builder_slots = 0
