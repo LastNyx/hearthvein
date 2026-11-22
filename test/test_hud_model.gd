@@ -981,7 +981,8 @@ func test_output_full_advice_for_each_state() -> void:
 ## Ticket 125: the top-right order is the six fixed entries then up to three pinned goods; a fourth pin drops the
 ## oldest, a core entry cannot be pinned, and the pins live in the user settings (not the save game).
 func test_top_goods_core_then_pins_persist_in_settings() -> void:
-	var path := "/tmp/nyx-flash/hearthvein_hud125_settings_%d.cfg" % OS.get_process_id()
+	var tmp := OS.get_environment("TMPDIR")
+	var path := (tmp if tmp != "" else "/tmp").path_join("hearthvein_hud125_settings_%d.cfg" % OS.get_process_id())
 	DirAccess.remove_absolute(path)
 	var settings := GameSettings.new()
 	settings.path = path
