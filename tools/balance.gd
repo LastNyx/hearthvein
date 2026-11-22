@@ -119,6 +119,15 @@ const SAVE_AT := 0.55
 const HAULER_SHARE_MAX := 0.3
 ## Regions over 100 gold are bought only while this share of the next gate's gold is left over.
 const REGION_KEEP := 0.6
+## From Skyborne the bot lifts an island over the Nexus region and fills it with Aether Collectors: clean Lumen, no blight, no
+## planet drain (186). One collector slot makes half a pump slot (6 against 12 Lumen a day) and counts as that in the Lumen share.
+const SKY_ERA := 6
+const AETHER_MAX := 12
+const SKY_LIFTS := 2
+## One Aether Collector per this many citizens, at most AETHER_MAX (a collector is 3 workers and 18 Lumen a day).
+const AETHER_POP := 30
+## Toolsmith share while the island still lacks collectors (each takes 20 tools, a lift 10).
+const SKY_TOOLS_SHARE := 0.05
 
 var s: Settlement
 var _offsets: Array[Vector2i] = []
@@ -143,6 +152,8 @@ var _caravans_bought: int = 0
 var _stall_years: int = STALL_YEARS_DEFAULT  # argument stall=<years>: a run with no era change for this long stops
 var _map_day: int = 150  # verbose runs print an ASCII map of the town on this day (argument map=<day>)
 var _made_acc := 0.0
+var _lm_by := {}  # Lumen made by building def over the days outside a Dimming this year, and how many days (diag lumen normal)
+var _lm_days := 0
 var _g_acc := {}
 var _food_prev := 0.0
 var _gold_before := 0.0
@@ -221,6 +232,12 @@ func _init() -> void:
 			s.step_hours(GameClock.HOURS_PER_DAY)
 		var day := s.clock.total_days()
 		_track_gold_end()
+		if s.era_id() == "skyborne" or s.era_id() == "ascendant":
+			var lly2 := (s.get_system(ResourceLedgerSystem) as ResourceLedgerSystem).yesterday("lumen")
+			if not DimmingSystem.is_active(s):
+				_lm_days += 1
+				for k in lly2["made_by"]:
+					_lm_by[k] = float(_lm_by.get(k, 0.0)) + float(lly2["made_by"][k])
 		if in_village:
 			_vil_net += _lumen_all() - lumen_before
 			_vil_days += 1
@@ -447,6 +464,13 @@ func _init() -> void:
 					if b.def.clean_radius > 0:
 						upk_clean += b.def.upkeep_lumen
 			print("    diag lumen/day: made %d used by recipes %d upkeep demand %d (cleaners %d) vein factor %.2f; made by %s" % [int(ly["made"]), int(ly["used"]), int(upk), int(upk_clean), PlanetHealthSystem.vein_factor_at(s, s.planet_health()), str(ly["made_by"])])
+			print("    diag sky: ", _sky_text())
+			var lm_avg := {}
+			for k in _lm_by:
+				lm_avg[k] = int(float(_lm_by[k]) / float(maxi(_lm_days, 1)))
+			print("    diag lumen normal days (%d): made/day by %s; stock %d cells %d" % [_lm_days, lm_avg, int(s.totals().get("lumen", 0.0)), int(s.totals().get("lumen_cells", 0.0))])
+			_lm_by = {}
+			_lm_days = 0
 			print("    diag food producers [n, paused] by region: ", reg_prod)
 			print("    diag regions: pop ", reg_pop, " beds ", reg_beds, " food in stores ", reg_food)
 			var open_by := {}
@@ -880,6 +904,8 @@ func _free_veins() -> int:
 
 
 func _share(good: String) -> float:
+	if good == "tools" and s.registry.get_era(s.era_current).order >= SKY_ERA and _sky_pending():
+		return SKY_TOOLS_SHARE
 	if CITY_SHARES.has(good) and s.registry.get_era(s.era_current).order >= CITY_ORDER:
 		return float(CITY_SHARES[good])
 	return float(SHARES[good])
@@ -890,6 +916,9 @@ func _slots_for(good: String) -> int:
 	var n := 0
 	var hr := s.map.get_region(s.hearth.origin.x, s.hearth.origin.y)
 	for b: Building in s.buildings.values():
+		if good == "lumen" and b.def.id == "aether_collector":
+			n += b.def.worker_slots / 2  # a collector slot makes half a pump slot
+			continue
 		if ids.has(b.def.id):
 			if good == "food" and s.registry.get_era(s.era_current).order >= CITY_ORDER and s.map.get_region(b.origin.x, b.origin.y) != hr:
 				continue  # a far region's fields do not feed the Hearth's homes (171)
@@ -920,7 +949,7 @@ func _wood_free(id: String, need: float) -> bool:
 
 
 ## Places `id` on the free spot nearest `near` that a road can reach, as a real construction site, then lays the road.
-func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false) -> Building:
+func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false, grid_reach: int = 0) -> Building:
 	if int(_cooldown.get(id, -1)) > s.clock.total_days():
 		return null
 	var def := s.registry.get_building(id)
@@ -979,6 +1008,8 @@ func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false
 		if fed_only and not _fed_region(s.map.get_region(t.x, t.y)):
 			_why["unfed"] = int(_why.get("unfed", 0)) + 1
 			continue
+		if grid_reach > 0 and not _grid_near(Rect2i(t, def.size), grid_reach):
+			continue
 		if def.fertility_output and _mean_fertility(t, def.size) < 0.55:
 			continue  # a farm on forest or stumps makes next to nothing: a player picks soil
 		checks += 1
@@ -1015,6 +1046,19 @@ func _place(id: String, near: Vector2i, radius: int = 16, fed_only: bool = false
 	_cooldown[id] = s.clock.total_days() + 3
 	_blocked_today = true
 	return null
+
+
+## True when a finished grid node (Nexus, Pylon) lies within `reach` tiles (footprint gap) of the rect.
+func _grid_near(r: Rect2i, reach: int) -> bool:
+	for b: Building in s.buildings.values():
+		if b.site or b.def.grid_feed_radius <= 0:
+			continue
+		var f := b.footprint()
+		var dx := maxi(maxi(r.position.x - (f.end.x - 1), f.position.x - (r.end.x - 1)), 0)
+		var dy := maxi(maxi(r.position.y - (f.end.y - 1), f.position.y - (r.end.y - 1)), 0)
+		if maxi(dx, dy) <= reach:
+			return true
+	return false
 
 
 ## Every road tile touching the Hearth can be walked to from every other one. A road tile boxed in by buildings next to
@@ -1216,6 +1260,8 @@ func _act() -> void:
 	_relocate_woodcutters()
 	_cancel_stale_yards()
 	_yards(pop, s.registry.get_era(s.era_current).order)
+	if s.registry.get_era(s.era_current).order >= SKY_ERA:
+		_sky_life()
 	# 1. landmark; while the bot saves for it, only housing and gold are bought
 	var saving := _landmark()
 	# 2. housing
@@ -1629,6 +1675,11 @@ func _produce(goal: float, pop: int, only: String = "", no_hands_needed: bool = 
 	var reserve := _reserve()
 	for row in scored:
 		var good: String = row[1]
+		if good == "lumen" and _sky_ready() and _count("aether_collector") < AETHER_MAX * maxi(1, _isys().islands.size()):
+			# a collector first (clean Lumen: no blight, no planet drain); a vein pump only when it cannot be paid yet
+			if _afford_sky("aether_collector") and _sky_place("aether_collector") != null:
+				_placed_capped += 1
+				return true
 		for id: String in PRODUCERS[good]:
 			var def := s.registry.get_building(id)
 			if not s.is_unlocked(def):
@@ -1837,6 +1888,283 @@ func _support(pop: int, reserve: Dictionary) -> void:
 	# Lumen cells and tools matter for the big landmarks: keep one refinery and toolsmith early
 	if era >= 5 and _count("lumen_pylon") < 0:
 		pass
+
+
+## The sky works are paid from stock like any site but ignore the wood kept for the Skyheart and the landmark's reserve: the
+## island is the Lumen source for the rest of the game.
+func _afford_sky(id: String) -> bool:
+	var cost := s.cost_for(id)
+	for g in cost:
+		var have: float = s.gold if g == "gold" else float(_stock.get(g, 0.0))
+		if have + 0.0001 < float(cost[g]):
+			return false
+	return true
+
+
+## Year-end sky line: islands, anchors, lifts and Aether Collectors (built, staffed, halts), and whether they are on the grid.
+func _sky_text() -> String:
+	var gs := s.get_system(GridSystem) as GridSystem
+	var staff := {}
+	for c: Citizen in s.citizens.values():
+		if c.job_kind == Citizen.JOB_WORK:
+			staff[c.job_id] = int(staff.get(c.job_id, 0)) + 1
+	var built := 0
+	var staffed := 0
+	var ongrid := 0
+	var halts := {}
+	var sites := 0
+	var door := 0.0
+	for b: Building in s.buildings.values():
+		if b.def.id != "aether_collector":
+			continue
+		if b.site:
+			sites += 1
+			continue
+		built += 1
+		staffed += int(staff.get(b.id, 0))
+		ongrid += 1 if gs.grid_of(s, b.id) >= 0 else 0
+		halts[b.halt] = int(halts.get(b.halt, 0)) + 1
+		door += b.door_buffer.amount_of("lumen") if b.door_buffer != null else 0.0
+	var still := []
+	for isl in _isys().islands:
+		still.append(isl.still_why if isl.still_why != "" else "ok")
+	var an := ""
+	for b: Building in s.buildings.values():
+		if b.def.id == "lift_anchor":
+			an = "%s%s prio %s staffed %d/%d" % [("site " if b.site else ""), b.origin, b.priority, int(staff.get(b.id, 0)), b.def.worker_slots]
+	var grid_sup := 0.0
+	var gids := gs.grid_ids(s)
+	for gid in gids:
+		grid_sup += gs.supply(s, gid)
+	var on_g := 0
+	var off_g := 0
+	for b: Building in s.buildings.values():
+		if not b.site and b.def.upkeep_lumen > 0.0:
+			if gs.grid_of(s, b.id) >= 0:
+				on_g += 1
+			else:
+				off_g += 1
+	return "anchor %s; islands %s lifts %d pylons %d; aether built %d sites %d staffed %d on grid %d halts %s door lumen %d; grids %d supply %d, upkeep buildings on grid %d off %d" % [
+		an, still, _count("sky_lift"), _count("lumen_pylon"), built, sites, staffed, ongrid, halts, int(door), gids.size(), int(grid_sup), on_g, off_g]
+
+
+## True while the sky works are not done: an anchor stands but the island has fewer collectors than wanted.
+func _sky_pending() -> bool:
+	return _count("lift_anchor") > 0 and _count("aether_collector") < mini(AETHER_MAX * maxi(1, _isys().islands.size()), maxi(4, s.citizens.size() / AETHER_POP))
+
+
+func _first_of(id: String) -> Building:
+	for b: Building in s.buildings.values():
+		if b.def.id == id and not b.site:
+			return b
+	return null
+
+
+func _isys() -> IslandSystem:
+	return s.get_system(IslandSystem) as IslandSystem
+
+
+## Sky Lifts on the ground under an island (sites too).
+func _island_lifts(isl: Island) -> Array[Building]:
+	var out: Array[Building] = []
+	for b: Building in s.buildings.values():
+		if b.def.sky_lift and isl.rect.has_point(b.origin):
+			out.append(b)
+	return out
+
+
+func _on_island(b: Building, isl: Island) -> bool:
+	return b.layer == Building.LAYER_SKY and isl.rect.has_point(b.origin)
+
+
+## An island with its anchor finished, a Pylon placed and a connected Sky Lift to carry people up.
+func _sky_ready() -> bool:
+	for isl in _isys().islands:
+		var a: Building = s.buildings.get(isl.anchor_id)
+		if a == null or a.site:
+			continue
+		var pylon := false
+		for b: Building in s.buildings.values():
+			pylon = pylon or (b.def.id == "lumen_pylon" and isl.rect.has_point(b.origin))
+		if not pylon:
+			continue  # the Pylon (placed with the lifts) gives the collectors their grid
+		for l in _island_lifts(isl):
+			if not l.site and l.connected:
+				return true
+	return false
+
+
+## Anchor, Sky Lifts and a Lumen Pylon under the island, in that order (one new site a day at most).
+func _sky_life() -> void:
+	_aether_life()
+	var isys := _isys()
+	if isys == null:
+		return
+	if _count("lift_anchor") == 0:
+		var nexus := _first_of("lumen_nexus")
+		if nexus != null and _afford_sky("lift_anchor"):
+			var b := _place("lift_anchor", nexus.origin, 16, false, 11)
+			if b != null:
+				s.set_building_priority(b.id, "high")
+			elif s.clock.total_days() % 8 == 0:
+				var why := {}
+				for off: Vector2i in _offsets:
+					if off.length_squared() > 256:
+						break
+					var r: String = s.can_place("lift_anchor", nexus.origin + off)["reason"]
+					why[r] = int(why.get(r, 0)) + 1
+				print("   d%d no anchor spot near the Nexus %s: %s" % [s.clock.total_days(), nexus.origin, why])
+		return
+	for isl in isys.islands:
+		var a: Building = s.buildings.get(isl.anchor_id)
+		if a == null or a.site:
+			continue
+		if a.priority != "high":
+			s.set_building_priority(a.id, "high")  # an unstaffed anchor stops the whole island
+		var c := isl.rect.get_center()
+		var lifts := _island_lifts(isl)
+		var open_lifts := 0
+		for l in lifts:
+			open_lifts += 1 if l.site else 0
+		if lifts.size() < SKY_LIFTS and open_lifts < 2 and _afford_sky("sky_lift"):
+			var lb := _place("sky_lift", c, 8)
+			if lb != null:
+				s.set_building_priority(lb.id, "high")
+		var pylons := 0
+		for b: Building in s.buildings.values():
+			if b.def.id == "lumen_pylon" and isl.rect.has_point(b.origin):
+				pylons += 1
+		if pylons == 0 and not lifts.is_empty() and _afford_sky("lumen_pylon"):
+			# the Pylon links the island's Lumen to the town's grid (link range 12 from a node) and feeds the collectors (radius 8)
+			var spot := _pylon_spot(isl)
+			if spot.x >= 0:
+				_place("lumen_pylon", spot, 2, false, 12)
+
+
+## New Aether Collectors, two sites at a time, up to one per AETHER_POP citizens once an island can be reached.
+func _aether_life() -> void:
+	if not _sky_ready():
+		return
+	var have := 0
+	var open := 0
+	for b: Building in s.buildings.values():
+		if b.def.id == "aether_collector":
+			have += 1
+			open += 1 if b.site else 0
+	var want := mini(AETHER_MAX * _isys().islands.size(), maxi(4, s.citizens.size() / AETHER_POP))
+	if have < want and open < 2 and not _afford_sky("aether_collector") and s.clock.total_days() % 16 == 0:
+		var short := []
+		for g in s.cost_for("aether_collector"):
+			var hv: float = s.gold if g == "gold" else float(_stock.get(g, 0.0))
+			if hv < float(s.cost_for("aether_collector")[g]):
+				short.append("%s %d" % [g, int(hv)])
+		print("   d%d aether %d/%d short of %s" % [s.clock.total_days(), have, want, short])
+	while have < want and open < 2 and _afford_sky("aether_collector"):
+		var nb := _sky_place("aether_collector")
+		if nb == null:
+			break
+		s.set_building_priority(nb.id, "high")
+		have += 1
+		open += 1
+
+
+## The ground tile under the island nearest a finished grid node (the Nexus), so the island's Pylon links to the town's grid.
+func _pylon_spot(isl: Island) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := 1 << 30
+	for b: Building in s.buildings.values():
+		if b.site or b.def.grid_feed_radius <= 0:
+			continue
+		var f := b.footprint()
+		for y in range(isl.rect.position.y, isl.rect.end.y):
+			for x in range(isl.rect.position.x, isl.rect.end.x):
+				var dx := maxi(maxi(x - (f.end.x - 1), f.position.x - x), 0)
+				var dy := maxi(maxi(y - (f.end.y - 1), f.position.y - y), 0)
+				var d := maxi(dx, dy)
+				if d < best_d and d <= 12 and s.can_place("lumen_pylon", Vector2i(x, y))["ok"]:
+					best_d = d
+					best = Vector2i(x, y)
+	return best
+
+
+## Places `id` on an island next to the lifts as a real construction site and lays the sky road that joins it.
+func _sky_place(id: String) -> Building:
+	if int(_cooldown.get(id, -1)) > s.clock.total_days():
+		return null
+	var def := s.registry.get_building(id)
+	for isl in _isys().islands:
+		var a: Building = s.buildings.get(isl.anchor_id)
+		var lifts := _island_lifts(isl)
+		if a == null or a.site or lifts.is_empty():
+			continue
+		var have := 0
+		for b: Building in s.buildings.values():
+			if b.def == def and _on_island(b, isl):
+				have += 1
+		if have >= AETHER_MAX:
+			continue
+		var from: Vector2i = lifts[0].origin
+		var pylon: Building = null
+		for b: Building in s.buildings.values():
+			if b.def.id == "lumen_pylon" and isl.rect.has_point(b.origin):
+				pylon = b
+				from = b.origin  # collectors cluster around the Pylon: within its feed radius they are on the grid
+		var cands: Array[Vector2i] = []
+		for y in range(isl.rect.position.y, isl.rect.end.y - def.size.y + 1):
+			for x in range(isl.rect.position.x, isl.rect.end.x - def.size.x + 1):
+				if pylon != null and maxi(absi(x - pylon.origin.x), absi(y - pylon.origin.y)) > pylon.def.grid_feed_radius - 1:
+					continue
+				cands.append(Vector2i(x, y))
+		cands.sort_custom(func(p: Vector2i, q: Vector2i) -> bool: return (p - from).length_squared() < (q - from).length_squared())
+		for t in cands:
+			if not s.can_place(id, t, false, Building.LAYER_SKY)["ok"]:
+				continue
+			var path: Variant = _sky_route(Rect2i(t, def.size), isl.rect)
+			if path == null:
+				continue
+			var bid := s.place_building(id, t, Building.LAYER_SKY)
+			if bid < 0:
+				return null
+			for rt: Vector2i in path:
+				s.place_road(rt, Settlement.ROAD_DIRT, Building.LAYER_SKY)
+			_placed_day[bid] = s.clock.total_days()
+			_placed_hour[bid] = s.clock.total_hours
+			_refresh_stock()
+			return s.buildings[bid]
+	_cooldown[id] = s.clock.total_days() + 3
+	return null
+
+
+## Sky road tiles from a footprint's ring to a tile that touches a Sky Lift or a sky road: [] when the ring already touches
+## road, null when no way exists (shot_layout's _sky_path answers [] for both).
+func _sky_route(fp: Rect2i, rect: Rect2i) -> Variant:
+	var prev := {}
+	var queue: Array[Vector2i] = []
+	for t in L._sky_ring(fp):
+		if rect.has_point(t) and s.can_place_road(t, Building.LAYER_SKY):
+			if s.sky_roads[MapState.idx(t.x, t.y)] != 0:
+				return [] as Array[Vector2i]
+			prev[t] = L.NONE
+			queue.append(t)
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		if L._lift_ring_ok(s, c):
+			var out: Array[Vector2i] = []
+			var cur := c
+			while cur != L.NONE:
+				out.append(cur)
+				cur = prev[cur]
+			return out
+		for d in L.DIRS:
+			var n := c + d
+			if fp.has_point(n) or not rect.has_point(n) or prev.has(n):
+				continue
+			if s.can_place_road(n, Building.LAYER_SKY):
+				prev[n] = c
+				queue.append(n)
+	return null
 
 
 ## River life (ticket 155): a Water Wheel beside each Sawmill and Mason (one worker fewer, cheap), Levee tiles along the bank
