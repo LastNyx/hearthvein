@@ -75,7 +75,7 @@ func _on_event(e: Dictionary) -> void:
 					"Dimming forecast: lasts %d days" % int(d["length"]))
 		"flood_forecast":
 			raise("flood:%d" % int(d["start_day"]), "flood",
-					"Flood forecast: the river floods tomorrow for %d days" % int(d["days"]))
+					"Flood forecast: the river floods tomorrow for %d %s" % [int(d["days"]), "day" if int(d["days"]) == 1 else "days"])
 		"great_dimming_forecast":
 			raise("great_dimming:forecast", "dimming", "The Great Dimming is coming in %d days and lasts %d days" % [
 					int(d["start_day"]) - s.clock.total_days(), s.registry.planet.great_dimming_days])
